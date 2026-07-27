@@ -27,3 +27,6 @@ Lab/certs/*.srl
 # Local, machine-specific settings
 Lab/.env
 *.local.json
+
+# Снимки конфигов FreePBX-стенда — рабочие файлы, не история проекта
+Lab/freepbx-snapshots/

@@ -1,0 +1,31 @@
+# Учебный стенд FreePBX. Отдельный контейнер, а НЕ надстройка над лабой.
+#
+# FreePBX генерирует sip.conf, extensions.conf и остальное из своей базы и при
+# каждом «Apply Config» перезаписывает их. Лаба для отладки клиента живёт на
+# руками написанном предсказуемом диалплане, и совмещать эти две вещи в одном
+# Asterisk нельзя — они бы затирали друг друга. Общий у них только базовый
+# образ с Asterisk 13.38.3.
+services:
+  freepbx:
+    build:
+      context: ./freepbx
+    image: elitesip-freepbx:15
+    container_name: elitesip-freepbx
+    hostname: elitesip-freepbx
+    restart: unless-stopped
+    ports:
+      - "8080:80"            # веб-интерфейс FreePBX
+      - "5080:5060/udp"      # SIP UDP — свои порты, чтобы не спорить с лабами
+      - "5081:5061/tcp"      # SIP TLS
+      - "10200-10230:10000-10030/udp"
+    volumes:
+      # База и сгенерированные конфиги переживают перезапуск: настройки,
+      # сделанные в интерфейсе, не должны исчезать.
+      - freepbx-mysql:/var/lib/mysql
+      - freepbx-etc:/etc/asterisk
+      - freepbx-www:/var/www/html
+
+volumes:
+  freepbx-mysql:
+  freepbx-etc:
+  freepbx-www:

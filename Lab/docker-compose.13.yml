@@ -7,6 +7,9 @@ services:
   asterisk13:
     build:
       context: ./asterisk13
+    # Имя закреплено явно: на этот образ опирается FreePBX-лаба (см. freepbx/Dockerfile),
+    # а автоматическое имя от compose зависит от имени каталога проекта.
+    image: elitesip-asterisk13:13.38.3
     container_name: elitesip-lab13
     hostname: elitesip-lab13
     restart: unless-stopped
