@@ -4,7 +4,7 @@
 /// открытому интернету, где отдавать digest-креды в открытый UDP нельзя.
 /// `.udp` существует ради лаборатории: незашифрованный трафик читается в
 /// Wireshark, и на этапах M1–M2 это экономит часы отладки.
-public enum SIPTransport: String, Sendable, Hashable, CaseIterable {
+public enum SIPTransport: String, Sendable, Hashable, Codable, CaseIterable {
     case udp
     case tcp
     case tls
