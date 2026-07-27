@@ -19,7 +19,9 @@ RUN apt-get update \
 RUN test -f /usr/lib/asterisk/modules/chan_sip.so \
  || (echo "FATAL: chan_sip.so нет в этом пакете asterisk" && exit 1)
 
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 5060/udp 5061/tcp
 
-# -f = foreground, чтобы контейнером управлял docker, а не asterisk-демон.
-CMD ["asterisk", "-f", "-vvvg", "-U", "root", "-G", "root"]
+CMD ["/usr/local/bin/entrypoint.sh"]

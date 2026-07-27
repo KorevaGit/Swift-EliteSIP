@@ -38,27 +38,34 @@ struct IncomingCallView: View {
                 }
             }
 
+            // Фон кнопок задан явно, а не через .borderedProminent с tint:
+            // окно намеренно не забирает фокус, а системные акцентные стили в
+            // неактивном окне выцветают в серый — кнопка ответа тогда выглядит
+            // выключенной. Для единственного действия, которое оператор делает
+            // под звонок, это недопустимо.
             HStack(spacing: 10) {
                 Button {
                     onAnswer()
                 } label: {
-                    Label("Ответить", systemImage: "phone.fill")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                    CallActionLabel(
+                        title: "Ответить",
+                        systemImage: "phone.fill",
+                        fill: Theme.Palette.answer
+                    )
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.Palette.answer)
+                .buttonStyle(.plain)
                 .keyboardShortcut(.defaultAction)
 
                 Button {
                     onDecline()
                 } label: {
-                    Label("Отклонить", systemImage: "phone.down.fill")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                    CallActionLabel(
+                        title: "Отклонить",
+                        systemImage: "phone.down.fill",
+                        fill: Theme.Palette.decline
+                    )
                 }
-                .buttonStyle(.bordered)
-                .tint(Theme.Palette.decline)
+                .buttonStyle(.plain)
                 .keyboardShortcut(.cancelAction)
             }
         }
@@ -68,5 +75,22 @@ struct IncomingCallView: View {
             height: Theme.Metrics.incomingCallPanelSize.height
         )
         .themedSurface()
+    }
+}
+
+private struct CallActionLabel: View {
+
+    let title: String
+    let systemImage: String
+    let fill: Color
+
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .fontWeight(.medium)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(fill, in: .rect(cornerRadius: Theme.Radius.control))
+            .contentShape(.rect)
     }
 }

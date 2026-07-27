@@ -11,12 +11,8 @@ services:
       # дорого, а для трёх линий больше и не нужно. Совпадает с rtp.conf.
       - "10000-10030:10000-10030/udp"
     volumes:
-      # Монтируем только свои файлы, остальные конфиги (asterisk.conf, logger.conf)
-      # остаются из пакета Debian — иначе Asterisk не стартует.
-      - ./asterisk/config/sip.conf:/etc/asterisk/sip.conf:ro
-      - ./asterisk/config/pjsip.conf:/etc/asterisk/pjsip.conf:ro
-      - ./asterisk/config/extensions.conf:/etc/asterisk/extensions.conf:ro
-      - ./asterisk/config/rtp.conf:/etc/asterisk/rtp.conf:ro
-      - ./asterisk/config/confbridge.conf:/etc/asterisk/confbridge.conf:ro
-      - ./asterisk/config/features.conf:/etc/asterisk/features.conf:ro
+      # Каталог целиком, а не отдельные файлы: bind-mount файла привязан к
+      # inode, и после пересоздания файла редактором контейнер продолжает
+      # видеть старую версию. Раскладывает файлы по месту entrypoint.sh.
+      - ./asterisk/config:/etc/asterisk-elitesip:ro
       - ./certs:/etc/asterisk/keys:ro
