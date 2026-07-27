@@ -1,3 +1,4 @@
+import MediaCore
 import Observation
 import SIPCore
 import SwiftUI
@@ -43,7 +44,7 @@ final class AppModel {
 
     init() {
         settings = SettingsStore.load()
-        hasStoredPassword = storedPassword != nil
+        hasStoredPassword = loadStoredPassword(quiet: true) != nil
     }
 
     // MARK: - Учётная запись
@@ -52,10 +53,27 @@ final class AppModel {
         KeychainStore.key(for: settings.account.username, domain: settings.account.domain)
     }
 
-    /// Двойная развёртка: `try?` над функцией, возвращающей `String?`, даёт
-    /// `String??` — «ошибки не было» и «записи не было» здесь разные случаи.
+    /// Пароль из Keychain.
+    ///
+    /// Ошибку не глушим: «записи нет» и «Keychain отказал» — совершенно разные
+    /// случаи, а выглядят одинаково. Отказ случается буднично: подпись
+    /// приложения меняется при каждой пересборке, и macOS спрашивает
+    /// разрешение на доступ к записи, созданной прежней сборкой. Без этого
+    /// сообщения такая ситуация выглядит как «пароль не задан», и пользователь
+    /// вводит его заново вместо того, чтобы нажать «Разрешить».
+    private func loadStoredPassword(quiet: Bool = false) -> String? {
+        do {
+            return try KeychainStore.password(for: keychainKey)
+        } catch {
+            if !quiet {
+                append(level: .error, message: "Keychain не отдал пароль: \(error.localizedDescription)")
+            }
+            return nil
+        }
+    }
+
     private var storedPassword: String? {
-        (try? KeychainStore.password(for: keychainKey)) ?? nil
+        loadStoredPassword()
     }
 
     var isConnected: Bool { registration.isRegistered }
@@ -202,10 +220,137 @@ final class AppModel {
         }
     }
 
+    // MARK: - Звонок
+
+    enum CallPhase: Equatable {
+        case idle
+        case dialing
+        case ringing
+        case active
+        case ending
+    }
+
+    private(set) var callPhase: CallPhase = .idle
+    private(set) var callStatus: String = ""
+    private(set) var callPeer: String = ""
+
+    private var media: MediaSession?
+    private var callTask: Task<Void, Never>?
+
+    var isInCall: Bool { callPhase != .idle }
+
+    func placeCall() async {
+        guard let agent, canPlaceCall, hasDialedNumber else { return }
+
+        // Спрашиваем микрофон до набора: разрешение приходит асинхронно, и
+        // просить его посреди установленного звонка поздно — в линию уже уйдёт
+        // тишина, а причину по звуку не понять.
+        guard await VoiceAudioEngine.requestMicrophoneAccess() else {
+            append(level: .error, message: "нет доступа к микрофону — разрешите его в настройках системы")
+            callStatus = "Нет доступа к микрофону"
+            return
+        }
+
+        guard let address = await agent.mediaAddress else {
+            append(level: .error, message: "неизвестен внешний адрес — нечего указать в SDP")
+            return
+        }
+
+        let prepared: (offer: SessionDescription, port: UInt16)
+        do {
+            prepared = try MediaSession.makeOffer(localAddress: address)
+        } catch {
+            append(level: .error, message: "не удалось занять порт RTP: \(error.localizedDescription)")
+            return
+        }
+
+        let number = dialedNumber
+        callPeer = number
+        callPhase = .dialing
+        callStatus = "Набор…"
+        append(level: .info, message: "звоню на \(number), RTP-порт \(prepared.port)")
+
+        let events = await agent.placeCall(to: number, offer: prepared.offer.encodedData)
+        callTask = Task { [weak self] in
+            for await event in events {
+                await self?.handle(call: event, offer: prepared.offer, localPort: prepared.port)
+            }
+        }
+    }
+
+    func hangUp() async {
+        guard let agent, isInCall else { return }
+        callPhase = .ending
+        callStatus = "Завершение…"
+        await agent.hangUp()
+    }
+
+    private func handle(call event: SIPCallEvent, offer: SessionDescription, localPort: UInt16) async {
+        switch event {
+        case .state(let state):
+            switch state {
+            case .dialing: callPhase = .dialing; callStatus = "Набор…"
+            case .ringing: callPhase = .ringing; callStatus = "Гудки"
+            case .answered: callPhase = .active
+            case .ending: callPhase = .ending; callStatus = "Завершение…"
+            case .ended: break
+            }
+
+        case .answered(let body, _):
+            startMedia(answerBody: body, offer: offer, localPort: localPort)
+
+        case .failed(_, let reason):
+            append(level: .info, message: "звонок не состоялся: \(reason)")
+            callStatus = reason
+            teardownCall()
+
+        case .ended(let reason):
+            append(level: .info, message: "звонок завершён: \(reason)")
+            if let media {
+                append(level: .debug, message: "медиа: \(media.summary)")
+            }
+            callStatus = reason
+            teardownCall()
+        }
+    }
+
+    private func startMedia(answerBody: Data, offer: SessionDescription, localPort: UInt16) {
+        do {
+            let answer = try SessionDescription(parsing: answerBody)
+            let negotiated = try SDPNegotiator.resolveAnswer(answer, toOffer: offer)
+
+            append(
+                level: .info,
+                message: "медиа: \(negotiated.codec.sdpName) на \(negotiated.remoteAddress):\(negotiated.remotePort)"
+            )
+
+            let session = try MediaSession(negotiated: negotiated, localPort: localPort)
+            try session.start()
+            media = session
+
+            callPhase = .active
+            callStatus = "Разговор"
+        } catch {
+            append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
+            callStatus = "Ошибка звука"
+            Task { await hangUp() }
+        }
+    }
+
+    private func teardownCall() {
+        callTask?.cancel()
+        callTask = nil
+        media?.stop()
+        media = nil
+        callPhase = .idle
+        callPeer = ""
+    }
+
     // MARK: - Набор номера
 
-    /// Звонить пока некуда: медиа и исходящий INVITE появляются в M2.
-    var canPlaceCall: Bool { false }
+    var canPlaceCall: Bool {
+        registration.isRegistered && callPhase == .idle
+    }
 
     var hasDialedNumber: Bool { !dialedNumber.isEmpty }
 
@@ -226,6 +371,14 @@ final class AppModel {
     // MARK: - Лог
 
     private func append(level: SIPLogLevel, message: String) {
+        #if DEBUG
+        // Журнал приложения живёт только во вкладке «Диагностика», и при
+        // запуске из скрипта его негде посмотреть. Флаг зеркалит его в stderr.
+        if ProcessInfo.processInfo.arguments.contains("--log-to-stderr") {
+            FileHandle.standardError.write(Data("[\(level.rawValue)] \(message)\n".utf8))
+        }
+        #endif
+
         guard level >= settings.minimumLogLevel else { return }
         log.append(LogEntry(date: Date(), level: level, message: message))
         if log.count > Self.logCapacity {

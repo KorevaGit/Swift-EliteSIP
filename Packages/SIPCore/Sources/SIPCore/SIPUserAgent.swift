@@ -37,6 +37,21 @@ public actor SIPUserAgent {
     private var cachedChallenge: (challenge: DigestChallenge, responseHeader: String)?
     private var nonceCount = 0
 
+    /// Текущий звонок. Линия одна: несколько линий появятся в M5 вместе с
+    /// переводом, и тогда это станет словарём по Call-ID.
+    private var activeCall: ActiveCall?
+
+    private struct ActiveCall {
+        let callID: String
+        let localTag: String
+        let branch: String
+        /// Номер CSeq отправленного INVITE. ACK на 2xx обязан повторить его.
+        let inviteSequence: Int
+        let continuation: AsyncStream<SIPCallEvent>.Continuation
+        var dialog: SIPDialog?
+        var state: SIPCallState
+    }
+
     private var state: SIPRegistrationState = .idle
     private var registrationTask: Task<Void, Never>?
     private var requestPumpTask: Task<Void, Never>?
@@ -341,6 +356,317 @@ public actor SIPUserAgent {
         return requested
     }
 
+    // MARK: - Исходящий звонок
+
+    public var callState: SIPCallState? { activeCall?.state }
+
+    /// Адрес, который надо указывать в SDP.
+    ///
+    /// Это тот же адрес, что в Contact, то есть внешний, сообщённый сервером в
+    /// received. Указать в SDP локальный адрес за NAT — значит получить
+    /// установленный звонок без звука.
+    public var mediaAddress: String? { contactEndpoint?.host }
+
+    /// Звонит по номеру и отдаёт поток событий звонка.
+    ///
+    /// `offer` — готовое тело SDP. Слой сигнализации его не разбирает: медиа
+    /// согласовывает вызывающий, и благодаря этому SIPCore не зависит ни от
+    /// кодеков, ни от аудио, и тестируется без звуковой карты.
+    public func placeCall(
+        to target: String,
+        offer: Data,
+        contentType: String = "application/sdp"
+    ) -> AsyncStream<SIPCallEvent> {
+        let (stream, continuation) = AsyncStream<SIPCallEvent>.makeStream(bufferingPolicy: .bufferingNewest(32))
+
+        func reject(_ error: SIPCallError) -> AsyncStream<SIPCallEvent> {
+            continuation.yield(.failed(status: 0, reason: error.description))
+            continuation.finish()
+            return stream
+        }
+
+        guard activeCall == nil else { return reject(.alreadyInCall) }
+
+        let number = target.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !number.isEmpty else { return reject(.emptyTarget) }
+
+        Task { [weak self] in
+            await self?.runCall(to: number, offer: offer, contentType: contentType, continuation: continuation)
+        }
+        return stream
+    }
+
+    private func runCall(
+        to target: String,
+        offer: Data,
+        contentType: String,
+        continuation: AsyncStream<SIPCallEvent>.Continuation
+    ) async {
+        let callID = SIPToken.callID()
+        let localTag = SIPToken.tag()
+        var sequence = 0
+
+        // Две попытки, а не одна: chan_sip требует авторизацию не только на
+        // REGISTER, но и на INVITE, и первый запрос уходит без неё.
+        for attempt in 0..<2 {
+            do {
+                let local = try await transactions.waitUntilReady()
+                sequence += 1
+
+                let request = makeInvite(
+                    to: target,
+                    callID: callID,
+                    localTag: localTag,
+                    sequence: sequence,
+                    offer: offer,
+                    contentType: contentType,
+                    local: local
+                )
+                guard let branch = request.topVia?.branch else {
+                    finishCall(with: .failed(status: 0, reason: "не удалось собрать запрос"), continuation: continuation)
+                    return
+                }
+
+                activeCall = ActiveCall(
+                    callID: callID,
+                    localTag: localTag,
+                    branch: branch,
+                    inviteSequence: sequence,
+                    continuation: continuation,
+                    dialog: nil,
+                    state: .dialing
+                )
+                emitCallState(.dialing)
+                log(.info, "-> INVITE \(target)")
+
+                var needsRetryWithAuth = false
+
+                // Выходим из цикла на первом же финальном событии, а не по
+                // закрытию потока: после отказа транзакция ещё живёт таймером D
+                // тридцать две секунды, и ждать их незачем.
+                events: for await event in await transactions.sendInvite(request) {
+                    switch event {
+                    case .provisional(let response):
+                        log(.debug, "<- \(response.statusCode) \(response.reasonPhrase)")
+                        if response.statusCode >= 180 {
+                            emitCallState(.ringing)
+                        }
+
+                    case .success(let response):
+                        await handleCallAnswered(request: request, response: response, local: local)
+                        return
+
+                    case .failure(let response):
+                        if response.isAuthenticationRequired,
+                           attempt == 0,
+                           let offered = response.authenticationChallenges.first {
+                            cachedChallenge = offered
+                            nonceCount = 0
+                            needsRetryWithAuth = true
+                            break events
+                        }
+                        let reason = describeCallFailure(status: response.statusCode, reason: response.reasonPhrase)
+                        log(.info, "<- \(response.statusCode) \(response.reasonPhrase)")
+                        finishCall(with: .failed(status: response.statusCode, reason: reason), continuation: continuation)
+                        return
+
+                    case .timeout:
+                        finishCall(with: .failed(status: 408, reason: "сервер не ответил"), continuation: continuation)
+                        return
+
+                    case .transportFailed(let reason):
+                        finishCall(with: .failed(status: 0, reason: "сеть: \(reason)"), continuation: continuation)
+                        return
+                    }
+                }
+
+                guard needsRetryWithAuth else {
+                    finishCall(with: .failed(status: 0, reason: "звонок прерван"), continuation: continuation)
+                    return
+                }
+            } catch {
+                finishCall(with: .failed(status: 0, reason: Self.describe(error)), continuation: continuation)
+                return
+            }
+        }
+
+        finishCall(with: .failed(status: 401, reason: "сервер не принял авторизацию"), continuation: continuation)
+    }
+
+    private func handleCallAnswered(request: SIPRequest, response: SIPResponse, local: SIPEndpoint) async {
+        guard var call = activeCall else { return }
+
+        guard let dialog = SIPDialog(initiatorRequest: request, response: response) else {
+            log(.error, "в 200 OK нет Contact — диалог собрать невозможно")
+            finishCall(with: .failed(status: 0, reason: "ответ без Contact"), continuation: call.continuation)
+            return
+        }
+
+        call.dialog = dialog
+        call.state = .answered
+        activeCall = call
+
+        // ACK на 2xx идёт ВНЕ транзакции, по маршруту диалога и с тем же
+        // номером CSeq, что у INVITE.
+        var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
+        via.branch = SIPToken.branch()
+        via.requestRport()
+        let ack = dialog.makeRequest(
+            .ack,
+            sequence: call.inviteSequence,
+            via: via,
+            contact: localContact(local),
+            userAgent: userAgentName
+        )
+        try? await transactions.sendWithoutTransaction(ack)
+
+        log(.info, "<- 200 OK, отправлен ACK")
+        call.continuation.yield(.state(.answered))
+        call.continuation.yield(.answered(body: response.body, contentType: response.contentType))
+    }
+
+    /// Завершает звонок со своей стороны.
+    public func hangUp() async {
+        guard var call = activeCall else { return }
+
+        if let dialog = call.dialog {
+            emitCallState(.ending)
+            let (updated, sequence) = dialog.nextSequence()
+            call.dialog = updated
+            activeCall = call
+
+            if let local = try? await transactions.waitUntilReady() {
+                await sendBye(dialog: updated, sequence: sequence, local: local)
+            }
+            finishCall(with: .ended(reason: "завершён"), continuation: call.continuation)
+        } else {
+            // Диалога ещё нет: собеседник не ответил, значит отменяем INVITE.
+            emitCallState(.ending)
+            _ = try? await transactions.cancelInvite(branch: call.branch)
+            log(.info, "-> CANCEL")
+            finishCall(with: .ended(reason: "отменён"), continuation: call.continuation)
+        }
+    }
+
+    private func sendBye(dialog: SIPDialog, sequence: Int, local: SIPEndpoint) async {
+        var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
+        via.branch = SIPToken.branch()
+        via.requestRport()
+
+        var bye = dialog.makeRequest(.bye, sequence: sequence, via: via, userAgent: userAgentName)
+        if let cached = cachedChallenge, let value = try? authorization(for: .bye, uri: bye.uri, challenge: cached) {
+            bye.headers.append(cached.responseHeader, value)
+        }
+
+        let response = try? await transactions.send(bye)
+        log(.debug, "-> BYE, ответ \(response.map { String($0.statusCode) } ?? "нет")")
+
+        // chan_sip может потребовать авторизацию и на BYE. Один повтор со
+        // свежим вызовом: без него диалог на сервере остаётся висеть.
+        if let response, response.isAuthenticationRequired,
+           let offered = response.authenticationChallenges.first {
+            cachedChallenge = offered
+            nonceCount = 0
+
+            var retryVia = via
+            retryVia.branch = SIPToken.branch()
+            var retry = dialog.makeRequest(.bye, sequence: sequence + 1, via: retryVia, userAgent: userAgentName)
+            if let value = try? authorization(for: .bye, uri: retry.uri, challenge: offered) {
+                retry.headers.append(offered.responseHeader, value)
+            }
+            _ = try? await transactions.send(retry)
+        }
+    }
+
+    private func makeInvite(
+        to target: String,
+        callID: String,
+        localTag: String,
+        sequence: Int,
+        offer: Data,
+        contentType: String,
+        local: SIPEndpoint
+    ) -> SIPRequest {
+        let targetURI = SIPURI(user: target, host: account.domain)
+        var request = SIPRequest(method: .invite, uri: targetURI, body: offer)
+
+        var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
+        via.branch = SIPToken.branch()
+        via.requestRport()
+        request.headers.append(SIPHeaderName.via, via.description)
+        request.headers.append(SIPHeaderName.maxForwards, "70")
+
+        var from = NameAddress(
+            displayName: account.displayName.isEmpty ? nil : account.displayName,
+            uri: account.addressOfRecord
+        )
+        from.tag = localTag
+        request.headers.append(SIPHeaderName.from, from.description)
+        request.headers.append(SIPHeaderName.to, NameAddress(uri: targetURI).description)
+        request.headers.append(SIPHeaderName.callID, callID)
+        request.headers.append(SIPHeaderName.cseq, "\(sequence) \(SIPMethod.invite.rawValue)")
+        request.headers.append(SIPHeaderName.contact, localContact(local).description)
+        request.headers.append(SIPHeaderName.allow, Self.allowedMethods)
+        request.headers.append(SIPHeaderName.supported, "replaces")
+        request.headers.append(SIPHeaderName.userAgent, userAgentName)
+        request.headers.append(SIPHeaderName.contentType, contentType)
+
+        if let cached = cachedChallenge,
+           let value = try? authorization(for: .invite, uri: targetURI, challenge: cached) {
+            request.headers.append(cached.responseHeader, value)
+        }
+
+        return request
+    }
+
+    private func localContact(_ local: SIPEndpoint) -> NameAddress {
+        let endpoint = contactEndpoint ?? local
+        var uri = SIPURI(user: account.username, host: endpoint.host, port: endpoint.port)
+        if account.transport != .udp {
+            uri[parameter: "transport"] = account.transport.rawValue
+        }
+        return NameAddress(uri: uri)
+    }
+
+    private func authorization(
+        for method: SIPMethod,
+        uri: SIPURI,
+        challenge: (challenge: DigestChallenge, responseHeader: String)
+    ) throws -> String {
+        nonceCount += 1
+        return try DigestAuthentication.authorizationValue(
+            credentials: DigestAuthentication.Credentials(
+                username: account.effectiveAuthUsername,
+                password: credentials.password
+            ),
+            challenge: challenge.challenge,
+            method: method,
+            digestURI: uri.description,
+            nonceCount: nonceCount
+        )
+    }
+
+    private func emitCallState(_ newState: SIPCallState) {
+        guard var call = activeCall, call.state != newState else { return }
+        call.state = newState
+        activeCall = call
+        call.continuation.yield(.state(newState))
+    }
+
+    private func finishCall(with event: SIPCallEvent, continuation: AsyncStream<SIPCallEvent>.Continuation) {
+        activeCall = nil
+
+        let reason = switch event {
+        case .failed(_, let text): text
+        case .ended(let text): text
+        default: "завершён"
+        }
+
+        continuation.yield(.state(.ended(reason: reason)))
+        continuation.yield(event)
+        continuation.finish()
+    }
+
     // MARK: - Входящие запросы
 
     private func handle(inbound request: SIPRequest) async {
@@ -354,8 +680,24 @@ public actor SIPUserAgent {
             try? await transactions.respond(to: request, with: response)
             log(.debug, "<- OPTIONS, ответили 200")
 
+        case .bye:
+            // Собеседник положил трубку. Ответить обязаны, иначе Asterisk будет
+            // повторять BYE и держать диалог открытым.
+            let response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
+            try? await transactions.respond(to: request, with: response)
+
+            if let call = activeCall, request.callID == call.callID {
+                log(.info, "<- BYE, собеседник завершил звонок")
+                finishCall(with: .ended(reason: "собеседник завершил звонок"), continuation: call.continuation)
+            }
+
+        case .ack:
+            // ACK ответа не требует по определению: это подтверждение, а не
+            // запрос. Отвечать на него 405 было бы протокольной ошибкой.
+            break
+
         case .invite:
-            // Медиа появится в M2, а звонки — в M3. Пока честный отказ: тишина
+            // Приём входящих звонков — M3. Пока честный отказ: тишина
             // заставила бы сервер ждать таймаута и держать канал.
             var response = SIPResponse(statusCode: 480, headers: responseHeaders(for: request))
             response.headers.append(SIPHeaderName.userAgent, userAgentName)

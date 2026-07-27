@@ -83,15 +83,46 @@ Docker Desktop держит контейнер за NAT, и его адрес `1
 ## Проверка клиента против лабы
 
 ```bash
-cd Packages/SIPCore && swift run sipcheck --user 100 --password elite100 --transport udp --port 5070 --duration 10
+cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --transport udp --port 5070 --duration 10
 ```
 
 ```bash
-cd Packages/SIPCore && swift run sipcheck --user 200 --password elite200 --transport tls --port 5071 --insecure-tls --duration 10
+cd Tools/sipcheck && swift run sipcheck --user 200 --password elite200 --transport tls --port 5071 --insecure-tls --duration 10
 ```
+
+Звонок с прогоном RTP на эхо-тест:
+
+```bash
+cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --transport udp --port 5070 --call 600 --duration 6
+```
+
+Микрофон при этом не задействован: у консольной программы нет бандла, а значит и
+разрешения на него. Проверяется всё остальное — INVITE, согласование SDP, ACK,
+встречный поток RTP и BYE. «Слышно себя» проверяется только в приложении.
 
 Порты 5070/5071 — это Asterisk 13, боевая версия. Для лабы на 16 подставить
 5060/5061.
+
+## Почему RTP-порты публикуются один в один
+
+SIP-порты у лаб разные (5060 и 5070), а диапазон RTP у обеих — `10000-10030`,
+и публикуется он **без сдвига**. Сдвинуть его нельзя: Asterisk объявляет в SDP
+свой внутренний номер порта, клиент отправляет медиа именно туда, и при
+изменённой публикации попадает в пустоту.
+
+Ошибка при этом выглядит обманчиво: сигнализация отрабатывает полностью, звонок
+успешно устанавливается и завершается, а звука просто нет. Проверять надо со
+стороны сервера:
+
+```bash
+docker exec elitesip-lab13 asterisk -rx 'sip show channelstats'
+```
+
+Нули в колонке `Recv` означают, что до Asterisk не дошло ни одного пакета.
+
+Следствие: **две лабы Asterisk не могут работать одновременно** — они спорят за
+эти порты. Стенд FreePBX публикует RTP со сдвигом и потому для проверки звука не
+годится; он и не для этого.
 
 Юнит-тесты проверяют логику, а совместимость с `chan_sip` — только живой сервер.
 `sipcheck` показывает весь обмен и код каждого ответа, без интерфейса.

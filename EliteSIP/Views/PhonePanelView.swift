@@ -59,9 +59,37 @@ struct PhonePanelView: View {
             if ProcessInfo.processInfo.arguments.contains("--connect-on-launch") {
                 Task { await model.connect() }
             }
+
+            // Проверка звука одной командой: подключиться и сразу позвонить.
+            // Автоматизировать «слышно себя» нельзя, а вот дойти до разговора
+            // без десятка кликов — можно.
+            //   EliteSIP.app/Contents/MacOS/EliteSIP --call-on-launch 600
+            if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--call-on-launch"),
+               index + 1 < ProcessInfo.processInfo.arguments.count {
+                let number = ProcessInfo.processInfo.arguments[index + 1]
+                Task {
+                    await model.connect()
+                    _ = await waitForRegistration()
+                    model.dialedNumber = number
+                    await model.placeCall()
+                }
+            }
             #endif
         }
     }
+
+    #if DEBUG
+    /// Ждёт регистрации перед отладочным звонком: без неё Asterisk ответит 401
+    /// и звонок не состоится.
+    private func waitForRegistration(timeout: Duration = .seconds(15)) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if model.isConnected { return true }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+        return model.isConnected
+    }
+    #endif
 
     private func showIncomingCallDemo() {
         incomingCall.show(
@@ -74,24 +102,42 @@ struct PhonePanelView: View {
     }
 
     private var isCallButtonEnabled: Bool {
-        model.canPlaceCall && model.hasDialedNumber
+        model.isInCall || (model.canPlaceCall && model.hasDialedNumber)
     }
 
     private var callButton: some View {
-        Button {
-            // M2: здесь появится исходящий INVITE.
-        } label: {
-            Label("Позвонить", systemImage: "phone.fill")
+        VStack(spacing: 4) {
+            Button {
+                Task {
+                    if model.isInCall {
+                        await model.hangUp()
+                    } else {
+                        await model.placeCall()
+                    }
+                }
+            } label: {
+                Label(
+                    model.isInCall ? "Завершить" : "Позвонить",
+                    systemImage: model.isInCall ? "phone.down.fill" : "phone.fill"
+                )
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(model.isInCall ? Theme.Palette.decline : Theme.Palette.answer)
+            .disabled(!isCallButtonEnabled)
+            // Системное затемнение выключенной кнопки на стеклянном фоне почти
+            // не видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
+            .opacity(isCallButtonEnabled ? 1 : 0.4)
+            .help(model.isInCall ? "Завершить разговор" : "Позвонить по набранному номеру")
+
+            if !model.callStatus.isEmpty {
+                Text(model.callStatus)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
-        .buttonStyle(.borderedProminent)
-        .tint(Theme.Palette.answer)
-        .disabled(!isCallButtonEnabled)
-        // Системное затемнение выключенной кнопки на стеклянном фоне почти не
-        // видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
-        .opacity(isCallButtonEnabled ? 1 : 0.4)
-        .help("Исходящие звонки появятся в M2, вместе с медиа и аудиотрактом")
     }
 
     private var debugSection: some View {
