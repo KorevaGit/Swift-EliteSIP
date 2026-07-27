@@ -89,17 +89,27 @@ struct InviteTransactionTests {
         let (layer, server) = await makeLayer()
         let events = await layer.sendInvite(makeInvite())
 
-        let collector = Task { () -> Int? in
+        // Возвращаем первое же событие, каким бы оно ни было: если вместо отказа
+        // придёт таймаут, сообщение об ошибке должно это показать, а не просто
+        // сказать «не 486».
+        let collector = Task { () -> String in
             for await event in events {
-                if case .failure(let response) = event { return response.statusCode }
+                switch event {
+                case .provisional(let r): return "prov\(r.statusCode)"
+                case .success(let r): return "ok\(r.statusCode)"
+                case .failure(let r): return "fail\(r.statusCode)"
+                case .timeout: return "timeout"
+                case .transportFailed(let reason): return "transport:\(reason)"
+                }
             }
-            return nil
+            return "поток закрылся без событий"
         }
 
         #expect(await waitUntil { server.receivedRequests.contains { $0.method == .invite } })
         server.inject(response: response(486))
 
-        #expect(await collector.value == 486)
+        let first = await collector.value
+        #expect(first == "fail486", "первое событие: \(first)")
 
         // ACK на 3xx–6xx — часть транзакции, и отправить его обязан слой.
         #expect(await waitUntil { server.receivedRequests.contains { $0.method == .ack } })

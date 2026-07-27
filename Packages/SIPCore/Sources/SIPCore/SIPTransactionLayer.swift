@@ -25,14 +25,18 @@ public actor SIPTransactionLayer {
         /// Максимальное время жизни сообщения в сети.
         public var t4: Duration = .seconds(5)
 
+        /// Таймер D: сколько держать завершённую INVITE-транзакцию, чтобы
+        /// поглощать ретрансмиссии неуспешного ответа.
+        ///
+        /// По RFC 3261 §17.1.1.2 он не выводится из T1, а задаётся отдельно и
+        /// должен быть не меньше 32 секунд. Хранимое свойство, а не вычисляемое,
+        /// именно поэтому — и чтобы тесты могли его укоротить.
+        public var completedLifetime: Duration = .seconds(32)
+
         public init() {}
 
         /// Таймер F для не-INVITE и таймер B для INVITE.
         public var transactionTimeout: Duration { t1 * 64 }
-
-        /// Таймер D: сколько держать завершённую INVITE-транзакцию, чтобы
-        /// поглощать ретрансмиссии неуспешного ответа.
-        public var completedLifetime: Duration { .seconds(32) }
     }
 
     private struct ClientTransaction {
@@ -114,7 +118,7 @@ public actor SIPTransactionLayer {
         if let failureReason { throw TransactionError.transportFailed(failureReason) }
 
         let timeoutTask = Task { [weak self] in
-            try? await Task.sleep(for: timeout)
+            do { try await Task.sleep(for: timeout) } catch { return }
             await self?.failReadiness(with: .timeout)
         }
         defer { timeoutTask.cancel() }
@@ -149,7 +153,7 @@ public actor SIPTransactionLayer {
 
             let timeout = timers.transactionTimeout
             clientTransactions[key]?.timeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: timeout)
+                do { try await Task.sleep(for: timeout) } catch { return }
                 await self?.finish(key: key, with: .failure(TransactionError.timeout))
             }
 
@@ -196,8 +200,11 @@ public actor SIPTransactionLayer {
         // уже получил запрос, и гудки могут идти сколько угодно — обрывать их
         // по таймеру нельзя, это решение пользователя.
         let timeout = timers.transactionTimeout
+        // catch с возвратом, а не try?: отменённая задача обязана замолчать.
+        // Иначе `try?` проглатывает CancellationError, и таймер срабатывает
+        // ровно тогда, когда его уже отменили за ненадобностью.
         inviteTransactions[key]?.timeoutTask = Task { [weak self] in
-            try? await Task.sleep(for: timeout)
+            do { try await Task.sleep(for: timeout) } catch { return }
             await self?.expireInvite(key: key)
         }
 
@@ -419,23 +426,30 @@ public actor SIPTransactionLayer {
             return
         }
 
+        // Состояние меняем и записываем ДО отправки ACK.
+        //
+        // Отправка асинхронная, а актор на каждом await переоткрывается: пока
+        // ACK уходит в сеть, внутрь успевает войти уже отменённая задача
+        // таймера B, увидеть состояние calling и объявить транзакцию
+        // истёкшей — вместо полученного отказа. Ошибка воспроизводилась
+        // стабильно и выглядела как таймаут через девять миллисекунд.
+        transaction.state = .completed
+        inviteTransactions[key] = transaction
+        transaction.continuation.yield(.failure(response))
+
         // Неуспешный финальный ответ: ACK — наша обязанность и часть транзакции.
         let ack = Self.makeFailureACK(for: transaction.request, response: response)
         try? await channel.send(ack.encoded())
 
-        transaction.state = .completed
-        transaction.continuation.yield(.failure(response))
-
         // Таймер D: держим состояние, чтобы поглощать ретрансмиссии ответа и
         // отвечать на них тем же ACK.
         let lifetime = channel.transport.isReliable ? Duration.zero : timers.completedLifetime
-        transaction.completedTask = Task { [weak self] in
+        inviteTransactions[key]?.completedTask = Task { [weak self] in
             if lifetime > .zero {
-                try? await Task.sleep(for: lifetime)
+                do { try await Task.sleep(for: lifetime) } catch { return }
             }
             await self?.removeInvite(key: key)
         }
-        inviteTransactions[key] = transaction
     }
 
     private func expireInvite(key: String) {

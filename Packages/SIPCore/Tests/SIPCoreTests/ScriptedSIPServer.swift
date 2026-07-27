@@ -202,6 +202,9 @@ func fastTimers() -> SIPTransactionLayer.Timers {
     timers.t1 = .milliseconds(50)
     timers.t2 = .milliseconds(400)
     timers.t4 = .milliseconds(500)
+    // Таймер D по RFC — 32 секунды. В тестах он держал бы поток событий
+    // открытым столько же, и прогон вырастал с семи секунд до тридцати двух.
+    timers.completedLifetime = .milliseconds(300)
     return timers
 }
 
