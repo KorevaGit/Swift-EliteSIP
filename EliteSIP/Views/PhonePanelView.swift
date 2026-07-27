@@ -67,7 +67,7 @@ struct PhonePanelView: View {
         } label: {
             Label("Позвонить", systemImage: "phone.fill")
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
         }
         .buttonStyle(.borderedProminent)
         .tint(Theme.Palette.answer)
@@ -80,7 +80,7 @@ struct PhonePanelView: View {
 
     private var debugSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            MilestoneNote("M1: регистрация работает. Звонки — M2, приём звонков — M3.")
+            MilestoneNote("M1 готов. Звонки — M2, приём — M3.")
 
             Button {
                 showIncomingCallDemo()
@@ -171,7 +171,7 @@ struct DialedNumberField: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(model.hasDialedNumber ? model.dialedNumber : "Номер")
-                .font(.system(size: 26, weight: .light, design: .rounded))
+                .font(.system(size: Theme.Metrics.dialedNumberFontSize, weight: .light, design: .rounded))
                 .foregroundStyle(model.hasDialedNumber ? .primary : .tertiary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -195,8 +195,8 @@ struct DialedNumberField: View {
                 .help("Очистить")
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .themedSurface()
     }
 }

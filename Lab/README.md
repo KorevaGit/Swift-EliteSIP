@@ -3,7 +3,23 @@
 Локальный Asterisk для отладки EliteSIP. Держит `chan_sip`, потому что боевой
 сервер настроен на него.
 
+Две сборки, обе с общими конфигами:
+
+| Лаба | Версия | SIP UDP | SIP TLS | Зачем |
+|---|---|---|---|---|
+| `docker-compose.13.yml` | 13.38.3 из исходников | 5070 | 5071 | **точная боевая версия**, основная для проверок |
+| `docker-compose.yml` | 16.28 из пакета Debian | 5060 | 5061 | быстро поднимается, полезна для сравнения поведения версий |
+
+Asterisk 13 приходится собирать из исходников: в пакетах его нет (bullseye даёт
+16, stretch с 13.14 уже в архиве), а отлаживать сигнализацию против другой
+мажорной версии — значит ловить чужие баги. Сборка занимает несколько минут и
+проверяет наличие `chan_sip.so` и `res_srtp.so` до того, как образ будет готов.
+
 ## Запуск
+
+```bash
+./certs/generate.sh && docker compose -f docker-compose.13.yml up -d
+```
 
 ```bash
 ./certs/generate.sh && docker compose up -d
@@ -65,12 +81,15 @@ Docker Desktop держит контейнер за NAT, и его адрес `1
 ## Проверка клиента против лабы
 
 ```bash
-cd Packages/SIPCore && swift run sipcheck --user 100 --password elite100 --transport udp --port 5060 --duration 10
+cd Packages/SIPCore && swift run sipcheck --user 100 --password elite100 --transport udp --port 5070 --duration 10
 ```
 
 ```bash
-cd Packages/SIPCore && swift run sipcheck --user 200 --password elite200 --transport tls --port 5061 --insecure-tls --duration 10
+cd Packages/SIPCore && swift run sipcheck --user 200 --password elite200 --transport tls --port 5071 --insecure-tls --duration 10
 ```
+
+Порты 5070/5071 — это Asterisk 13, боевая версия. Для лабы на 16 подставить
+5060/5061.
 
 Юнит-тесты проверяют логику, а совместимость с `chan_sip` — только живой сервер.
 `sipcheck` показывает весь обмен и код каждого ответа, без интерфейса.

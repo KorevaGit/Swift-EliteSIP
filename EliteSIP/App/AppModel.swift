@@ -81,12 +81,14 @@ final class AppModel {
         }
     }
 
+    /// Вторая строка в бейдже. Держится короткой: панель узкая, и Contact
+    /// целиком всё равно виден в диагностике и в журнале.
     var registrationDetail: String? {
         switch registration {
-        case .registered(let expiresAt, let contact):
-            "Contact \(contact), до \(expiresAt.formatted(date: .omitted, time: .standard))"
+        case .registered(let expiresAt, _):
+            "до \(expiresAt.formatted(date: .omitted, time: .shortened))"
         case .failed(_, let retryAt):
-            retryAt.map { "Повтор в \($0.formatted(date: .omitted, time: .standard))" }
+            retryAt.map { "повтор в \($0.formatted(date: .omitted, time: .shortened))" }
         default:
             nil
         }

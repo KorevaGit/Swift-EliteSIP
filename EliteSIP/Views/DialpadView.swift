@@ -25,7 +25,7 @@ struct DialpadView: View {
                     model.append(key)
                 } label: {
                     Text(String(key))
-                        .font(.system(size: 20, weight: .regular, design: .rounded))
+                        .font(.system(size: Theme.Metrics.dialpadKeyFontSize, weight: .regular, design: .rounded))
                         .frame(maxWidth: .infinity)
                         .frame(height: Theme.Metrics.dialpadButtonHeight)
                         .contentShape(.rect)

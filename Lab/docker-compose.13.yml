@@ -1,0 +1,19 @@
+# Лаборатория на Asterisk 13.38.3 — версии, которая стоит на бою.
+#
+# Публикуется на других портах, чтобы могла работать рядом с лабой на 16 и
+# можно было сравнить поведение двух версий на одном и том же клиенте.
+# Конфиги общие: внутри контейнера порты те же 5060/5061.
+services:
+  asterisk13:
+    build:
+      context: ./asterisk13
+    container_name: elitesip-lab13
+    hostname: elitesip-lab13
+    restart: unless-stopped
+    ports:
+      - "5070:5060/udp"
+      - "5071:5061/tcp"
+      - "10100-10130:10000-10030/udp"
+    volumes:
+      - ./asterisk/config:/etc/asterisk-elitesip:ro
+      - ./certs:/etc/asterisk/keys:ro
