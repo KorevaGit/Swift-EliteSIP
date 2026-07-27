@@ -25,7 +25,7 @@ struct EliteSIPApp: App {
                 .environment(model)
                 .environment(incomingCall)
         }
-        .defaultSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelMinHeight)
+        .defaultSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelHeight)
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         .commands { EliteSIPCommands() }

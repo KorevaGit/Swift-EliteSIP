@@ -24,10 +24,26 @@ struct PhonePanelView: View {
         .padding(.bottom, Theme.Metrics.contentPadding)
         .padding(.top, Theme.Metrics.titleBarInset)
         .frame(width: Theme.Metrics.panelWidth)
+        .frame(maxHeight: .infinity)
         .background {
-            // Заголовок скрыт, поэтому окно надо таскать за фон.
             WindowAccessor { window in
+                // Заголовок скрыт, поэтому окно надо таскать за фон.
                 window.isMovableByWindowBackground = true
+
+                // Размер задаём рамке окна, а не контенту. При скрытом
+                // заголовке рамка получается на высоту полосы заголовка больше
+                // контента, и «высота 500» у контента давала окно в 532 точки.
+                // Свободную вертикаль внутри забирает клавиатура.
+                window.styleMask.remove(.resizable)
+                let size = CGSize(
+                    width: Theme.Metrics.panelWidth,
+                    height: Theme.Metrics.panelHeight
+                )
+                let topLeft = CGPoint(x: window.frame.minX, y: window.frame.maxY)
+                window.setFrame(
+                    CGRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height),
+                    display: true
+                )
             }
         }
         .onAppear {

@@ -6,35 +6,48 @@ struct DialpadView: View {
 
     /// Буквенных подписей нет намеренно: контактов в приложении нет, а на
     /// клавиатуре Asterisk буквы не значат ничего.
-    private let keys: [Character] = [
-        "1", "2", "3",
-        "4", "5", "6",
-        "7", "8", "9",
-        "*", "0", "#",
+    private let rows: [[Character]] = [
+        ["1", "2", "3"],
+        ["4", "5", "6"],
+        ["7", "8", "9"],
+        ["*", "0", "#"],
     ]
 
-    private let columns = Array(
-        repeating: GridItem(.flexible(), spacing: Theme.Metrics.dialpadSpacing),
-        count: 3
-    )
-
     var body: some View {
-        LazyVGrid(columns: columns, spacing: Theme.Metrics.dialpadSpacing) {
-            ForEach(keys, id: \.self) { key in
-                Button {
-                    model.append(key)
-                } label: {
-                    Text(String(key))
-                        .font(.system(size: Theme.Metrics.dialpadKeyFontSize, weight: .regular, design: .rounded))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: Theme.Metrics.dialpadButtonHeight)
-                        .contentShape(.rect)
+        // VStack из HStack, а не LazyVGrid: сетка не умеет раздавать строкам
+        // свободную высоту, а нам нужно, чтобы клавиатура забрала всю вертикаль,
+        // которая осталась от остальных элементов.
+        VStack(spacing: Theme.Metrics.dialpadSpacing) {
+            ForEach(rows, id: \.self) { row in
+                HStack(spacing: Theme.Metrics.dialpadSpacing) {
+                    ForEach(row, id: \.self) { key in
+                        DialpadKey(character: key) {
+                            model.append(key)
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
-                .themedControlSurface()
-                // Набор с физической клавиатуры — базовое ожидание от софтфона.
-                .keyboardShortcut(KeyEquivalent(key), modifiers: [])
             }
         }
+        .frame(maxHeight: .infinity)
+    }
+}
+
+private struct DialpadKey: View {
+
+    let character: Character
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(String(character))
+                .font(.system(size: Theme.Metrics.dialpadKeyFontSize, weight: .regular, design: .rounded))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minHeight: Theme.Metrics.dialpadButtonMinHeight)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .themedControlSurface()
+        // Набор с физической клавиатуры — базовое ожидание от софтфона.
+        .keyboardShortcut(KeyEquivalent(character), modifiers: [])
     }
 }

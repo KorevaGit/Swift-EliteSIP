@@ -13,23 +13,30 @@ enum Theme {
         /// Габариты сознательно поджаты: окно висит поверх CRM весь рабочий
         /// день, и каждая лишняя точка ширины отъедает место у того, с чем
         /// оператор реально работает.
-        static let panelWidth: CGFloat = 304
-        static let panelMinHeight: CGFloat = 400
+        /// Панель фиксированного размера, а не «по содержимому».
+        ///
+        /// Высота задана явно, и свободную вертикаль забирает клавиатура: иначе
+        /// при заданных 500 точках окно оказалось бы наполовину пустым, а
+        /// растянутые клавиши — это ещё и удобнее для попадания мышью.
+        static let panelWidth: CGFloat = 280
+        static let panelHeight: CGFloat = 500
 
         static let incomingCallPanelSize = CGSize(width: 320, height: 186)
 
         static let contentPadding: CGFloat = 12
         static let sectionSpacing: CGFloat = 8
         static let dialpadSpacing: CGFloat = 6
-        static let dialpadButtonHeight: CGFloat = 36
+
+        /// Ниже этого клавиша не сжимается, даже если контента станет больше.
+        static let dialpadButtonMinHeight: CGFloat = 36
 
         /// Отступ сверху, чтобы контент не лез под кнопки окна при скрытом
         /// заголовке.
         static let titleBarInset: CGFloat = 24
 
         /// Размер цифры на клавише и в поле номера.
-        static let dialpadKeyFontSize: CGFloat = 17
-        static let dialedNumberFontSize: CGFloat = 20
+        static let dialpadKeyFontSize: CGFloat = 20
+        static let dialedNumberFontSize: CGFloat = 22
     }
 
     enum Radius {

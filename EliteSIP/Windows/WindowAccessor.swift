@@ -12,11 +12,16 @@ final class WindowConfiguringView: NSView {
 
     var configure: ((NSWindow) -> Void)?
 
+    /// `viewDidMoveToWindow` вызывается не один раз, а настройка окна должна
+    /// применяться однократно: иначе она будет отменять любое действие
+    /// пользователя, например перетаскивание.
+    private var didConfigure = false
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if let window {
-            configure?(window)
-        }
+        guard !didConfigure, let window else { return }
+        didConfigure = true
+        configure?(window)
     }
 }
 
