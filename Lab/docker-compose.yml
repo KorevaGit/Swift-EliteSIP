@@ -1,0 +1,22 @@
+services:
+  asterisk:
+    build: ./asterisk
+    container_name: elitesip-lab
+    hostname: elitesip-lab
+    restart: unless-stopped
+    ports:
+      - "5060:5060/udp"      # SIP UDP
+      - "5061:5061/tcp"      # SIP TLS
+      # RTP-диапазон намеренно узкий: публикация UDP-портов на macOS стоит
+      # дорого, а для трёх линий больше и не нужно. Совпадает с rtp.conf.
+      - "10000-10030:10000-10030/udp"
+    volumes:
+      # Монтируем только свои файлы, остальные конфиги (asterisk.conf, logger.conf)
+      # остаются из пакета Debian — иначе Asterisk не стартует.
+      - ./asterisk/config/sip.conf:/etc/asterisk/sip.conf:ro
+      - ./asterisk/config/pjsip.conf:/etc/asterisk/pjsip.conf:ro
+      - ./asterisk/config/extensions.conf:/etc/asterisk/extensions.conf:ro
+      - ./asterisk/config/rtp.conf:/etc/asterisk/rtp.conf:ro
+      - ./asterisk/config/confbridge.conf:/etc/asterisk/confbridge.conf:ro
+      - ./asterisk/config/features.conf:/etc/asterisk/features.conf:ro
+      - ./certs:/etc/asterisk/keys:ro

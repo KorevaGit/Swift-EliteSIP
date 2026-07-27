@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Микрофон. Нужен даже без App Sandbox, потому что включён Hardened Runtime. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+
+	<!--
+	  App Sandbox в v1 выключен осознанно: софтфон слушает входящий UDP и
+	  занимает диапазон RTP-портов, а под песочницей это лишняя возня без
+	  выгоды для внутреннего корпоративного приложения. Решение зафиксировано
+	  в плане и пересматривается только если появится раздача через App Store.
+	-->
+</dict>
+</plist>

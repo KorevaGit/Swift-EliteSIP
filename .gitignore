@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# Lab secrets — TLS keys are generated locally, never committed
+Lab/certs/*.pem
+Lab/certs/*.key
+Lab/certs/*.crt
+Lab/certs/*.srl
+
+# Local, machine-specific settings
+Lab/.env
+*.local.json
