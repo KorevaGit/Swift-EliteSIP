@@ -51,7 +51,9 @@ EliteSIP/               приложение
 Packages/SIPCore/       протокол SIP. Без AppKit, без аудио, полностью тестируем
 Packages/MediaCore/     RTP и кодеки. Без AppKit
 Config/                 entitlements
-Lab/                    Asterisk 16 с chan_sip в Docker
+docs/                   решения, которые нужно объяснять: защита от автокликеров
+Lab/                    три стенда в Docker: Asterisk 13.38.3 (боевая версия),
+                        Asterisk 16 для сравнения, FreePBX 15 для понимания
 ```
 
 ## Сборка и тесты
