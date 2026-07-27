@@ -26,9 +26,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       php-intl php-bcmath php-soap php-ldap php-sqlite3 \
       nodejs npm \
       sox mpg123 lame ffmpeg sqlite3 git unzip \
-      unixodbc odbcinst \
+      unixodbc odbcinst unixodbc-dev \
       uuid-runtime cron sudo procps net-tools \
       gnupg dirmngr \
+      cmake libmariadb-dev locales \
  && rm -rf /var/lib/apt/lists/*
 # gnupg здесь обязателен, а не «на всякий случай»: FreePBX проверяет подписи
 # модулей через gpg, и без него установка падает на первом же модуле с
@@ -62,21 +63,62 @@ RUN sed -i 's/^export APACHE_RUN_USER=.*/export APACHE_RUN_USER=asterisk/' /etc/
       > /etc/php/7.4/apache2/conf.d/99-freepbx.ini \
  && cp /etc/php/7.4/apache2/conf.d/99-freepbx.ini /etc/php/7.4/cli/conf.d/99-freepbx.ini
 
-# ODBC — то, через что Asterisk пишет CDR в базу FreePBX.
+# Драйвер MariaDB ODBC — то, через что Asterisk пишет CDR и CEL в базу FreePBX.
 #
-# В Debian bullseye драйвера MariaDB ODBC нет (пакет odbc-mariadb появился
-# только в bookworm), поэтому в этом стенде запись CDR не подключена: страница
-# «Reports → CDR» останется пустой. На цель стенда это не влияет — он нужен,
-# чтобы видеть, как FreePBX генерирует конфиги и диалплан, а не чтобы собирать
-# статистику. Файлы всё равно создаём: если драйвер появится, останется только
-# прописать путь.
-RUN DRIVER="$(ls /usr/lib/*/odbc/libmaodbc.so 2>/dev/null | head -1 || true)" \
- && printf '[MySQL]\nDescription = MariaDB ODBC\nDriver = %s\n' "${DRIVER:-НЕ УСТАНОВЛЕН}" > /etc/odbcinst.ini \
- && printf '[MySQL-asteriskcdrdb]\nDescription = MySQL connection to asteriskcdrdb\nDriver = MySQL\nServer = localhost\nDatabase = asteriskcdrdb\nPort = 3306\nSocket = /var/run/mysqld/mysqld.sock\nOption = 3\n' > /etc/odbc.ini
+# Собирается из исходников, потому что готового пакета нет ни в Debian bullseye
+# (odbc-mariadb появился только в bookworm), ни в репозитории MariaDB под arm64.
+# Без этого драйвера вся цепочка выглядит настроенной, но таблицы остаются
+# пустыми: cdr_adaptive_odbc -> res_odbc -> unixODBC -> драйвера нет.
+ARG MARIADB_ODBC_VERSION=3.1.20
+RUN set -eux; \
+    cd /usr/src; \
+    curl -fsSL "https://github.com/mariadb-corporation/mariadb-connector-odbc/archive/refs/tags/${MARIADB_ODBC_VERSION}.tar.gz" \
+      | tar xz; \
+    cd "mariadb-connector-odbc-${MARIADB_ODBC_VERSION}"; \
+    cmake -DCMAKE_BUILD_TYPE=Release \
+          -DWITH_OPENSSL=ON \
+          -DUSE_SYSTEM_INSTALLED_LIB=ON \
+          -DCONC_WITH_UNIT_TESTS=OFF \
+          .; \
+    make -j"$(nproc)"; \
+    make install; \
+    ldconfig; \
+    DRIVER="$(find /usr/local /usr/lib -name libmaodbc.so 2>/dev/null | head -1)"; \
+    test -n "$DRIVER"; \
+    printf '[MySQL]\nDescription = MariaDB ODBC\nDriver = %s\n' "$DRIVER" > /etc/odbcinst.ini; \
+    printf '[MySQL-asteriskcdrdb]\nDescription = MySQL connection to asteriskcdrdb\nDriver = MySQL\nServer = localhost\nDatabase = asteriskcdrdb\nPort = 3306\nSocket = /var/run/mysqld/mysqld.sock\nOption = 3\n' > /etc/odbc.ini; \
+    cd /usr/src && rm -rf "mariadb-connector-odbc-${MARIADB_ODBC_VERSION}"
+
+# Русская локаль. Переводы интерфейса FreePBX уже в комплекте
+# (i18n/ru_RU/LC_MESSAGES/amp.mo), но gettext без сгенерированной локали их не
+# подхватит и молча покажет английский.
+RUN sed -i 's/^# *\(ru_RU.UTF-8 UTF-8\)/\1/' /etc/locale.gen \
+ && sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen \
+ && locale-gen \
+ && test -n "$(locale -a | grep -i ru_RU)"
 
 # Установка FreePBX требует поднятой базы и работающего Asterisk, поэтому всё
 # происходит в одном слое: поднимаем MariaDB, создаём базы, запускаем Asterisk,
 # ставим FreePBX, гасим за собой.
+#
+# Про порядок шагов внутри — три вещи, каждая из которых стоила отдельной сборки:
+#
+#   * patch-php74.sh вызывается ЧЕТЫРЕ раза, и это не перестраховка: install и
+#     каждая установка модулей перезаписывают уже пропатченные файлы своими
+#     свежими копиями. Патч обязан идти после каждого такого шага, иначе
+#     следующая команда fwconsole падает на deprecated-предупреждении.
+#   * `fwconsole ma install cdr` нужен отдельно: installall оставляет cdr в
+#     состоянии «отключён, ожидает обновления», а res_odbc_additional.conf с
+#     описанием подключения к базе пишет именно этот модуль. Без него соединения
+#     asteriskcdrdb в Asterisk нет, и CDR с CEL молча никуда не пишутся.
+#   * cel.conf и cel_odbc.conf копируются нами: FreePBX их не создаёт, а без
+#     enable=yes в cel.conf журнал событий не ведётся вообще.
+COPY patch-php74.sh /usr/local/bin/patch-php74.sh
+COPY extensions.csv /usr/local/share/elitesip/extensions.csv
+COPY cel.sql /usr/local/share/elitesip/cel.sql
+COPY cel.conf cel_odbc.conf /usr/local/share/elitesip/
+RUN chmod +x /usr/local/bin/patch-php74.sh
+
 RUN set -eux; \
     mkdir -p /run/mysqld && chown mysql:mysql /run/mysqld; \
     mysqld_safe --skip-syslog > /tmp/mysqld.log 2>&1 & \
@@ -92,14 +134,23 @@ RUN set -eux; \
     curl -fsSL "${FREEPBX_TARBALL}" -o freepbx.tgz; \
     tar xzf freepbx.tgz; \
     rm freepbx.tgz; \
+    /usr/local/bin/patch-php74.sh /usr/src/freepbx; \
     cd /usr/src/freepbx; \
-    ENCODING=amp_conf/htdocs/admin/libraries/Composer/vendor/neitanod/forceutf8/src/ForceUTF8/Encoding.php; \
-    sed -i 's/\$text{\([^}]*\)}/$text[\1]/g' "$ENCODING"; \
-    test "$(grep -c '{\$' "$ENCODING")" = "0"; \
     ./start_asterisk start; \
     sleep 5; \
     ./install -n --dbuser="${DB_USER}" --dbpass="${DB_PASS}"; \
+    /usr/local/bin/patch-php74.sh /var/www/html/admin; \
     fwconsole ma installall || true; \
+    /usr/local/bin/patch-php74.sh /var/www/html/admin; \
+    fwconsole ma install cdr; \
+    fwconsole ma downloadinstall bulkhandler; \
+    /usr/local/bin/patch-php74.sh /var/www/html/admin; \
+    fwconsole bulkimport /usr/local/share/elitesip/extensions.csv --type=extensions --replace; \
+    fwconsole setting UIDEFAULTLANG ru_RU; \
+    fwconsole setting SHOWLANGUAGE 1; \
+    mysql asteriskcdrdb < /usr/local/share/elitesip/cel.sql; \
+    cp /usr/local/share/elitesip/cel.conf /usr/local/share/elitesip/cel_odbc.conf /etc/asterisk/; \
+    chown asterisk:asterisk /etc/asterisk/cel.conf /etc/asterisk/cel_odbc.conf; \
     fwconsole reload || true; \
     fwconsole stop || true; \
     rm -f /var/www/html/index.html; \

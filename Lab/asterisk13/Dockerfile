@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libssl-dev \
       libxml2-dev \
       pkg-config \
+      unixodbc-dev \
       uuid-dev \
       xmlstarlet \
       iproute2 \
@@ -38,10 +39,15 @@ WORKDIR /usr/src/asterisk-${ASTERISK_VERSION}
 
 # pjproject не собираем: chan_pjsip нам не нужен, а сборка pjproject добавляет
 # минуты и лишние зависимости. res_srtp собирается — он понадобится в M2b.
+#
+# unixodbc-dev нужен на этапе configure, иначе res_odbc, cdr_adaptive_odbc и
+# cel_odbc просто не появятся в сборке. Без них FreePBX не сможет писать CDR и
+# CEL в свою базу: он их конфигурирует, но модулей нет и конфиг никто не читает.
 RUN ./configure \
       --with-jansson-bundled \
       --with-ssl \
       --with-srtp \
+      --with-odbc \
       --without-pjproject \
  && make menuselect.makeopts \
  && menuselect/menuselect \
@@ -49,6 +55,9 @@ RUN ./configure \
       --enable app_confbridge \
       --enable func_confbridge \
       --enable res_srtp \
+      --enable res_odbc \
+      --enable cdr_adaptive_odbc \
+      --enable cel_odbc \
       --enable CORE-SOUNDS-EN-GSM \
       --enable EXTRA-SOUNDS-EN-GSM \
       menuselect.makeopts
@@ -62,6 +71,9 @@ RUN make -j"$(nproc)" \
 # Проверяем на этапе сборки, что получили именно то, зачем всё это затевалось.
 RUN test -f /usr/lib/asterisk/modules/chan_sip.so \
  && test -f /usr/lib/asterisk/modules/res_srtp.so \
+ && test -f /usr/lib/asterisk/modules/res_odbc.so \
+ && test -f /usr/lib/asterisk/modules/cdr_adaptive_odbc.so \
+ && test -f /usr/lib/asterisk/modules/cel_odbc.so \
  && /usr/sbin/asterisk -V | grep -q "${ASTERISK_VERSION}"
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
