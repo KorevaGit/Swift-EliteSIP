@@ -1,3 +1,4 @@
+import SIPCore
 import SwiftUI
 
 struct PhonePanelView: View {
@@ -7,7 +8,7 @@ struct PhonePanelView: View {
 
     var body: some View {
         VStack(spacing: Theme.Metrics.sectionSpacing) {
-            RegistrationBadge(state: model.registration)
+            RegistrationBadge()
 
             DialedNumberField()
 
@@ -37,6 +38,11 @@ struct PhonePanelView: View {
             if ProcessInfo.processInfo.arguments.contains("--demo-incoming") {
                 showIncomingCallDemo()
             }
+            // Позволяет проверить регистрацию в собранном приложении без ручного
+            // клика — например снимком экрана из скрипта.
+            if ProcessInfo.processInfo.arguments.contains("--connect-on-launch") {
+                Task { await model.connect() }
+            }
             #endif
         }
     }
@@ -45,10 +51,14 @@ struct PhonePanelView: View {
         incomingCall.show(
             callerNumber: "22998",
             callerName: "Проверка размещения",
-            placement: model.placement,
+            placement: model.settings.incomingCall,
             onAnswer: {},
             onDecline: {}
         )
+    }
+
+    private var isCallButtonEnabled: Bool {
+        model.canPlaceCall && model.hasDialedNumber
     }
 
     private var callButton: some View {
@@ -61,13 +71,16 @@ struct PhonePanelView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(Theme.Palette.answer)
-        .disabled(!model.canPlaceCall || !model.hasDialedNumber)
-        .help("Исходящие звонки появятся в M2, вместе с транспортом и медиа")
+        .disabled(!isCallButtonEnabled)
+        // Системное затемнение выключенной кнопки на стеклянном фоне почти не
+        // видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
+        .opacity(isCallButtonEnabled ? 1 : 0.4)
+        .help("Исходящие звонки появятся в M2, вместе с медиа и аудиотрактом")
     }
 
     private var debugSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            MilestoneNote("Скелет M0: окна и сборка. Регистрация — M1, звук — M2.")
+            MilestoneNote("M1: регистрация работает. Звонки — M2, приём звонков — M3.")
 
             Button {
                 showIncomingCallDemo()
@@ -84,27 +97,67 @@ struct PhonePanelView: View {
 
 struct RegistrationBadge: View {
 
-    let state: AppModel.RegistrationState
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         HStack(spacing: 8) {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
-            Text(state.title)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Spacer()
+            indicator
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(model.registrationTitle)
+                    .font(.callout)
+                    .lineLimit(1)
+                if let detail = model.registrationDetail {
+                    Text(detail)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 4)
+
+            connectionButton
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .themedControlSurface()
     }
 
+    @ViewBuilder
+    private var indicator: some View {
+        if model.isBusy {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 10, height: 10)
+        } else {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+        }
+    }
+
+    @ViewBuilder
+    private var connectionButton: some View {
+        if model.isConnected || model.isBusy {
+            Button("Отключить") {
+                Task { await model.disconnect() }
+            }
+            .controlSize(.small)
+        } else {
+            Button("Подключить") {
+                Task { await model.connect() }
+            }
+            .controlSize(.small)
+            .disabled(!model.canConnect)
+            .help(model.canConnect ? "Зарегистрироваться на сервере" : "Сначала заполните учётную запись в настройках")
+        }
+    }
+
     private var color: Color {
-        switch state {
-        case .offline: Theme.Palette.offline
-        case .registering: Theme.Palette.connecting
+        switch model.registration {
+        case .idle: Theme.Palette.offline
+        case .registering, .unregistering: Theme.Palette.connecting
         case .registered: Theme.Palette.registered
         case .failed: Theme.Palette.failure
         }

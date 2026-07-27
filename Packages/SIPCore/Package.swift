@@ -8,11 +8,19 @@ let package = Package(
     name: "SIPCore",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "SIPCore", targets: ["SIPCore"])
+        .library(name: "SIPCore", targets: ["SIPCore"]),
+        // Консольная проверка против живого Asterisk. Юнит-тесты проверяют
+        // логику, а совместимость с chan_sip — только настоящий сервер.
+        .executable(name: "sipcheck", targets: ["sipcheck"]),
     ],
     targets: [
         .target(
             name: "SIPCore",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .executableTarget(
+            name: "sipcheck",
+            dependencies: ["SIPCore"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

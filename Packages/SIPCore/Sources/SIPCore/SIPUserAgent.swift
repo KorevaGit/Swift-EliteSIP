@@ -107,7 +107,10 @@ public actor SIPUserAgent {
 
         if state.isRegistered {
             set(state: .unregistering)
-            let unregister = Task { try await self.sendRegister(expires: 0) }
+            // Именно register(expires: 0), а не одиночный sendRegister: снятие
+            // регистрации сервер тоже требует авторизовать, и без обработки 401
+            // пир остаётся зарегистрированным до истечения срока.
+            let unregister = Task { try await self.register(expires: 0) }
             let timeout = Task {
                 try? await Task.sleep(for: .seconds(3))
                 unregister.cancel()
@@ -129,7 +132,7 @@ public actor SIPUserAgent {
         while !isStopping, !Task.isCancelled {
             do {
                 set(state: .registering)
-                let granted = try await register()
+                let granted = try await register(expires: account.registrationExpires)
                 consecutiveFailures = 0
 
                 let expiresAt = Date().addingTimeInterval(Double(granted))
@@ -159,8 +162,15 @@ public actor SIPUserAgent {
     }
 
     /// Одна попытка регистрации. Возвращает выданный сервером срок в секундах.
-    private func register() async throws -> Int {
-        var requestedExpires = account.registrationExpires
+    ///
+    /// `expires: 0` означает снятие регистрации — путь тот же, включая
+    /// обязательную авторизацию.
+    private func register(expires: Int) async throws -> Int {
+        var requestedExpires = expires
+        /// Сколько раз в рамках этой попытки мы уже ответили на вызов сервера.
+        var challengeAnswers = 0
+        /// Сколько раз уже правили Contact по подсказке сервера.
+        var contactCorrections = 0
 
         // Попыток немного и они разные по смыслу: ответ на вызов, повтор с
         // увеличенным сроком по 423 и повтор с исправленным Contact после того,
@@ -174,9 +184,18 @@ public actor SIPUserAgent {
             let contactChanged = learnObservedEndpoint(from: response)
 
             if response.isSuccess {
-                if contactChanged {
+                // Правим Contact не более одного раза за попытку. Некоторые NAT
+                // (и vpnkit в Docker Desktop) выдают новый внешний порт чуть ли
+                // не на каждую датаграмму — без ограничения регистрация уходила
+                // бы в круг «исправили Contact, сервер видит новый порт» и
+                // падала по числу попыток.
+                if contactChanged, contactCorrections == 0 {
+                    contactCorrections += 1
                     log(.info, "Contact исправлен на внешний адрес, перерегистрируемся")
                     continue
+                }
+                if contactChanged {
+                    log(.debug, "сервер снова сообщил другой адрес; регистрацию принимаем как есть")
                 }
                 return grantedExpires(from: response, requested: requestedExpires)
             }
@@ -185,9 +204,19 @@ public actor SIPUserAgent {
                 guard let offered = response.authenticationChallenges.first else {
                     throw RegistrationError.rejected(status: response.statusCode, reason: response.reasonPhrase)
                 }
-                // Новый вызов от сервера: сбрасываем счётчик nonce.
+
+                // Второй вызов подряд после того, как мы уже ответили, означает
+                // неверные креды. Asterisk с alwaysauthreject=yes на неверный
+                // пароль отвечает не 403, а тем же 401 — чтобы не выдавать,
+                // существует ли такой номер. Без этой проверки самая частая
+                // реальная ошибка выглядела бы как «слишком много попыток».
+                if challengeAnswers >= 1, !offered.challenge.stale {
+                    throw RegistrationError.authenticationFailed
+                }
+
                 cachedChallenge = offered
                 nonceCount = 0
+                challengeAnswers += 1
                 continue
             }
 
@@ -429,16 +458,19 @@ public actor SIPUserAgent {
 
     public enum RegistrationError: Error, Sendable, Equatable, CustomStringConvertible {
         case rejected(status: Int, reason: String)
+        case authenticationFailed
         case tooManyAttempts
 
         public var description: String {
             switch self {
             case .rejected(let status, let reason):
                 switch status {
-                case 403: "отказано: неверный логин или пароль (403)"
+                case 403: "неверный логин или пароль (403)"
                 case 404: "такого номера нет на сервере (404)"
                 default: "сервер ответил \(status) \(reason)"
                 }
+            case .authenticationFailed:
+                "неверный логин или пароль"
             case .tooManyAttempts:
                 "слишком много попыток подряд"
             }

@@ -29,7 +29,7 @@ final class IncomingCallPanel {
     func show(
         callerNumber: String,
         callerName: String?,
-        placement settings: AppModel.IncomingCallPlacementSettings,
+        placement settings: AppSettings.IncomingCallSettings,
         onAnswer: @escaping @MainActor () -> Void,
         onDecline: @escaping @MainActor () -> Void
     ) {
@@ -102,21 +102,25 @@ final class IncomingCallPanel {
 
     private func nextOrigin(
         forPanelSize size: CGSize,
-        settings: AppModel.IncomingCallPlacementSettings
+        settings: AppSettings.IncomingCallSettings
     ) -> CGPoint {
         // Экран под курсором, а не «главный»: оператор может работать на втором.
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
             ?? NSScreen.main
         guard let screen else { return .zero }
 
-        let area = screen.visibleFrame.insetBy(dx: settings.screenMargin, dy: settings.screenMargin)
+        let margin = CGFloat(settings.screenMargin)
+        let area = screen.visibleFrame.insetBy(dx: margin, dy: margin)
 
-        guard settings.isEnabled else {
+        guard settings.isRandomPositionEnabled else {
             return CGPoint(x: area.midX - size.width / 2, y: area.midY - size.height / 2)
         }
 
         var generator = SystemRandomNumberGenerator()
-        let placement = IncomingCallPlacement(bounds: area, minimumTravel: settings.minimumTravel)
+        let placement = IncomingCallPlacement(
+            bounds: area,
+            minimumTravel: CGFloat(settings.minimumTravel)
+        )
         return placement.origin(forPanelSize: size, previous: lastOrigin, using: &generator)
     }
 }

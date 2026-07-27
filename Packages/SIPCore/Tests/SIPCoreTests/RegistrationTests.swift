@@ -162,6 +162,60 @@ struct RegistrationTests {
         #expect(reason.contains("логин") || reason.contains("пароль"), "получили: \(reason)")
     }
 
+    @Test("Повторный 401 на уже подписанный запрос — это неверный пароль")
+    func detectsWrongPasswordBehindRepeatedChallenge() async throws {
+        // Asterisk с alwaysauthreject=yes на неверный пароль отвечает не 403, а
+        // тем же 401, чтобы не выдавать, существует ли номер. Если не распознать
+        // это, самая частая реальная ошибка выглядит как «слишком много попыток».
+        let server = ScriptedSIPServer { request, index in
+            ScriptedSIPServer.unauthorized(to: request, nonce: "nonce-\(index)")
+        }
+
+        let agent = makeAgent(server: server)
+        await agent.start()
+
+        #expect(await waitUntil {
+            if case .failed = await agent.registrationState { return true }
+            return false
+        })
+
+        guard case .failed(let reason, _) = await agent.registrationState else {
+            Issue.record("ожидалось состояние ошибки")
+            return
+        }
+        await agent.stop()
+
+        #expect(reason.contains("пароль"), "получили: \(reason)")
+        #expect(server.receivedRequests.count <= 3, "не должно долбить сервер по кругу")
+    }
+
+    @Test("Снятие регистрации тоже проходит авторизацию")
+    func unregisterAnswersChallenge() async throws {
+        // Первый REGISTER, вызов, успех — а на снятии сервер выдаёт НОВЫЙ nonce.
+        // Без обработки этого 401 пир остаётся зарегистрированным до истечения.
+        let server = ScriptedSIPServer { request, index in
+            switch index {
+            case 0: ScriptedSIPServer.unauthorized(to: request, nonce: "first")
+            case 1: ScriptedSIPServer.registrationAccepted(to: request)
+            case 2: ScriptedSIPServer.unauthorized(to: request, nonce: "second")
+            default: ScriptedSIPServer.registrationAccepted(to: request, expires: 0)
+            }
+        }
+
+        let agent = makeAgent(server: server)
+        await agent.start()
+        #expect(await waitUntil { await agent.registrationState.isRegistered })
+        await agent.stop()
+
+        let requests = server.receivedRequests
+        #expect(requests.count >= 4, "снятие должно быть повторено с новым вызовом")
+
+        let unregisters = requests.filter { $0.expires == 0 }
+        #expect(unregisters.count == 2)
+        let authorized = try #require(unregisters.last?.headers["Authorization"])
+        #expect(authorized.contains("nonce=\"second\""), "повтор обязан использовать свежий nonce")
+    }
+
     @Test("На UDP запрос повторяется, если ответа нет")
     func retransmitsOverUDP() async throws {
         // Потеря одной датаграммы не должна ронять регистрацию — иначе она будет

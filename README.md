@@ -58,12 +58,12 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 (cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test)
 ```
 
-Лаборатория — см. [Lab/README.md](Lab/README.md).
+Проверка против живой АТС и сама лаборатория — см. [Lab/README.md](Lab/README.md).
 
 ## Этапы
 
 - [x] **M0** — скелет, три окна, два пакета, лаборатория Asterisk
-- [ ] **M1** — транспорт SIP, парсер, транзакции, регистрация (UDP и TLS)
+- [x] **M1** — транспорт SIP, парсер, транзакции, регистрация (UDP и TLS)
 - [ ] **M2** — исходящий звонок, RTP, аудиотракт, джиттер-буфер
 - [ ] **M2b** — SRTP
 - [ ] **M3** — входящий звонок, окно и рандомизация как фича, рингтон
