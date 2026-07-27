@@ -82,6 +82,14 @@ final class ScriptedSIPServer: SIPTransportChannel, @unchecked Sendable {
         continuation.yield(.received(request.encoded()))
     }
 
+    /// Присылает клиенту ответ отдельно от `responder`.
+    ///
+    /// Нужно для INVITE: там на один запрос приходит несколько ответов (100,
+    /// 180, потом 200), и выдать их одним возвратом из замыкания нельзя.
+    func inject(response: SIPResponse) {
+        continuation.yield(.received(response.encoded()))
+    }
+
     func fail(reason: String) {
         continuation.yield(.failed(reason: reason))
     }

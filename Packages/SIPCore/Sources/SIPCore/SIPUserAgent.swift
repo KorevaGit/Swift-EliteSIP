@@ -441,6 +441,7 @@ public actor SIPUserAgent {
             case .transportFailed(let reason): "сеть: \(reason)"
             case .cancelled: "соединение закрыто"
             case .notReady: "транспорт не готов"
+            case .unknownTransaction: "ответ не относится ни к одному запросу"
             }
         default: "\(error)"
         }

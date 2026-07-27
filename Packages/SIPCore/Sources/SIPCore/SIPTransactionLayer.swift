@@ -1,20 +1,20 @@
 import Foundation
 
-/// Слой транзакций: клиентские не-INVITE (RFC 3261 §17.1.2) и приём входящих
-/// запросов.
+/// Слой транзакций: клиентские не-INVITE (RFC 3261 §17.1.2), клиентские INVITE
+/// (§17.1.1) и приём входящих запросов.
 ///
 /// Транзакция — это то, что отвечает за «дошло или нет». На UDP ответа можно не
 /// дождаться просто потому, что пакет потерялся, и без ретрансмиссий регистрация
-/// будет случайным образом отваливаться. INVITE-транзакции здесь нет намеренно:
-/// у неё другая машина состояний, и она появится в M2 вместе со звонками.
+/// и звонки будут случайным образом отваливаться.
 public actor SIPTransactionLayer {
 
     public enum TransactionError: Error, Sendable, Equatable {
-        /// Истёк таймер F: 64*T1, по умолчанию 32 секунды.
+        /// Истёк таймер F (не-INVITE) или B (INVITE): 64*T1, по умолчанию 32 с.
         case timeout
         case transportFailed(String)
         case cancelled
         case notReady
+        case unknownTransaction
     }
 
     public struct Timers: Sendable, Hashable {
@@ -27,8 +27,12 @@ public actor SIPTransactionLayer {
 
         public init() {}
 
-        /// Таймер F — полный таймаут транзакции.
+        /// Таймер F для не-INVITE и таймер B для INVITE.
         public var transactionTimeout: Duration { t1 * 64 }
+
+        /// Таймер D: сколько держать завершённую INVITE-транзакцию, чтобы
+        /// поглощать ретрансмиссии неуспешного ответа.
+        public var completedLifetime: Duration { .seconds(32) }
     }
 
     private struct ClientTransaction {
@@ -39,13 +43,29 @@ public actor SIPTransactionLayer {
         var timeoutTask: Task<Void, Never>?
     }
 
+    private struct InviteTransaction {
+        enum State { case calling, proceeding, completed }
+
+        let request: SIPRequest
+        let data: Data
+        let continuation: AsyncStream<SIPInviteEvent>.Continuation
+        var state: State = .calling
+        var retransmitTask: Task<Void, Never>?
+        var timeoutTask: Task<Void, Never>?
+        var completedTask: Task<Void, Never>?
+    }
+
     private let channel: SIPTransportChannel
     private let timers: Timers
 
     public nonisolated let inboundRequests: AsyncStream<SIPRequest>
     private nonisolated let inboundContinuation: AsyncStream<SIPRequest>.Continuation
 
+    /// Ключ — branch плюс метод: CANCEL несёт тот же branch, что отменяемый
+    /// INVITE, и без метода в ключе транзакции затирали бы друг друга.
     private var clientTransactions: [String: ClientTransaction] = [:]
+    private var inviteTransactions: [String: InviteTransaction] = [:]
+
     /// Ответы на входящие запросы, чтобы отвечать одинаково на ретрансмиссии
     /// (RFC 3261 §17.2.2). Ключ — branch входящего запроса.
     private var sentResponses: [String: SIPResponse] = [:]
@@ -89,9 +109,6 @@ public actor SIPTransactionLayer {
     }
 
     /// Ждёт готовности канала и возвращает локальный адрес.
-    ///
-    /// Он нужен до отправки первого запроса: без него нечего писать в Via и
-    /// Contact.
     public func waitUntilReady(timeout: Duration = .seconds(10)) async throws -> SIPEndpoint {
         if let localEndpoint { return localEndpoint }
         if let failureReason { throw TransactionError.transportFailed(failureReason) }
@@ -107,16 +124,11 @@ public actor SIPTransactionLayer {
         }
     }
 
-    // MARK: - Отправка
+    // MARK: - Не-INVITE
 
     /// Отправляет запрос и ждёт финального ответа.
-    ///
-    /// Ретрансмиссии и таймаут — внутри. Промежуточные ответы (1xx) не
-    /// возвращаются: для не-INVITE они лишь переводят транзакцию в Proceeding.
     public func send(_ request: SIPRequest) async throws -> SIPResponse {
         var request = request
-
-        // branch обязан быть, и он же — ключ транзакции.
         guard var via = request.topVia else { throw TransactionError.notReady }
         if via.branch == nil {
             via.branch = SIPToken.branch()
@@ -126,31 +138,97 @@ public actor SIPTransactionLayer {
 
         let data = request.encoded()
         let method = request.method
+        let key = Self.transactionKey(branch: branch, method: method)
 
         return try await withCheckedThrowingContinuation { continuation in
-            clientTransactions[branch] = ClientTransaction(
+            clientTransactions[key] = ClientTransaction(
                 method: method,
                 data: data,
                 continuation: continuation
             )
 
             let timeout = timers.transactionTimeout
-            clientTransactions[branch]?.timeoutTask = Task { [weak self] in
+            clientTransactions[key]?.timeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: timeout)
-                await self?.finish(branch: branch, with: .failure(TransactionError.timeout))
+                await self?.finish(key: key, with: .failure(TransactionError.timeout))
             }
 
             Task { [weak self] in
-                await self?.transmit(branch: branch, data: data)
+                await self?.transmit(key: key, data: data)
             }
         }
+    }
+
+    // MARK: - INVITE
+
+    /// Отправляет INVITE и отдаёт поток событий транзакции.
+    ///
+    /// Поток заканчивается на финальном ответе, таймауте или отказе транспорта.
+    public func sendInvite(_ request: SIPRequest) -> AsyncStream<SIPInviteEvent> {
+        var request = request
+        var branchValue: String?
+        if var via = request.topVia {
+            if via.branch == nil {
+                via.branch = SIPToken.branch()
+                request.headers.set(SIPHeaderName.via, to: via.description)
+            }
+            branchValue = via.branch
+        }
+
+        let (stream, continuation) = AsyncStream<SIPInviteEvent>.makeStream(bufferingPolicy: .bufferingNewest(32))
+
+        guard let branch = branchValue else {
+            continuation.yield(.transportFailed(reason: "в запросе нет Via"))
+            continuation.finish()
+            return stream
+        }
+
+        let data = request.encoded()
+        let key = Self.transactionKey(branch: branch, method: .invite)
+
+        inviteTransactions[key] = InviteTransaction(
+            request: request,
+            data: data,
+            continuation: continuation
+        )
+
+        // Таймер B живёт только в состоянии Calling: после первого 1xx сервер
+        // уже получил запрос, и гудки могут идти сколько угодно — обрывать их
+        // по таймеру нельзя, это решение пользователя.
+        let timeout = timers.transactionTimeout
+        inviteTransactions[key]?.timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            await self?.expireInvite(key: key)
+        }
+
+        Task { [weak self] in
+            await self?.transmitInvite(key: key, data: data)
+        }
+
+        return stream
+    }
+
+    /// Отменяет INVITE, на который ещё не пришёл финальный ответ.
+    ///
+    /// Возвращает false, если отменять уже нечего. CANCEL имеет смысл только
+    /// после первого 1xx: до него сервер мог ещё не создать транзакцию, и
+    /// отменять было бы нечего (RFC 3261 §9.1).
+    @discardableResult
+    public func cancelInvite(branch: String) async throws -> Bool {
+        let key = Self.transactionKey(branch: branch, method: .invite)
+        guard let transaction = inviteTransactions[key], transaction.state != .completed else {
+            return false
+        }
+
+        let cancel = Self.makeCancel(for: transaction.request)
+        _ = try? await send(cancel)
+        return true
     }
 
     /// Отправляет ответ на входящий запрос и запоминает его для ретрансмиссий.
     public func respond(to request: SIPRequest, with response: SIPResponse) async throws {
         if let branch = request.topVia?.branch {
             sentResponses[branch] = response
-            // Держим ответ ровно столько, сколько сообщение может жить в сети.
             let lifetime = timers.t4 * 8
             Task { [weak self] in
                 try? await Task.sleep(for: lifetime)
@@ -160,40 +238,80 @@ public actor SIPTransactionLayer {
         try await channel.send(response.encoded())
     }
 
-    // MARK: - Внутреннее: передача
+    /// Отправляет запрос, не создавая транзакцию и не ожидая ответа.
+    ///
+    /// Нужно ровно для одного случая: ACK на 2xx. Он идёт вне транзакции, и
+    /// ответа на него не бывает.
+    public func sendWithoutTransaction(_ request: SIPRequest) async throws {
+        try await channel.send(request.encoded())
+    }
 
-    private func transmit(branch: String, data: Data) async {
+    // MARK: - Передача
+
+    private func transmit(key: String, data: Data) async {
         do {
             try await channel.send(data)
         } catch {
-            finish(branch: branch, with: .failure(TransactionError.transportFailed("\(error)")))
+            finish(key: key, with: .failure(TransactionError.transportFailed("\(error)")))
             return
         }
 
-        // На надёжном транспорте повторять нельзя и не нужно: доставку
-        // гарантирует TCP, а дубликат сервер воспримет как новый запрос.
         guard !channel.transport.isReliable else { return }
 
         let t1 = timers.t1
         let t2 = timers.t2
-        clientTransactions[branch]?.retransmitTask = Task { [weak self] in
+        clientTransactions[key]?.retransmitTask = Task { [weak self] in
             var interval = t1
             while !Task.isCancelled {
                 try? await Task.sleep(for: interval)
                 guard !Task.isCancelled else { return }
-                guard let self, await self.isPending(branch: branch) else { return }
-                try? await self.resend(branch: branch)
+                guard let self, await self.isPending(key: key) else { return }
+                try? await self.resend(key: key)
                 interval = min(interval * 2, t2)
             }
         }
     }
 
-    private func isPending(branch: String) -> Bool {
-        clientTransactions[branch] != nil
+    private func transmitInvite(key: String, data: Data) async {
+        do {
+            try await channel.send(data)
+        } catch {
+            failInvite(key: key, reason: "\(error)")
+            return
+        }
+
+        guard !channel.transport.isReliable else { return }
+
+        // Таймер A: интервал удваивается без ограничения T2 — в отличие от
+        // не-INVITE. Так требует RFC 3261 §17.1.1.2.
+        let t1 = timers.t1
+        inviteTransactions[key]?.retransmitTask = Task { [weak self] in
+            var interval = t1
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                guard !Task.isCancelled else { return }
+                guard let self, await self.isInviteCalling(key: key) else { return }
+                try? await self.resendInvite(key: key)
+                interval = interval * 2
+            }
+        }
     }
 
-    private func resend(branch: String) async throws {
-        guard let data = clientTransactions[branch]?.data else { return }
+    private func isPending(key: String) -> Bool {
+        clientTransactions[key] != nil
+    }
+
+    private func isInviteCalling(key: String) -> Bool {
+        inviteTransactions[key]?.state == .calling
+    }
+
+    private func resend(key: String) async throws {
+        guard let data = clientTransactions[key]?.data else { return }
+        try await channel.send(data)
+    }
+
+    private func resendInvite(key: String) async throws {
+        guard let data = inviteTransactions[key]?.data else { return }
         try await channel.send(data)
     }
 
@@ -201,7 +319,7 @@ public actor SIPTransactionLayer {
         sentResponses.removeValue(forKey: branch)
     }
 
-    // MARK: - Внутреннее: приём
+    // MARK: - Приём
 
     private func handle(_ event: SIPTransportEvent) async {
         switch event {
@@ -240,11 +358,9 @@ public actor SIPTransactionLayer {
 
         switch message {
         case .response(let response):
-            handle(response: response)
+            await handle(response: response)
 
         case .request(let request):
-            // Ретрансмиссию уже отвеченного запроса гасим тем же ответом,
-            // не поднимая её наверх.
             if let branch = request.topVia?.branch, let previous = sentResponses[branch] {
                 try? await channel.send(previous.encoded())
                 return
@@ -253,29 +369,99 @@ public actor SIPTransactionLayer {
         }
     }
 
-    private func handle(response: SIPResponse) {
+    private func handle(response: SIPResponse) async {
         // Сопоставление по RFC 3261 §17.1.3: branch верхнего Via плюс метод из
-        // CSeq. Только branch недостаточно — ответ на CANCEL несёт тот же
-        // branch, что и отменяемый запрос.
-        guard let branch = response.topVia?.branch,
-              let transaction = clientTransactions[branch],
-              response.cseq?.method == transaction.method
-        else { return }
+        // CSeq. Только branch недостаточно.
+        guard let branch = response.topVia?.branch, let cseq = response.cseq else { return }
+        let key = Self.transactionKey(branch: branch, method: cseq.method)
 
-        guard response.isFinal else {
-            // 1xx: Proceeding. Ретрансмиссии по RFC продолжаются с интервалом
-            // T2, но запрос сервером уже получен, так что смысла в них нет —
-            // прекращаем и ждём финальный ответ до таймера F.
-            clientTransactions[branch]?.retransmitTask?.cancel()
-            clientTransactions[branch]?.retransmitTask = nil
+        if cseq.method == .invite {
+            await handleInvite(response: response, key: key)
             return
         }
 
-        finish(branch: branch, with: .success(response))
+        guard clientTransactions[key] != nil else { return }
+
+        guard response.isFinal else {
+            // 1xx на не-INVITE: запрос сервером получен, ретрансмиссии больше
+            // не нужны.
+            clientTransactions[key]?.retransmitTask?.cancel()
+            clientTransactions[key]?.retransmitTask = nil
+            return
+        }
+
+        finish(key: key, with: .success(response))
     }
 
-    private func finish(branch: String, with result: Result<SIPResponse, Error>) {
-        guard var transaction = clientTransactions.removeValue(forKey: branch) else { return }
+    private func handleInvite(response: SIPResponse, key: String) async {
+        guard var transaction = inviteTransactions[key], transaction.state != .completed else { return }
+
+        if response.isProvisional {
+            transaction.retransmitTask?.cancel()
+            transaction.retransmitTask = nil
+            transaction.timeoutTask?.cancel()
+            transaction.timeoutTask = nil
+            transaction.state = .proceeding
+            inviteTransactions[key] = transaction
+            transaction.continuation.yield(.provisional(response))
+            return
+        }
+
+        transaction.retransmitTask?.cancel()
+        transaction.timeoutTask?.cancel()
+
+        if response.isSuccess {
+            // Транзакция на 2xx завершается немедленно, а ACK отправит
+            // вызывающая сторона — он идёт вне транзакции.
+            inviteTransactions.removeValue(forKey: key)
+            transaction.continuation.yield(.success(response))
+            transaction.continuation.finish()
+            return
+        }
+
+        // Неуспешный финальный ответ: ACK — наша обязанность и часть транзакции.
+        let ack = Self.makeFailureACK(for: transaction.request, response: response)
+        try? await channel.send(ack.encoded())
+
+        transaction.state = .completed
+        transaction.continuation.yield(.failure(response))
+
+        // Таймер D: держим состояние, чтобы поглощать ретрансмиссии ответа и
+        // отвечать на них тем же ACK.
+        let lifetime = channel.transport.isReliable ? Duration.zero : timers.completedLifetime
+        transaction.completedTask = Task { [weak self] in
+            if lifetime > .zero {
+                try? await Task.sleep(for: lifetime)
+            }
+            await self?.removeInvite(key: key)
+        }
+        inviteTransactions[key] = transaction
+    }
+
+    private func expireInvite(key: String) {
+        guard let transaction = inviteTransactions[key], transaction.state == .calling else { return }
+        inviteTransactions.removeValue(forKey: key)
+        transaction.retransmitTask?.cancel()
+        transaction.continuation.yield(.timeout)
+        transaction.continuation.finish()
+    }
+
+    private func failInvite(key: String, reason: String) {
+        guard let transaction = inviteTransactions.removeValue(forKey: key) else { return }
+        transaction.retransmitTask?.cancel()
+        transaction.timeoutTask?.cancel()
+        transaction.continuation.yield(.transportFailed(reason: reason))
+        transaction.continuation.finish()
+    }
+
+    private func removeInvite(key: String) {
+        guard let transaction = inviteTransactions.removeValue(forKey: key) else { return }
+        transaction.completedTask?.cancel()
+        transaction.continuation.finish()
+    }
+
+    private func finish(key: String, with result: Result<SIPResponse, Error>) {
+        guard var transaction = clientTransactions.removeValue(forKey: key) else { return }
         transaction.retransmitTask?.cancel()
         transaction.timeoutTask?.cancel()
 
@@ -285,9 +471,11 @@ public actor SIPTransactionLayer {
     }
 
     private func failAll(with error: TransactionError) {
-        let branches = Array(clientTransactions.keys)
-        for branch in branches {
-            finish(branch: branch, with: .failure(error))
+        for key in Array(clientTransactions.keys) {
+            finish(key: key, with: .failure(error))
+        }
+        for key in Array(inviteTransactions.keys) {
+            failInvite(key: key, reason: "\(error)")
         }
     }
 
