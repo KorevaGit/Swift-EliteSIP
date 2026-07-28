@@ -1,0 +1,120 @@
+#!/bin/bash
+# Запуск и остановка лаборатории.
+#
+#   ./lab.sh up          — Asterisk 13.38.3 (боевая версия). Нужен для работы.
+#   ./lab.sh up freepbx  — плюс учебный стенд FreePBX
+#   ./lab.sh status      — что запущено и в каком состоянии
+#   ./lab.sh down        — остановить всё
+#   ./lab.sh down-all    — остановить и удалить тома FreePBX (сброс к чистому)
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+PRIMARY="docker-compose.13.yml"
+FREEPBX="docker-compose.freepbx.yml"
+LEGACY16="docker-compose.yml"
+
+section() { printf '\n\033[1m%s\033[0m\n' "$1"; }
+
+ensure_docker() {
+  if docker info >/dev/null 2>&1; then return; fi
+
+  echo "Docker не запущен, запускаю Docker Desktop…"
+  open -a Docker
+  for _ in $(seq 1 60); do
+    docker info >/dev/null 2>&1 && { echo "Docker поднялся."; return; }
+    sleep 5
+  done
+  echo "Docker так и не поднялся. Запустите Docker Desktop вручную." >&2
+  exit 1
+}
+
+status() {
+  section "Контейнеры"
+  docker ps -a --format '  {{.Names}}\t{{.Status}}' | grep elitesip || echo "  (ни одного)"
+
+  if docker ps --format '{{.Names}}' | grep -qx elitesip-lab13; then
+    section "Asterisk 13 — пиры"
+    docker exec elitesip-lab13 asterisk -rx 'sip show peers' 2>/dev/null \
+      | grep -E '^(100|101|102|200)|sip peers' | sed 's/^/  /' || true
+
+    section "Asterisk 13 — активные звонки"
+    docker exec elitesip-lab13 asterisk -rx 'core show channels' 2>/dev/null \
+      | grep -E 'active' | sed 's/^/  /' || true
+  fi
+
+  if docker ps --format '{{.Names}}' | grep -qx elitesip-freepbx; then
+    section "FreePBX"
+    printf '  веб: http://localhost:8080  (HTTP %s)\n' \
+      "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/admin/config.php || echo '—')"
+  fi
+
+  section "Куда подключать клиентов"
+  local address
+  address="$(ipconfig getifaddr en0 2>/dev/null || echo 'адрес не определён')"
+  cat <<INFO
+  с этого Mac:      127.0.0.1  порт 5060 (или 5070)
+  с телефона:       $address  порт 5060 (или 5070)
+  номера/пароли:    100/elite100, 101/elite101, 102/elite102
+  эхо-тест:         600
+
+  Если адрес Mac изменился, поправьте externaddr в asterisk/config/sip.conf
+  и выполните ./reload.sh — иначе звонок установится, а звука не будет.
+INFO
+}
+
+case "${1:-up}" in
+
+up)
+  ensure_docker
+
+  # Лаба на Asterisk 16 спорит с основной за RTP-порты: они публикуются один в
+  # один, иначе медиа не доходит. Держим поднятой только одну.
+  if docker ps --format '{{.Names}}' | grep -qx elitesip-lab; then
+    echo "Останавливаю лабу на Asterisk 16 — спорит за RTP-порты."
+    docker compose -f "$LEGACY16" down >/dev/null 2>&1 || true
+  fi
+
+  ./certs/generate.sh >/dev/null 2>&1 || true
+
+  echo "Запускаю Asterisk 13.38.3…"
+  docker compose -f "$PRIMARY" up -d
+
+  if [ "${2:-}" = "freepbx" ]; then
+    echo "Запускаю FreePBX (поднимается около минуты)…"
+    docker compose -f "$FREEPBX" up -d
+  fi
+
+  echo "Жду готовности…"
+  for _ in $(seq 1 30); do
+    docker exec elitesip-lab13 asterisk -rx 'core show version' >/dev/null 2>&1 && break
+    sleep 2
+  done
+
+  status
+  ;;
+
+status)
+  ensure_docker
+  status
+  ;;
+
+down)
+  docker compose -f "$PRIMARY" down 2>/dev/null || true
+  docker compose -f "$FREEPBX" down 2>/dev/null || true
+  docker compose -f "$LEGACY16" down 2>/dev/null || true
+  echo "Остановлено."
+  ;;
+
+down-all)
+  docker compose -f "$PRIMARY" down 2>/dev/null || true
+  docker compose -f "$FREEPBX" down -v 2>/dev/null || true
+  docker compose -f "$LEGACY16" down 2>/dev/null || true
+  echo "Остановлено, тома FreePBX удалены — при следующем запуске он будет чистым."
+  ;;
+
+*)
+  sed -n '2,10p' "$0" >&2
+  exit 2
+  ;;
+esac

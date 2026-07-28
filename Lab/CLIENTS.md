@@ -3,18 +3,40 @@
 Все данные — для стенда **Asterisk 13.38.3** (`docker-compose.13.yml`), той же
 версии, что на бою.
 
-Проверить, что стенд поднят:
+## Запуск
 
 ```bash
-docker exec elitesip-lab13 asterisk -rx 'sip show peers'
+cd "/Users/koreva/Projects/Swift EliteSIP/Lab" && ./lab.sh up
+```
+
+Скрипт сам запустит Docker Desktop, если он не поднят, остановит лабу на
+Asterisk 16 (она спорит за RTP-порты) и напечатает, куда подключать клиентов.
+
+Вместе с учебным стендом FreePBX:
+
+```bash
+cd "/Users/koreva/Projects/Swift EliteSIP/Lab" && ./lab.sh up freepbx
+```
+
+Посмотреть состояние в любой момент: `./lab.sh status`. Остановить: `./lab.sh down`.
+
+Наше приложение:
+
+```bash
+open -n "/Users/koreva/Library/Developer/Xcode/DerivedData/EliteSIP-gxdtafckxnqnnvbztvtbzwzglupz/Build/Products/Debug/EliteSIP.app"
 ```
 
 ## Адрес сервера
 
 | Откуда подключаемся | Адрес | Порт |
 |---|---|---|
-| С самого Mac (наше приложение) | `127.0.0.1` | 5070 |
-| С телефона в той же сети | `10.171.3.84` | 5070 |
+| С самого Mac | `127.0.0.1` | `5060` |
+| С телефона в той же сети | `10.171.3.84` | `5060` |
+
+Порт `5070` тоже работает — он остался от прежних заметок. **Начинайте с 5060:**
+сторонние клиенты подставляют его по умолчанию, а нестандартный порт часть из них
+либо требует указывать отдельным полем, либо молча игнорирует — и регистрация не
+проходит без всяких объяснений. Именно на это натыкались.
 
 Адрес Mac в сети меняется при переподключении к другому Wi-Fi. Текущий:
 
@@ -34,7 +56,7 @@ ipconfig getifaddr en0
 | Внутренний номер | `100` |
 | Пароль | `elite100` |
 | Домен / сервер | `127.0.0.1` |
-| Порт | `5070` |
+| Порт | `5060` |
 | Транспорт | UDP |
 
 ## PortSIP на iPhone
@@ -45,7 +67,7 @@ ipconfig getifaddr en0
 | Password | `elite101` |
 | SIP Domain / Domain | `10.171.3.84` |
 | Outbound proxy | оставить пустым |
-| SIP Server / Proxy port | `5070` |
+| SIP Server / Proxy port | `5060` |
 | Transport | UDP |
 | Display name | любое, например `iPhone` |
 | Кодеки | оставить G.711 (PCMU/PCMA), остальное можно выключить |
