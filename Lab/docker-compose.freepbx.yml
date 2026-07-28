@@ -13,19 +13,41 @@ services:
     container_name: elitesip-freepbx
     hostname: elitesip-freepbx
     restart: unless-stopped
+    environment:
+      # Не запоминаем случайный публичный IP машины, где собирался образ.
+      FREEPBX_EXTERNAL_ADDRESS: 127.0.0.1
     ports:
       - "8080:80"            # веб-интерфейс FreePBX
-      - "5080:5060/udp"      # SIP UDP — свои порты, чтобы не спорить с лабами
+      # FreePBX 15 оставляет 5060 под PJSIP, а импортированные chan_sip
+      # extensions слушают внутренний 5160.
+      - "5080:5160/udp"      # SIP UDP — свои порты, чтобы не спорить с лабами
       - "5081:5061/tcp"      # SIP TLS
-      - "10200-10230:10000-10030/udp"
+      # Один в один: номер из SDP обязан совпадать с опубликованным портом.
+      # Отдельный диапазон не спорит с основной лабой на 10000–10030.
+      - "10200-10230:10200-10230/udp"
     volumes:
       # База и сгенерированные конфиги переживают перезапуск: настройки,
       # сделанные в интерфейсе, не должны исчезать.
       - freepbx-mysql:/var/lib/mysql
       - freepbx-etc:/etc/asterisk
       - freepbx-www:/var/www/html
+      # MixMonitor пишет сюда. Без отдельного тома записи исчезают при
+      # пересоздании контейнера, хотя строки CDR продолжают ссылаться на них.
+      - freepbx-recordings:/var/spool/asterisk/monitor
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mysqladmin ping --silent &&
+          asterisk -rx 'core show version' >/dev/null 2>&1 &&
+          curl -fsS http://127.0.0.1/admin/config.php >/dev/null
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
 
 volumes:
   freepbx-mysql:
   freepbx-etc:
   freepbx-www:
+  freepbx-recordings:

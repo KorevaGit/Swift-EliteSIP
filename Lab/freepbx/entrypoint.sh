@@ -22,7 +22,10 @@ echo "[freepbx] запускаю Apache"
 apache2 -k start
 
 echo "[freepbx] запускаю Asterisk через fwconsole"
-fwconsole start || true
+fwconsole start
+
+echo "[freepbx] применяю миграцию M1.6: CDR, CEL и записи"
+/usr/local/bin/freepbx-m1-6-init.sh
 
 echo "[freepbx] готово. Веб-интерфейс на опубликованном порту 80."
 echo "[freepbx] дальше — журнал Asterisk:"
