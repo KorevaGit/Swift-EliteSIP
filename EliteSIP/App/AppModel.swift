@@ -325,6 +325,9 @@ final class AppModel {
             )
 
             let session = try MediaSession(negotiated: negotiated, localPort: localPort)
+            session.onDiagnostic = { [weak self] text in
+                Task { @MainActor in self?.append(level: .debug, message: "звук: \(text)") }
+            }
             try session.start()
             media = session
 

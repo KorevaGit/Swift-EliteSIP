@@ -49,6 +49,12 @@ final class MediaSession: @unchecked Sendable {
         )
     }
 
+    /// Куда писать подробности о форматах звука.
+    var onDiagnostic: (@Sendable (String) -> Void)? {
+        get { engine.onDiagnostic }
+        set { engine.onDiagnostic = newValue }
+    }
+
     func start() throws {
         rtp.onReceivedPacket = { [weak self] packet in
             guard let self else { return }

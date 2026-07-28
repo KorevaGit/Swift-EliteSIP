@@ -41,7 +41,10 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         case microphoneDenied
         case formatUnavailable
         case voiceProcessingUnavailable(String)
-        case engineFailed(String)
+        /// Шаг указывается всегда: сообщение CoreAudio вида «error -10875» само
+        /// по себе не говорит, какой из форматов не подошёл, и без шага
+        /// приходится гадать.
+        case engineFailed(step: String, reason: String)
 
         public var errorDescription: String? {
             switch self {
@@ -51,11 +54,15 @@ public final class VoiceAudioEngine: @unchecked Sendable {
                 "Не удалось построить формат звука 8 кГц."
             case .voiceProcessingUnavailable(let reason):
                 "Системное эхоподавление недоступно: \(reason)"
-            case .engineFailed(let reason):
-                "Звуковой движок не запустился: \(reason)"
+            case .engineFailed(let step, let reason):
+                "Звуковой движок не запустился на шаге «\(step)»: \(reason)"
             }
         }
     }
+
+    /// Куда писать подробности о форматах. Без них разбирать отказы CoreAudio
+    /// невозможно: он сообщает номер ошибки, но не то, что именно не сошлось.
+    public var onDiagnostic: (@Sendable (String) -> Void)?
 
     /// Кодированный кадр с микрофона, готовый к отправке в RTP.
     /// Вызывается на потоке звукового ввода — не блокировать.
@@ -126,16 +133,58 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             throw AudioError.microphoneDenied
         }
 
+        do {
+            try startEngine(withVoiceProcessing: true)
+        } catch {
+            // Откат без обработки голоса.
+            //
+            // Разговор без эхоподавления хуже, чем с ним, но несравнимо лучше,
+            // чем отсутствие звонка. Плюс это сразу отвечает на вопрос, в чём
+            // дело: если без VPIO движок стартует, причина именно в нём.
+            onDiagnostic?("с эхоподавлением не вышло (\(error.localizedDescription)), пробую без него")
+            teardown()
+            try startEngine(withVoiceProcessing: false)
+            onDiagnostic?("работаем БЕЗ системного эхоподавления")
+        }
+
+        isRunning = true
+    }
+
+    private func startEngine(withVoiceProcessing wantsVoiceProcessing: Bool) throws {
         let input = engine.inputNode
         let output = engine.outputNode
 
-        // Включать надо ДО подключения узлов: VoiceProcessingIO меняет формат
-        // входа, и уже созданные соединения после этого становятся неверными.
-        do {
-            try input.setVoiceProcessingEnabled(true)
-            try output.setVoiceProcessingEnabled(true)
-        } catch {
-            throw AudioError.voiceProcessingUnavailable(error.localizedDescription)
+        if wantsVoiceProcessing {
+            // Включать надо ДО подключения узлов: VoiceProcessingIO меняет
+            // формат входа и выхода, и уже созданные соединения после этого
+            // становятся неверными.
+            do {
+                try input.setVoiceProcessingEnabled(true)
+                try output.setVoiceProcessingEnabled(true)
+            } catch {
+                throw AudioError.voiceProcessingUnavailable(error.localizedDescription)
+            }
+        } else {
+            try? input.setVoiceProcessingEnabled(false)
+            try? output.setVoiceProcessingEnabled(false)
+        }
+
+        let outputFormat = output.inputFormat(forBus: 0)
+        onDiagnostic?("вход: \(Self.describe(input.outputFormat(forBus: 0)))")
+        onDiagnostic?("выход: \(Self.describe(outputFormat))")
+        onDiagnostic?("микшер: \(Self.describe(engine.mainMixerNode.outputFormat(forBus: 0)))")
+        onDiagnostic?("разговор: \(Self.describe(narrowbandFormat))")
+
+        // Микшер пересоединяем с выходом явно.
+        //
+        // Обработка голоса переводит выход на свою частоту (в замерах — 24 кГц),
+        // а соединение микшера с выходом остаётся с прежней (44.1 кГц). Движок
+        // на этом расхождении отказывается стартовать с -10875
+        // (kAudioUnitErr_FormatNotSupported), и по номеру ошибки понять, какой
+        // из форматов не сошёлся, невозможно.
+        if outputFormat.sampleRate > 0 {
+            engine.disconnectNodeOutput(engine.mainMixerNode)
+            engine.connect(engine.mainMixerNode, to: output, format: outputFormat)
         }
 
         try startPlayback()
@@ -145,10 +194,24 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         do {
             try engine.start()
         } catch {
-            throw AudioError.engineFailed(error.localizedDescription)
+            throw AudioError.engineFailed(step: "запуск движка", reason: error.localizedDescription)
         }
+    }
 
-        isRunning = true
+    /// Разбирает граф, чтобы повторная попытка начиналась с чистого состояния.
+    private func teardown() {
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        if let sourceNode {
+            engine.detach(sourceNode)
+            self.sourceNode = nil
+        }
+        converter = nil
+        captureRemainder.removeAll()
+    }
+
+    private static func describe(_ format: AVAudioFormat) -> String {
+        "\(Int(format.sampleRate)) Гц, \(format.channelCount) кан., \(format.commonFormat == .pcmFormatFloat32 ? "float32" : format.commonFormat == .pcmFormatInt16 ? "int16" : "иной")"
     }
 
     public func stop() {
@@ -217,7 +280,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         }
 
         engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: narrowbandFormat)
+        do {
+            engine.connect(node, to: engine.mainMixerNode, format: narrowbandFormat)
+        } catch {
+            throw AudioError.engineFailed(step: "подключение источника к микшеру", reason: "\(error)")
+        }
         sourceNode = node
     }
 
