@@ -258,7 +258,10 @@ final class AppModel {
 
         let prepared: (offer: SessionDescription, port: UInt16)
         do {
-            prepared = try MediaSession.makeOffer(localAddress: address)
+            prepared = try MediaSession.makeOffer(
+                localAddress: address,
+                security: settings.account.transport == .tls ? .sdesRequired : .none
+            )
         } catch {
             append(level: .error, message: "не удалось занять порт RTP: \(error.localizedDescription)")
             return
@@ -321,15 +324,41 @@ final class AppModel {
 
             append(
                 level: .info,
-                message: "медиа: \(negotiated.codec.sdpName) на \(negotiated.remoteAddress):\(negotiated.remotePort)"
+                message: "медиа: \(negotiated.security.isEncrypted ? "SRTP" : "RTP") \(negotiated.codec.sdpName) на \(negotiated.remoteAddress):\(negotiated.remotePort)"
             )
 
-            let session = try MediaSession(negotiated: negotiated, localPort: localPort)
+            let session = try MediaSession(
+                negotiated: negotiated,
+                localPort: localPort,
+                inputDeviceUID: settings.audio.inputDeviceUID,
+                outputDeviceUID: settings.audio.outputDeviceUID,
+                releasesDeviceWhenIdle: settings.audio.releasesDeviceWhenIdle,
+                automaticGainControl: settings.audio.automaticGainControl
+            )
             session.onDiagnostic = { [weak self] text in
                 Task { @MainActor in self?.append(level: .debug, message: "звук: \(text)") }
             }
+            // Что собеседник видит про НАШ поток. Своя статистика на этот
+            // вопрос не отвечает: собственный голос мы не слышим, и жалоба
+            // «меня плохо слышно» иначе не проверяется ничем.
+            session.onRemoteView = { [weak self] view in
+                Task { @MainActor in
+                    self?.remoteAudioView = view
+                    if view.fractionLost > 0.05 {
+                        self?.append(
+                            level: .warning,
+                            message: "собеседник теряет наш звук: \(view.summary)"
+                        )
+                    }
+                }
+            }
+            session.onAudioEvent = { [weak self] event in
+                Task { @MainActor in self?.handle(audio: event) }
+            }
             try session.start()
             media = session
+            audioRoute = session.route
+            startLevelPolling()
 
             callPhase = .active
             callStatus = "Разговор"
@@ -347,6 +376,87 @@ final class AppModel {
         media = nil
         callPhase = .idle
         callPeer = ""
+        audioRoute = nil
+        negotiatedCodec = nil
+        remoteAudioView = nil
+        levelTask?.cancel()
+        levelTask = nil
+        inputLevel = 0
+        outputLevel = 0
+    }
+
+    // MARK: - Аудиотракт
+
+    /// Куда идёт звук текущего разговора. nil вне звонка.
+    private(set) var audioRoute: AudioRoute?
+
+    /// Кодек, о котором договорились. nil вне звонка.
+    private(set) var negotiatedCodec: AudioCodec?
+
+    /// Что собеседник сообщает про наш поток по RTCP. Обновляется раз в пять
+    /// секунд, пока идёт разговор.
+    private(set) var remoteAudioView: RTCPSession.RemoteView?
+
+    /// Уровни для индикатора: микрофон и приём, от 0 до 1.
+    private(set) var inputLevel: Float = 0
+    private(set) var outputLevel: Float = 0
+
+    private var levelTask: Task<Void, Never>?
+
+    /// Опрос уровней для индикатора.
+    ///
+    /// Опрос, а не поток событий: индикатор рисуется двадцать раз в секунду, а
+    /// кадры приходят пятьдесят, и гнать через главный поток вдвое больше
+    /// обновлений, чем видно глазу, незачем.
+    private func startLevelPolling() {
+        levelTask?.cancel()
+        levelTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(50))
+                guard let self, let media else { return }
+                inputLevel = media.inputLevel
+                outputLevel = media.outputLevel
+            }
+        }
+    }
+
+    /// Гарнитура в двустороннем режиме: у всей системы приглушён звук, и
+    /// пользователю стоит про это сказать, пока он не решил, что сломались мы.
+    var isHeadsetModeActive: Bool { audioRoute?.isHeadsetMode ?? false }
+
+    private func handle(audio event: VoiceAudioEngine.Event) {
+        switch event {
+        case .routeChanged(let route):
+            audioRoute = route
+            append(level: .info, message: "звук: \(route.summary)")
+
+        case .restarted(let reason):
+            // Пересборка занимает около сотой доли секунды и слышна как
+            // короткий провал. Сообщение нужно затем, чтобы жалобу «звук
+            // дёрнулся» можно было связать с подключением наушников.
+            append(level: .info, message: "звук: тракт пересобран (\(reason))")
+
+        case .broken(let reason):
+            // Звука больше нет, и молчащий разговор хуже, чем завершённый:
+            // оператор будет говорить в пустоту, а лид — слушать тишину.
+            append(level: .error, message: "звук пропал: \(reason)")
+            callStatus = "Звук пропал"
+            Task { await hangUp() }
+        }
+    }
+
+    /// Микрофоны, доступные для выбора.
+    var inputDevices: [AudioDevice] {
+        AudioDeviceCatalog.devices()
+            .filter(\.isInput)
+            .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+    }
+
+    /// Устройства вывода, доступные для выбора.
+    var outputDevices: [AudioDevice] {
+        AudioDeviceCatalog.devices()
+            .filter(\.isOutput)
+            .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
     }
 
     // MARK: - Набор номера

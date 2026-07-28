@@ -150,6 +150,18 @@ public struct MediaDescription: Sendable, Hashable {
     public var packetTimeMilliseconds: Int? {
         attribute("ptime").flatMap { Int($0) }
     }
+
+    /// Все корректные предложения SDES в порядке отправителя.
+    public var sdesCryptoAttributes: [SDESCryptoAttribute] {
+        attributes.compactMap { attribute in
+            guard attribute.name.caseInsensitiveCompare("crypto") == .orderedSame,
+                  let value = attribute.value
+            else {
+                return nil
+            }
+            return SDESCryptoAttribute(value)
+        }
+    }
 }
 
 /// `a=sendrecv` и родственники. Нужны не для красоты: удержание вызова в M4 —
@@ -218,7 +230,7 @@ public struct RTPMap: Sendable, Hashable {
     /// Соответствует ли этот rtpmap нашему кодеку.
     public func matches(_ codec: AudioCodec) -> Bool {
         encodingName.caseInsensitiveCompare(codec.sdpName) == .orderedSame
-            && clockRate == codec.clockRate
+            && clockRate == codec.rtpClockRate
     }
 
     public var isTelephoneEvent: Bool {

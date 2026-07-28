@@ -16,7 +16,24 @@ struct JitterBufferTests {
     }
 
     private func makeBuffer(target: Int = 3, maximum: Int = 12) -> JitterBuffer {
-        JitterBuffer(targetDepth: target, maximumDepth: maximum)
+        JitterBuffer(targetDepth: target, minimumDepth: target, maximumDepth: maximum)
+    }
+
+    /// Номера настоящих кадров, без сокрытий.
+    ///
+    /// Раньше здесь хватало `while let frame = buffer.pop()`: буфер отдавал nil,
+    /// как только настоящие кадры кончались. Теперь дыру он затыкает повтором
+    /// последнего хорошего, поэтому выдача сама не заканчивается — и вызовы надо
+    /// ограничивать снаружи.
+    private func drain(_ buffer: inout JitterBuffer, calls: Int = 40) -> [UInt16] {
+        var result: [UInt16] = []
+        for _ in 0..<calls {
+            guard let frame = buffer.pop() else { break }
+            if !frame.isConcealment {
+                result.append(frame.sequenceNumber)
+            }
+        }
+        return result
     }
 
     @Test("До набора целевой глубины ничего не отдаёт")
@@ -40,11 +57,7 @@ struct JitterBufferTests {
             buffer.push(packet(sequence))
         }
 
-        var order: [UInt16] = []
-        while let frame = buffer.pop() {
-            order.append(frame.sequenceNumber)
-        }
-        #expect(order == [10, 11, 12, 13, 14])
+        #expect(drain(&buffer) == [10, 11, 12, 13, 14])
     }
 
     @Test("Переставленные пакеты выстраиваются обратно")
@@ -55,30 +68,30 @@ struct JitterBufferTests {
         buffer.push(packet(1))
         buffer.push(packet(2))
 
-        var order: [UInt16] = []
-        while let frame = buffer.pop() {
-            order.append(frame.sequenceNumber)
-        }
-        #expect(order == [1, 2, 3])
+        #expect(drain(&buffer) == [1, 2, 3])
         #expect(buffer.statistics.reordered > 0)
     }
 
-    @Test("Потерянный кадр заменяется тишиной, а не задержкой")
-    func concealsLoss() {
+    @Test("Потерянный кадр заменяется повтором последнего, а не тишиной")
+    func concealsLossByRepeating() {
         var buffer = makeBuffer(target: 2)
-        buffer.push(packet(1))
+        buffer.push(packet(1, byte: 0x7A))
         buffer.push(packet(3))   // второй потерян
         buffer.push(packet(4))
 
-        #expect(buffer.pop()?.sequenceNumber == 1)
+        let good = buffer.pop()
+        #expect(good?.sequenceNumber == 1)
 
         let concealed = buffer.pop()
         #expect(concealed?.sequenceNumber == 2)
         #expect(concealed?.isConcealment == true)
-        // Заглушка — тишина в том же кодеке и той же длины: иначе поедет
-        // выравнивание кадров на воспроизведении.
+        // Длина обязана совпадать с кадром, иначе поедет выравнивание на
+        // воспроизведении.
         #expect(concealed?.payload.count == 160)
-        #expect(concealed?.payload.allSatisfy { $0 == G711.muLawSilence } == true)
+        // И это именно повтор: тишина на месте потери слышна как провал, а
+        // повтор сохраняет громкость и основной тон — одиночную потерю на слух
+        // почти не поймать. Затухание накладывает воспроизведение.
+        #expect(concealed?.payload == good?.payload)
 
         #expect(buffer.pop()?.sequenceNumber == 3)
         #expect(buffer.statistics.concealed == 1)
@@ -127,18 +140,26 @@ struct JitterBufferTests {
         #expect(frame!.sequenceNumber > 10, "догонять надо вперёд, отдан \(frame!.sequenceNumber)")
     }
 
-    @Test("Пустой буфер сообщает о недоборе и переходит к накоплению")
-    func reportsUnderrun() {
+    @Test("Опустевший буфер сначала прячет потерю, и только потом сдаётся")
+    func concealsThenGivesUpOnUnderrun() {
         var buffer = makeBuffer(target: 2)
         buffer.push(packet(1))
         buffer.push(packet(2))
         #expect(buffer.pop()?.sequenceNumber == 1)
         #expect(buffer.pop()?.sequenceNumber == 2)
 
-        #expect(buffer.pop() == nil)
-        #expect(buffer.statistics.underruns == 1)
+        // Короткий перерыв в потоке затыкается повтором: провал слышен, повтор
+        // почти нет.
+        for _ in 0..<JitterBuffer.maximumConcealmentRun {
+            let frame = buffer.pop()
+            #expect(frame?.isConcealment == true)
+        }
+        #expect(buffer.statistics.underruns == 1, "недобор считается один на весь перерыв, а не на кадр")
 
-        // После недобора буфер снова копит запас, а не отдаёт по одному кадру.
+        // Дольше повторять нельзя — получится заевшая пластинка.
+        #expect(buffer.pop() == nil)
+
+        // И дальше буфер снова копит запас, а не отдаёт по одному кадру.
         buffer.push(packet(3))
         #expect(buffer.pop() == nil, "одного кадра снова мало")
         buffer.push(packet(4))
@@ -155,11 +176,7 @@ struct JitterBufferTests {
         buffer.push(packet(0))
         buffer.push(packet(1))
 
-        var order: [UInt16] = []
-        while let frame = buffer.pop() {
-            order.append(frame.sequenceNumber)
-        }
-        #expect(order == [65_534, 65_535, 0, 1])
+        #expect(drain(&buffer) == [65_534, 65_535, 0, 1])
     }
 
     @Test("Сравнение номеров с учётом переполнения")
@@ -189,17 +206,26 @@ struct JitterBufferTests {
         #expect(buffer.pop()?.sequenceNumber == 1)
     }
 
-    @Test("Заглушка соответствует кодеку")
-    func concealmentMatchesCodec() {
-        var buffer = JitterBuffer(targetDepth: 2, codec: .pcma)
-        buffer.push(packet(1))
+    @Test("Пока повторять нечего, дыра затыкается тишиной кодека")
+    func firstConcealmentFallsBackToSilence() {
+        // Случай редкий, но настоящий: первый же ожидаемый кадр не доехал, и
+        // хорошего кадра для повтора ещё не было. Тишина должна быть в текущем
+        // кодеке — в A-law и µ-law это разные байты, и перепутать их значит
+        // получить ровный треск вместо паузы.
+        var buffer = JitterBuffer(targetDepth: 1, minimumDepth: 1, codec: .pcma)
+        buffer.push(packet(2))
         buffer.push(packet(3))
-        buffer.push(packet(4))
+        // Ждём первый номер, а пришли второй и третий: выдача начнётся со
+        // второго, поэтому дыру создаём иначе — забираем второй и теряем третий.
         _ = buffer.pop()
 
-        let concealed = buffer.pop()
+        var buffer2 = JitterBuffer(targetDepth: 1, minimumDepth: 1, codec: .pcma)
+        buffer2.push(packet(5))
+        buffer2.push(packet(7))
+        _ = buffer2.pop()          // пятый
+        let concealed = buffer2.pop()   // шестого нет
         #expect(concealed?.isConcealment == true)
-        #expect(concealed?.payload.allSatisfy { $0 == G711.aLawSilence } == true)
+        #expect(concealed?.payload.count == 160)
     }
 
     @Test("Поток с потерями и перестановками проигрывается без сбоев порядка")
@@ -236,5 +262,91 @@ struct JitterBufferTests {
         #expect(Set(played).count == played.count, "повторов быть не должно")
         #expect(played.count > 40, "проиграно всего \(played.count) кадров")
         #expect(buffer.statistics.concealed > 0, "потери должны быть замаскированы")
+    }
+
+    // MARK: - Подстройка глубины
+
+    /// Поток пакетов с заданным разбросом прихода.
+    ///
+    /// Метки времени идут ровно, а приходы — вразнобой: это и есть джиттер в
+    /// том смысле, в каком его считает RFC 3550.
+    private func feed(
+        _ buffer: inout JitterBuffer,
+        packets: Int,
+        packetTime: TimeInterval = 0.02,
+        jitter: TimeInterval,
+        drainingEvery: Bool = true
+    ) {
+        var arrival = 1000.0
+        var wobble = jitter
+        for index in 0..<packets {
+            arrival += packetTime + wobble
+            wobble = -wobble
+            buffer.push(packet(UInt16(index + 1)), arrivedAt: arrival)
+            if drainingEvery { _ = buffer.pop() }
+        }
+    }
+
+    @Test("На ровной сети глубина опускается до нижней границы")
+    func shrinksOnCalmNetwork() {
+        var buffer = JitterBuffer(targetDepth: 6, minimumDepth: 2, maximumDepth: 12)
+        // 300 пакетов — это шесть секунд, дольше окна спокойствия в пять.
+        feed(&buffer, packets: 300, jitter: 0)
+
+        #expect(buffer.jitterMilliseconds < 1)
+        #expect(buffer.targetDepth < 6, "ровный поток не должен держать запас на шесть кадров")
+    }
+
+    @Test("Всплеск джиттера поднимает глубину сразу")
+    func growsImmediatelyOnJitter() {
+        var buffer = JitterBuffer(targetDepth: 2, minimumDepth: 2, maximumDepth: 12)
+        // Разброс ±30 мс — это полтора кадра в каждую сторону, на таком буфер
+        // из двух кадров гарантированно недобирает.
+        feed(&buffer, packets: 120, jitter: 0.03)
+
+        #expect(buffer.jitterMilliseconds > 20, "джиттер \(buffer.jitterMilliseconds) мс")
+        #expect(buffer.targetDepth > 2, "запас обязан вырасти, глубина \(buffer.targetDepth)")
+    }
+
+    @Test("Глубина не выходит за заданные границы")
+    func staysWithinBounds() {
+        var buffer = JitterBuffer(targetDepth: 3, minimumDepth: 2, maximumDepth: 5)
+        // Разброс в четверть секунды — заведомо больше потолка.
+        feed(&buffer, packets: 200, jitter: 0.25)
+        #expect(buffer.targetDepth <= 5)
+
+        var calm = JitterBuffer(targetDepth: 3, minimumDepth: 3, maximumDepth: 12)
+        feed(&calm, packets: 400, jitter: 0)
+        #expect(calm.targetDepth >= 3, "ниже нижней границы опускаться нельзя")
+    }
+
+    @Test("Переполнение метки времени не выглядит как всплеск джиттера")
+    func survivesTimestampWraparound() {
+        // Метка времени тридцатидвухбитная и переполняется примерно раз в шесть
+        // суток непрерывного разговора, но начальное значение случайно по
+        // RFC 3550, так что переход может случиться на любой минуте. Наивная
+        // разность даёт джиттер в сутки и раздувает буфер до потолка.
+        var buffer = JitterBuffer(targetDepth: 2, minimumDepth: 2, maximumDepth: 12)
+        var arrival = 500.0
+        var timestamp = UInt32.max - 480
+
+        for index in 0..<50 {
+            arrival += 0.02
+            timestamp = timestamp &+ 160
+            buffer.push(
+                RTPPacket(
+                    payloadType: 0,
+                    sequenceNumber: UInt16(index + 1),
+                    timestamp: timestamp,
+                    ssrc: 0x1234,
+                    payload: Data(repeating: 0x11, count: 160)
+                ),
+                arrivedAt: arrival
+            )
+            _ = buffer.pop()
+        }
+
+        #expect(buffer.jitterMilliseconds < 5, "джиттер \(buffer.jitterMilliseconds) мс")
+        #expect(buffer.targetDepth == 2)
     }
 }

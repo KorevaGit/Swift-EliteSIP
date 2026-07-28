@@ -182,13 +182,87 @@ struct SDPTests {
 @Suite("Согласование SDP")
 struct SDPNegotiationTests {
 
+    @Test("Защищённое предложение использует RTP/SAVP и валидный SDES")
+    func secureOfferContents() throws {
+        let offer = SDPNegotiator.makeOffer(
+            address: "10.0.0.5",
+            port: 10000,
+            security: .sdesRequired
+        )
+        let audio = try #require(offer.audio)
+        let crypto = try #require(audio.sdesCryptoAttributes.first)
+
+        #expect(audio.protocolName == "RTP/SAVP")
+        #expect(crypto.tag == 1)
+        #expect(crypto.suite == .aesCM128HMACSHA1_80)
+        #expect(crypto.key.bytes.count == 30)
+        #expect(offer.encoded.contains("a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:"))
+    }
+
+    @Test("SDES согласует разные ключи направлений")
+    func resolvesSecureAnswer() throws {
+        let offer = SDPNegotiator.makeOffer(
+            address: "10.0.0.5",
+            port: 10000,
+            security: .sdesRequired
+        )
+        let local = try #require(offer.audio?.sdesCryptoAttributes.first)
+        let remoteKey = SRTPMasterKey.random()
+        let answer = try SessionDescription(parsing: """
+        v=0\r
+        o=root 1 1 IN IP4 172.17.0.2\r
+        s=Asterisk\r
+        c=IN IP4 172.17.0.2\r
+        t=0 0\r
+        m=audio 14028 RTP/SAVP 0\r
+        a=rtpmap:0 PCMU/8000\r
+        a=crypto:\(SDESCryptoAttribute(tag: local.tag, key: remoteKey).value)\r
+
+        """)
+
+        let media = try SDPNegotiator.resolveAnswer(answer, toOffer: offer)
+        #expect(media.security == .sdes(local: local.key, remote: remoteKey))
+    }
+
+    @Test("SRTP не откатывается на открытый RTP")
+    func secureOfferRejectsPlainAnswer() throws {
+        let offer = SDPNegotiator.makeOffer(
+            address: "10.0.0.5",
+            port: 10000,
+            security: .sdesRequired
+        )
+        let answer = try SessionDescription(parsing: """
+        v=0\r
+        o=root 1 1 IN IP4 172.17.0.2\r
+        s=Asterisk\r
+        c=IN IP4 172.17.0.2\r
+        t=0 0\r
+        m=audio 14028 RTP/AVP 0\r
+        a=rtpmap:0 PCMU/8000\r
+
+        """)
+
+        #expect(throws: SDPNegotiationError.secureMediaRequired) {
+            _ = try SDPNegotiator.resolveAnswer(answer, toOffer: offer)
+        }
+    }
+
     @Test("Предложение содержит всё, чего ждёт Asterisk")
     func offerContents() throws {
         let offer = SDPNegotiator.makeOffer(address: "10.0.0.5", port: 10000, sessionID: 7)
         let audio = try #require(offer.audio)
 
-        #expect(audio.formats == [0, 8, 101], "PCMU первым: так настроен боевой пир")
+        #expect(
+            audio.formats == [9, 0, 8, 101],
+            "G.722 первым — единственный широкополосный; дальше PCMU, как настроен боевой пир"
+        )
         #expect(audio.rtpMaps[0]?.encodingName == "PCMU")
+        #expect(audio.rtpMaps[9]?.encodingName == "G722")
+        // В SDP у G.722 объявляется частота 8000, хотя оцифровывает он на
+        // 16 000. Это ошибка RFC 1890, оставленная в RFC 3551 §4.5.2 ради
+        // совместимости: серверы ждут именно 8000, и «исправление» здесь
+        // ломает согласование.
+        #expect(audio.rtpMaps[9]?.clockRate == 8000)
         #expect(audio.rtpMaps[101]?.isTelephoneEvent == true)
         // Без fmtp часть серверов не понимает, какие события мы принимаем,
         // и отбрасывает DTMF.
@@ -257,12 +331,14 @@ struct SDPNegotiationTests {
         s=-\r
         c=IN IP4 172.17.0.2\r
         t=0 0\r
-        m=audio 14028 RTP/AVP 9\r
-        a=rtpmap:9 G722/8000\r
+        m=audio 14028 RTP/AVP 18\r
+        a=rtpmap:18 G729/8000\r
 
         """
         let answer = try SessionDescription(parsing: answerText)
-        #expect(throws: SDPNegotiationError.noCommonCodec(offered: [9])) {
+        // G.729 требует лицензии и отдельного модуля — мы его не предлагаем и
+        // принять не можем.
+        #expect(throws: SDPNegotiationError.noCommonCodec(offered: [18])) {
             _ = try SDPNegotiator.resolveAnswer(
                 answer,
                 toOffer: SDPNegotiator.makeOffer(address: "10.0.0.5", port: 10000)

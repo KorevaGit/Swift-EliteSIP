@@ -23,12 +23,14 @@ struct AudioCodecTests {
     @Test("Раскладка пакета 20 мс")
     func packetGeometry() {
         for codec in AudioCodec.allCases {
-            #expect(codec.clockRate == 8000)
+            #expect(codec.rtpClockRate == 8000)
             #expect(codec.channelCount == 1)
-            #expect(codec.sampleCount(forPacketTime: 20) == 160)
-            #expect(codec.sampleCount(forPacketTime: 10) == 80)
+            #expect(codec.timestampIncrement(forPacketTime: 20) == 160)
+            #expect(codec.timestampIncrement(forPacketTime: 10) == 80)
             #expect(codec.byteCount(forPacketTime: 20) == 160)
         }
+        #expect(AudioCodec.g722.sampleCount(forPacketTime: 20) == 320)
+        #expect(AudioCodec.pcmu.sampleCount(forPacketTime: 20) == 160)
         #expect(defaultPacketTimeMilliseconds == 20)
     }
 

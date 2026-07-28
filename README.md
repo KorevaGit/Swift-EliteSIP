@@ -51,7 +51,8 @@ EliteSIP/               приложение
 Packages/SIPCore/       протокол SIP. Без AppKit, без аудио, полностью тестируем
 Packages/MediaCore/     RTP и кодеки. Без AppKit
 Config/                 entitlements
-docs/                   решения, которые нужно объяснять: защита от автокликеров
+docs/                   решения, которые нужно объяснять: аудиотракт, защита
+                        от автокликеров
 Lab/                    три стенда в Docker: Asterisk 13.38.3 (боевая версия),
                         Asterisk 16 для сравнения, FreePBX 15 для понимания
 ```
@@ -68,6 +69,16 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 (cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test)
 ```
 
+Разговор со звуком против живой АТС и замеры аудиотракта:
+
+```bash
+(cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --call 600 --audio)
+```
+
+```bash
+(cd Tools/audioprobe && swift run audioprobe list)
+```
+
 Проверка против живой АТС и лаборатория — [Lab/README.md](Lab/README.md).
 Настройки для клиентов, включая PortSIP на телефоне — [Lab/CLIENTS.md](Lab/CLIENTS.md).
 
@@ -78,8 +89,13 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 - [x] **M1.5** — FreePBX рядом с нашим Asterisk, чтобы видеть, что он
       генерирует: контексты `from-internal`, `sub-record-check`, очереди,
       `MixMonitor`. Отдельный контейнер, не поверх лабы — см. ниже
-- [x] **M2** — исходящий звонок, RTP, аудиотракт, джиттер-буфер
-- [ ] **M2b** — SRTP
+- [x] **M1.6** — настоящая история FreePBX: постоянные CDR/CEL в MariaDB,
+      обязательная запись разговоров, прослушивание и скачивание записей из
+      отчёта CDR — [Lab/FREEPBX.md](Lab/FREEPBX.md)
+- [x] **M2** — исходящий звонок, RTP, аудиотракт, джиттер-буфер, выбор
+      устройства и переключение его на ходу — [docs/audio.md](docs/audio.md)
+- [x] **M2b** — SRTP с SDES, обязательный для TLS без отката на открытый RTP
+      — [docs/srtp.md](docs/srtp.md)
 - [ ] **M3** — входящий звонок и **защита от автокликеров**: случайная позиция,
       случайная задержка активации, случайная цель подтверждения, требование
       движения курсора, отсев синтетических нажатий. Плюс рингтон
@@ -90,7 +106,7 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 - [ ] **M8** — синхронизация с EliteDash (включая телеметрию защиты) и
       баш-скрипт для удалёнщиков
 
-### Про FreePBX в M1.5
+### Про FreePBX в M1.5–M1.6
 
 Поставить FreePBX «поверх» лабораторного Asterisk в смысле общих конфигов
 нельзя: FreePBX генерирует `sip.conf`, `extensions.conf` и остальное из своей

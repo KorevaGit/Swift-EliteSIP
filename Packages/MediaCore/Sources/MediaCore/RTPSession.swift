@@ -14,17 +14,20 @@ public final class RTPSession: @unchecked Sendable {
         public var payloadType: UInt8
         public var packetTimeMilliseconds: Int
         public var telephoneEventPayloadType: UInt8?
+        public var security: MediaSecurity
 
         public init(
             codec: AudioCodec = .pcmu,
             payloadType: UInt8 = 0,
             packetTimeMilliseconds: Int = defaultPacketTimeMilliseconds,
-            telephoneEventPayloadType: UInt8? = TelephoneEvent.defaultPayloadType
+            telephoneEventPayloadType: UInt8? = TelephoneEvent.defaultPayloadType,
+            security: MediaSecurity = .none
         ) {
             self.codec = codec
             self.payloadType = payloadType
             self.packetTimeMilliseconds = packetTimeMilliseconds
             self.telephoneEventPayloadType = telephoneEventPayloadType
+            self.security = security
         }
 
         public init(negotiated: NegotiatedMedia) {
@@ -32,12 +35,18 @@ public final class RTPSession: @unchecked Sendable {
                 codec: negotiated.codec,
                 payloadType: negotiated.payloadType,
                 packetTimeMilliseconds: negotiated.packetTimeMilliseconds,
-                telephoneEventPayloadType: negotiated.telephoneEventPayloadType
+                telephoneEventPayloadType: negotiated.telephoneEventPayloadType,
+                security: negotiated.security
             )
         }
 
-        var samplesPerFrame: UInt32 {
-            UInt32(codec.sampleCount(forPacketTime: packetTimeMilliseconds))
+        /// На сколько растёт метка времени за пакет.
+        ///
+        /// Названо через метку времени, а не через отсчёты, намеренно: у G.722
+        /// это 160 при 320 отсчётах звука в том же пакете, и всякий, кто
+        /// прочитает здесь «отсчёты», рано или поздно подставит не то число.
+        var timestampIncrement: UInt32 {
+            codec.timestampIncrement(forPacketTime: packetTimeMilliseconds)
         }
     }
 
@@ -63,6 +72,8 @@ public final class RTPSession: @unchecked Sendable {
     private let configuration: Configuration
     private let queue = DispatchQueue(label: "com.elite.EliteSIP.rtp")
     private let connection: NWConnection
+    private let outboundSRTP: SRTPContext?
+    private let inboundSRTP: SRTPContext?
 
     /// Состояние отправителя. Трогается только на `queue`.
     private var sequenceNumber: UInt16
@@ -73,14 +84,27 @@ public final class RTPSession: @unchecked Sendable {
     private var needsMarker = true
     private var isStopped = false
 
+    /// Счётчики для отчётов RTCP. Растут на той же очереди, что и отправка.
+    private var packetsSent: UInt32 = 0
+    private var octetsSent: UInt32 = 0
+
     public init(
         configuration: Configuration,
         localPort: UInt16,
         remoteHost: String,
         remotePort: UInt16
-    ) {
+    ) throws {
         self.configuration = configuration
         self.localPort = localPort
+
+        switch configuration.security {
+        case .none:
+            outboundSRTP = nil
+            inboundSRTP = nil
+        case .sdes(let local, let remote):
+            outboundSRTP = try SRTPContext(masterKey: local)
+            inboundSRTP = try SRTPContext(masterKey: remote)
+        }
 
         // Начальные значения случайны по RFC 3550 §5.1: предсказуемые номера
         // упрощают подмешивание чужого звука в поток.
@@ -144,9 +168,17 @@ public final class RTPSession: @unchecked Sendable {
             )
             needsMarker = false
             sequenceNumber &+= 1
-            timestamp &+= configuration.samplesPerFrame
+            timestamp &+= configuration.timestampIncrement
+            packetsSent &+= 1
+            // По RFC 3550 считается только полезная нагрузка, без заголовков.
+            octetsSent &+= UInt32(payload.count)
 
-            connection.send(content: packet.encoded(), completion: .idempotent)
+            do {
+                let data = try outboundSRTP?.protect(packet) ?? packet.encoded()
+                connection.send(content: data, completion: .idempotent)
+            } catch {
+                onFailure?(error.localizedDescription)
+            }
         }
     }
 
@@ -171,16 +203,35 @@ public final class RTPSession: @unchecked Sendable {
                 payload: event.encoded
             )
             sequenceNumber &+= 1
-            connection.send(content: packet.encoded(), completion: .idempotent)
+            do {
+                let data = try outboundSRTP?.protect(packet) ?? packet.encoded()
+                connection.send(content: data, completion: .idempotent)
+            } catch {
+                onFailure?(error.localizedDescription)
+            }
         }
     }
 
     /// Завершает событие DTMF и возвращает поток к звуку.
     public func finishEvent() {
         queue.async { [self] in
-            timestamp &+= configuration.samplesPerFrame
+            timestamp &+= configuration.timestampIncrement
             needsMarker = true
         }
+    }
+
+    /// Наш SSRC. Отчёты RTCP подписываются им же.
+    public var synchronizationSource: UInt32 { ssrc }
+
+    /// Поток защищён SRTP.
+    public var isSecured: Bool { outboundSRTP != nil }
+
+    /// Что мы отправили — для отчётов RTCP.
+    ///
+    /// Читается синхронно на очереди сессии: счётчики растут там же, и
+    /// отдавать их из-под чужого потока значило бы читать рваные значения.
+    public var sendStatistics: (packets: UInt32, octets: UInt32, timestamp: UInt32, ssrc: UInt32) {
+        queue.sync { (packetsSent, octetsSent, timestamp, ssrc) }
     }
 
     // MARK: - Приём
@@ -197,7 +248,12 @@ public final class RTPSession: @unchecked Sendable {
             if let data, !data.isEmpty {
                 // Битый или чужой пакет молча пропускаем: на открытый UDP-порт
                 // прилетает что угодно, и рвать разговор из-за этого нельзя.
-                if let packet = try? RTPPacket(parsing: data) {
+                let packet = if let inboundSRTP {
+                    try? inboundSRTP.unprotect(data)
+                } else {
+                    try? RTPPacket(parsing: data)
+                }
+                if let packet {
                     self.onReceivedPacket?(packet)
                 }
             }

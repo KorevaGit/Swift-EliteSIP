@@ -48,6 +48,12 @@ struct RTPSessionTests {
         #expect(configuration.telephoneEventPayloadType == 101)
         // 20 мс при 8 кГц — это 160 отсчётов, и на столько же растёт метка
         // времени в каждом пакете.
-        #expect(configuration.samplesPerFrame == 160)
+        #expect(configuration.timestampIncrement == 160)
+
+        // У G.722 отсчётов вдвое больше, а метка растёт на те же 160: частота
+        // часов RTP у него объявлена 8000 при выборке 16 000 (RFC 3551 §4.5.2).
+        let wideband = RTPSession.Configuration(codec: .g722, payloadType: 9)
+        #expect(wideband.timestampIncrement == 160)
+        #expect(AudioCodec.g722.sampleCount(forPacketTime: 20) == 320)
     }
 }

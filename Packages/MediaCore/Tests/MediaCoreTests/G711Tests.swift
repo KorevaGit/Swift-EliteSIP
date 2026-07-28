@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import MediaCore
 
+private let g711Codecs: [AudioCodec] = [.pcmu, .pcma]
+
 @Suite("G.711")
 struct G711Tests {
 
@@ -20,7 +22,7 @@ struct G711Tests {
         #expect(abs(Int(G711.decodeALaw(0x55))) == 8)
     }
 
-    @Test("Кодирование устойчиво: повторный проход не смещает значение", arguments: AudioCodec.allCases)
+    @Test("Кодирование устойчиво: повторный проход не смещает значение", arguments: g711Codecs)
     func encodingIsStable(codec: AudioCodec) {
         // Проверяем decode → encode → decode, а не побайтовое равенство:
         // у µ-law есть два кода нуля (0x7F и 0xFF), и после первого прохода
@@ -34,7 +36,7 @@ struct G711Tests {
         }
     }
 
-    @Test("Каждый код декодируется в своё значение", arguments: AudioCodec.allCases)
+    @Test("Каждый код декодируется в своё значение", arguments: g711Codecs)
     func decodingIsInjective(codec: AudioCodec) {
         let decoded = (UInt8.min...UInt8.max).map { G711.decode([$0], as: codec)[0] }
         let unique = Set(decoded)
@@ -42,7 +44,7 @@ struct G711Tests {
         #expect(unique.count >= 255, "кодек теряет уровни: уникальных значений \(unique.count)")
     }
 
-    @Test("Знак сохраняется", arguments: AudioCodec.allCases)
+    @Test("Знак сохраняется", arguments: g711Codecs)
     func signIsPreserved(codec: AudioCodec) {
         for magnitude in stride(from: 64, through: 32000, by: 337) {
             let positive = G711.decode(G711.encode([Int16(magnitude)], as: codec), as: codec)[0]
@@ -52,7 +54,7 @@ struct G711Tests {
         }
     }
 
-    @Test("Монотонность: рост входа не даёт падения выхода", arguments: AudioCodec.allCases)
+    @Test("Монотонность: рост входа не даёт падения выхода", arguments: g711Codecs)
     func encodingIsMonotonic(codec: AudioCodec) {
         var previous = Int16.min
         for value in stride(from: -32768, through: 32767, by: 97) {
@@ -62,7 +64,7 @@ struct G711Tests {
         }
     }
 
-    @Test("Отношение сигнал/шум на синусе не хуже 30 дБ", arguments: AudioCodec.allCases)
+    @Test("Отношение сигнал/шум на синусе не хуже 30 дБ", arguments: g711Codecs)
     func signalToNoiseRatio(codec: AudioCodec) {
         // Практический критерий качества: G.711 даёт около 38 дБ. Порог 30
         // ловит перепутанные сдвиги и сегменты, но не срабатывает на законной
@@ -89,7 +91,7 @@ struct G711Tests {
         #expect(snr > 30, "SNR \(codec.sdpName) = \(String(format: "%.1f", snr)) дБ")
     }
 
-    @Test("Крайние значения не переполняются", arguments: AudioCodec.allCases)
+    @Test("Крайние значения не переполняются", arguments: g711Codecs)
     func extremesDoNotOverflow(codec: AudioCodec) {
         // Int16.min нельзя просто отрицать — это классический источник краха
         // в кодировщиках G.711.
@@ -104,7 +106,7 @@ struct G711Tests {
     @Test("Длина буфера сохраняется")
     func bufferLengthIsPreserved() {
         let samples = [Int16](repeating: 1234, count: 160)
-        for codec in AudioCodec.allCases {
+        for codec in g711Codecs {
             let encoded = G711.encode(samples, as: codec)
             #expect(encoded.count == 160, "20 мс G.711 — это ровно 160 байт")
             #expect(encoded.count == codec.byteCount(forPacketTime: defaultPacketTimeMilliseconds))

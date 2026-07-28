@@ -98,6 +98,7 @@ public enum G711 {
         switch codec {
         case .pcmu: samples.map(encodeMuLaw)
         case .pcma: samples.map(encodeALaw)
+        case .g722: preconditionFailure("G.722 кодируется через G722.Encoder")
         }
     }
 
@@ -105,6 +106,7 @@ public enum G711 {
         switch codec {
         case .pcmu: bytes.map(decodeMuLaw)
         case .pcma: bytes.map(decodeALaw)
+        case .g722: preconditionFailure("G.722 декодируется через G722.Decoder")
         }
     }
 
@@ -112,6 +114,7 @@ public enum G711 {
         switch codec {
         case .pcmu: muLawSilence
         case .pcma: aLawSilence
+        case .g722: preconditionFailure("У G.722 нет постоянного байта тишины")
         }
     }
 }

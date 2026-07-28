@@ -1,3 +1,4 @@
+import MediaCore
 import SIPCore
 import SwiftUI
 
@@ -170,16 +171,184 @@ private struct AccountSettingsTab: View {
 }
 
 private struct AudioSettingsTab: View {
+
+    @Environment(AppModel.self) private var model
+    /// Список держится в состоянии, а не читается на каждой перерисовке:
+    /// перечисление ходит в HAL, а перерисовок у формы много. Обновляется он по
+    /// уведомлению от системы — см. `onAppear`.
+    @State private var inputs: [AudioDevice] = []
+    @State private var outputs: [AudioDevice] = []
+    @State private var observation: AudioDeviceCatalog.Observation?
+
     var body: some View {
         Form {
-            Section("Устройства") {
-                MilestoneNote("Выбор микрофона, наушников и отдельного устройства для звонка входящего появится в M2–M3, когда заведётся аудиотракт.")
+            Section("Устройства разговора") {
+                Picker("Микрофон", selection: Binding(
+                    get: { model.settings.audio.inputDeviceUID },
+                    set: { model.settings.audio.inputDeviceUID = $0 }
+                )) {
+                    Text("Системный по умолчанию").tag(String?.none)
+                    ForEach(inputs) { device in
+                        Text(device.name).tag(String?.some(device.uid))
+                    }
+                }
+
+                Picker("Наушники", selection: Binding(
+                    get: { model.settings.audio.outputDeviceUID },
+                    set: { model.settings.audio.outputDeviceUID = $0 }
+                )) {
+                    Text("Системные по умолчанию").tag(String?.none)
+                    ForEach(outputs) { device in
+                        Text(device.name).tag(String?.some(device.uid))
+                    }
+                }
+
+                if needsAggregate {
+                    // Размен настоящий и неприятный, поэтому назван прямо.
+                    // VoiceProcessingIO не принимает агрегатные устройства —
+                    // проверено на приватном, публичном и с разными ведущими,
+                    // всегда -10851. Свой агрегат он строит только для
+                    // системных умолчаний, отсюда и совет ниже.
+                    Label(
+                        "Разные устройства — эхоподавления не будет",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(Theme.Palette.failure)
+
+                    Text("""
+                        macOS не даёт совместить системное эхоподавление с разными \
+                        устройствами на вход и выход. Через колонки в таком режиме \
+                        разговаривать нельзя — собеседник услышит себя.
+
+                        Если нужна именно эта пара и эхоподавление, назначьте её \
+                        системной по умолчанию в «Звуке», а здесь оставьте «системное»: \
+                        такую пару macOS сводит сама и эхоподавление сохраняет.
+                        """)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
             }
+
+            Section("Bluetooth") {
+                Toggle("Отпускать устройство между звонками", isOn: Binding(
+                    get: { model.settings.audio.releasesDeviceWhenIdle },
+                    set: { model.settings.audio.releasesDeviceWhenIdle = $0 }
+                ))
+                MilestoneNote("""
+                    Пока микрофон гарнитуры открыт, AirPods работают в двустороннем \
+                    режиме, и звук всей системы становится глуше. Остановки движка \
+                    для возврата не хватает — устройство надо отпускать явно.
+                    """)
+
+                if model.isHeadsetModeActive {
+                    Label(
+                        "Сейчас включён режим гарнитуры",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .foregroundStyle(.orange)
+                }
+            }
+
+            Section("Полоса") {
+                Toggle("Предлагать широкую полосу (G.722)", isOn: Binding(
+                    get: { model.settings.audio.prefersWideband },
+                    set: { model.settings.audio.prefersWideband = $0 }
+                ))
+                MilestoneNote("""
+                    50–7000 Гц вместо 300–3400 при том же битрейте. Работает на \
+                    внутренних звонках и в очередях. Лид с городского номера всё равно \
+                    приедет через G.711 — там выигрыша не будет, а перекодирование на \
+                    АТС появится.
+                    """)
+            }
+
             Section("Эхоподавление") {
                 MilestoneNote("Берём системный VoiceProcessingIO — тот же движок, что у FaceTime. Своего эхоподавителя не пишем.")
+
+                Toggle("Автоматическая регулировка усиления", isOn: Binding(
+                    get: { model.settings.audio.automaticGainControl },
+                    set: { model.settings.audio.automaticGainControl = $0 }
+                ))
+                MilestoneNote("""
+                    Система включает её сама. На встроенном микрофоне полезна, на \
+                    хорошей гарнитуре «дышит»: подтягивает шум в паузах и приседает на \
+                    громком слоге. Эхоподавление от неё не зависит и остаётся включённым.
+                    """)
+            }
+
+            if let route = model.audioRoute {
+                Section("Текущий разговор") {
+                    LabeledContent("Маршрут", value: route.summary)
+                    if let codec = model.negotiatedCodec {
+                        LabeledContent(
+                            "Кодек",
+                            value: codec.sdpName + (codec.isWideband ? " — широкая полоса" : "")
+                        )
+                    }
+                    LevelMeter(title: "Микрофон", level: model.inputLevel)
+                    LevelMeter(title: "Приём", level: model.outputLevel)
+
+                    if let remote = model.remoteAudioView {
+                        LabeledContent("У собеседника", value: remote.summary)
+                    }
+                }
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            reloadDevices()
+            // Списки сами следят за составом устройств: наушники подключают и
+            // отключают посреди настройки, и кнопка «обновить» в такой момент
+            // выглядит как неисправность.
+            observation = AudioDeviceCatalog.observe { _ in
+                Task { @MainActor in reloadDevices() }
+            }
+        }
+        .onDisappear { observation = nil }
+    }
+
+    private var needsAggregate: Bool {
+        AudioDeviceCatalog.needsAggregate(
+            inputUID: model.settings.audio.inputDeviceUID,
+            outputUID: model.settings.audio.outputDeviceUID
+        )
+    }
+
+    private func reloadDevices() {
+        inputs = model.inputDevices
+        outputs = model.outputDevices
+    }
+}
+
+/// Полоска уровня.
+///
+/// Нужна затем, чтобы оператор видел, что микрофон живой, до того как начнёт
+/// говорить, — а не узнавал об этом от собеседника.
+private struct LevelMeter: View {
+
+    let title: String
+    let level: Float
+
+    var body: some View {
+        LabeledContent(title) {
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.quaternary)
+                    Capsule()
+                        .fill(color)
+                        // Корень вместо самого уровня: слух логарифмический, и на
+                        // линейной шкале обычная речь болтается у левого края.
+                        .frame(width: geometry.size.width * CGFloat(sqrt(max(level, 0))))
+                }
+            }
+            .frame(width: 160, height: 6)
+        }
+    }
+
+    private var color: Color {
+        // Красный только у самой шкалы: там начинается ограничение, и голос
+        // хрипит независимо от кодека и сети.
+        level > 0.95 ? Theme.Palette.failure : .accentColor
     }
 }
 

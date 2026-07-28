@@ -11,6 +11,7 @@ public struct NegotiatedMedia: Sendable, Hashable {
     /// Направление С НАШЕЙ точки зрения.
     public var direction: MediaDirection
     public var packetTimeMilliseconds: Int
+    public var security: MediaSecurity
 
     public init(
         codec: AudioCodec,
@@ -19,7 +20,8 @@ public struct NegotiatedMedia: Sendable, Hashable {
         remoteAddress: String,
         remotePort: UInt16,
         direction: MediaDirection = .sendrecv,
-        packetTimeMilliseconds: Int = defaultPacketTimeMilliseconds
+        packetTimeMilliseconds: Int = defaultPacketTimeMilliseconds,
+        security: MediaSecurity = .none
     ) {
         self.codec = codec
         self.payloadType = payloadType
@@ -28,6 +30,7 @@ public struct NegotiatedMedia: Sendable, Hashable {
         self.remotePort = remotePort
         self.direction = direction
         self.packetTimeMilliseconds = packetTimeMilliseconds
+        self.security = security
     }
 
     /// Собеседник поставил нас на удержание: порт 0 или inactive.
@@ -40,6 +43,10 @@ public enum SDPNegotiationError: Error, Sendable, Equatable, CustomStringConvert
     case noAudioSection
     case noCommonCodec(offered: [UInt8])
     case noRemoteAddress
+    case secureMediaRequired
+    case missingCryptoAttribute
+    case cryptoTagMismatch
+    case unsupportedMediaProtocol(String)
 
     public var description: String {
         switch self {
@@ -49,14 +56,39 @@ public enum SDPNegotiationError: Error, Sendable, Equatable, CustomStringConvert
             "нет общего кодека, предложены payload type: \(offered.map(String.init).joined(separator: ", "))"
         case .noRemoteAddress:
             "в SDP не указан адрес для медиа"
+        case .secureMediaRequired:
+            "сервер не подтвердил обязательный SRTP"
+        case .missingCryptoAttribute:
+            "в защищённом SDP нет поддерживаемого атрибута a=crypto"
+        case .cryptoTagMismatch:
+            "сервер выбрал неизвестное предложение a=crypto"
+        case .unsupportedMediaProtocol(let name):
+            "неподдерживаемый протокол медиа \(name)"
         }
     }
+}
+
+public enum MediaSecurityPolicy: Sendable, Hashable {
+    case none
+    case sdesRequired
 }
 
 /// Составление предложения и разбор ответа по RFC 3264.
 public enum SDPNegotiator {
 
-    public static let defaultCodecs: [AudioCodec] = [.pcmu, .pcma]
+    /// Кодеки, которые предлагаем по умолчанию, в порядке предпочтения.
+    ///
+    /// G.722 первым: он единственный здесь широкополосный, а Asterisk выбирает
+    /// первый из списка, который умеет сам. Если разговор уходит в город, G.722
+    /// всё равно не переживёт стык с телефонной сетью, и Asterisk молча
+    /// согласится на G.711 — потерять от этой попытки нечего.
+    ///
+    /// PCMU перед PCMA потому, что так настроен боевой пир.
+    public static let defaultCodecs: [AudioCodec] = [.g722, .pcmu, .pcma]
+
+    /// Кодеки без широкой полосы. Пригодится, когда понадобится заставить
+    /// разговор идти узкой полосой, не трогая остальную настройку.
+    public static let narrowbandCodecs: [AudioCodec] = [.pcmu, .pcma]
 
     /// Наше предложение.
     ///
@@ -70,14 +102,15 @@ public enum SDPNegotiator {
         direction: MediaDirection = .sendrecv,
         sessionID: UInt64 = UInt64(Date().timeIntervalSince1970),
         sessionVersion: UInt64 = 1,
-        packetTimeMilliseconds: Int = defaultPacketTimeMilliseconds
+        packetTimeMilliseconds: Int = defaultPacketTimeMilliseconds,
+        security: MediaSecurityPolicy = .none
     ) -> SessionDescription {
         var formats = codecs.map(\.payloadType)
         var attributes: [SessionDescription.Attribute] = codecs.map {
             .init(name: "rtpmap", value: RTPMap(
                 payloadType: $0.payloadType,
                 encodingName: $0.sdpName,
-                clockRate: $0.clockRate
+                clockRate: $0.rtpClockRate
             ).value)
         }
 
@@ -96,11 +129,28 @@ public enum SDPNegotiator {
         attributes.append(.init(name: "ptime", value: String(packetTimeMilliseconds)))
         attributes.append(.init(name: direction.rawValue))
 
+        let protocolName: String
+        switch security {
+        case .none:
+            protocolName = "RTP/AVP"
+        case .sdesRequired:
+            protocolName = "RTP/SAVP"
+            attributes.append(.init(
+                name: "crypto",
+                value: SDESCryptoAttribute(key: .random()).value
+            ))
+        }
+
         return SessionDescription(
             origin: .init(sessionID: sessionID, sessionVersion: sessionVersion, address: address),
             connection: .init(address: address),
             media: [
-                MediaDescription(port: port, formats: formats, attributes: attributes)
+                MediaDescription(
+                    port: port,
+                    protocolName: protocolName,
+                    formats: formats,
+                    attributes: attributes
+                )
             ]
         )
     }
@@ -147,6 +197,7 @@ public enum SDPNegotiator {
         // пересечённое с тем, что мы просили в предложении.
         let offeredDirection = offer.audio?.direction ?? .sendrecv
         let direction = intersect(ours: offeredDirection, theirs: audio.direction)
+        let security = try resolveSecurity(answer: audio, offer: offer.audio)
 
         return NegotiatedMedia(
             codec: codec,
@@ -155,7 +206,8 @@ public enum SDPNegotiator {
             remoteAddress: address,
             remotePort: audio.port,
             direction: direction,
-            packetTimeMilliseconds: audio.packetTimeMilliseconds ?? defaultPacketTimeMilliseconds
+            packetTimeMilliseconds: audio.packetTimeMilliseconds ?? defaultPacketTimeMilliseconds,
+            security: security
         )
     }
 
@@ -196,7 +248,7 @@ public enum SDPNegotiator {
             .init(name: "rtpmap", value: RTPMap(
                 payloadType: payloadType,
                 encodingName: codec.sdpName,
-                clockRate: codec.clockRate
+                clockRate: codec.rtpClockRate
             ).value)
         ]
         var formats = [payloadType]
@@ -214,10 +266,38 @@ public enum SDPNegotiator {
         attributes.append(.init(name: "ptime", value: String(packetTimeMilliseconds)))
         attributes.append(.init(name: direction.rawValue))
 
+        let protocolName: String
+        let security: MediaSecurity
+        switch audio.protocolName.uppercased() {
+        case "RTP/AVP":
+            protocolName = "RTP/AVP"
+            security = .none
+        case "RTP/SAVP":
+            guard let remoteCrypto = audio.sdesCryptoAttributes.first else {
+                throw SDPNegotiationError.missingCryptoAttribute
+            }
+            let localKey = SRTPMasterKey.random()
+            attributes.append(.init(
+                name: "crypto",
+                value: SDESCryptoAttribute(tag: remoteCrypto.tag, suite: remoteCrypto.suite, key: localKey).value
+            ))
+            protocolName = "RTP/SAVP"
+            security = .sdes(local: localKey, remote: remoteCrypto.key)
+        default:
+            throw SDPNegotiationError.unsupportedMediaProtocol(audio.protocolName)
+        }
+
         let answer = SessionDescription(
             origin: .init(sessionID: sessionID, address: address),
             connection: .init(address: address),
-            media: [MediaDescription(port: port, formats: formats, attributes: attributes)]
+            media: [
+                MediaDescription(
+                    port: port,
+                    protocolName: protocolName,
+                    formats: formats,
+                    attributes: attributes
+                )
+            ]
         )
 
         let media = NegotiatedMedia(
@@ -227,7 +307,8 @@ public enum SDPNegotiator {
             remoteAddress: remoteAddress,
             remotePort: audio.port,
             direction: direction,
-            packetTimeMilliseconds: audio.packetTimeMilliseconds ?? packetTimeMilliseconds
+            packetTimeMilliseconds: audio.packetTimeMilliseconds ?? packetTimeMilliseconds,
+            security: security
         )
 
         return (answer, media)
@@ -246,6 +327,38 @@ public enum SDPNegotiator {
         case (true, false): .sendonly
         case (false, true): .recvonly
         case (false, false): .inactive
+        }
+    }
+
+    private static func resolveSecurity(
+        answer: MediaDescription,
+        offer: MediaDescription?
+    ) throws -> MediaSecurity {
+        guard let offer else { throw SDPNegotiationError.noAudioSection }
+
+        switch offer.protocolName.uppercased() {
+        case "RTP/AVP":
+            guard answer.protocolName.caseInsensitiveCompare("RTP/AVP") == .orderedSame else {
+                throw SDPNegotiationError.unsupportedMediaProtocol(answer.protocolName)
+            }
+            return .none
+
+        case "RTP/SAVP":
+            guard answer.protocolName.caseInsensitiveCompare("RTP/SAVP") == .orderedSame else {
+                throw SDPNegotiationError.secureMediaRequired
+            }
+            guard let localCrypto = offer.sdesCryptoAttributes.first,
+                  let remoteCrypto = answer.sdesCryptoAttributes.first
+            else {
+                throw SDPNegotiationError.missingCryptoAttribute
+            }
+            guard localCrypto.tag == remoteCrypto.tag, localCrypto.suite == remoteCrypto.suite else {
+                throw SDPNegotiationError.cryptoTagMismatch
+            }
+            return .sdes(local: localCrypto.key, remote: remoteCrypto.key)
+
+        default:
+            throw SDPNegotiationError.unsupportedMediaProtocol(offer.protocolName)
         }
     }
 }
