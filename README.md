@@ -66,7 +66,8 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 (cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test)
 ```
 
-Проверка против живой АТС и сама лаборатория — см. [Lab/README.md](Lab/README.md).
+Проверка против живой АТС и лаборатория — [Lab/README.md](Lab/README.md).
+Настройки для клиентов, включая PortSIP на телефоне — [Lab/CLIENTS.md](Lab/CLIENTS.md).
 
 ## Этапы
 
