@@ -82,27 +82,9 @@ struct InboundRequestTests {
         #expect(responses[0].cseq?.number == responses[1].cseq?.number)
     }
 
-    @Test("Входящий INVITE в M1 честно отклоняется, а не игнорируется")
-    func rejectsInviteForNow() async throws {
-        let server = acceptingServer()
-        let agent = await registeredAgent(server)
-
-        var invite = SIPRequest(method: .invite, uri: SIPURI(user: "100", host: "192.168.1.50"))
-        invite.headers.append(SIPHeaderName.via, "SIP/2.0/UDP 172.17.0.2:5060;branch=z9hG4bKinvite1")
-        invite.headers.append(SIPHeaderName.from, "\"101\" <sip:101@172.17.0.2>;tag=as99")
-        invite.headers.append(SIPHeaderName.to, "<sip:100@192.168.1.50>")
-        invite.headers.append(SIPHeaderName.callID, "call-invite-1")
-        invite.headers.append(SIPHeaderName.cseq, "1 INVITE")
-        server.inject(request: invite)
-
-        #expect(await waitUntil { !server.sentResponses.isEmpty })
-        await agent.stop()
-
-        let response = try #require(server.sentResponses.first)
-        // Молчание заставило бы Asterisk ждать таймаута и держать канал занятым.
-        #expect(response.statusCode == 480)
-        #expect(response.callID == "call-invite-1")
-    }
+    // Входящий INVITE со всеми его случаями разобран отдельно, в
+    // `IncomingCallTests`: с M3 это уже не «отказ на неподдерживаемое», а
+    // полноценный звонок со своей транзакцией и своими таймерами.
 
     @Test("Неподдерживаемый метод получает 405 со списком Allow")
     func rejectsUnknownMethod() async throws {

@@ -11,6 +11,9 @@ public actor SIPUserAgent {
     public enum Event: Sendable {
         case registration(SIPRegistrationState)
         case log(level: SIPLogLevel, message: String)
+        /// Нам звонят. Дальше решает тот, кто это событие получил:
+        /// `answerIncomingCall` или `rejectIncomingCall`.
+        case incomingCall(SIPIncomingCall)
         /// Запрос, на который мы ответили отказом, потому что он ещё не
         /// поддерживается. Нужен, чтобы такие вещи было видно, а не только в логе.
         case unsupportedRequest(method: SIPMethod)
@@ -42,19 +45,37 @@ public actor SIPUserAgent {
     private var activeCall: ActiveCall?
 
     private struct ActiveCall {
+
+        /// Кто кому позвонил. От этого зависит буквально всё: как завершать до
+        /// ответа (CANCEL против 486), чей тег в каком заголовке и кто должен
+        /// прислать ACK.
+        enum Role { case caller, callee }
+
+        let role: Role
         let callID: String
         let localTag: String
         let branch: String
-        /// Номер CSeq отправленного INVITE. ACK на 2xx обязан повторить его.
+        /// Номер CSeq INVITE. ACK на 2xx обязан повторить его.
         let inviteSequence: Int
         let continuation: AsyncStream<SIPCallEvent>.Continuation
         var dialog: SIPDialog?
         var state: SIPCallState
+
+        /// Входящий INVITE целиком: на него надо отвечать, и не один раз.
+        var inviteRequest: SIPRequest?
+
+        /// Последнее тело SDP, которое мы отправили по этому звонку.
+        ///
+        /// Нужно на повторный INVITE: пока пересогласование не сделано (M4),
+        /// честный способ не уронить разговор — повторить то, о чём уже
+        /// договорились, а не отказать.
+        var localSDP: Data?
     }
 
     private var state: SIPRegistrationState = .idle
     private var registrationTask: Task<Void, Never>?
     private var requestPumpTask: Task<Void, Never>?
+    private var serverInvitePumpTask: Task<Void, Never>?
     private var isStopping = false
     private var consecutiveFailures = 0
 
@@ -89,6 +110,13 @@ public actor SIPUserAgent {
         requestPumpTask = Task { [weak self] in
             for await request in inbound {
                 await self?.handle(inbound: request)
+            }
+        }
+
+        let serverInvites = transactions.serverInviteEvents
+        serverInvitePumpTask = Task { [weak self] in
+            for await event in serverInvites {
+                await self?.handle(serverInvite: event)
             }
         }
 
@@ -136,6 +164,8 @@ public actor SIPUserAgent {
 
         requestPumpTask?.cancel()
         requestPumpTask = nil
+        serverInvitePumpTask?.cancel()
+        serverInvitePumpTask = nil
         await transactions.stop()
         set(state: .idle)
         eventContinuation.finish()
@@ -428,13 +458,15 @@ public actor SIPUserAgent {
                 }
 
                 activeCall = ActiveCall(
+                    role: .caller,
                     callID: callID,
                     localTag: localTag,
                     branch: branch,
                     inviteSequence: sequence,
                     continuation: continuation,
                     dialog: nil,
-                    state: .dialing
+                    state: .dialing,
+                    localSDP: offer
                 )
                 emitCallState(.dialing)
                 log(.info, "-> INVITE \(target)")
@@ -528,6 +560,13 @@ public actor SIPUserAgent {
     /// Завершает звонок со своей стороны.
     public func hangUp() async {
         guard var call = activeCall else { return }
+
+        // Входящий, на который мы ещё не ответили, завершается отказом, а не
+        // CANCEL: CANCEL отменяет СВОЙ запрос, а этот запрос не наш.
+        if call.role == .callee, call.dialog == nil {
+            await rejectIncomingCall(status: 486)
+            return
+        }
 
         if let dialog = call.dialog {
             emitCallState(.ending)
@@ -654,6 +693,12 @@ public actor SIPUserAgent {
     }
 
     private func finishCall(with event: SIPCallEvent, continuation: AsyncStream<SIPCallEvent>.Continuation) {
+        // Серверную транзакцию снимаем вместе со звонком: ждать ACK на ответ
+        // по завершённому вызову незачем, а её таймеры пережили бы сам звонок.
+        if let call = activeCall, call.role == .callee {
+            let callID = call.callID
+            Task { await transactions.forgetServerInvite(callID: callID) }
+        }
         activeCall = nil
 
         let reason = switch event {
@@ -665,6 +710,191 @@ public actor SIPUserAgent {
         continuation.yield(.state(.ended(reason: reason)))
         continuation.yield(event)
         continuation.finish()
+    }
+
+    // MARK: - Входящий звонок
+
+    /// Принимает входящий INVITE и поднимает шум наверх.
+    ///
+    /// Быстрый порядок ответов важен: 100 гасит ретрансмиссии INVITE (на UDP
+    /// они начинаются через полсекунды), 180 включает гудки у звонящего. Всё,
+    /// что дольше, — уже решение оператора, и торопить его нечем.
+    private func handle(invite request: SIPRequest) async {
+        // Повторный INVITE внутри установленного диалога — это удержание или
+        // смена медиа. Пересогласование делается в M4; до тех пор честнее
+        // подтвердить то, о чём уже договорились, чем отказать и уронить
+        // разговор на ровном месте.
+        if let call = activeCall, call.callID == request.callID, call.dialog != nil {
+            var response = SIPResponse(
+                statusCode: 200,
+                headers: responseHeaders(for: request, localTag: call.localTag),
+                body: call.localSDP ?? Data()
+            )
+            response.headers.append(SIPHeaderName.contentType, "application/sdp")
+            response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
+            response.headers.append(SIPHeaderName.userAgent, userAgentName)
+            try? await transactions.respondToInvite(to: request, with: response)
+            log(.info, "<- повторный INVITE подтверждён прежним SDP; пересогласование — M4")
+            return
+        }
+
+        // Линия одна. Второй вызов получает «занято», а не молчание: очередь
+        // раздачи должна сразу отдать лид следующему агенту.
+        guard activeCall == nil else {
+            var busy = SIPResponse(statusCode: 486, headers: responseHeaders(for: request))
+            busy.headers.append(SIPHeaderName.userAgent, userAgentName)
+            try? await transactions.respondToInvite(to: request, with: busy)
+            log(.info, "<- INVITE, ответили 486: линия занята")
+            return
+        }
+
+        guard let callID = request.callID, let branch = request.topVia?.branch else {
+            var badRequest = SIPResponse(statusCode: 400, headers: responseHeaders(for: request))
+            badRequest.headers.append(SIPHeaderName.userAgent, userAgentName)
+            try? await transactions.respondToInvite(to: request, with: badRequest)
+            return
+        }
+
+        // Без Contact диалог не собрать — значит и отвечать не на что: BYE
+        // отправлять будет некуда. Отказ здесь честнее, чем разговор,
+        // который невозможно завершить.
+        guard request.contacts.first != nil else {
+            var badRequest = SIPResponse(
+                statusCode: 400,
+                reasonPhrase: "Missing Contact",
+                headers: responseHeaders(for: request)
+            )
+            badRequest.headers.append(SIPHeaderName.userAgent, userAgentName)
+            try? await transactions.respondToInvite(to: request, with: badRequest)
+            log(.warning, "<- INVITE без Contact, отклонён")
+            return
+        }
+
+        let callTag = SIPToken.tag()
+        let (stream, continuation) = AsyncStream<SIPCallEvent>.makeStream(bufferingPolicy: .bufferingNewest(32))
+
+        activeCall = ActiveCall(
+            role: .callee,
+            callID: callID,
+            localTag: callTag,
+            branch: branch,
+            inviteSequence: request.cseq?.number ?? 1,
+            continuation: continuation,
+            dialog: nil,
+            state: .incoming,
+            inviteRequest: request
+        )
+
+        let trying = SIPResponse(statusCode: 100, headers: responseHeaders(for: request, localTag: callTag))
+        try? await transactions.respondToInvite(to: request, with: trying)
+
+        var ringing = SIPResponse(statusCode: 180, headers: responseHeaders(for: request, localTag: callTag))
+        ringing.headers.append(SIPHeaderName.allow, Self.allowedMethods)
+        ringing.headers.append(SIPHeaderName.supported, "replaces")
+        ringing.headers.append(SIPHeaderName.userAgent, userAgentName)
+        try? await transactions.respondToInvite(to: request, with: ringing)
+
+        let from = request.from
+        let call = SIPIncomingCall(
+            callID: callID,
+            callerNumber: from?.uri.user ?? "",
+            callerName: from?.displayName,
+            calledNumber: request.to?.uri.user ?? account.username,
+            offer: request.body,
+            offerContentType: request.contentType,
+            events: stream
+        )
+
+        log(.info, "<- INVITE от \(call.displayNumber), ответили 180")
+        continuation.yield(.state(.incoming))
+        eventContinuation.yield(.incomingCall(call))
+    }
+
+    /// Отвечает на входящий звонок: 200 OK с нашим SDP.
+    ///
+    /// Медиа надо поднимать сразу после возврата, не дожидаясь ACK: Asterisk
+    /// начинает слать RTP по 200 OK, и первые полсекунды разговора иначе
+    /// уходят в никуда.
+    @discardableResult
+    public func answerIncomingCall(answer: Data, contentType: String = "application/sdp") async -> Bool {
+        guard var call = activeCall,
+              call.role == .callee,
+              call.state == .incoming,
+              let invite = call.inviteRequest
+        else { return false }
+
+        guard let dialog = SIPDialog(responderRequest: invite, localTag: call.localTag) else {
+            log(.error, "во входящем INVITE нет Contact — диалог собрать невозможно")
+            await rejectIncomingCall(status: 400)
+            return false
+        }
+
+        var response = SIPResponse(
+            statusCode: 200,
+            headers: responseHeaders(for: invite, localTag: call.localTag),
+            body: answer
+        )
+        response.headers.append(SIPHeaderName.contentType, contentType)
+        response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
+        response.headers.append(SIPHeaderName.supported, "replaces")
+        response.headers.append(SIPHeaderName.userAgent, userAgentName)
+
+        call.dialog = dialog
+        call.state = .answered
+        call.localSDP = answer
+        activeCall = call
+
+        do {
+            try await transactions.respondToInvite(to: invite, with: response)
+        } catch {
+            log(.error, "не удалось отправить 200 OK: \(Self.describe(error))")
+            finishCall(with: .failed(status: 0, reason: "ответ не ушёл"), continuation: call.continuation)
+            return false
+        }
+
+        log(.info, "-> 200 OK, звонок принят")
+        call.continuation.yield(.state(.answered))
+        return true
+    }
+
+    /// Отклоняет входящий звонок.
+    ///
+    /// 486 «занято» по умолчанию, а не 603 «отклонён»: при раздаче лидов
+    /// первое возвращает вызов в очередь следующему агенту, второе завершает
+    /// его совсем.
+    public func rejectIncomingCall(status: Int = 486) async {
+        guard let call = activeCall,
+              call.role == .callee,
+              call.state == .incoming,
+              let invite = call.inviteRequest
+        else { return }
+
+        var response = SIPResponse(
+            statusCode: status,
+            headers: responseHeaders(for: invite, localTag: call.localTag)
+        )
+        response.headers.append(SIPHeaderName.userAgent, userAgentName)
+        try? await transactions.respondToInvite(to: invite, with: response)
+
+        log(.info, "-> \(status), звонок отклонён")
+        finishCall(with: .ended(reason: "отклонён"), continuation: call.continuation)
+    }
+
+    /// Судьба нашего 200 OK на входящий звонок.
+    private func handle(serverInvite event: SIPServerInviteEvent) async {
+        switch event {
+        case .acknowledged(let callID):
+            guard let call = activeCall, call.callID == callID else { return }
+            log(.debug, "<- ACK, разговор подтверждён")
+
+        case .notAcknowledged(let callID):
+            guard let call = activeCall, call.callID == callID, call.dialog != nil else { return }
+            // Диалог создан нашим 200, но подтверждения нет. RFC 3261 §13.3.1.4
+            // требует закрыть его через BYE: иначе на нашей стороне разговор,
+            // о котором собеседник не знает, а оператор говорит в пустоту.
+            log(.warning, "ACK не пришёл за 32 с — закрываем звонок")
+            await hangUp()
+        }
     }
 
     // MARK: - Входящие запросы
@@ -697,13 +927,34 @@ public actor SIPUserAgent {
             break
 
         case .invite:
-            // Приём входящих звонков — M3. Пока честный отказ: тишина
-            // заставила бы сервер ждать таймаута и держать канал.
-            var response = SIPResponse(statusCode: 480, headers: responseHeaders(for: request))
-            response.headers.append(SIPHeaderName.userAgent, userAgentName)
+            await handle(invite: request)
+
+        case .cancel:
+            // CANCEL отменяет ещё не отвеченный INVITE. Отвечать надо дважды:
+            // 200 на сам CANCEL и 487 на отменённый INVITE — иначе Asterisk
+            // считает вызов живым и держит канал до таймаута.
+            let response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
             try? await transactions.respond(to: request, with: response)
-            eventContinuation.yield(.unsupportedRequest(method: .invite))
-            log(.info, "входящий INVITE отклонён: приём звонков появится в M3")
+
+            guard let call = activeCall,
+                  call.role == .callee,
+                  call.callID == request.callID,
+                  call.dialog == nil,
+                  let invite = call.inviteRequest
+            else {
+                log(.debug, "<- CANCEL, отменять нечего")
+                return
+            }
+
+            var terminated = SIPResponse(
+                statusCode: 487,
+                headers: responseHeaders(for: invite, localTag: call.localTag)
+            )
+            terminated.headers.append(SIPHeaderName.userAgent, userAgentName)
+            try? await transactions.respondToInvite(to: invite, with: terminated)
+
+            log(.info, "<- CANCEL, вызов отменён до ответа")
+            finishCall(with: .ended(reason: "отменён вызывающим"), continuation: call.continuation)
 
         default:
             var response = SIPResponse(statusCode: 405, headers: responseHeaders(for: request))
@@ -714,7 +965,13 @@ public actor SIPUserAgent {
     }
 
     /// Заголовки ответа, скопированные из запроса по RFC 3261 §8.2.6.2.
-    private func responseHeaders(for request: SIPRequest) -> SIPHeaders {
+    ///
+    /// Тег по умолчанию — регистрационный: им подписаны ответы на OPTIONS, и
+    /// он постоянен, пока агент жив. У звонка тег свой: диалог опознаётся по
+    /// тройке Call-ID и двух тегов, и подписывать разные звонки одним тегом
+    /// значит склеивать их при перезвоне с тем же Call-ID.
+    private func responseHeaders(for request: SIPRequest, localTag: String? = nil) -> SIPHeaders {
+        let tag = localTag ?? self.localTag
         var headers = SIPHeaders()
 
         // Весь стек Via в исходном порядке — по нему ответ находит дорогу обратно.
@@ -728,7 +985,7 @@ public actor SIPUserAgent {
         // В To добавляем свой тег, если его там не было.
         if var to = request.to {
             if to.tag == nil {
-                to.tag = localTag
+                to.tag = tag
             }
             headers.append(SIPHeaderName.to, to.description)
         }

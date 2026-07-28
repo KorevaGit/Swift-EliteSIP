@@ -86,6 +86,40 @@ public struct SIPDialog: Sendable, Hashable {
         )
     }
 
+    /// Собирает диалог из принятого нами INVITE и нашего же 200 OK.
+    ///
+    /// Зеркало инициаторского случая, и зеркалить приходится всё: наш тег
+    /// теперь в To, чужой — во From, маршрут из Record-Route берётся в обратном
+    /// порядке (RFC 3261 §12.1.1), а счётчик CSeq для наших запросов начинается
+    /// с нуля — номер из INVITE принадлежит другой стороне.
+    public init?(responderRequest request: SIPRequest, localTag: String) {
+        guard let callID = request.callID,
+              let from = request.from,
+              let to = request.to,
+              let remoteTag = from.tag
+        else { return nil }
+
+        // Contact запроса — единственный адрес, куда можно слать BYE. За NAT он
+        // отличается от того, что стоит во From, и падать назад на From нельзя.
+        guard let contact = request.contacts.first?.uri else { return nil }
+
+        let routes = request.headers.values(SIPHeaderName.recordRoute)
+            .compactMap { NameAddress($0)?.uri }
+            .reversed()
+
+        self.init(
+            callID: callID,
+            localTag: localTag,
+            remoteTag: remoteTag,
+            localAddress: to,
+            remoteAddress: from,
+            remoteTarget: contact,
+            routeSet: Array(routes),
+            localSequence: 0,
+            isInitiator: false
+        )
+    }
+
     // MARK: - Построение запросов внутри диалога
 
     /// Куда физически отправлять запрос: первый lr-маршрут, если он есть,
