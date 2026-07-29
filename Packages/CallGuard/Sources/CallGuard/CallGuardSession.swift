@@ -1,3 +1,4 @@
+import Compat
 import CoreGraphics
 
 /// Защита одного входящего вызова: от появления окна до решения оператора.
@@ -11,7 +12,7 @@ public struct CallGuardSession: Sendable {
     public let challenge: CallGuardChallenge
 
     /// Когда появилось окно. От этого момента считается всё остальное.
-    public let presentedAt: ContinuousClock.Instant
+    public let presentedAt: MonotonicClock.Instant
 
     private(set) public var report: CallGuardReport
 
@@ -21,7 +22,7 @@ public struct CallGuardSession: Sendable {
 
     public init(
         policy: CallGuardPolicy,
-        presentedAt: ContinuousClock.Instant,
+        presentedAt: MonotonicClock.Instant,
         using generator: inout some RandomNumberGenerator
     ) {
         let policy = policy.normalized
@@ -37,11 +38,11 @@ public struct CallGuardSession: Sendable {
     }
 
     /// Момент, начиная с которого нажатие принимается.
-    public var activatesAt: ContinuousClock.Instant {
+    public var activatesAt: MonotonicClock.Instant {
         presentedAt + challenge.activationDelay
     }
 
-    public func isActive(at now: ContinuousClock.Instant) -> Bool {
+    public func isActive(at now: MonotonicClock.Instant) -> Bool {
         now >= activatesAt
     }
 
@@ -124,17 +125,5 @@ public struct CallGuardSession: Sendable {
     private mutating func reject(_ reason: CallGuardRejection) -> CallGuardVerdict {
         report.rejections[reason, default: 0] += 1
         return .rejected(reason)
-    }
-}
-
-public extension Duration {
-
-    /// Целые миллисекунды.
-    ///
-    /// Своё, потому что деление `Duration` на `Duration` даёт `Double`, а в
-    /// отчёте нужны ровные числа: «реакция 210 мс» читается, «210.00004» — нет.
-    var wholeMilliseconds: Int {
-        let parts = components
-        return Int(parts.seconds) * 1000 + Int(parts.attoseconds / 1_000_000_000_000_000)
     }
 }

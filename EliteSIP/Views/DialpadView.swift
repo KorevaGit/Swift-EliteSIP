@@ -2,7 +2,7 @@ import SwiftUI
 
 struct DialpadView: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
 
     /// Буквенных подписей нет намеренно: контактов в приложении нет, а на
     /// клавиатуре Asterisk буквы не значат ничего.
@@ -49,6 +49,6 @@ private struct DialpadKey: View {
         .themedControlSurface()
         .hoverHighlight()
         // Набор с физической клавиатуры — базовое ожидание от софтфона.
-        .keyboardShortcut(KeyEquivalent(character), modifiers: [])
+        .compatKeyboardShortcut(character, modifiers: [])
     }
 }

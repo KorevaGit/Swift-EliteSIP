@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 @testable import SIPCore
 
@@ -184,13 +185,13 @@ extension ScriptedSIPServer {
 /// ложных падений, так и медленных прогонов. Опрос по условию быстрее и стабильнее.
 @discardableResult
 func waitUntil(
-    _ timeout: Duration = .seconds(5),
+    _ timeout: Interval = .seconds(5),
     _ condition: @Sendable () async -> Bool
 ) async -> Bool {
-    let deadline = ContinuousClock.now + timeout
-    while ContinuousClock.now < deadline {
+    let deadline = MonotonicClock.now + timeout
+    while MonotonicClock.now < deadline {
         if await condition() { return true }
-        try? await Task.sleep(for: .milliseconds(5))
+        try? await Task.sleep(.milliseconds(5))
     }
     return await condition()
 }

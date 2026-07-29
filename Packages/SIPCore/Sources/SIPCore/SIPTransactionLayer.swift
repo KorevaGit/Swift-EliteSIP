@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 
 /// Слой транзакций: клиентские не-INVITE (RFC 3261 §17.1.2), клиентские INVITE
@@ -19,11 +20,11 @@ public actor SIPTransactionLayer {
 
     public struct Timers: Sendable, Hashable {
         /// Оценка RTT. Начальный интервал ретрансмиссий.
-        public var t1: Duration = .milliseconds(500)
+        public var t1: Interval = .milliseconds(500)
         /// Максимальный интервал ретрансмиссий.
-        public var t2: Duration = .seconds(4)
+        public var t2: Interval = .seconds(4)
         /// Максимальное время жизни сообщения в сети.
-        public var t4: Duration = .seconds(5)
+        public var t4: Interval = .seconds(5)
 
         /// Таймер D: сколько держать завершённую INVITE-транзакцию, чтобы
         /// поглощать ретрансмиссии неуспешного ответа.
@@ -31,12 +32,12 @@ public actor SIPTransactionLayer {
         /// По RFC 3261 §17.1.1.2 он не выводится из T1, а задаётся отдельно и
         /// должен быть не меньше 32 секунд. Хранимое свойство, а не вычисляемое,
         /// именно поэтому — и чтобы тесты могли его укоротить.
-        public var completedLifetime: Duration = .seconds(32)
+        public var completedLifetime: Interval = .seconds(32)
 
         public init() {}
 
         /// Таймер F для не-INVITE и таймер B для INVITE.
-        public var transactionTimeout: Duration { t1 * 64 }
+        public var transactionTimeout: Interval { t1 * 64 }
     }
 
     private struct ClientTransaction {
@@ -154,12 +155,12 @@ public actor SIPTransactionLayer {
     }
 
     /// Ждёт готовности канала и возвращает локальный адрес.
-    public func waitUntilReady(timeout: Duration = .seconds(10)) async throws -> SIPEndpoint {
+    public func waitUntilReady(timeout: Interval = .seconds(10)) async throws -> SIPEndpoint {
         if let localEndpoint { return localEndpoint }
         if let failureReason { throw TransactionError.transportFailed(failureReason) }
 
         let timeoutTask = Task { [weak self] in
-            do { try await Task.sleep(for: timeout) } catch { return }
+            do { try await Task.sleep(timeout) } catch { return }
             await self?.failReadiness(with: .timeout)
         }
         defer { timeoutTask.cancel() }
@@ -194,7 +195,7 @@ public actor SIPTransactionLayer {
 
             let timeout = timers.transactionTimeout
             clientTransactions[key]?.timeoutTask = Task { [weak self] in
-                do { try await Task.sleep(for: timeout) } catch { return }
+                do { try await Task.sleep(timeout) } catch { return }
                 await self?.finish(key: key, with: .failure(TransactionError.timeout))
             }
 
@@ -245,7 +246,7 @@ public actor SIPTransactionLayer {
         // Иначе `try?` проглатывает CancellationError, и таймер срабатывает
         // ровно тогда, когда его уже отменили за ненадобностью.
         inviteTransactions[key]?.timeoutTask = Task { [weak self] in
-            do { try await Task.sleep(for: timeout) } catch { return }
+            do { try await Task.sleep(timeout) } catch { return }
             await self?.expireInvite(key: key)
         }
 
@@ -339,7 +340,7 @@ public actor SIPTransactionLayer {
 
         let limit = timers.transactionTimeout
         transaction.timeoutTask = Task { [weak self] in
-            do { try await Task.sleep(for: limit) } catch { return }
+            do { try await Task.sleep(limit) } catch { return }
             await self?.expireServerInvite(branch: branch)
         }
 
@@ -349,7 +350,7 @@ public actor SIPTransactionLayer {
             transaction.retransmitTask = Task { [weak self] in
                 var interval = t1
                 while !Task.isCancelled {
-                    try? await Task.sleep(for: interval)
+                    try? await Task.sleep(interval)
                     guard !Task.isCancelled, let self else { return }
                     guard await self.resendServerInviteResponse(branch: branch) else { return }
                     interval = min(interval * 2, t2)
@@ -432,7 +433,7 @@ public actor SIPTransactionLayer {
         sentResponses[branch] = response
         let lifetime = timers.t4 * 8
         Task { [weak self] in
-            try? await Task.sleep(for: lifetime)
+            try? await Task.sleep(lifetime)
             await self?.forgetResponse(branch: branch)
         }
     }
@@ -462,7 +463,7 @@ public actor SIPTransactionLayer {
         clientTransactions[key]?.retransmitTask = Task { [weak self] in
             var interval = t1
             while !Task.isCancelled {
-                try? await Task.sleep(for: interval)
+                try? await Task.sleep(interval)
                 guard !Task.isCancelled else { return }
                 guard let self, await self.isPending(key: key) else { return }
                 try? await self.resend(key: key)
@@ -487,7 +488,7 @@ public actor SIPTransactionLayer {
         inviteTransactions[key]?.retransmitTask = Task { [weak self] in
             var interval = t1
             while !Task.isCancelled {
-                try? await Task.sleep(for: interval)
+                try? await Task.sleep(interval)
                 guard !Task.isCancelled else { return }
                 guard let self, await self.isInviteCalling(key: key) else { return }
                 try? await self.resendInvite(key: key)
@@ -650,10 +651,10 @@ public actor SIPTransactionLayer {
 
         // Таймер D: держим состояние, чтобы поглощать ретрансмиссии ответа и
         // отвечать на них тем же ACK.
-        let lifetime = channel.transport.isReliable ? Duration.zero : timers.completedLifetime
+        let lifetime = channel.transport.isReliable ? Interval.zero : timers.completedLifetime
         inviteTransactions[key]?.completedTask = Task { [weak self] in
             if lifetime > .zero {
-                do { try await Task.sleep(for: lifetime) } catch { return }
+                do { try await Task.sleep(lifetime) } catch { return }
             }
             await self?.removeInvite(key: key)
         }

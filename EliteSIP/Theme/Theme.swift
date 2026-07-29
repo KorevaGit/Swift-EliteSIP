@@ -83,6 +83,10 @@ enum Theme {
         static let connecting = Color.orange
         static let offline = Color.secondary
         static let failure = Color.red
+        /// Третий уровень текста. Своя константа, потому что иерархический
+        /// стиль `.tertiary` — это macOS 12, а `Color.tertiary` не существует
+        /// вовсе ни на одной версии.
+        static let tertiary = Color.secondary.opacity(0.55)
     }
 }
 
@@ -97,7 +101,7 @@ private struct HoverHighlight: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay {
+            .compatOverlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(Color.primary.opacity(isHovered && isEnabled ? 0.12 : 0))
                     // Наложение обязано быть прозрачным для мыши, иначе оно же
@@ -105,19 +109,27 @@ private struct HoverHighlight: ViewModifier {
                     .allowsHitTesting(false)
             }
             .onHover { isHovered = $0 }
-            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .compatAnimation(.easeOut(duration: 0.12), value: isHovered)
     }
 }
 
 extension View {
 
-    /// Основная поверхность: стекло на macOS 26, материал на 14–15.
+    /// Основная поверхность: стекло на macOS 26, материал ниже.
+    ///
+    /// Три ступени, а не две: `Material` из SwiftUI появился только в macOS 12,
+    /// поэтому на Catalina и Big Sur тот же системный эффект берётся напрямую у
+    /// AppKit. Плоской заливки нет ни на одной ступени.
     @ViewBuilder
     func themedSurface(cornerRadius: CGFloat = Theme.Radius.surface) -> some View {
         if #available(macOS 26.0, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else if #available(macOS 12.0, *) {
+            self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
         } else {
-            self.background(.ultraThinMaterial, in: .rect(cornerRadius: cornerRadius))
+            self.background(
+                CompatMaterial(material: .hudWindow, cornerRadius: cornerRadius)
+            )
         }
     }
 
@@ -142,8 +154,15 @@ extension View {
     func themedControlSurface(cornerRadius: CGFloat = Theme.Radius.control) -> some View {
         if #available(macOS 26.0, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else if #available(macOS 12.0, *) {
+            self.background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: cornerRadius))
         } else {
-            self.background(.quaternary.opacity(0.6), in: .rect(cornerRadius: cornerRadius))
+            // `.quaternary` — тоже macOS 12. Ниже берётся тот же по смыслу
+            // слабый слой поверх фона, но заданный явной прозрачностью.
+            self.background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color.primary.opacity(0.08))
+            )
         }
     }
 }

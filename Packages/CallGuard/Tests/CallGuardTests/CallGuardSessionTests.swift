@@ -1,3 +1,4 @@
+import Compat
 import CoreGraphics
 import Foundation
 import Testing
@@ -22,7 +23,7 @@ struct SequenceGenerator: RandomNumberGenerator {
 @Suite("Защита от автокликеров")
 struct CallGuardSessionTests {
 
-    private let start = ContinuousClock.now
+    private let start = MonotonicClock.now
 
     /// Политика с включённым цифровым подтверждением: по умолчанию оно
     /// выключено, а проверять выбор цели надо именно на нём.
@@ -79,7 +80,7 @@ struct CallGuardSessionTests {
         var session = session()
         moveCursorLikeHuman(&session)
 
-        let delay = Int(session.challenge.activationDelay / .milliseconds(1))
+        let delay = session.challenge.activationDelay.wholeMilliseconds
         #expect(session.evaluate(attempt: mouseAttempt(on: session, after: delay + 100)) == .accepted)
     }
 
@@ -93,7 +94,7 @@ struct CallGuardSessionTests {
             #expect(Set(session.challenge.targets).count == 3, "две одинаковые цифры сделали бы задание неразрешимым")
             #expect(session.challenge.targets.contains(session.challenge.answer))
 
-            let delay = session.challenge.activationDelay / .milliseconds(1)
+            let delay = session.challenge.activationDelay.wholeMilliseconds
             #expect(delay >= 300 && delay <= 1500)
         }
     }
@@ -129,7 +130,7 @@ struct CallGuardSessionTests {
         var session = session()
         moveCursorLikeHuman(&session)
 
-        let delay = Int(session.challenge.activationDelay / .milliseconds(1))
+        let delay = session.challenge.activationDelay.wholeMilliseconds
         let verdict = session.evaluate(attempt: mouseAttempt(on: session, after: delay - 1))
 
         #expect(verdict == .rejected(.tooEarly))
@@ -143,7 +144,7 @@ struct CallGuardSessionTests {
         var session = session()
         moveCursorLikeHuman(&session)
 
-        let delay = Int(session.challenge.activationDelay / .milliseconds(1))
+        let delay = session.challenge.activationDelay.wholeMilliseconds
         let verdict = session.evaluate(attempt: mouseAttempt(on: session, after: delay + 200))
 
         #expect(verdict == .accepted)

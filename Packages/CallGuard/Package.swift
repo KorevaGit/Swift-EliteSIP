@@ -10,18 +10,22 @@ import PackageDescription
 // времени. Генератор случайных чисел и момент времени приходят снаружи.
 let package = Package(
     name: "CallGuard",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v10_15)],
     products: [
         .library(name: "CallGuard", targets: ["CallGuard"])
+    ],
+    dependencies: [
+        .package(path: "../Compat")
     ],
     targets: [
         .target(
             name: "CallGuard",
+            dependencies: [.product(name: "Compat", package: "Compat")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "CallGuardTests",
-            dependencies: ["CallGuard"],
+            dependencies: ["CallGuard", .product(name: "Compat", package: "Compat")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

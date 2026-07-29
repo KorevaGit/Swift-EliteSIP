@@ -6,18 +6,22 @@ import PackageDescription
 // зависит первый живой звонок в M2.
 let package = Package(
     name: "MediaCore",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v10_15)],
     products: [
         .library(name: "MediaCore", targets: ["MediaCore"])
+    ],
+    dependencies: [
+        .package(path: "../Compat")
     ],
     targets: [
         .target(
             name: "MediaCore",
+            dependencies: [.product(name: "Compat", package: "Compat")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "MediaCoreTests",
-            dependencies: ["MediaCore"],
+            dependencies: ["MediaCore", .product(name: "Compat", package: "Compat")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

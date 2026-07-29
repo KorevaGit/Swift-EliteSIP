@@ -193,6 +193,22 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
 
     // MARK: - TLS
 
+    /// Сертификат сервера — тот, по чьему отпечатку решается, свой это Asterisk
+    /// или чужой.
+    ///
+    /// `SecTrustCopyCertificateChain` появился только в macOS 12, а срез x86_64
+    /// обязан работать на Catalina. Замена ему — `SecTrustGetCertificateAtIndex`:
+    /// он объявлен устаревшим, но на 10.15 это единственный способ добраться до
+    /// цепочки, и нулевой индекс в ней по определению листовой.
+    private static func leafCertificate(of trust: SecTrust) -> SecCertificate? {
+        if #available(macOS 12.0, *) {
+            return (SecTrustCopyCertificateChain(trust) as? [SecCertificate])?.first
+        } else {
+            guard SecTrustGetCertificateCount(trust) > 0 else { return nil }
+            return SecTrustGetCertificateAtIndex(trust, 0)
+        }
+    }
+
     private static func tlsOptions(trust: SIPTLSTrust, serverName: String) -> NWProtocolTLS.Options {
         let options = NWProtocolTLS.Options()
         let security = options.securityProtocolOptions
@@ -209,9 +225,7 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
         case .pinnedCertificateSHA256(let fingerprints):
             sec_protocol_options_set_verify_block(security, { _, secTrust, complete in
                 let trustRef = sec_trust_copy_ref(secTrust).takeRetainedValue()
-                guard let chain = SecTrustCopyCertificateChain(trustRef) as? [SecCertificate],
-                      let leaf = chain.first
-                else {
+                guard let leaf = Self.leafCertificate(of: trustRef) else {
                     complete(false)
                     return
                 }

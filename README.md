@@ -46,11 +46,18 @@ baresip/libre, не трогая сигнализацию.
 EliteSIP.xcodeproj      objectVersion 77, синхронизированная с файловой системой
                         группа — файлы подхватываются сами, pbxproj править не надо
 EliteSIP/               приложение
-  App/                  точка входа, состояние
+  App/                  main.swift, делегат приложения, состояние
+  Assets.xcassets/      Symbols/ — свой комплект иконок вместо SF Symbols,
+                        которых на Catalina нет. Исходники — во фрейме
+                        «Иконки · комплект для Catalina» того же макета Figma
   Services/             настройки, Keychain, рингтон
   Views/                панель, дайлпад, входящий вызов, настройки
   Windows/              NSPanel входящего, слежение за курсором, доступ к NSWindow
-  Theme/                токены размеров и цветов, шим Liquid Glass ↔ материалы
+  Theme/                токены размеров и цветов, шим Liquid Glass ↔ материалы,
+                        BackwardCompatibility.swift — весь слой совместимости UI
+Packages/Compat/        то, чего нет в стандартной библиотеке до macOS 13:
+                        Interval и MonotonicClock вместо Duration и
+                        ContinuousClock, UnfairLock вместо OSAllocatedUnfairLock
 Packages/SIPCore/       протокол SIP. Без AppKit, без аудио, полностью тестируем
 Packages/MediaCore/     RTP и кодеки. Без AppKit
 Packages/CallGuard/     защита приёма вызова: случайность, признаки живого
@@ -71,9 +78,24 @@ Lab/                    три стенда в Docker: Asterisk 13.38.3 (бое�
 xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug build
 ```
 
+Debug собирается только под текущую архитектуру, поэтому на Apple Silicon он
+никогда не проверит срез Catalina. Совместимость ломается молча — компилятор
+ругается только тогда, когда цель действительно 10.15, — поэтому её надо
+проверять отдельной командой:
+
 ```bash
-(cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test) \
-  && (cd Packages/CallGuard && swift test)
+xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug -arch x86_64 ONLY_ACTIVE_ARCH=NO build
+```
+
+Release собирает обе архитектуры сразу. Что у среза внутри — видно так:
+
+```bash
+lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Release -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{d=$2} / FULL_PRODUCT_NAME/{n=$2} END{print d"/"n"/Contents/MacOS/EliteSIP"}')"
+```
+
+```bash
+(cd Packages/Compat && swift test) && (cd Packages/SIPCore && swift test) \
+  && (cd Packages/MediaCore && swift test) && (cd Packages/CallGuard && swift test)
 ```
 
 Разговор со звуком против живой АТС и замеры аудиотракта:
@@ -110,6 +132,12 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 ## Этапы
 
 - [x] **M0** — скелет, три окна, два пакета, лаборатория Asterisk
+- [x] **M0b** — одна universal-сборка вместо одной цели под свежую macOS: срез
+      `x86_64` собирается с deployment target 10.15, срез `arm64` — с 11.0.
+      Слой совместимости — пакет `Compat` для стандартной библиотеки и
+      `Theme/BackwardCompatibility.swift` для SwiftUI; точка входа переехала с
+      `App`/`Window` на `NSApplicationDelegate`, `@Observable` — на
+      `ObservableObject`, SF Symbols — на свой комплект иконок
 - [x] **M1** — транспорт SIP, парсер, транзакции, регистрация (UDP и TLS)
 - [x] **M1.5** — FreePBX рядом с нашим Asterisk, чтобы видеть, что он
       генерирует: контексты `from-internal`, `sub-record-check`, очереди,

@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 
 /// Что окно должно показать, чтобы приём вызова требовал человека.
@@ -17,9 +18,9 @@ public struct CallGuardChallenge: Sendable, Hashable {
     public let answer: Character
 
     /// Через сколько после появления окна кнопки станут активны.
-    public let activationDelay: Duration
+    public let activationDelay: Interval
 
-    public init(targets: [Character], answer: Character, activationDelay: Duration) {
+    public init(targets: [Character], answer: Character, activationDelay: Interval) {
         self.targets = targets
         self.answer = answer
         self.activationDelay = activationDelay

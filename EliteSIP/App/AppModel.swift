@@ -1,16 +1,20 @@
+import Compat
 import CallGuard
 import MediaCore
-import Observation
 import SIPCore
 import SwiftUI
 
 /// Состояние приложения и владелец SIP-агента.
 ///
-/// Единственный @Observable, на который смотрят вьюхи. Агент — actor, поэтому
-/// вся связь с ним асинхронная, а состояние сюда приезжает потоком событий.
+/// Единственная модель, на которую смотрят вьюхи. Агент — actor, поэтому вся
+/// связь с ним асинхронная, а состояние сюда приезжает потоком событий.
+///
+/// `ObservableObject`, а не `@Observable`: макрос Observation появился только в
+/// macOS 14, а срез x86_64 обязан работать на Catalina. Разница в цене — не
+/// адресная перерисовка, а полная: `objectWillChange` не различает, какое
+/// свойство изменилось. Для панели 280×500 это незаметно.
 @MainActor
-@Observable
-final class AppModel {
+final class AppModel: ObservableObject {
 
     struct LogEntry: Identifiable, Sendable {
         let id = UUID()
@@ -23,7 +27,7 @@ final class AppModel {
     /// поедет в файл в M7, а здесь она только для быстрой диагностики.
     private static let logCapacity = 500
 
-    var settings: AppSettings {
+    @Published var settings: AppSettings {
         didSet {
             guard settings != oldValue else { return }
             persistSettings()
@@ -32,16 +36,16 @@ final class AppModel {
 
     /// Пароль, введённый в настройках. Хранится в Keychain, здесь живёт только
     /// до нажатия «Сохранить» и обратно из Keychain не читается.
-    var passwordDraft: String = ""
+    @Published var passwordDraft: String = ""
 
-    private(set) var registration: SIPRegistrationState = .idle
-    private(set) var hasStoredPassword = false
-    private(set) var log: [LogEntry] = []
+    @Published private(set) var registration: SIPRegistrationState = .idle
+    @Published private(set) var hasStoredPassword = false
+    @Published private(set) var log: [LogEntry] = []
 
-    var dialedNumber: String = ""
+    @Published var dialedNumber: String = ""
 
-    private var agent: SIPUserAgent?
-    private var eventPump: Task<Void, Never>?
+    @Published private var agent: SIPUserAgent?
+    @Published private var eventPump: Task<Void, Never>?
 
     init() {
         settings = SettingsStore.load()
@@ -105,9 +109,9 @@ final class AppModel {
     var registrationDetail: String? {
         switch registration {
         case .registered(let expiresAt, _):
-            "до \(expiresAt.formatted(date: .omitted, time: .shortened))"
+            "до \(TimeText.short.string(from: expiresAt))"
         case .failed(_, let retryAt):
-            retryAt.map { "повтор в \($0.formatted(date: .omitted, time: .shortened))" }
+            retryAt.map { "повтор в \(TimeText.short.string(from: $0))" }
         default:
             nil
         }
@@ -256,30 +260,30 @@ final class AppModel {
         case ending
     }
 
-    private(set) var callPhase: CallPhase = .idle
-    private(set) var callStatus: String = ""
-    private(set) var callPeer: String = ""
+    @Published private(set) var callPhase: CallPhase = .idle
+    @Published private(set) var callStatus: String = ""
+    @Published private(set) var callPeer: String = ""
 
     /// Номер, на который переводим текущий разговор. Не переиспользуем
     /// `dialedNumber`: тот остаётся историей исходного набора и DTMF.
-    var transferNumber: String = ""
-    private(set) var isTransferEntryVisible = false
-    private(set) var isTransferring = false
-    private(set) var isConferenceCommandPending = false
-    private(set) var isConferenceCommandSent = false
+    @Published var transferNumber: String = ""
+    @Published private(set) var isTransferEntryVisible = false
+    @Published private(set) var isTransferring = false
+    @Published private(set) var isConferenceCommandPending = false
+    @Published private(set) var isConferenceCommandSent = false
 
     /// Окно входящего вызова вместе с защитой. Живёт здесь, а не в сцене:
     /// показывает его приезд INVITE, а не действие пользователя.
     let incomingCallPanel = IncomingCallPanel()
     private let ringtone = Ringtone()
 
-    private var media: MediaSession?
-    private var callTask: Task<Void, Never>?
+    @Published private var media: MediaSession?
+    @Published private var callTask: Task<Void, Never>?
 
     /// Последнее описание медиа, которое мы отправили по этому звонку —
     /// предложение или ответ. Из него строится повторное предложение: порт,
     /// кодеки и ключ SRTP обязаны в нём остаться прежними.
-    private var localDescription: SessionDescription?
+    @Published private var localDescription: SessionDescription?
 
     var isInCall: Bool { callPhase != .idle }
 
@@ -586,18 +590,18 @@ final class AppModel {
     // MARK: - Удержание
 
     /// Разговор поставлен на удержание нами.
-    private(set) var isOnHold = false
+    @Published private(set) var isOnHold = false
 
     /// На удержание поставили нас: сервер прислал повторный INVITE, в котором
     /// нашего голоса больше не ждут.
-    private(set) var isRemotelyHeld = false
+    @Published private(set) var isRemotelyHeld = false
 
     /// Микрофон выключен кнопкой. От удержания отличается тем, что собеседник
     /// об этом не знает и музыки ожидания не слышит.
-    private(set) var isMicrophoneMuted = false
+    @Published private(set) var isMicrophoneMuted = false
 
     /// Пересогласование в пути: вторую кнопку в этот момент нажимать нельзя.
-    private(set) var isRenegotiating = false
+    @Published private(set) var isRenegotiating = false
 
     var canHold: Bool { callPhase == .active && !isRenegotiating }
 
@@ -738,7 +742,7 @@ final class AppModel {
 
     /// Что уже отправлено в этом звонке. Показывается вместо набранного номера:
     /// без обратной связи оператор не отличит «цифра ушла» от «кнопка не нажалась».
-    private(set) var sentDTMF: String = ""
+    @Published private(set) var sentDTMF: String = ""
 
     /// Умеет ли текущий разговор принимать тоны.
     var canSendDTMF: Bool { callPhase == .active && (media?.supportsTelephoneEvents ?? false) }
@@ -822,11 +826,11 @@ final class AppModel {
 
     // MARK: - Входящий звонок
 
-    private(set) var incomingCall: SIPIncomingCall?
+    @Published private(set) var incomingCall: SIPIncomingCall?
 
     /// Отчёт защиты по последнему входящему. Нужен вкладке диагностики и в M8
     /// уедет в EliteDash целиком.
-    private(set) var lastGuardReport: CallGuardReport?
+    @Published private(set) var lastGuardReport: CallGuardReport?
 
     private func handle(incoming call: SIPIncomingCall) {
         // Линию агент держит сам и второй вызов отклоняет 486 ещё до события.
@@ -982,7 +986,7 @@ final class AppModel {
     ///
     /// Флаг, а не сравнение с прошлым отчётом: два подряд одинаково отклонённых
     /// вызова дают одинаковые отчёты, и сравнение проглотило бы второй.
-    private var didLogGuardReport = false
+    @Published private var didLogGuardReport = false
 
     /// Пишет отчёт защиты в журнал ровно один раз за вызов.
     private func logGuardReport() {
@@ -998,20 +1002,20 @@ final class AppModel {
     // MARK: - Аудиотракт
 
     /// Куда идёт звук текущего разговора. nil вне звонка.
-    private(set) var audioRoute: AudioRoute?
+    @Published private(set) var audioRoute: AudioRoute?
 
     /// Кодек, о котором договорились. nil вне звонка.
-    private(set) var negotiatedCodec: AudioCodec?
+    @Published private(set) var negotiatedCodec: AudioCodec?
 
     /// Что собеседник сообщает про наш поток по RTCP. Обновляется раз в пять
     /// секунд, пока идёт разговор.
-    private(set) var remoteAudioView: RTCPSession.RemoteView?
+    @Published private(set) var remoteAudioView: RTCPSession.RemoteView?
 
     /// Уровни для индикатора: микрофон и приём, от 0 до 1.
-    private(set) var inputLevel: Float = 0
-    private(set) var outputLevel: Float = 0
+    @Published private(set) var inputLevel: Float = 0
+    @Published private(set) var outputLevel: Float = 0
 
-    private var levelTask: Task<Void, Never>?
+    @Published private var levelTask: Task<Void, Never>?
 
     /// Опрос уровней для индикатора.
     ///
@@ -1022,7 +1026,7 @@ final class AppModel {
         levelTask?.cancel()
         levelTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(50))
+                try? await Task.sleep(.milliseconds(50))
                 guard let self, let media else { return }
                 inputLevel = media.inputLevel
                 outputLevel = media.outputLevel
@@ -1133,7 +1137,7 @@ final class AppModel {
 
     var logText: String {
         log.map { entry in
-            let time = entry.date.formatted(date: .omitted, time: .standard)
+            let time = TimeText.withSeconds.string(from: entry.date)
             return "\(time) [\(entry.level.rawValue)] \(entry.message)"
         }
         .joined(separator: "\n")

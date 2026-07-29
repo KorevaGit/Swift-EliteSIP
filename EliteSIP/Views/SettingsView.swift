@@ -9,19 +9,19 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             AccountSettingsTab()
-                .tabItem { Label("Аккаунт", systemImage: "person.crop.circle") }
+                .tabItem { CompatLabel(title: "Аккаунт", symbol: "person.crop.circle") }
 
             AudioSettingsTab()
-                .tabItem { Label("Звук", systemImage: "speaker.wave.2") }
+                .tabItem { CompatLabel(title: "Звук", symbol: "speaker.wave.2") }
 
             IncomingCallSettingsTab()
-                .tabItem { Label("Входящие", systemImage: "bell") }
+                .tabItem { CompatLabel(title: "Входящие", symbol: "bell") }
 
             DTMFSettingsTab()
-                .tabItem { Label("Тоны", systemImage: "square.grid.3x3") }
+                .tabItem { CompatLabel(title: "Тоны", symbol: "square.grid.3x3") }
 
             DiagnosticsTab()
-                .tabItem { Label("Диагностика", systemImage: "stethoscope") }
+                .tabItem { CompatLabel(title: "Диагностика", symbol: "stethoscope") }
         }
         .padding(20)
         .frame(minWidth: 640, minHeight: 460)
@@ -30,12 +30,12 @@ struct SettingsView: View {
 
 private struct AccountSettingsTab: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
     @State private var isPasswordRevealed = false
 
     var body: some View {
         Form {
-            Section("Учётная запись SIP") {
+            Section(header: Text("Учётная запись SIP")) {
                 TextField("Внутренний номер", text: Binding(
                     get: { model.settings.account.username },
                     set: { model.settings.account.username = $0 }
@@ -54,7 +54,7 @@ private struct AccountSettingsTab: View {
                 ))
             }
 
-            Section("Пароль") {
+            Section(header: Text("Пароль")) {
                 HStack {
                     if isPasswordRevealed {
                         TextField("Пароль", text: Binding(
@@ -70,7 +70,7 @@ private struct AccountSettingsTab: View {
                     Button {
                         isPasswordRevealed.toggle()
                     } label: {
-                        Image(systemName: isPasswordRevealed ? "eye.slash" : "eye")
+                        CompatSymbol(name: isPasswordRevealed ? "eye.slash" : "eye")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -89,20 +89,17 @@ private struct AccountSettingsTab: View {
 
                     Spacer()
 
-                    Label(
-                        model.hasStoredPassword ? "Пароль сохранён" : "Пароль не задан",
-                        systemImage: model.hasStoredPassword ? "checkmark.circle" : "exclamationmark.circle"
-                    )
+                    CompatLabel(title: model.hasStoredPassword ? "Пароль сохранён" : "Пароль не задан", symbol: model.hasStoredPassword ? "checkmark.circle" : "exclamationmark.circle")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .compatForeground(.secondary)
                 }
 
                 Text("Пароль хранится в Keychain и не попадает ни в файл настроек, ни в выгрузку диагностики.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .compatForeground(.secondary)
             }
 
-            Section("Сеть") {
+            Section(header: Text("Сеть")) {
                 Picker("Транспорт", selection: Binding(
                     get: { model.settings.account.transport },
                     set: { model.settings.account.transport = $0 }
@@ -134,12 +131,9 @@ private struct AccountSettingsTab: View {
                 ))
 
                 if model.settings.acceptsAnyTLSCertificate {
-                    Label(
-                        "Проверка сертификата отключена. Перехватчик сможет прочитать пароль и разговор. Только для самоподписанного сертификата лаборатории.",
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
+                    CompatLabel(title: "Проверка сертификата отключена. Перехватчик сможет прочитать пароль и разговор. Только для самоподписанного сертификата лаборатории.", symbol: "exclamationmark.triangle.fill")
                     .font(.footnote)
-                    .foregroundStyle(Theme.Palette.failure)
+                    .compatForeground(Theme.Palette.failure)
                 }
             }
 
@@ -155,11 +149,11 @@ private struct AccountSettingsTab: View {
                     Spacer()
                     Text(model.registrationTitle)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .compatForeground(.secondary)
                 }
             }
 
-            Section("Лаборатория") {
+            Section(header: Text("Лаборатория")) {
                 HStack {
                     Button("Пир 100 · UDP") { model.applyLabPreset(.labUDP) }
                     Button("Пир 200 · TLS + SRTP") { model.applyLabPreset(.labTLS) }
@@ -167,16 +161,16 @@ private struct AccountSettingsTab: View {
                 }
                 Text("Пароли лабораторных пиров: elite100 и elite200.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .compatForeground(.secondary)
             }
         }
-        .formStyle(.grouped)
+        .compatGroupedForm()
     }
 }
 
 private struct AudioSettingsTab: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
     /// Список держится в состоянии, а не читается на каждой перерисовке:
     /// перечисление ходит в HAL, а перерисовок у формы много. Обновляется он по
     /// уведомлению от системы — см. `onAppear`.
@@ -186,7 +180,7 @@ private struct AudioSettingsTab: View {
 
     var body: some View {
         Form {
-            Section("Устройства разговора") {
+            Section(header: Text("Устройства разговора")) {
                 Picker("Микрофон", selection: Binding(
                     get: { model.settings.audio.inputDeviceUID },
                     set: { model.settings.audio.inputDeviceUID = $0 }
@@ -213,11 +207,8 @@ private struct AudioSettingsTab: View {
                     // проверено на приватном, публичном и с разными ведущими,
                     // всегда -10851. Свой агрегат он строит только для
                     // системных умолчаний, отсюда и совет ниже.
-                    Label(
-                        "Разные устройства — эхоподавления не будет",
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .foregroundStyle(Theme.Palette.failure)
+                    CompatLabel(title: "Разные устройства — эхоподавления не будет", symbol: "exclamationmark.triangle.fill")
+                    .compatForeground(Theme.Palette.failure)
 
                     Text("""
                         macOS не даёт совместить системное эхоподавление с разными \
@@ -229,11 +220,11 @@ private struct AudioSettingsTab: View {
                         такую пару macOS сводит сама и эхоподавление сохраняет.
                         """)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .compatForeground(.secondary)
                 }
             }
 
-            Section("Bluetooth") {
+            Section(header: Text("Bluetooth")) {
                 Toggle("Отпускать устройство между звонками", isOn: Binding(
                     get: { model.settings.audio.releasesDeviceWhenIdle },
                     set: { model.settings.audio.releasesDeviceWhenIdle = $0 }
@@ -245,15 +236,12 @@ private struct AudioSettingsTab: View {
                     """)
 
                 if model.isHeadsetModeActive {
-                    Label(
-                        "Сейчас включён режим гарнитуры",
-                        systemImage: "exclamationmark.triangle"
-                    )
-                    .foregroundStyle(.orange)
+                    CompatLabel(title: "Сейчас включён режим гарнитуры", symbol: "exclamationmark.triangle")
+                    .compatForeground(.orange)
                 }
             }
 
-            Section("Полоса") {
+            Section(header: Text("Полоса")) {
                 Toggle("Предлагать широкую полосу (G.722)", isOn: Binding(
                     get: { model.settings.audio.prefersWideband },
                     set: { model.settings.audio.prefersWideband = $0 }
@@ -266,7 +254,7 @@ private struct AudioSettingsTab: View {
                     """)
             }
 
-            Section("Эхоподавление") {
+            Section(header: Text("Эхоподавление")) {
                 MilestoneNote("Берём системный VoiceProcessingIO — тот же движок, что у FaceTime. Своего эхоподавителя не пишем.")
 
                 Toggle("Автоматическая регулировка усиления", isOn: Binding(
@@ -281,10 +269,10 @@ private struct AudioSettingsTab: View {
             }
 
             if let route = model.audioRoute {
-                Section("Текущий разговор") {
-                    LabeledContent("Маршрут", value: route.summary)
+                Section(header: Text("Текущий разговор")) {
+                    CompatLabeledContent("Маршрут", value: route.summary)
                     if let codec = model.negotiatedCodec {
-                        LabeledContent(
+                        CompatLabeledContent(
                             "Кодек",
                             value: codec.sdpName + (codec.isWideband ? " — широкая полоса" : "")
                         )
@@ -293,12 +281,12 @@ private struct AudioSettingsTab: View {
                     LevelMeter(title: "Приём", level: model.outputLevel)
 
                     if let remote = model.remoteAudioView {
-                        LabeledContent("У собеседника", value: remote.summary)
+                        CompatLabeledContent("У собеседника", value: remote.summary)
                     }
                 }
             }
         }
-        .formStyle(.grouped)
+        .compatGroupedForm()
         .onAppear {
             reloadDevices()
             // Списки сами следят за составом устройств: наушники подключают и
@@ -334,10 +322,10 @@ private struct LevelMeter: View {
     let level: Float
 
     var body: some View {
-        LabeledContent(title) {
+        CompatLabeledContent(title: title) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.quaternary)
+                    Capsule().fill(Theme.Palette.tertiary.opacity(0.5))
                     Capsule()
                         .fill(color)
                         // Корень вместо самого уровня: слух логарифмический, и на
@@ -363,8 +351,8 @@ private struct LevelMeter: View {
 /// который понимает, от чего защищается, не выключает это первым делом.
 private struct IncomingCallSettingsTab: View {
 
-    @Environment(AppModel.self) private var model
-    @Environment(IncomingCallPanel.self) private var incomingCall
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var incomingCall: IncomingCallPanel
 
     private var policy: Binding<CallGuardPolicy> {
         Binding(
@@ -386,43 +374,43 @@ private struct IncomingCallSettingsTab: View {
                 if model.settings.incomingCall.isServerManaged {
                     Text("Значением управляет EliteDash.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .compatForeground(.secondary)
                 } else if !isGuardOn {
-                    Label(
-                        "Выключение фиксируется в журнале, а в M8 уедет в EliteDash.",
-                        systemImage: "exclamationmark.triangle"
+                    CompatLabel(
+                        title: "Выключение фиксируется в журнале, а в M8 уедет в EliteDash.",
+                        symbol: "exclamationmark.triangle"
                     )
                     .font(.caption)
-                    .foregroundStyle(Theme.Palette.decline)
+                    .compatForeground(Theme.Palette.decline)
                 }
             } footer: {
                 Text("Автокликер принимает лид быстрее коллег, не находясь за рабочим местом, и лид уходит в тишину.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .compatForeground(.secondary)
             }
 
-            Section("Случайность") {
+            Section(header: Text("Случайность")) {
                 Toggle("Случайная позиция окна", isOn: policy.isRandomPositionEnabled)
-                    .help("Ломает кликеры по фиксированным координатам")
+                    .compatHelp("Ломает кликеры по фиксированным координатам")
 
-                LabeledContent("Минимальное смещение") {
+                CompatLabeledContent(title: "Минимальное смещение") {
                     SettingSlider(value: policy.minimumTravel, range: 0...600, step: 25, unit: "pt")
                 }
                 .disabled(!model.settings.incomingCall.isRandomPositionEnabled)
 
-                LabeledContent("Отступ от краёв экрана") {
+                CompatLabeledContent(title: "Отступ от краёв экрана") {
                     SettingSlider(value: policy.screenMargin, range: 0...200, step: 8, unit: "pt")
                 }
 
-                LabeledContent("Задержка активации") {
+                CompatLabeledContent(title: "Задержка активации") {
                     HStack(spacing: 8) {
                         DelayField(milliseconds: policy.minimumActivationDelayMilliseconds)
-                        Text("—").foregroundStyle(.secondary)
+                        Text("—").compatForeground(.secondary)
                         DelayField(milliseconds: policy.maximumActivationDelayMilliseconds)
-                        Text("мс").foregroundStyle(.secondary)
+                        Text("мс").compatForeground(.secondary)
                     }
                 }
-                .help("Клик раньше срока не принимается и попадает в отчёт")
+                .compatHelp("Клик раньше срока не принимается и попадает в отчёт")
 
             }
             .disabled(!isGuardOn)
@@ -450,31 +438,31 @@ private struct IncomingCallSettingsTab: View {
                 каждом вызове, а случайная позиция окна обходится ему бесплатно.
                 """)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .compatForeground(.secondary)
             }
             .disabled(!isGuardOn)
 
-            Section("Признаки живого человека") {
+            Section(header: Text("Признаки живого человека")) {
                 Toggle("Требовать движения курсора", isOn: policy.requiresCursorMovement)
-                    .help("CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет")
+                    .compatHelp("CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет")
 
-                LabeledContent("Нужный путь курсора") {
+                CompatLabeledContent(title: "Нужный путь курсора") {
                     SettingSlider(value: policy.requiredCursorTravel, range: 0...200, step: 10, unit: "pt")
                 }
                 .disabled(!model.settings.incomingCall.requiresCursorMovement)
 
                 Toggle("Отклонять синтетические нажатия", isOn: policy.rejectsSyntheticEvents)
-                    .help("Признак подделывается, поэтому по умолчанию он только пишется в отчёт")
+                    .compatHelp("Признак подделывается, поэтому по умолчанию он только пишется в отчёт")
             }
             .disabled(!isGuardOn)
 
-            Section("Звонок") {
+            Section(header: Text("Звонок")) {
                 Toggle("Проигрывать рингтон", isOn: Binding(
                     get: { model.settings.ringtone.isEnabled },
                     set: { model.settings.ringtone.isEnabled = $0 }
                 ))
 
-                LabeledContent("Громкость") {
+                CompatLabeledContent(title: "Громкость") {
                     SettingSlider(
                         value: Binding(
                             get: { model.settings.ringtone.volume },
@@ -493,7 +481,7 @@ private struct IncomingCallSettingsTab: View {
                     Text("системное устройство").tag(true)
                     Text("устройство разговора").tag(false)
                 }
-                .help("Гарнитура на столе звонка не слышна — тогда звонить должны колонки")
+                .compatHelp("Гарнитура на столе звонка не слышна — тогда звонить должны колонки")
             }
             .disabled(!model.settings.ringtone.isEnabled)
 
@@ -507,23 +495,23 @@ private struct IncomingCallSettingsTab: View {
                         onDecline: {}
                     )
                 } label: {
-                    Label("Показать окно для проверки", systemImage: "bell.badge")
+                    CompatLabel(title: "Показать окно для проверки", symbol: "bell.badge")
                 }
 
                 if let report = model.lastGuardReport {
-                    LabeledContent("Последний вызов", value: report.summary)
+                    CompatLabeledContent("Последний вызов", value: report.summary)
                         .font(.caption)
                 }
             }
         }
-        .formStyle(.grouped)
+        .compatGroupedForm()
     }
 }
 
 /// Макросы DTMF и длительность тонов.
 private struct DTMFSettingsTab: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
 
     private var macros: [AppSettings.DTMFSettings.Macro] {
         model.settings.dtmf.macros
@@ -531,10 +519,10 @@ private struct DTMFSettingsTab: View {
 
     var body: some View {
         Form {
-            Section("Макросы") {
+            Section(header: Text("Макросы")) {
                 if macros.isEmpty {
                     Text("Макросов нет. Кнопка появится на панели во время разговора.")
-                        .foregroundStyle(.secondary)
+                        .compatForeground(.secondary)
                         .font(.callout)
                 }
 
@@ -556,11 +544,11 @@ private struct DTMFSettingsTab: View {
                 Button {
                     model.settings.dtmf.macros.append(.init(title: "Новый", sequence: ""))
                 } label: {
-                    Label("Добавить макрос", systemImage: "plus")
+                    CompatLabel(title: "Добавить макрос", symbol: "plus")
                 }
             }
 
-            Section("Запись") {
+            Section(header: Text("Запись")) {
                 // Формат заказчиком не задан — открытый вопрос 1 в README.
                 // Пока принято привычное по телефонам, и об этом честно сказано
                 // здесь, а не только в документации.
@@ -572,9 +560,9 @@ private struct DTMFSettingsTab: View {
                     """
                 )
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .compatForeground(.secondary)
 
-                LabeledContent("Длина паузы") {
+                CompatLabeledContent(title: "Длина паузы") {
                     DelayField(
                         milliseconds: Binding(
                             get: { model.settings.dtmf.pauseMilliseconds },
@@ -584,8 +572,8 @@ private struct DTMFSettingsTab: View {
                 }
             }
 
-            Section("Тон") {
-                LabeledContent("Длительность") {
+            Section(header: Text("Тон")) {
+                CompatLabeledContent(title: "Длительность") {
                     DelayField(
                         milliseconds: Binding(
                             get: { model.settings.dtmf.toneMilliseconds },
@@ -593,9 +581,9 @@ private struct DTMFSettingsTab: View {
                         )
                     )
                 }
-                .help("Минимум по RFC 4733 — 40 мс. Глухие голосовые меню лучше слышат 120")
+                .compatHelp("Минимум по RFC 4733 — 40 мс. Глухие голосовые меню лучше слышат 120")
 
-                LabeledContent("Пауза между тонами") {
+                CompatLabeledContent(title: "Пауза между тонами") {
                     DelayField(
                         milliseconds: Binding(
                             get: { model.settings.dtmf.gapMilliseconds },
@@ -603,7 +591,7 @@ private struct DTMFSettingsTab: View {
                         )
                     )
                 }
-                .help("Без паузы две одинаковые цифры подряд слышны как одна длинная")
+                .compatHelp("Без паузы две одинаковые цифры подряд слышны как одна длинная")
             }
 
             Section {
@@ -626,12 +614,9 @@ private struct DTMFSettingsTab: View {
                 .font(.system(.body, design: .monospaced))
 
                 if !model.settings.conference.isUsable {
-                    Label(
-                        "Код должен содержать только DTMF-символы и хотя бы один тон.",
-                        systemImage: "exclamationmark.triangle"
-                    )
+                    CompatLabel(title: "Код должен содержать только DTMF-символы и хотя бы один тон.", symbol: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .compatForeground(.orange)
                 }
             } header: {
                 Text("Конференция")
@@ -644,10 +629,10 @@ private struct DTMFSettingsTab: View {
                     """
                 )
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .compatForeground(.secondary)
             }
         }
-        .formStyle(.grouped)
+        .compatGroupedForm()
     }
 }
 
@@ -678,23 +663,24 @@ private struct MacroRow: View {
                 TextField("Набор, например 2,,101#", text: $macro.sequence)
                     .font(.system(.body, design: .monospaced))
 
-                Button(role: .destructive, action: onDelete) {
-                    Image(systemName: "trash")
+                Button(action: onDelete) {
+                    CompatSymbol(name: "trash")
                 }
+                .compatForeground(Theme.Palette.decline)
                 .buttonStyle(.borderless)
-                .help("Удалить макрос")
+                .compatHelp("Удалить макрос")
             }
 
             // Негодный макрос на панели не появится, и молчать об этом нельзя:
             // оператор будет искать кнопку, которой нет.
             if let problem {
-                Label(problem, systemImage: "exclamationmark.triangle")
+                CompatLabel(title: problem, symbol: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .compatForeground(.orange)
             } else {
                 Text(DTMFSequence(macro.sequence).displayText)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .compatForeground(.secondary)
             }
         }
     }
@@ -711,8 +697,8 @@ private struct SettingSlider: View {
         HStack {
             Slider(value: $value, in: range, step: step)
             Text(unit == nil ? String(format: "%.0f %%", value * 100) : "\(Int(value)) \(unit!)")
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .compatMonospacedDigit()
+                .compatForeground(.secondary)
                 .frame(width: 60, alignment: .trailing)
         }
     }
@@ -727,10 +713,10 @@ private struct DelayField: View {
     @Binding var milliseconds: Int
 
     var body: some View {
-        TextField("", value: $milliseconds, format: .number)
+        TextField("", value: $milliseconds, formatter: IntegerFormatter.shared)
             .textFieldStyle(.roundedBorder)
             .multilineTextAlignment(.trailing)
-            .monospacedDigit()
+            .compatMonospacedDigit()
             .frame(width: 64)
             .labelsHidden()
     }
@@ -738,7 +724,7 @@ private struct DelayField: View {
 
 private struct DiagnosticsTab: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
 
     private var appVersion: String {
         let info = Bundle.main.infoDictionary
@@ -758,14 +744,14 @@ private struct DiagnosticsTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Form {
-                Section("Сборка") {
-                    LabeledContent("Версия", value: appVersion)
-                    LabeledContent("macOS", value: ProcessInfo.processInfo.operatingSystemVersionString)
-                    LabeledContent("Оформление", value: glassAvailability)
-                    LabeledContent("Файл настроек", value: SettingsStore.fileURL.path(percentEncoded: false))
+                Section(header: Text("Сборка")) {
+                    CompatLabeledContent("Версия", value: appVersion)
+                    CompatLabeledContent("macOS", value: ProcessInfo.processInfo.operatingSystemVersionString)
+                    CompatLabeledContent("Оформление", value: glassAvailability)
+                    CompatLabeledContent("Файл настроек", value: SettingsStore.fileURL.compatPath)
                 }
 
-                Section("Уровень журнала") {
+                Section(header: Text("Уровень журнала")) {
                     Picker("Показывать от", selection: Binding(
                         get: { model.settings.minimumLogLevel },
                         set: { model.settings.minimumLogLevel = $0 }
@@ -777,7 +763,7 @@ private struct DiagnosticsTab: View {
                     .pickerStyle(.segmented)
                 }
             }
-            .formStyle(.grouped)
+            .compatGroupedForm()
             .frame(maxHeight: 240)
 
             HStack {
@@ -797,41 +783,66 @@ private struct DiagnosticsTab: View {
         }
     }
 
+    /// Журнал.
+    ///
+    /// Ветка по версии здесь не косметическая, а по наличию API:
+    /// `ScrollViewReader`, без которого некуда прокручивать, и `LazyVStack`
+    /// появились только в macOS 11. На Catalina журнал остаётся обычным
+    /// списком без автопрокрутки — 500 строк обычный `VStack` тянет, а к свежей
+    /// записи оператор доводит колесом.
+    @ViewBuilder
     private var logView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(model.log) { entry in
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(entry.date.formatted(date: .omitted, time: .standard))
-                                .foregroundStyle(.tertiary)
-                            Text(entry.message)
-                                .foregroundStyle(color(for: entry.level))
-                                .textSelection(.enabled)
+        if #available(macOS 11.0, *) {
+            ScrollViewReader { proxy in
+                logScroll(isLazy: true)
+                    .onChange(of: model.log.count) { _ in
+                        // Прокрутка к свежей строке: без неё журнал бесполезен
+                        // ровно в тот момент, когда он нужен.
+                        if let last = model.log.last {
+                            proxy.scrollTo(last.id, anchor: .bottom)
                         }
-                        .font(.system(size: 11, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .id(entry.id)
                     }
-                }
-                .padding(8)
             }
-            .frame(minHeight: 120)
-            .themedControlSurface()
-            .onChange(of: model.log.count) {
-                // Прокрутка к свежей строке: без неё журнал бесполезен ровно в
-                // тот момент, когда он нужен.
-                if let last = model.log.last {
-                    proxy.scrollTo(last.id, anchor: .bottom)
-                }
-            }
-            .overlay {
-                if model.log.isEmpty {
-                    Text("Пусто. Нажмите «Подключить».")
-                        .font(.footnote)
-                        .foregroundStyle(.tertiary)
+        } else {
+            logScroll(isLazy: false)
+        }
+    }
+
+    @ViewBuilder
+    private func logScroll(isLazy: Bool) -> some View {
+        ScrollView {
+            Group {
+                if isLazy, #available(macOS 11.0, *) {
+                    LazyVStack(alignment: .leading, spacing: 2) { logLines }
+                } else {
+                    VStack(alignment: .leading, spacing: 2) { logLines }
                 }
             }
+            .padding(8)
+        }
+        .frame(minHeight: 120)
+        .themedControlSurface()
+        .compatOverlay {
+            if model.log.isEmpty {
+                Text("Пусто. Нажмите «Подключить».")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.tertiary)
+            }
+        }
+    }
+
+    private var logLines: some View {
+        ForEach(model.log) { entry in
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(TimeText.withSeconds.string(from: entry.date))
+                    .compatForeground(Theme.Palette.tertiary)
+                Text(entry.message)
+                    .compatForeground(color(for: entry.level))
+                    .compatTextSelection()
+            }
+            .font(.system(size: 11, design: .monospaced))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .id(entry.id)
         }
     }
 

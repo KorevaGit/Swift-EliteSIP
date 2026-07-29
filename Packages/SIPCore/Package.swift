@@ -6,18 +6,22 @@ import PackageDescription
 // `swift test` за секунды, без запуска приложения и без живого Asterisk.
 let package = Package(
     name: "SIPCore",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v10_15)],
     products: [
         .library(name: "SIPCore", targets: ["SIPCore"])
+    ],
+    dependencies: [
+        .package(path: "../Compat")
     ],
     targets: [
         .target(
             name: "SIPCore",
+            dependencies: [.product(name: "Compat", package: "Compat")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "SIPCoreTests",
-            dependencies: ["SIPCore"],
+            dependencies: ["SIPCore", .product(name: "Compat", package: "Compat")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

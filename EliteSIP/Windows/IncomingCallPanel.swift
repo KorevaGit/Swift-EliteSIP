@@ -1,6 +1,5 @@
 import AppKit
 import CallGuard
-import Observation
 import SwiftUI
 
 /// Окно входящего вызова.
@@ -19,18 +18,20 @@ import SwiftUI
 /// Панель же владеет и защитой: путь курсора виден только на уровне AppKit, а
 /// решение о приёме принимает `CallGuardSession` из пакета — здесь остаётся
 /// сбор фактов, там разбор.
+///
+/// `ObservableObject`, а не `@Observable`: макрос Observation требует macOS 14,
+/// а срез x86_64 обязан работать на Catalina.
 @MainActor
-@Observable
-final class IncomingCallPanel {
+final class IncomingCallPanel: ObservableObject {
 
-    private var panel: NSPanel?
+    @Published private var panel: NSPanel?
 
     /// Где окно было в прошлый раз — чтобы следующая позиция гарантированно
     /// отличалась и оператор не привыкал жать в одну точку.
     private var lastOrigin: CGPoint?
 
     /// Защита текущего вызова. Живёт ровно столько, сколько висит окно.
-    private var guardSession: CallGuardSession?
+    @Published private var guardSession: CallGuardSession?
 
     /// Слежение за курсором. Локальный монитор ловит движения над нашим окном,
     /// глобальный — подход к нему из чужого приложения; без второго честный
@@ -49,13 +50,13 @@ final class IncomingCallPanel {
     private var keyMonitor: Any?
 
     /// Что показать оператору, если нажатие не принято.
-    private(set) var refusal: String?
+    @Published private(set) var refusal: String?
 
     var isVisible: Bool { panel != nil }
 
     /// Отчёт защиты по текущему вызову. После `hide` остаётся последним, чтобы
     /// его успел прочитать тот, кто разбирает завершение звонка.
-    private(set) var lastReport: CallGuardReport?
+    @Published private(set) var lastReport: CallGuardReport?
 
     func show(
         callerNumber: String,
@@ -113,7 +114,7 @@ final class IncomingCallPanel {
                     onDecline()
                 }
             )
-            .environment(self)
+            .environmentObject(self)
         )
 
         // Размер берём у собранного окна, а не из константы: высота зависит от

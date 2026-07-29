@@ -1,3 +1,4 @@
+import Compat
 import CoreGraphics
 
 /// Попытка принять вызов.
@@ -27,13 +28,13 @@ public struct CallGuardAttempt: Sendable, Hashable {
     /// показателя: у честного оператора он не встречается никогда.
     public let isSynthetic: Bool
 
-    public let at: ContinuousClock.Instant
+    public let at: MonotonicClock.Instant
 
     public init(
         source: Source,
         target: Character,
         isSynthetic: Bool = false,
-        at: ContinuousClock.Instant
+        at: MonotonicClock.Instant
     ) {
         self.source = source
         self.target = target

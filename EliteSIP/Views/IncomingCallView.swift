@@ -1,3 +1,4 @@
+import Compat
 import CallGuard
 import SwiftUI
 
@@ -19,12 +20,12 @@ struct IncomingCallView: View {
     let callerNumber: String
     let callerName: String?
     let challenge: CallGuardChallenge
-    let activatesAt: ContinuousClock.Instant
+    let activatesAt: MonotonicClock.Instant
     let isGuarded: Bool
     let onAttempt: @MainActor (CallGuardAttempt.Source, Character) -> Void
     let onDecline: @MainActor () -> Void
 
-    @Environment(IncomingCallPanel.self) private var panel
+    @EnvironmentObject private var panel: IncomingCallPanel
 
     /// Активны ли цели. Отдельным состоянием, а не вычислением от текущего
     /// времени: SwiftUI не перерисовывает вид по ходу часов, и без явного
@@ -50,10 +51,10 @@ struct IncomingCallView: View {
         .padding(16)
         .frame(width: Theme.Metrics.incomingCallPanelWidth)
         .themedSurface()
-        .task {
+        .compatTask {
             let remaining = activatesAt - .now
             if remaining > .zero {
-                try? await Task.sleep(for: remaining)
+                try? await Task.sleep(remaining)
             }
             isActive = true
         }
@@ -67,19 +68,19 @@ struct IncomingCallView: View {
     /// понял.
     private var header: some View {
         HStack(spacing: 6) {
-            Image(systemName: "phone.arrow.down.left.fill")
-                .foregroundStyle(Theme.Palette.answer)
+            CompatSymbol(name: "phone.arrow.down.left.fill")
+                .compatForeground(Theme.Palette.answer)
             Text(panel.refusal ?? "Входящий вызов")
-                .foregroundStyle(panel.refusal == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.Palette.decline))
+                .compatForeground(panel.refusal == nil ? Color.secondary : Theme.Palette.decline)
                 .animation(.easeOut(duration: 0.15), value: panel.refusal)
             Spacer(minLength: 8)
 
             // Щит — честный индикатор того, что защита работает. Когда её
             // выключили, значка нет, и это видно на скриншоте экрана.
             if isGuarded {
-                Image(systemName: "lock.shield.fill")
-                    .foregroundStyle(.tertiary)
-                    .help("Защита от автокликеров включена")
+                CompatSymbol(name: "lock.shield.fill")
+                    .compatForeground(Theme.Palette.tertiary)
+                    .compatHelp("Защита от автокликеров включена")
             }
         }
         .font(Theme.Text.incomingCaption)
@@ -95,7 +96,7 @@ struct IncomingCallView: View {
             if let callerName, !callerName.isEmpty {
                 Text(callerName)
                     .font(Theme.Text.incomingDetail)
-                    .foregroundStyle(.secondary)
+                    .compatForeground(.secondary)
                     .lineLimit(1)
             }
         }
@@ -105,10 +106,10 @@ struct IncomingCallView: View {
         HStack(spacing: 4) {
             Text("Чтобы ответить, нажмите")
                 .font(Theme.Text.incomingDetail)
-                .foregroundStyle(.secondary)
+                .compatForeground(.secondary)
             Text(String(challenge.answer))
                 .font(Theme.Text.incomingTarget)
-                .foregroundStyle(.primary)
+                .compatForeground(.primary)
         }
     }
 
@@ -128,11 +129,11 @@ struct IncomingCallView: View {
     private var declineButton: some View {
         Button(action: onDecline) {
             HStack(spacing: 6) {
-                Image(systemName: "phone.down.fill")
+                CompatSymbol(name: "phone.down.fill")
                 Text("Отклонить")
             }
             .font(Theme.Text.controlLabel)
-            .foregroundStyle(Theme.Palette.decline)
+            .compatForeground(Theme.Palette.decline)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .contentShape(.rect)
@@ -140,8 +141,8 @@ struct IncomingCallView: View {
         .buttonStyle(.plain)
         .themedControlSurface()
         .hoverHighlight()
-        .keyboardShortcut(.cancelAction)
-        .accessibilityLabel("Отклонить вызов")
+        .compatCancelShortcut()
+        .compatAccessibilityLabel("Отклонить вызов")
     }
 
     /// Обычная пара кнопок, когда подтверждение цифрой выключено.
@@ -161,7 +162,7 @@ struct IncomingCallView: View {
             // для screen reader именно этой кнопки; «Отклонить» и номер
             // звонящего доступность сохраняют, то есть отказаться от вызова
             // можно и без мыши.
-            .accessibilityHidden(true)
+            .compatAccessibilityHidden(true)
             .animation(.easeOut(duration: 0.2), value: isActive)
 
             FilledCallButton(
@@ -170,8 +171,8 @@ struct IncomingCallView: View {
                 fill: Theme.Palette.decline,
                 action: onDecline
             )
-            .keyboardShortcut(.cancelAction)
-            .accessibilityLabel("Отклонить вызов")
+            .compatCancelShortcut()
+            .compatAccessibilityLabel("Отклонить вызов")
         }
     }
 }
@@ -187,7 +188,7 @@ private struct DigitTargetButton: View {
         Button(action: action) {
             Text(String(digit))
                 .font(Theme.Text.controlKey)
-                .foregroundStyle(isActive ? .primary : .tertiary)
+                .compatForeground(isActive ? Color.primary : Theme.Palette.tertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .contentShape(.rect)
@@ -198,7 +199,7 @@ private struct DigitTargetButton: View {
         // вид кнопка обещала бы то, чего ещё нет.
         .hoverHighlight(isEnabled: isActive)
         // Нажать через Accessibility API нельзя — см. пояснение у «Ответить».
-        .accessibilityHidden(true)
+        .compatAccessibilityHidden(true)
         .animation(.easeOut(duration: 0.2), value: isActive)
     }
 }
@@ -219,14 +220,14 @@ private struct FilledCallButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: icon)
+                CompatSymbol(name: icon)
                 Text(title)
             }
             .font(Theme.Text.controlLabel)
-            .foregroundStyle(.white)
+            .compatForeground(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
-            .background(fill, in: .rect(cornerRadius: Theme.Radius.control))
+            .compatBackground(fill, cornerRadius: Theme.Radius.control)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

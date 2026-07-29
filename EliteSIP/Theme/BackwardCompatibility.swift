@@ -1,0 +1,384 @@
+import AppKit
+import SwiftUI
+
+/// Слой совместимости интерфейса.
+///
+/// Пакет `Compat` закрывает то, чего нет в стандартной библиотеке; здесь — то,
+/// чего нет в SwiftUI на Catalina и Big Sur. Собрано в одном файле намеренно:
+/// россыпь `if #available` по вьюхам превращает вёрстку в нечитаемую, а список
+/// того, чем мы платим за нижнюю планку, перестаёт существовать как список.
+///
+/// Правило одно: на новых системах поведение обязано остаться ровно прежним.
+/// Ветка совместимости — это ухудшение вида, а не изменение логики.
+extension View {
+
+    /// `animation(_:value:)` появился в macOS 12.
+    ///
+    /// До него была неявная анимация без привязки к значению: она анимирует
+    /// любое изменение вью, а не только нужное. Для подсветки под курсором
+    /// разница незаметна, поэтому старый вариант годится как запасной.
+    @ViewBuilder
+    func compatAnimation<V: Equatable>(_ animation: Animation?, value: V) -> some View {
+        if #available(macOS 12.0, *) {
+            self.animation(animation, value: value)
+        } else {
+            self.animation(animation)
+        }
+    }
+
+    /// `task` появился в macOS 12. Замена — та же задача из `onAppear`.
+    ///
+    /// Отличие, о котором надо помнить: `task` отменяет задачу, когда вью
+    /// исчезает, а `onAppear` — нет. Поэтому запасной вариант держит задачу
+    /// сам и снимает её в `onDisappear`.
+    func compatTask(_ action: @escaping @Sendable () async -> Void) -> some View {
+        modifier(CompatTask(action: action))
+    }
+
+    /// `help` появился в macOS 11. На Catalina всплывающей подсказки не будет.
+    @ViewBuilder
+    func compatHelp(_ text: String) -> some View {
+        if #available(macOS 11.0, *) {
+            self.help(text)
+        } else {
+            self
+        }
+    }
+
+    /// `accessibilityLabel` появился в macOS 11.
+    @ViewBuilder
+    func compatAccessibilityLabel(_ label: String) -> some View {
+        if #available(macOS 11.0, *) {
+            self.accessibilityLabel(label)
+        } else {
+            self
+        }
+    }
+
+    /// `accessibilityHidden` появился в macOS 11.
+    @ViewBuilder
+    func compatAccessibilityHidden(_ hidden: Bool) -> some View {
+        if #available(macOS 11.0, *) {
+            self.accessibilityHidden(hidden)
+        } else {
+            self
+        }
+    }
+
+    /// `keyboardShortcut` появился в macOS 11.
+    ///
+    /// Для окна входящего это не потеря: ярлыки SwiftUI в нём и так не
+    /// срабатывают — оно намеренно не становится ключевым, и цифры ловит
+    /// монитор событий в `IncomingCallPanel`.
+    @ViewBuilder
+    func compatKeyboardShortcut(_ key: Character, modifiers: EventModifiers = .command) -> some View {
+        if #available(macOS 11.0, *) {
+            self.keyboardShortcut(KeyEquivalent(key), modifiers: modifiers)
+        } else {
+            self
+        }
+    }
+
+    /// `overlay(alignment:content:)` с замыкателем появился в macOS 12;
+    /// вариант с готовой вью есть с 10.15.
+    func compatOverlay<Overlay: View>(
+        alignment: Alignment = .center,
+        @ViewBuilder _ content: () -> Overlay
+    ) -> some View {
+        overlay(content(), alignment: alignment)
+    }
+
+    /// То же для фона: замыкатель — macOS 12, готовая вью — 10.15.
+    func compatBackground<Background: View>(
+        alignment: Alignment = .center,
+        @ViewBuilder _ content: () -> Background
+    ) -> some View {
+        background(content(), alignment: alignment)
+    }
+
+    /// `background(_:in:)` — заливка формой — тоже macOS 12.
+    func compatBackground(_ color: Color, cornerRadius: CGFloat) -> some View {
+        background(RoundedRectangle(cornerRadius: cornerRadius).fill(color))
+    }
+
+    /// `keyboardShortcut(.cancelAction)`: сам `KeyboardShortcut` — macOS 11.
+    @ViewBuilder
+    func compatCancelShortcut() -> some View {
+        if #available(macOS 11.0, *) {
+            self.keyboardShortcut(.cancelAction)
+        } else {
+            self
+        }
+    }
+
+    /// `.borderedProminent` появился в macOS 12. Ниже остаётся системный стиль
+    /// кнопки по умолчанию: он же и был акцентным до появления `.bordered`.
+    @ViewBuilder
+    func compatProminentButtonStyle() -> some View {
+        if #available(macOS 12.0, *) {
+            self.buttonStyle(.borderedProminent)
+        } else {
+            self.buttonStyle(DefaultButtonStyle())
+        }
+    }
+}
+
+extension View {
+
+    /// `formStyle(.grouped)` появился в macOS 13. Ниже форма рисуется стилем по
+    /// умолчанию: группировка пропадает, поля остаются.
+    @ViewBuilder
+    func compatGroupedForm() -> some View {
+        if #available(macOS 13.0, *) {
+            self.formStyle(.grouped)
+        } else {
+            self
+        }
+    }
+
+    /// `monospacedDigit()` появился в macOS 12. Ниже тот же эффект даёт
+    /// моноширинное начертание: цифры перестают прыгать при пересчёте.
+    @ViewBuilder
+    func compatMonospacedDigit() -> some View {
+        if #available(macOS 12.0, *) {
+            self.monospacedDigit()
+        } else {
+            self.font(.system(.body, design: .monospaced))
+        }
+    }
+
+    /// `textSelection` появился в macOS 12. На Catalina строку журнала
+    /// выделить мышью нельзя — целиком журнал копируется кнопкой.
+    @ViewBuilder
+    func compatTextSelection() -> some View {
+        if #available(macOS 12.0, *) {
+            self.textSelection(.enabled)
+        } else {
+            self
+        }
+    }
+}
+
+/// Строка «подпись — значение».
+///
+/// `LabeledContent` появился в macOS 13. Замена — тот же ряд руками: подпись
+/// слева, значение справа, распорка между ними.
+struct CompatLabeledContent<Content: View>: View {
+
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer(minLength: 12)
+            content()
+        }
+    }
+}
+
+extension CompatLabeledContent where Content == Text {
+
+    init(_ title: String, value: String) {
+        self.init(title: title) { Text(value) }
+    }
+}
+
+extension URL {
+
+    /// `path(percentEncoded:)` появился в macOS 13; `path` есть всегда.
+    var compatPath: String {
+        if #available(macOS 13.0, *) {
+            return path(percentEncoded: false)
+        } else {
+            return path
+        }
+    }
+}
+
+/// Время без даты.
+///
+/// `Date.formatted(date:time:)` появился в macOS 12. `DateFormatter` есть
+/// всегда, и создаётся он здесь один раз: его инициализация дороже самого
+/// форматирования, а строка журнала собирается на каждую запись.
+enum TimeText {
+
+    /// «13:05» — для бейджа регистрации, где важен час, а не секунда.
+    static let short: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    /// «13:05:42» — для журнала, где порядок событий важнее краткости.
+    static let withSeconds: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .medium
+        return formatter
+    }()
+}
+
+/// Целое число в поле ввода.
+///
+/// `TextField(_:value:format:)` — macOS 12; вариант с `Formatter` есть с 10.15.
+enum IntegerFormatter {
+
+    static let shared: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .none
+        formatter.allowsFloats = false
+        return formatter
+    }()
+}
+
+/// Крутящийся индикатор.
+///
+/// `ProgressView` — macOS 11, а `NSProgressIndicator` есть всегда. Взят он, а
+/// не ветка по версии: индикатор крошечный, отличить их на глаз нельзя, и одна
+/// реализация на все версии — это на одну развилку меньше.
+struct CompatSpinner: NSViewRepresentable {
+
+    var controlSize: NSControl.ControlSize = .small
+
+    func makeNSView(context: Context) -> NSProgressIndicator {
+        let view = NSProgressIndicator()
+        view.style = .spinning
+        view.controlSize = controlSize
+        view.isIndeterminate = true
+        view.startAnimation(nil)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSProgressIndicator, context: Context) {
+        nsView.controlSize = controlSize
+    }
+}
+
+/// Поле ввода, у которого Enter что-то делает.
+///
+/// `onSubmit` появился в macOS 12; до него та же роль была у параметра
+/// `onCommit` самого `TextField`. Разница не косметическая: без Enter перевод
+/// звонка требует мыши в момент, когда оператор уже держит руки на клавиатуре.
+struct CompatTextField: View {
+
+    let title: String
+    @Binding var text: String
+    var onSubmit: () -> Void = {}
+
+    var body: some View {
+        if #available(macOS 12.0, *) {
+            TextField(title, text: $text).onSubmit(onSubmit)
+        } else {
+            TextField(title, text: $text, onCommit: onSubmit)
+        }
+    }
+}
+
+extension View {
+
+    /// `foregroundStyle` появился в macOS 12, а перегрузка с `ShapeStyle`,
+    /// которой пользуется вёрстка, — в 14. `foregroundColor` есть с 10.15.
+    ///
+    /// Принимает `Color`, а не `ShapeStyle`: иерархические `.secondary` и
+    /// `.tertiary` в проекте применяются только к тексту, а там они и есть
+    /// цвета. Градиентов и материалов в переднем плане нигде нет.
+    @ViewBuilder
+    func compatForeground(_ color: Color) -> some View {
+        if #available(macOS 12.0, *) {
+            self.foregroundStyle(color)
+        } else {
+            self.foregroundColor(color)
+        }
+    }
+}
+
+/// Иконка из комплекта проекта.
+///
+/// Не `Image(systemName:)`: SF Symbols появились в macOS 11, а срез x86_64
+/// обязан работать на Catalina, где их нет вовсе — это не шим, а отсутствующий
+/// ресурс. Комплект лежит в `Assets.xcassets/Symbols` и рисуется одинаково на
+/// всех версиях: иначе вид приложения расходился бы между Catalina и Tahoe, и
+/// проверять пришлось бы оба.
+///
+/// Имена совпадают с именами SF Symbols намеренно. Благодаря этому заменить
+/// комплект на свой — это положить другие файлы в каталог, а не править вёрстку.
+/// Исходники иконок — во фрейме «Иконки · комплект для Catalina» того же
+/// макета, что и остальной дизайн.
+///
+/// Размер задаётся явно, а не наследуется от шрифта, как у SF Symbols:
+/// растровому ресурсу наследовать не от чего.
+struct CompatSymbol: View {
+
+    let name: String
+    var size: CGFloat = 13
+
+    var body: some View {
+        Image(name)
+            .renderingMode(.template)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+    }
+}
+
+/// Замена `Label(_:systemImage:)`, которого нет до macOS 11.
+struct CompatLabel: View {
+
+    let title: String
+    let symbol: String
+    var size: CGFloat = 13
+    var spacing: CGFloat = 6
+
+    var body: some View {
+        HStack(spacing: spacing) {
+            CompatSymbol(name: symbol, size: size)
+            Text(title)
+        }
+    }
+}
+
+private struct CompatTask: ViewModifier {
+
+    let action: @Sendable () async -> Void
+
+    @State private var task: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        if #available(macOS 12.0, *) {
+            content.task { await action() }
+        } else {
+            content
+                .onAppear { task = Task { await action() } }
+                .onDisappear { task?.cancel(); task = nil }
+        }
+    }
+}
+
+/// Материал под содержимым.
+///
+/// `Material` из SwiftUI появился в macOS 12, но сам эффект есть с 10.10 —
+/// `NSVisualEffectView`. Поэтому на Catalina панель не становится плоской: она
+/// получает тот же системный материал, только через AppKit.
+struct CompatMaterial: NSViewRepresentable {
+
+    var material: NSVisualEffectView.Material = .contentBackground
+    var cornerRadius: CGFloat
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .withinWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.cornerRadius = cornerRadius
+        view.layer?.masksToBounds = true
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.layer?.cornerRadius = cornerRadius
+    }
+}

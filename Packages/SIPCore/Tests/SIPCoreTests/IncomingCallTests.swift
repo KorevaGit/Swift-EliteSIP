@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 import Testing
 @testable import SIPCore
@@ -249,9 +250,9 @@ struct IncomingCallTests {
         server.inject(request: makeACK(to: invite, toTag: toTag))
 
         // После ACK повторы обязаны прекратиться.
-        try await Task.sleep(for: .milliseconds(400))
+        try await Task.sleep(.milliseconds(400))
         let settled = okCount()
-        try await Task.sleep(for: .milliseconds(400))
+        try await Task.sleep(.milliseconds(400))
         #expect(okCount() == settled)
 
         await agent.stop()
@@ -270,11 +271,11 @@ struct IncomingCallTests {
 
         let toTag = try #require(server.sentResponses.last { $0.statusCode == 200 }?.to?.tag)
         server.inject(request: makeACK(to: invite, toTag: toTag))
-        try await Task.sleep(for: .milliseconds(200))
+        try await Task.sleep(.milliseconds(200))
         let afterACK = server.sentResponses.count
 
         server.inject(request: makeACK(to: invite, toTag: toTag))
-        try await Task.sleep(for: .milliseconds(200))
+        try await Task.sleep(.milliseconds(200))
         #expect(server.sentResponses.count == afterACK, "на повторный ACK отвечать нечем")
 
         await agent.stop()

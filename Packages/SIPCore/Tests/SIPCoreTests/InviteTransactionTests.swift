@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 import Testing
 @testable import SIPCore
@@ -146,7 +147,7 @@ struct InviteTransactionTests {
         server.inject(response: response(180, contact: nil))
 
         // Даём заведомо больше нескольких интервалов T1.
-        try await Task.sleep(for: .milliseconds(500))
+        try await Task.sleep(.milliseconds(500))
         let count = server.receivedRequests.filter { $0.method == .invite }.count
         #expect(count <= 2, "после 1xx запрос повторять не нужно, отправлено \(count)")
 
@@ -179,7 +180,7 @@ struct InviteTransactionTests {
             }
             return true
         }
-        try await Task.sleep(for: .seconds(4))
+        try await Task.sleep(.seconds(4))
         #expect(!stillRinging.isCancelled)
         stillRinging.cancel()
 
@@ -224,7 +225,7 @@ struct InviteTransactionTests {
         let (layer, server) = await makeLayer(transport: .tls)
         _ = await layer.sendInvite(makeInvite())
 
-        try await Task.sleep(for: .milliseconds(600))
+        try await Task.sleep(.milliseconds(600))
         let count = server.receivedRequests.filter { $0.method == .invite }.count
         #expect(count == 1, "доставку гарантирует TCP, отправлено \(count)")
 

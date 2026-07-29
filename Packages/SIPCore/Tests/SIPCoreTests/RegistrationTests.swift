@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 import Testing
 @testable import SIPCore
@@ -243,7 +244,7 @@ struct RegistrationTests {
         await agent.start()
 
         // Ждём дольше, чем несколько интервалов T1, но меньше таймера F.
-        try await Task.sleep(for: .milliseconds(700))
+        try await Task.sleep(.milliseconds(700))
         let count = server.receivedRequests.count
         await agent.stop()
 

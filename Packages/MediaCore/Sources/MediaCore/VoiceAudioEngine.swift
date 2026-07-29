@@ -1,3 +1,4 @@
+import Compat
 import AVFoundation
 import CoreAudio
 import Foundation
@@ -191,7 +192,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// остаются открытыми, а Bluetooth-гарнитура — в режиме связи.
     private var aggregate: AggregateAudioDevice?
 
-    private let captureLock: OSAllocatedUnfairLock<CaptureState>
+    private let captureLock: UnfairLock<CaptureState>
 
     private struct CaptureState {
         var ring: SampleRing
@@ -210,7 +211,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// Считаются на потоках кодирования и подачи, а не на потоках реального
     /// времени: там и так есть распакованные отсчёты, а лишняя работа в рендере
     /// не нужна. Читаются из интерфейса, отсюда замок.
-    private let levelLock = OSAllocatedUnfairLock(initialState: LevelState())
+    private let levelLock = UnfairLock(initialState: LevelState())
 
     private struct LevelState {
         var inputPeak: Float = 0
@@ -228,7 +229,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
 
     private let captureSignal = DispatchSemaphore(value: 0)
     private var encodeThread: Thread?
-    private let isEncoding = OSAllocatedUnfairLock(initialState: false)
+    private let isEncoding = UnfairLock(initialState: false)
 
     // MARK: - Состояние воспроизведения
     // Читается на потоке рендера, пишется подающим потоком — отсюда замок.
@@ -236,7 +237,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     // os_unfair_lock, а не очередь: критическая секция здесь несколько
     // микросекунд, а любое ожидание на потоке рендера слышно как щелчок.
 
-    private let playbackLock: OSAllocatedUnfairLock<PlaybackState>
+    private let playbackLock: UnfairLock<PlaybackState>
 
     private struct PlaybackState {
         var ring: SampleRing
@@ -248,15 +249,15 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// который не выделяет память и не ждёт.
     private let feedSignal = DispatchSemaphore(value: 0)
     private var feedThread: Thread?
-    private let isFeeding = OSAllocatedUnfairLock(initialState: false)
+    private let isFeeding = UnfairLock(initialState: false)
 
     // MARK: - Состояние жизненного цикла
     // Трогается только на `control`, кроме чтения `isRunning`.
 
-    private let runningFlag = OSAllocatedUnfairLock(initialState: false)
+    private let runningFlag = UnfairLock(initialState: false)
     public var isRunning: Bool { runningFlag.withLock { $0 } }
 
-    private let mutedFlag = OSAllocatedUnfairLock(initialState: false)
+    private let mutedFlag = UnfairLock(initialState: false)
 
     /// Немой микрофон: в линию уходит тишина, но уходит.
     ///
@@ -311,7 +312,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             throw AudioError.formatUnavailable
         }
         conversationFormat = format
-        playbackLock = OSAllocatedUnfairLock(initialState: PlaybackState(
+        playbackLock = UnfairLock(initialState: PlaybackState(
             ring: SampleRing(
                 capacity: configuration.maximumPlaybackFrames * configuration.samplesPerFrame,
                 targetFill: configuration.targetPlaybackFrames * configuration.samplesPerFrame
@@ -321,7 +322,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // устройства, какая встречается (96 кГц). Размер задан здесь и потом не
         // меняется: выделять память на потоке реального времени нельзя, а
         // частота устройства к моменту создания движка ещё неизвестна.
-        captureLock = OSAllocatedUnfairLock(initialState: CaptureState(
+        captureLock = UnfairLock(initialState: CaptureState(
             ring: SampleRing(capacity: 48_000, targetFill: 0),
             scratch: [Float](repeating: 0, count: 16_384)
         ))

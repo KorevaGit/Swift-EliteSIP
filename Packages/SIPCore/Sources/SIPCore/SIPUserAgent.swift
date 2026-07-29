@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 
 /// Пользовательский агент SIP: регистрация и ответы на входящие запросы.
@@ -177,7 +178,7 @@ public actor SIPUserAgent {
             // пир остаётся зарегистрированным до истечения срока.
             let unregister = Task { try await self.register(expires: 0) }
             let timeout = Task {
-                try? await Task.sleep(for: .seconds(3))
+                try? await Task.sleep(.seconds(3))
                 unregister.cancel()
             }
             _ = try? await unregister.value
@@ -209,7 +210,7 @@ public actor SIPUserAgent {
 
                 let refreshAfter = Self.refreshInterval(forGrantedExpires: granted)
                 log(.debug, "обновление регистрации через \(refreshAfter) с")
-                try await Task.sleep(for: .seconds(refreshAfter))
+                try await Task.sleep(.seconds(refreshAfter))
             } catch is CancellationError {
                 return
             } catch {
@@ -220,7 +221,7 @@ public actor SIPUserAgent {
                 set(state: .failed(reason: reason, retryAt: Date().addingTimeInterval(Double(delay))))
                 log(.warning, "регистрация не удалась: \(reason). Повтор через \(delay) с")
                 do {
-                    try await Task.sleep(for: .seconds(delay))
+                    try await Task.sleep(.seconds(delay))
                 } catch {
                     return
                 }
@@ -891,7 +892,7 @@ public actor SIPUserAgent {
                 continuation.yield(.accepted)
                 transferTimeoutTasks[callID]?.cancel()
                 transferTimeoutTasks[callID] = Task { [weak self] in
-                    do { try await Task.sleep(for: .seconds(60)) } catch { return }
+                    do { try await Task.sleep(.seconds(60)) } catch { return }
                     await self?.expireTransfer(callID: callID)
                 }
                 log(.info, "<- \(response.statusCode) \(response.reasonPhrase) на REFER")

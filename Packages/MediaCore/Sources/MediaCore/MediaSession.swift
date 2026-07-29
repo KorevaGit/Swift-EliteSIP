@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 import os
 
@@ -120,15 +121,15 @@ public final class MediaSession: @unchecked Sendable {
 
     /// Поток RTP живёт под замком, потому что пересогласование подменяет его
     /// целиком, пока отправка кадров идёт с потока кодирования.
-    private let transport: OSAllocatedUnfairLock<Transport?>
+    private let transport: UnfairLock<Transport?>
 
     /// Джиттер-буфер трогают два потока: приём RTP и подача в звук.
     private let bufferLock = NSLock()
     private var jitter: JitterBuffer
 
     /// SSRC собеседника — узнаётся из первого же принятого пакета.
-    private let remoteSSRC = OSAllocatedUnfairLock(initialState: UInt32?.none)
-    private let remoteViewLock = OSAllocatedUnfairLock(initialState: RTCPSession.RemoteView?.none)
+    private let remoteSSRC = UnfairLock(initialState: UInt32?.none)
+    private let remoteViewLock = UnfairLock(initialState: RTCPSession.RemoteView?.none)
 
     /// Что сейчас можно делать со звуком.
     private struct Flow {
@@ -140,7 +141,7 @@ public final class MediaSession: @unchecked Sendable {
         var isSendingTone = false
     }
 
-    private let flow = OSAllocatedUnfairLock(initialState: Flow())
+    private let flow = UnfairLock(initialState: Flow())
 
     public init(
         negotiated: NegotiatedMedia,
@@ -165,7 +166,7 @@ public final class MediaSession: @unchecked Sendable {
             releasesDeviceWhenIdle: releasesDeviceWhenIdle,
             automaticGainControl: automaticGainControl
         ))
-        transport = OSAllocatedUnfairLock(
+        transport = UnfairLock(
             initialState: try Self.makeTransport(negotiated: negotiated, localPort: localPort)
         )
     }
@@ -496,7 +497,7 @@ public final class MediaSession: @unchecked Sendable {
 
     /// Задача и очередь живут под одним замком. Иначе новый тон мог попасть
     /// между обнаружением пустой очереди и обнулением task и остаться без worker.
-    private let dtmfState = OSAllocatedUnfairLock(initialState: DTMFState())
+    private let dtmfState = UnfairLock(initialState: DTMFState())
 
     /// Согласован ли telephone-event. Если нет, тоны отправить нечем.
     public var supportsTelephoneEvents: Bool {
@@ -580,7 +581,7 @@ public final class MediaSession: @unchecked Sendable {
                 continuation.resume(returning: !Task.isCancelled)
 
             case .step(.pause(let milliseconds)):
-                try? await Task.sleep(for: .milliseconds(milliseconds))
+                try? await Task.sleep(.milliseconds(milliseconds))
 
             case .step(.tone(let event)):
                 guard await sendTone(event: event, timing: timing) else {
@@ -589,7 +590,7 @@ public final class MediaSession: @unchecked Sendable {
                 }
                 // Пауза между тонами — здесь, а не в раскладке: очередь
                 // пополняется по нажатию, и заранее раскладывать нечего.
-                try? await Task.sleep(for: .milliseconds(timing.gapMilliseconds))
+                try? await Task.sleep(.milliseconds(timing.gapMilliseconds))
             }
         }
         failPendingDTMF()
@@ -641,7 +642,7 @@ public final class MediaSession: @unchecked Sendable {
             guard !Task.isCancelled else { return false }
             switch action {
             case .wait(let milliseconds):
-                try? await Task.sleep(for: .milliseconds(milliseconds))
+                try? await Task.sleep(.milliseconds(milliseconds))
 
             case .packet(let packet):
                 guard let rtp = currentRTP else { return false }

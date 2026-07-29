@@ -1,10 +1,11 @@
+import Compat
 import SIPCore
 import SwiftUI
 
 struct PhonePanelView: View {
 
-    @Environment(AppModel.self) private var model
-    @Environment(IncomingCallPanel.self) private var incomingCall
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var incomingCall: IncomingCallPanel
 
     var body: some View {
         VStack(spacing: Theme.Metrics.sectionSpacing) {
@@ -29,7 +30,7 @@ struct PhonePanelView: View {
         .padding(.top, Theme.Metrics.titleBarInset)
         .frame(width: Theme.Metrics.panelWidth)
         .frame(maxHeight: .infinity)
-        .background {
+        .compatBackground {
             WindowAccessor { window in
                 // Заголовок скрыт, поэтому окно надо таскать за фон.
                 window.isMovableByWindowBackground = true
@@ -85,11 +86,11 @@ struct PhonePanelView: View {
     #if DEBUG
     /// Ждёт регистрации перед отладочным звонком: без неё Asterisk ответит 401
     /// и звонок не состоится.
-    private func waitForRegistration(timeout: Duration = .seconds(15)) async -> Bool {
-        let deadline = ContinuousClock.now + timeout
-        while ContinuousClock.now < deadline {
+    private func waitForRegistration(timeout: Interval = .seconds(15)) async -> Bool {
+        let deadline = MonotonicClock.now + timeout
+        while MonotonicClock.now < deadline {
             if model.isConnected { return true }
-            try? await Task.sleep(for: .milliseconds(200))
+            try? await Task.sleep(.milliseconds(200))
         }
         return model.isConnected
     }
@@ -120,17 +121,14 @@ struct PhonePanelView: View {
                     }
                 }
             } label: {
-                Label(
-                    model.isInCall ? "Завершить" : "Позвонить",
-                    systemImage: model.isInCall ? "phone.down.fill" : "phone.fill"
-                )
+                CompatLabel(title: model.isInCall ? "Завершить" : "Позвонить", symbol: model.isInCall ? "phone.down.fill" : "phone.fill")
                 .font(Theme.Text.controlLabel)
-                .foregroundStyle(.white)
+                .compatForeground(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(
-                    (model.isInCall ? Theme.Palette.decline : Theme.Palette.answer),
-                    in: .rect(cornerRadius: Theme.Radius.control)
+                .compatBackground(
+                    model.isInCall ? Theme.Palette.decline : Theme.Palette.answer,
+                    cornerRadius: Theme.Radius.control
                 )
                 .contentShape(.rect)
             }
@@ -143,12 +141,12 @@ struct PhonePanelView: View {
             // Системное затемнение выключенной кнопки на стеклянном фоне почти
             // не видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
             .opacity(isCallButtonEnabled ? 1 : 0.4)
-            .help(model.isInCall ? "Завершить разговор" : "Позвонить по набранному номеру")
+            .compatHelp(model.isInCall ? "Завершить разговор" : "Позвонить по набранному номеру")
 
             if !model.callStatus.isEmpty {
                 Text(model.callStatus)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 10))
+                    .compatForeground(.secondary)
                     .lineLimit(1)
             }
         }
@@ -161,11 +159,11 @@ struct PhonePanelView: View {
             Button {
                 showIncomingCallDemo()
             } label: {
-                Label("Показать окно входящего", systemImage: "bell.badge")
+                CompatLabel(title: "Показать окно входящего", symbol: "bell.badge")
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.small)
-            .help("Проверка плавающей панели и рандомизации позиции")
+            .compatHelp("Проверка плавающей панели и рандомизации позиции")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -173,7 +171,7 @@ struct PhonePanelView: View {
 
 struct RegistrationBadge: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
 
     var body: some View {
         HStack(spacing: 8) {
@@ -186,7 +184,7 @@ struct RegistrationBadge: View {
                 if let detail = model.registrationDetail {
                     Text(detail)
                         .font(Theme.Text.panelDetail)
-                        .foregroundStyle(.tertiary)
+                        .compatForeground(Theme.Palette.tertiary)
                         .lineLimit(1)
                 }
             }
@@ -203,8 +201,7 @@ struct RegistrationBadge: View {
     @ViewBuilder
     private var indicator: some View {
         if model.isBusy {
-            ProgressView()
-                .controlSize(.small)
+            CompatSpinner()
                 .frame(width: 10, height: 10)
         } else {
             Circle()
@@ -226,7 +223,7 @@ struct RegistrationBadge: View {
             }
             .controlSize(.small)
             .disabled(!model.canConnect)
-            .help(model.canConnect ? "Зарегистрироваться на сервере" : "Сначала заполните учётную запись в настройках")
+            .compatHelp(model.canConnect ? "Зарегистрироваться на сервере" : "Сначала заполните учётную запись в настройках")
         }
     }
 
@@ -242,7 +239,7 @@ struct RegistrationBadge: View {
 
 struct DialedNumberField: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
 
     var body: some View {
         HStack(spacing: 6) {
@@ -251,7 +248,7 @@ struct DialedNumberField: View {
             // не нажалась», а голосовое меню молчит одинаково в обоих случаях.
             Text(model.displayedNumber.isEmpty ? placeholder : model.displayedNumber)
                 .font(.system(size: Theme.Metrics.dialedNumberFontSize, weight: .light, design: .rounded))
-                .foregroundStyle(model.displayedNumber.isEmpty ? .tertiary : .primary)
+                .compatForeground(model.displayedNumber.isEmpty ? Theme.Palette.tertiary : .primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .truncationMode(.head)
@@ -261,18 +258,18 @@ struct DialedNumberField: View {
                 Button {
                     model.removeLastDigit()
                 } label: {
-                    Image(systemName: "delete.left")
+                    CompatSymbol(name: "delete.left")
                 }
                 .buttonStyle(.borderless)
-                .help("Удалить последнюю цифру")
+                .compatHelp("Удалить последнюю цифру")
 
                 Button {
                     model.clearDialedNumber()
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
+                    CompatSymbol(name: "xmark.circle.fill")
                 }
                 .buttonStyle(.borderless)
-                .help("Очистить")
+                .compatHelp("Очистить")
             }
         }
         .padding(.horizontal, 12)
@@ -292,7 +289,7 @@ struct DialedNumberField: View {
 /// чем нельзя воспользоваться.
 struct CallControls: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
 
     var body: some View {
         VStack(spacing: 6) {
@@ -323,21 +320,19 @@ struct CallControls: View {
             if !model.usableMacros.isEmpty {
                 // Ряд с переносом: макросов может быть сколько угодно, а панель
                 // шириной 280 точек не резиновая.
-                FlowRow(spacing: 6) {
-                    ForEach(model.usableMacros) { macro in
-                        Button(macro.title) {
-                            model.send(macro: macro)
-                        }
-                        .buttonStyle(.plain)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .themedControlSurface()
-                        .hoverHighlight(isEnabled: model.canSendDTMF)
-                        .disabled(!model.canSendDTMF)
-                        .opacity(model.canSendDTMF ? 1 : 0.4)
-                        .help(model.settings.dtmf.sequence(of: macro).displayText)
+                MacroFlow(items: model.usableMacros, spacing: 6) { macro in
+                    Button(macro.title) {
+                        model.send(macro: macro)
                     }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .themedControlSurface()
+                    .hoverHighlight(isEnabled: model.canSendDTMF)
+                    .disabled(!model.canSendDTMF)
+                    .opacity(model.canSendDTMF ? 1 : 0.4)
+                    .compatHelp(model.settings.dtmf.sequence(of: macro).displayText)
                 }
             }
 
@@ -378,7 +373,7 @@ struct CallControls: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
+            CompatLabel(title: title, symbol: systemImage)
                 .font(Theme.Text.controlLabel)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
@@ -386,8 +381,8 @@ struct CallControls: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isOn ? Color.white : Color.primary)
-        .background {
+        .compatForeground(isOn ? Color.white : Color.primary)
+        .compatBackground {
             if isOn {
                 RoundedRectangle(cornerRadius: Theme.Radius.control).fill(Theme.Palette.connecting)
             }
@@ -396,7 +391,7 @@ struct CallControls: View {
         .hoverHighlight(isEnabled: isEnabled)
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : 0.4)
-        .help(help)
+        .compatHelp(help)
     }
 }
 
@@ -406,23 +401,23 @@ struct CallControls: View {
 /// занимать место редкой операцией за счёт клавиатуры и статуса звонка нельзя.
 private struct TransferEntry: View {
 
-    @Environment(AppModel.self) private var model
+    @EnvironmentObject private var model: AppModel
 
     var body: some View {
         VStack(spacing: 6) {
-            TextField(
-                "Номер перевода",
+            CompatTextField(
+                title: "Номер перевода",
                 text: Binding(
                     get: { model.transferNumber },
                     set: { model.transferNumber = $0 }
-                )
-            )
-                .textFieldStyle(.roundedBorder)
-                .disabled(model.isTransferring)
-                .onSubmit {
+                ),
+                onSubmit: {
                     guard model.hasTransferNumber, !model.isTransferring else { return }
                     Task { await model.blindTransfer() }
                 }
+            )
+                .textFieldStyle(.roundedBorder)
+                .disabled(model.isTransferring)
 
             HStack(spacing: 6) {
                 Button("Отмена") {
@@ -435,15 +430,15 @@ private struct TransferEntry: View {
                     Task { await model.blindTransfer() }
                 } label: {
                     if model.isTransferring {
-                        ProgressView()
-                            .controlSize(.small)
+                        CompatSpinner()
+                            .frame(height: 12)
                             .frame(maxWidth: .infinity)
                     } else {
                         Text("Перевести")
                             .frame(maxWidth: .infinity)
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .compatProminentButtonStyle()
                 .disabled(!model.hasTransferNumber || model.isTransferring)
             }
             .controlSize(.small)
@@ -453,10 +448,51 @@ private struct TransferEntry: View {
     }
 }
 
+/// Кнопки макросов: перенос по ширине там, где он есть, и сетка там, где нет.
+///
+/// `Layout` появился только в macOS 13, а срез x86_64 обязан работать на
+/// Catalina. Замена ему — фиксированные три кнопки в ряд: подпись макроса
+/// задаёт оператор, и предсказать её ширину заранее нельзя, но три коротких
+/// кнопки в панель шириной 280 точек влезают всегда. Переносить по месту без
+/// `Layout` пришлось бы через `GeometryReader` и preference key, а это лишний
+/// проход раскладки ради ряда кнопок.
+struct MacroFlow<Item: Identifiable, Content: View>: View {
+
+    let items: [Item]
+    var spacing: CGFloat = 6
+    @ViewBuilder let content: (Item) -> Content
+
+    private static var itemsPerRow: Int { 3 }
+
+    var body: some View {
+        if #available(macOS 13.0, *) {
+            FlowRow(spacing: spacing) {
+                ForEach(items) { content($0) }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: spacing) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: spacing) {
+                        ForEach(row) { content($0) }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+        }
+    }
+
+    private var rows: [[Item]] {
+        stride(from: 0, to: items.count, by: Self.itemsPerRow).map { start in
+            Array(items[start..<min(start + Self.itemsPerRow, items.count)])
+        }
+    }
+}
+
 /// Ряд с переносом на следующую строку.
 ///
 /// SwiftUI до `Layout` этого не умел, а `LazyVGrid` раздаёт колонкам одинаковую
 /// ширину — подписи макросов бывают и в два символа, и в десять.
+@available(macOS 13.0, *)
 struct FlowRow: Layout {
 
     var spacing: CGFloat = 6
@@ -518,8 +554,8 @@ struct MilestoneNote: View {
     }
 
     var body: some View {
-        Label(text, systemImage: "hammer.fill")
+        CompatLabel(title: text, symbol: "hammer.fill")
             .font(.footnote)
-            .foregroundStyle(.secondary)
+            .compatForeground(.secondary)
     }
 }
