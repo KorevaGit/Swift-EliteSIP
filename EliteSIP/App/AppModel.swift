@@ -30,6 +30,15 @@ final class AppModel: ObservableObject {
     @Published var settings: AppSettings {
         didSet {
             guard settings != oldValue else { return }
+            // Ключ записи в связке ключей — «номер@домен». Сменили любое из
+            // двух — и признак «пароль задан» относится уже к другой учётке:
+            // без перепроверки настройки показывали бы «сохранён в Keychain»
+            // для номера, у которого пароля нет. Проверка наличия дешёвая и
+            // диалога не вызывает, поэтому её можно делать прямо здесь.
+            if settings.account.username != oldValue.account.username
+                || settings.account.domain != oldValue.account.domain {
+                refreshStoredPasswordFlag()
+            }
             persistSettings()
         }
     }
@@ -49,7 +58,7 @@ final class AppModel: ObservableObject {
 
     init() {
         settings = SettingsStore.load()
-        hasStoredPassword = loadStoredPassword(quiet: true) != nil
+        refreshStoredPasswordFlag()
     }
 
     // MARK: - Учётная запись
@@ -58,27 +67,43 @@ final class AppModel: ObservableObject {
         KeychainStore.key(for: settings.account.username, domain: settings.account.domain)
     }
 
-    /// Пароль из Keychain.
+    /// Обновляет признак «пароль задан».
     ///
-    /// Ошибку не глушим: «записи нет» и «Keychain отказал» — совершенно разные
-    /// случаи, а выглядят одинаково. Отказ случается буднично: подпись
-    /// приложения меняется при каждой пересборке, и macOS спрашивает
-    /// разрешение на доступ к записи, созданной прежней сборкой. Без этого
-    /// сообщения такая ситуация выглядит как «пароль не задан», и пользователь
-    /// вводит его заново вместо того, чтобы нажать «Разрешить».
-    private func loadStoredPassword(quiet: Bool = false) -> String? {
+    /// Наличие проверяется без чтения самого пароля, и это не оптимизация, а
+    /// условие работоспособности запуска. Чтение данных из связки ключей
+    /// упирается в ACL: после каждой пересборки подпись приложения другая,
+    /// macOS показывает запрос разрешения, а `SecItemCopyMatching` блокирует
+    /// поток до ответа человека. Вызванное из `init`, это вешало приложение
+    /// целиком — окна ещё не создавались, показывать запрос было некуда, и
+    /// софтфон стартовал в пустоту без единого окна и без крэша.
+    private func refreshStoredPasswordFlag() {
         do {
-            return try KeychainStore.password(for: keychainKey)
+            hasStoredPassword = try KeychainStore.hasPassword(for: keychainKey)
         } catch {
-            if !quiet {
-                append(level: .error, message: "Keychain не отдал пароль: \(error.localizedDescription)")
-            }
-            return nil
+            hasStoredPassword = false
         }
     }
 
-    private var storedPassword: String? {
-        loadStoredPassword()
+    /// Пароль из Keychain — не с главного потока.
+    ///
+    /// Именно здесь возможен запрос разрешения, и пока человек на него не
+    /// ответил, вызов не возвращается. На главном потоке это заморозило бы
+    /// интерфейс ровно в тот момент, когда от человека ждут ответа.
+    ///
+    /// Ошибку не глушим: «записи нет» и «Keychain отказал» — совершенно разные
+    /// случаи, а выглядят одинаково. Без сообщения отказ выглядит как «пароль
+    /// не задан», и пользователь вводит его заново вместо того, чтобы нажать
+    /// «Разрешить».
+    private func loadStoredPassword() async -> String? {
+        let key = keychainKey
+        do {
+            return try await Task.detached(priority: .userInitiated) {
+                try KeychainStore.password(for: key)
+            }.value
+        } catch {
+            append(level: .error, message: "Keychain не отдал пароль: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     var isConnected: Bool { registration.isRegistered }
@@ -151,7 +176,7 @@ final class AppModel: ObservableObject {
         let password: String
         if !passwordDraft.isEmpty {
             password = passwordDraft
-        } else if let stored = storedPassword {
+        } else if let stored = await loadStoredPassword() {
             password = stored
         } else {
             append(level: .error, message: "пароль не задан")
@@ -1153,8 +1178,9 @@ final class AppModel: ObservableObject {
     }
 
     func applyLabPreset(_ preset: AppSettings) {
+        // Признак «пароль задан» пересчитает наблюдатель `settings`: пресет
+        // меняет и номер, и домен, то есть ключ записи в связке ключей.
         settings = preset
-        hasStoredPassword = storedPassword != nil
         append(level: .info, message: "применены настройки лаборатории: \(preset.account.username)")
     }
 }

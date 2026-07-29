@@ -67,6 +67,41 @@ enum KeychainStore {
         }
     }
 
+    /// Есть ли сохранённый пароль — без чтения самого пароля.
+    ///
+    /// Разница принципиальная, и стоила она зависшего запуска. ACL связки ключей
+    /// защищает **данные** записи: за ними macOS спрашивает разрешение, если
+    /// подпись приложения изменилась, и `SecItemCopyMatching` блокирует поток до
+    /// ответа человека. Запрос без `kSecReturnData` ничего не расшифровывает,
+    /// поэтому не спрашивает и не блокирует — а на вопрос «пароль задан?»
+    /// отвечает столь же точно.
+    ///
+    /// Подпись меняется при каждой пересборке с `CODE_SIGN_IDENTITY = "-"`,
+    /// то есть в разработке — на каждой. Постоянная подпись появится в M7
+    /// вместе с нотаризацией, но полагаться на неё здесь нельзя: у оператора
+    /// запись в связке ключей может оказаться созданной другой сборкой.
+    static func hasPassword(for key: String) throws -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+
+        let status = SecItemCopyMatching(query as CFDictionary, nil)
+        switch status {
+        case errSecSuccess: return true
+        case errSecItemNotFound: return false
+        default: throw KeychainError.unexpectedStatus(status)
+        }
+    }
+
+    /// Пароль целиком.
+    ///
+    /// Здесь диалог разрешения возможен, и это нормально: вызывать эту функцию
+    /// можно только в ответ на действие человека и только не с главного потока
+    /// — иначе интерфейс замирает ровно в тот момент, когда от человека ждут
+    /// ответа. См. `AppModel.loadStoredPassword`.
     static func password(for key: String) throws -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
