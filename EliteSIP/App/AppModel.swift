@@ -183,6 +183,14 @@ final class AppModel {
             message: "подключение к \(account.signalingEndpoint) по \(account.transport.protocolName)"
         )
 
+        // Разрешение на микрофон спрашиваем заранее, при выходе на линию.
+        //
+        // Иначе системный диалог впервые появляется под звонок: окно входящего
+        // уже скрыто, оператор считает, что принял лид, а мы вместо ответа
+        // показываем ему запрос доступа. Здесь же он всплывает в спокойный
+        // момент и больше не мешает никогда.
+        Task { _ = await VoiceAudioEngine.requestMicrophoneAccess() }
+
         let events = agent.events
         eventPump = Task { [weak self] in
             for await event in events {
@@ -558,12 +566,22 @@ final class AppModel {
             message: "принимаю вызов от \(call.displayNumber), RTP-порт \(prepared.port)"
         )
 
+        // Медиа поднимается ДО 200 OK, а не после.
+        //
+        // `makeAnswer` порт только примеряет — открывает сокет и тут же
+        // закрывает, — поэтому до `startMedia` на нём никто не слушает.
+        // Asterisk начинает слать RTP по 200 OK, и в зазоре между ответом и
+        // подъёмом тракта первые кадры уходят в закрытый порт, а сам порт в это
+        // время может занять кто угодно ещё.
+        startMedia(negotiated: prepared.media, localPort: prepared.port)
+        guard media != nil else { return }
+
         guard await agent.answerIncomingCall(answer: prepared.answer.encodedData) else {
             append(level: .warning, message: "ответить не удалось: вызова уже нет")
+            teardownCall()
             return
         }
 
-        startMedia(negotiated: prepared.media, localPort: prepared.port)
         logGuardReport()
     }
 
