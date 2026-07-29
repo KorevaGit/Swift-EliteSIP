@@ -26,7 +26,7 @@ WebSocket-мостом) закрыта как неподдерживаемая. 
 | Транспорт | TLS + SRTP (SDES). UDP без шифрования — только для лаборатории |
 | Кодеки | G.711 PCMU/PCMA, 20 мс, + telephone-event (RFC 4733) |
 | Сервер | Asterisk 13.38.3 под FreePBX, драйвер `chan_sip` |
-| Окна | панель софтфона 280×500 · плавающее окно входящего · окно настроек |
+| Окна | панель софтфона 280×500 · плавающее окно входящего 320×212 · окно настроек |
 | macOS | 14.0+ (Liquid Glass только на 26, ниже — материалы) |
 | Конференция | ConfBridge на стороне Asterisk |
 | Перевод | REFER + Replaces, плюс серверные DTMF-коды через макросы |
@@ -45,11 +45,14 @@ EliteSIP.xcodeproj      objectVersion 77, синхронизированная �
                         группа — файлы подхватываются сами, pbxproj править не надо
 EliteSIP/               приложение
   App/                  точка входа, состояние
+  Services/             настройки, Keychain, рингтон
   Views/                панель, дайлпад, входящий вызов, настройки
-  Windows/              NSPanel входящего, расчёт позиции, доступ к NSWindow
+  Windows/              NSPanel входящего, слежение за курсором, доступ к NSWindow
   Theme/                токены размеров и цветов, шим Liquid Glass ↔ материалы
 Packages/SIPCore/       протокол SIP. Без AppKit, без аудио, полностью тестируем
 Packages/MediaCore/     RTP и кодеки. Без AppKit
+Packages/CallGuard/     защита приёма вызова: случайность, признаки живого
+                        человека, отчёт. Чистая логика, время и ГПСЧ снаружи
 Config/                 entitlements
 docs/                   решения, которые нужно объяснять: аудиотракт, защита
                         от автокликеров
@@ -66,13 +69,21 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 ```
 
 ```bash
-(cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test)
+(cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test) \
+  && (cd Packages/CallGuard && swift test)
 ```
 
 Разговор со звуком против живой АТС и замеры аудиотракта:
 
 ```bash
 (cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --call 600 --audio)
+```
+
+Приём входящего против живой АТС — `--answer`, а позвонить на себя проще всего
+через `channel originate` на стороне Asterisk:
+
+```bash
+(cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --duration 15 --answer)
 ```
 
 ```bash
@@ -96,9 +107,10 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
       устройства и переключение его на ходу — [docs/audio.md](docs/audio.md)
 - [x] **M2b** — SRTP с SDES, обязательный для TLS без отката на открытый RTP
       — [docs/srtp.md](docs/srtp.md)
-- [ ] **M3** — входящий звонок и **защита от автокликеров**: случайная позиция,
+- [x] **M3** — входящий звонок и **защита от автокликеров**: случайная позиция,
       случайная задержка активации, случайная цель подтверждения, требование
-      движения курсора, отсев синтетических нажатий. Плюс рингтон
+      движения курсора, отсев синтетических нажатий, отчёт на каждый вызов.
+      Плюс рингтон — [docs/incoming.md](docs/incoming.md)
 - [ ] **M4** — удержание, DTMF, макросы
 - [ ] **M5** — перевод: слепой и с консультацией, три линии
 - [ ] **M6** — конференция
@@ -142,6 +154,7 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 2. Что показывать в окне входящего при раздаче? Судя по CDR, номера клиента в
    SIP нет. Оставляем «раздача из 2929» или просим админа передавать номер?
 3. Выключатель защиты от автокликеров: локальный, управляемый из EliteDash или
-   под паролем администратора. Пока сделан локальный с записью факта в журнал.
+   под паролем администратора. Пока сделан локальный с записью факта в журнал;
+   место под серверное управление в настройках заложено.
 4. Боевые `features.conf` и контекст `extensions.conf` с кодами `*022998#` и
    `*3` — в лабе они восстановлены по виду кодов, это догадка.
