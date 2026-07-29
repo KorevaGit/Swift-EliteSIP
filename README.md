@@ -141,7 +141,9 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
 - [x] **M1** — транспорт SIP, парсер, транзакции, регистрация (UDP и TLS)
 - [x] **M1.5** — FreePBX рядом с нашим Asterisk, чтобы видеть, что он
       генерирует: контексты `from-internal`, `sub-record-check`, очереди,
-      `MixMonitor`. Отдельный контейнер, не поверх лабы — см. ниже
+      `MixMonitor`. Отдельный контейнер, не поверх лабы — см. ниже. Очередь
+      раздачи 2929 заводится сама при старте контейнера, поэтому её поведение
+      входит в воспроизводимую проверку — [Lab/FREEPBX.md](Lab/FREEPBX.md)
 - [x] **M1.6** — настоящая история FreePBX: постоянные CDR/CEL в MariaDB,
       обязательная запись разговоров, прослушивание и скачивание записей из
       отчёта CDR — [Lab/FREEPBX.md](Lab/FREEPBX.md)

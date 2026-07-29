@@ -24,6 +24,9 @@ apache2 -k start
 echo "[freepbx] запускаю Asterisk через fwconsole"
 fwconsole start
 
+echo "[freepbx] завожу очередь раздачи 2929"
+/usr/local/bin/freepbx-queue-init.sh
+
 echo "[freepbx] применяю миграцию M1.6: CDR, CEL и записи"
 /usr/local/bin/freepbx-m1-6-init.sh
 

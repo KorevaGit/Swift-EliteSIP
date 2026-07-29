@@ -165,10 +165,12 @@ RUN set -eux; \
 #     засоряют ровно тот список, ради которого стенд и нужен.
 
 COPY extensions_m1_6.conf /usr/local/share/elitesip/extensions_m1_6.conf
+COPY queue-init.sh /usr/local/bin/freepbx-queue-init.sh
 COPY m1-6-init.sh /usr/local/bin/freepbx-m1-6-init.sh
 COPY entrypoint.sh /usr/local/bin/freepbx-entrypoint.sh
 RUN chmod +x \
       /usr/local/bin/freepbx-entrypoint.sh \
+      /usr/local/bin/freepbx-queue-init.sh \
       /usr/local/bin/freepbx-m1-6-init.sh
 
 EXPOSE 80 5060/udp 5160/udp 5061/tcp
