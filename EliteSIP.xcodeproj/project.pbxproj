@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		E1000000000000000000001F /* SIPCore in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000001D /* SIPCore */; };
 		E10000000000000000000020 /* MediaCore in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000001E /* MediaCore */; };
+		E10000000000000000000023 /* CallGuard in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000022 /* CallGuard */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +32,7 @@
 			files = (
 				E1000000000000000000001F /* SIPCore in Frameworks */,
 				E10000000000000000000020 /* MediaCore in Frameworks */,
+				E10000000000000000000023 /* CallGuard in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -84,6 +86,7 @@
 			packageProductDependencies = (
 				E1000000000000000000001D /* SIPCore */,
 				E1000000000000000000001E /* MediaCore */,
+				E10000000000000000000022 /* CallGuard */,
 			);
 			productName = EliteSIP;
 			productReference = E1000000000000000000000F /* EliteSIP.app */;
@@ -117,6 +120,7 @@
 			packageReferences = (
 				E1000000000000000000001B /* XCLocalSwiftPackageReference "Packages/SIPCore" */,
 				E1000000000000000000001C /* XCLocalSwiftPackageReference "Packages/MediaCore" */,
+				E10000000000000000000021 /* XCLocalSwiftPackageReference "Packages/CallGuard" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E1000000000000000000000C /* Products */;
@@ -295,6 +299,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/MediaCore;
 		};
+		E10000000000000000000021 /* XCLocalSwiftPackageReference "Packages/CallGuard" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CallGuard;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -305,6 +313,10 @@
 		E1000000000000000000001E /* MediaCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MediaCore;
+		};
+		E10000000000000000000022 /* CallGuard */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CallGuard;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

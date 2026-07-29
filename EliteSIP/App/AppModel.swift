@@ -1,3 +1,4 @@
+import CallGuard
 import MediaCore
 import Observation
 import SIPCore
@@ -215,6 +216,9 @@ final class AppModel {
         case .log(let level, let message):
             append(level: level, message: message)
 
+        case .incomingCall(let call):
+            handle(incoming: call)
+
         case .unsupportedRequest(let method):
             append(level: .info, message: "запрос \(method.rawValue) отклонён: ещё не поддерживается")
         }
@@ -226,6 +230,8 @@ final class AppModel {
         case idle
         case dialing
         case ringing
+        /// Нам звонят, окно на экране, решение за оператором.
+        case incoming
         case active
         case ending
     }
@@ -234,10 +240,28 @@ final class AppModel {
     private(set) var callStatus: String = ""
     private(set) var callPeer: String = ""
 
+    /// Окно входящего вызова вместе с защитой. Живёт здесь, а не в сцене:
+    /// показывает его приезд INVITE, а не действие пользователя.
+    let incomingCallPanel = IncomingCallPanel()
+    private let ringtone = Ringtone()
+
     private var media: MediaSession?
     private var callTask: Task<Void, Never>?
 
     var isInCall: Bool { callPhase != .idle }
+
+    /// Кодеки, которые предлагаем и на которые соглашаемся.
+    ///
+    /// Одно место на оба направления: разные списки в предложении и в ответе
+    /// означали бы, что исходящий и входящий звонки звучат по-разному, а
+    /// объяснить это оператору нечем.
+    private var preferredCodecs: [AudioCodec] {
+        settings.audio.prefersWideband ? SDPNegotiator.defaultCodecs : SDPNegotiator.narrowbandCodecs
+    }
+
+    private var mediaSecurityPolicy: MediaSecurityPolicy {
+        settings.account.transport == .tls ? .sdesRequired : .none
+    }
 
     func placeCall() async {
         guard let agent, canPlaceCall, hasDialedNumber else { return }
@@ -260,7 +284,8 @@ final class AppModel {
         do {
             prepared = try MediaSession.makeOffer(
                 localAddress: address,
-                security: settings.account.transport == .tls ? .sdesRequired : .none
+                codecs: preferredCodecs,
+                security: mediaSecurityPolicy
             )
         } catch {
             append(level: .error, message: "не удалось занять порт RTP: \(error.localizedDescription)")
@@ -296,7 +321,9 @@ final class AppModel {
             case .ringing: callPhase = .ringing; callStatus = "Гудки"
             case .answered: callPhase = .active
             case .ending: callPhase = .ending; callStatus = "Завершение…"
-            case .ended: break
+            // Исходящий звонок входящим не бывает: это состояние принадлежит
+            // другому потоку событий.
+            case .incoming, .ended: break
             }
 
         case .answered(let body, _):
@@ -320,8 +347,23 @@ final class AppModel {
     private func startMedia(answerBody: Data, offer: SessionDescription, localPort: UInt16) {
         do {
             let answer = try SessionDescription(parsing: answerBody)
-            let negotiated = try SDPNegotiator.resolveAnswer(answer, toOffer: offer)
+            let negotiated = try SDPNegotiator.resolveAnswer(
+                answer, toOffer: offer, supported: preferredCodecs
+            )
+            startMedia(negotiated: negotiated, localPort: localPort)
+        } catch {
+            append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
+            callStatus = "Ошибка звука"
+            Task { await hangUp() }
+        }
+    }
 
+    /// Поднимает разговор по уже согласованным параметрам.
+    ///
+    /// Общая для обоих направлений часть: чем звонок кончился — нашим
+    /// предложением или нашим ответом — звуку безразлично.
+    private func startMedia(negotiated: NegotiatedMedia, localPort: UInt16) {
+        do {
             append(
                 level: .info,
                 message: "медиа: \(negotiated.security.isEncrypted ? "SRTP" : "RTP") \(negotiated.codec.sdpName) на \(negotiated.remoteAddress):\(negotiated.remotePort)"
@@ -358,6 +400,7 @@ final class AppModel {
             try session.start()
             media = session
             audioRoute = session.route
+            negotiatedCodec = negotiated.codec
             startLevelPolling()
 
             callPhase = .active
@@ -372,6 +415,10 @@ final class AppModel {
     private func teardownCall() {
         callTask?.cancel()
         callTask = nil
+        ringtone.stop()
+        incomingCallPanel.hide()
+        logGuardReport()
+        incomingCall = nil
         media?.stop()
         media = nil
         callPhase = .idle
@@ -383,6 +430,165 @@ final class AppModel {
         levelTask = nil
         inputLevel = 0
         outputLevel = 0
+    }
+
+    // MARK: - Входящий звонок
+
+    private(set) var incomingCall: SIPIncomingCall?
+
+    /// Отчёт защиты по последнему входящему. Нужен вкладке диагностики и в M8
+    /// уедет в EliteDash целиком.
+    private(set) var lastGuardReport: CallGuardReport?
+
+    private func handle(incoming call: SIPIncomingCall) {
+        // Линию агент держит сам и второй вызов отклоняет 486 ещё до события.
+        // Проверка здесь — на случай рассогласования, а не на нормальный ход.
+        guard callPhase == .idle else { return }
+
+        incomingCall = call
+        callPhase = .incoming
+        callPeer = call.displayNumber
+        callStatus = "Входящий"
+        didLogGuardReport = false
+
+        if !settings.incomingCall.isEnabled {
+            // Выключить защиту можно, скрыть факт — нет. В M8 эта же запись
+            // уедет в EliteDash с отметкой времени.
+            append(level: .warning, message: "защита от автокликеров выключена на этом вызове")
+        }
+
+        ringtone.start(
+            settings: settings.ringtone,
+            outputDeviceUID: settings.audio.outputDeviceUID
+        )
+
+        incomingCallPanel.show(
+            callerNumber: call.displayNumber,
+            callerName: call.callerName,
+            policy: settings.incomingCall,
+            onAnswer: { [weak self] in
+                Task { await self?.answerIncomingCall() }
+            },
+            onDecline: { [weak self] in
+                Task { await self?.declineIncomingCall() }
+            }
+        )
+
+        callTask = Task { [weak self] in
+            for await event in call.events {
+                self?.handle(incomingEvent: event)
+            }
+        }
+    }
+
+    private func handle(incomingEvent event: SIPCallEvent) {
+        switch event {
+        case .state(let state):
+            switch state {
+            case .incoming: callPhase = .incoming; callStatus = "Входящий"
+            case .answered: callPhase = .active
+            case .ending: callPhase = .ending; callStatus = "Завершение…"
+            case .dialing, .ringing, .ended: break
+            }
+
+        case .answered:
+            // Для входящего звонка ответ — это наш собственный 200 OK, и медиа
+            // поднимается там же, где он отправляется.
+            break
+
+        case .failed(_, let reason):
+            append(level: .info, message: "входящий не состоялся: \(reason)")
+            callStatus = reason
+            teardownCall()
+
+        case .ended(let reason):
+            append(level: .info, message: "входящий завершён: \(reason)")
+            if let media {
+                append(level: .debug, message: "медиа: \(media.summary)")
+            }
+            callStatus = reason
+            teardownCall()
+        }
+    }
+
+    /// Принимает вызов: SDP-ответ, 200 OK и сразу звук.
+    ///
+    /// Порядок обязателен именно такой. Микрофон спрашивается до 200 OK: если
+    /// разрешение придёт после, в линию уйдёт тишина, а по звуку причину не
+    /// понять. И наоборот, медиа поднимается сразу после 200 OK, не дожидаясь
+    /// ACK: Asterisk начинает слать RTP по 200-му.
+    private func answerIncomingCall() async {
+        guard let agent, let call = incomingCall, callPhase == .incoming else { return }
+
+        ringtone.stop()
+        callStatus = "Соединение…"
+
+        guard await VoiceAudioEngine.requestMicrophoneAccess() else {
+            append(level: .error, message: "нет доступа к микрофону — вызов отклонён")
+            callStatus = "Нет доступа к микрофону"
+            await agent.rejectIncomingCall(status: 486)
+            return
+        }
+
+        guard let address = await agent.mediaAddress else {
+            append(level: .error, message: "неизвестен внешний адрес — нечего указать в SDP")
+            await agent.rejectIncomingCall(status: 500)
+            return
+        }
+
+        let prepared: (answer: SessionDescription, media: NegotiatedMedia, port: UInt16)
+        do {
+            prepared = try MediaSession.makeAnswer(
+                to: try SessionDescription(parsing: call.offer),
+                localAddress: address,
+                codecs: preferredCodecs,
+                security: mediaSecurityPolicy
+            )
+        } catch {
+            // 488 — это «предложение не подходит», ровно наш случай: нет общего
+            // кодека или сервер не предложил SRTP на защищённом профиле.
+            append(level: .error, message: "не удалось ответить на предложение: \(error.localizedDescription)")
+            callStatus = "Несовместимое медиа"
+            await agent.rejectIncomingCall(status: 488)
+            return
+        }
+
+        append(
+            level: .info,
+            message: "принимаю вызов от \(call.displayNumber), RTP-порт \(prepared.port)"
+        )
+
+        guard await agent.answerIncomingCall(answer: prepared.answer.encodedData) else {
+            append(level: .warning, message: "ответить не удалось: вызова уже нет")
+            return
+        }
+
+        startMedia(negotiated: prepared.media, localPort: prepared.port)
+        logGuardReport()
+    }
+
+    private func declineIncomingCall() async {
+        guard let agent, callPhase == .incoming else { return }
+        ringtone.stop()
+        callStatus = "Отклонение…"
+        await agent.rejectIncomingCall(status: 486)
+    }
+
+    /// Писали ли уже отчёт по текущему вызову.
+    ///
+    /// Флаг, а не сравнение с прошлым отчётом: два подряд одинаково отклонённых
+    /// вызова дают одинаковые отчёты, и сравнение проглотило бы второй.
+    private var didLogGuardReport = false
+
+    /// Пишет отчёт защиты в журнал ровно один раз за вызов.
+    private func logGuardReport() {
+        guard !didLogGuardReport, let report = incomingCallPanel.lastReport else { return }
+        didLogGuardReport = true
+        lastGuardReport = report
+        append(
+            level: report.looksAutomated ? .warning : .info,
+            message: "защита: \(report.summary)"
+        )
     }
 
     // MARK: - Аудиотракт

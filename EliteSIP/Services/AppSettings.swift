@@ -1,3 +1,4 @@
+import CallGuard
 import Foundation
 import SIPCore
 
@@ -13,7 +14,14 @@ struct AppSettings: Codable, Sendable, Equatable {
 
     var account: SIPAccount
     var audio: AudioSettings = AudioSettings()
-    var incomingCall: IncomingCallSettings
+
+    /// Защита приёма вызова от автокликеров.
+    ///
+    /// Ключ в файле остался прежним (`incomingCall`): у `CallGuardPolicy` те же
+    /// три поля, что были у настроек окна, а остальные её декодер добирает
+    /// значениями по умолчанию. Файл настроек от обновления не пострадает.
+    var incomingCall: CallGuardPolicy
+    var ringtone: RingtoneSettings = RingtoneSettings()
     var minimumLogLevel: SIPLogLevel
 
     /// Доверять любому сертификату TLS.
@@ -29,7 +37,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         schemaVersion: Int = 1,
         account: SIPAccount,
         audio: AudioSettings = AudioSettings(),
-        incomingCall: IncomingCallSettings = IncomingCallSettings(),
+        incomingCall: CallGuardPolicy = CallGuardPolicy(),
+        ringtone: RingtoneSettings = RingtoneSettings(),
         minimumLogLevel: SIPLogLevel = .info,
         acceptsAnyTLSCertificate: Bool = false
     ) {
@@ -37,6 +46,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.account = account
         self.audio = audio
         self.incomingCall = incomingCall
+        self.ringtone = ringtone
         self.minimumLogLevel = minimumLogLevel
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
@@ -53,8 +63,9 @@ struct AppSettings: Codable, Sendable, Equatable {
         account = try container.decode(SIPAccount.self, forKey: .account)
         audio = try container.decodeIfPresent(AudioSettings.self, forKey: .audio) ?? AudioSettings()
         incomingCall = try container.decodeIfPresent(
-            IncomingCallSettings.self, forKey: .incomingCall
-        ) ?? IncomingCallSettings()
+            CallGuardPolicy.self, forKey: .incomingCall
+        ) ?? CallGuardPolicy()
+        ringtone = try container.decodeIfPresent(RingtoneSettings.self, forKey: .ringtone) ?? RingtoneSettings()
         minimumLogLevel = try container.decodeIfPresent(SIPLogLevel.self, forKey: .minimumLogLevel) ?? .info
         acceptsAnyTLSCertificate =
             try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
@@ -122,12 +133,32 @@ struct AppSettings: Codable, Sendable, Equatable {
         }
     }
 
-    struct IncomingCallSettings: Codable, Sendable, Equatable {
-        var isRandomPositionEnabled: Bool = true
-        /// Минимальное смещение окна от прошлой позиции, в точках.
-        var minimumTravel: Double = 150
-        /// Отступ от краёв рабочей области, в точках.
-        var screenMargin: Double = 24
+    struct RingtoneSettings: Codable, Sendable, Equatable {
+
+        var isEnabled: Bool = true
+
+        /// Громкость, от 0 до 1.
+        var volume: Double = 0.5
+
+        /// Играть в системное устройство вывода, а не в выбранное для разговора.
+        ///
+        /// Смысл в гарнитуре: пока она лежит на столе, звонок нужно слышать
+        /// колонками. А вот отдать рингтон в ту же гарнитуру полезно, когда она
+        /// на голове, — поэтому это выбор, а не решение за пользователя.
+        var usesSystemOutput: Bool = true
+
+        init(isEnabled: Bool = true, volume: Double = 0.5, usesSystemOutput: Bool = true) {
+            self.isEnabled = isEnabled
+            self.volume = volume
+            self.usesSystemOutput = usesSystemOutput
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+            volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? 0.5
+            usesSystemOutput = try container.decodeIfPresent(Bool.self, forKey: .usesSystemOutput) ?? true
+        }
     }
 
     static let `default` = AppSettings(
@@ -138,7 +169,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             transport: .tls,
             registrationExpires: 300
         ),
-        incomingCall: IncomingCallSettings(),
+        incomingCall: CallGuardPolicy(),
         minimumLogLevel: .info,
         acceptsAnyTLSCertificate: false
     )
@@ -153,7 +184,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             transport: .udp,
             registrationExpires: 120
         ),
-        incomingCall: IncomingCallSettings(),
+        incomingCall: CallGuardPolicy(),
         minimumLogLevel: .debug,
         acceptsAnyTLSCertificate: false
     )
@@ -167,7 +198,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             transport: .tls,
             registrationExpires: 120
         ),
-        incomingCall: IncomingCallSettings(),
+        incomingCall: CallGuardPolicy(),
         minimumLogLevel: .debug,
         acceptsAnyTLSCertificate: true
     )

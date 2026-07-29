@@ -2,27 +2,31 @@ import CoreGraphics
 
 /// Расчёт случайной позиции окна входящего вызова.
 ///
-/// Вынесено в чистую структуру без AppKit и без глобального состояния:
-/// генератор случайных чисел передаётся снаружи, поэтому поведение
-/// воспроизводимо. В M3, когда рандомизация станет полноценной фичей, эта
-/// структура уезжает в отдельный пакет вместе с тестами — сейчас у неё нет
-/// покрытия, и это единственная непокрытая логика в M0.
-struct IncomingCallPlacement {
+/// Первая и самая дешёвая мера защиты: кликер по фиксированным координатам
+/// ломается об неё целиком. Чистая структура без AppKit и без глобального
+/// состояния — генератор случайных чисел передаётся снаружи, поэтому поведение
+/// воспроизводимо и проверяется тестами.
+public struct IncomingCallPlacement: Sendable {
 
     /// Область, внутри которой окно вообще разрешено показывать.
-    /// В M3 сюда приедет пользовательский прямоугольник «не лезь на CRM».
-    var bounds: CGRect
+    public var bounds: CGRect
 
     /// Минимальное расстояние от предыдущей позиции.
-    var minimumTravel: CGFloat
+    public var minimumTravel: CGFloat
 
     /// Сколько раз пытаться попасть в требование по расстоянию, прежде чем
     /// взять лучшую из попыток. Без ограничения на маленьком экране цикл
     /// может не сойтись никогда.
-    var maximumAttempts: Int = 24
+    public var maximumAttempts: Int = 24
+
+    public init(bounds: CGRect, minimumTravel: CGFloat, maximumAttempts: Int = 24) {
+        self.bounds = bounds
+        self.minimumTravel = minimumTravel
+        self.maximumAttempts = maximumAttempts
+    }
 
     /// Прямоугольник допустимых левых-нижних углов окна заданного размера.
-    func originBounds(forPanelSize size: CGSize) -> CGRect {
+    public func originBounds(forPanelSize size: CGSize) -> CGRect {
         CGRect(
             x: bounds.minX,
             y: bounds.minY,
@@ -31,7 +35,7 @@ struct IncomingCallPlacement {
         )
     }
 
-    func origin(
+    public func origin(
         forPanelSize size: CGSize,
         previous: CGPoint?,
         using generator: inout some RandomNumberGenerator

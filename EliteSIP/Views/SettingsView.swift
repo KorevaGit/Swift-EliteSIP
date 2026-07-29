@@ -1,3 +1,4 @@
+import CallGuard
 import MediaCore
 import SIPCore
 import SwiftUI
@@ -352,71 +353,182 @@ private struct LevelMeter: View {
     }
 }
 
+/// Вкладка защиты приёма вызова.
+///
+/// Раздел не про внешний вид окна, а про то, ради чего написано приложение,
+/// поэтому у каждой настройки в подписи стоит не «что», а «зачем»: оператор,
+/// который понимает, от чего защищается, не выключает это первым делом.
 private struct IncomingCallSettingsTab: View {
 
     @Environment(AppModel.self) private var model
     @Environment(IncomingCallPanel.self) private var incomingCall
 
+    private var policy: Binding<CallGuardPolicy> {
+        Binding(
+            get: { model.settings.incomingCall },
+            set: { model.settings.incomingCall = $0 }
+        )
+    }
+
+    private var isGuardOn: Bool { model.settings.incomingCall.isEnabled }
+
     var body: some View {
         Form {
-            Section("Размещение окна") {
-                Toggle("Случайная позиция окна", isOn: Binding(
-                    get: { model.settings.incomingCall.isRandomPositionEnabled },
-                    set: { model.settings.incomingCall.isRandomPositionEnabled = $0 }
-                ))
+            Section {
+                Toggle("Защита от автокликеров", isOn: policy.isEnabled)
+                    // Место под вариант «значением управляет EliteDash»: пока
+                    // всегда активно, но интерфейс уже готов показать иное.
+                    .disabled(model.settings.incomingCall.isServerManaged)
+
+                if model.settings.incomingCall.isServerManaged {
+                    Text("Значением управляет EliteDash.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if !isGuardOn {
+                    Label(
+                        "Выключение фиксируется в журнале, а в M8 уедет в EliteDash.",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(Theme.Palette.decline)
+                }
+            } footer: {
+                Text("Автокликер принимает лид быстрее коллег, не находясь за рабочим местом, и лид уходит в тишину.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Случайность") {
+                Toggle("Случайная позиция окна", isOn: policy.isRandomPositionEnabled)
+                    .help("Ломает кликеры по фиксированным координатам")
 
                 LabeledContent("Минимальное смещение") {
-                    HStack {
-                        Slider(
-                            value: Binding(
-                                get: { model.settings.incomingCall.minimumTravel },
-                                set: { model.settings.incomingCall.minimumTravel = $0 }
-                            ),
-                            in: 0...600,
-                            step: 25
-                        )
-                        Text("\(Int(model.settings.incomingCall.minimumTravel)) pt")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                            .frame(width: 60, alignment: .trailing)
-                    }
+                    SettingSlider(value: policy.minimumTravel, range: 0...600, step: 25, unit: "pt")
                 }
                 .disabled(!model.settings.incomingCall.isRandomPositionEnabled)
 
                 LabeledContent("Отступ от краёв экрана") {
-                    HStack {
-                        Slider(
-                            value: Binding(
-                                get: { model.settings.incomingCall.screenMargin },
-                                set: { model.settings.incomingCall.screenMargin = $0 }
-                            ),
-                            in: 0...200,
-                            step: 8
-                        )
-                        Text("\(Int(model.settings.incomingCall.screenMargin)) pt")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                            .frame(width: 60, alignment: .trailing)
+                    SettingSlider(value: policy.screenMargin, range: 0...200, step: 8, unit: "pt")
+                }
+
+                LabeledContent("Задержка активации") {
+                    HStack(spacing: 8) {
+                        DelayField(milliseconds: policy.minimumActivationDelayMilliseconds)
+                        Text("—").foregroundStyle(.secondary)
+                        DelayField(milliseconds: policy.maximumActivationDelayMilliseconds)
+                        Text("мс").foregroundStyle(.secondary)
                     }
                 }
+                .help("Клик раньше срока не принимается и попадает в отчёт")
+
+                Picker("Целей на выбор", selection: policy.targetCount) {
+                    ForEach(1...5, id: \.self) { count in
+                        Text(count == 1 ? "одна" : "\(count)").tag(count)
+                    }
+                }
+                .help("Одна цель означает, что поиск кнопки по шаблону снова работает")
             }
+            .disabled(!isGuardOn)
+
+            Section("Признаки живого человека") {
+                Toggle("Требовать движения курсора", isOn: policy.requiresCursorMovement)
+                    .help("CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет")
+
+                LabeledContent("Нужный путь курсора") {
+                    SettingSlider(value: policy.requiredCursorTravel, range: 0...200, step: 10, unit: "pt")
+                }
+                .disabled(!model.settings.incomingCall.requiresCursorMovement)
+
+                Toggle("Отклонять синтетические нажатия", isOn: policy.rejectsSyntheticEvents)
+                    .help("Признак подделывается, поэтому по умолчанию он только пишется в отчёт")
+            }
+            .disabled(!isGuardOn)
+
+            Section("Звонок") {
+                Toggle("Проигрывать рингтон", isOn: Binding(
+                    get: { model.settings.ringtone.isEnabled },
+                    set: { model.settings.ringtone.isEnabled = $0 }
+                ))
+
+                LabeledContent("Громкость") {
+                    SettingSlider(
+                        value: Binding(
+                            get: { model.settings.ringtone.volume },
+                            set: { model.settings.ringtone.volume = $0 }
+                        ),
+                        range: 0...1,
+                        step: 0.05,
+                        unit: nil
+                    )
+                }
+
+                Picker("Играть в", selection: Binding(
+                    get: { model.settings.ringtone.usesSystemOutput },
+                    set: { model.settings.ringtone.usesSystemOutput = $0 }
+                )) {
+                    Text("системное устройство").tag(true)
+                    Text("устройство разговора").tag(false)
+                }
+                .help("Гарнитура на столе звонка не слышна — тогда звонить должны колонки")
+            }
+            .disabled(!model.settings.ringtone.isEnabled)
 
             Section {
                 Button {
                     incomingCall.show(
-                        callerNumber: "22998",
-                        callerName: "Проверка размещения",
-                        placement: model.settings.incomingCall,
+                        callerNumber: "2929",
+                        callerName: "AutoDialer",
+                        policy: model.settings.incomingCall,
                         onAnswer: {},
                         onDecline: {}
                     )
                 } label: {
                     Label("Показать окно для проверки", systemImage: "bell.badge")
                 }
-                MilestoneNote("Запретная зона под CRM и перетасовка кнопок — M3, когда определимся с целью рандомизации.")
+
+                if let report = model.lastGuardReport {
+                    LabeledContent("Последний вызов", value: report.summary)
+                        .font(.caption)
+                }
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct SettingSlider: View {
+
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let unit: String?
+
+    var body: some View {
+        HStack {
+            Slider(value: $value, in: range, step: step)
+            Text(unit == nil ? String(format: "%.0f %%", value * 100) : "\(Int(value)) \(unit!)")
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: 60, alignment: .trailing)
+        }
+    }
+}
+
+/// Поле для миллисекунд.
+///
+/// Именно числом, а не ползунком: диапазон задержки — это то, что настраивают
+/// один раз и по договорённости, и «примерно 700» здесь бесполезно.
+private struct DelayField: View {
+
+    @Binding var milliseconds: Int
+
+    var body: some View {
+        TextField("", value: $milliseconds, format: .number)
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.trailing)
+            .monospacedDigit()
+            .frame(width: 64)
+            .labelsHidden()
     }
 }
 

@@ -29,6 +29,8 @@ struct SIPCheck {
               --duration <секунды>  сколько держать регистрацию, по умолчанию 10
               --insecure-tls        не проверять сертификат (лаборатория)
               --call <номер>        позвонить и прогнать RTP (например 600)
+              --answer              ждать входящий и принять его
+              --reject              ждать входящий и отклонить (486)
               --audio               поднять настоящий звук: микрофон, буфер, карта
               --narrowband          предлагать только G.711, без широкой полосы
             """)
@@ -65,6 +67,11 @@ struct SIPCheck {
 
         print("→ \(account.signalingEndpoint) по \(transport.protocolName), номер \(user), держим \(Int(duration)) с")
 
+        // Входящий приезжает событием агента, а не по нашему запросу, поэтому
+        // ловится здесь же, в общем потоке, и передаётся ожидающему через
+        // продолжение — иначе пришлось бы заводить второй поток событий.
+        let incoming = IncomingSlot()
+
         let printer = Task {
             for await event in agent.events {
                 switch event {
@@ -72,6 +79,9 @@ struct SIPCheck {
                     print("   состояние: \(describe(state))")
                 case .log(let level, let message):
                     print("   [\(level.rawValue)] \(message)")
+                case .incomingCall(let call):
+                    print("← входящий от \(call.displayNumber) на \(call.calledNumber)")
+                    await incoming.deliver(call)
                 case .unsupportedRequest(let method):
                     print("   отклонён запрос \(method.rawValue)")
                 }
@@ -98,7 +108,18 @@ struct SIPCheck {
         print("✅ регистрация прошла")
 
         var callSucceeded = true
-        if let number = arguments["call"] {
+        if arguments.hasFlag("answer") || arguments.hasFlag("reject") {
+            callSucceeded = await waitForIncomingCall(
+                agent: agent,
+                incoming: incoming,
+                host: host,
+                duration: duration,
+                answering: arguments.hasFlag("answer"),
+                withAudio: arguments.hasFlag("audio"),
+                narrowbandOnly: arguments.hasFlag("narrowband"),
+                secureMedia: transport == .tls
+            )
+        } else if let number = arguments["call"] {
             callSucceeded = await placeCall(
                 agent: agent,
                 to: number,
@@ -118,6 +139,131 @@ struct SIPCheck {
         await agent.stop()
         printer.cancel()
         exit(callSucceeded ? 0 : 1)
+    }
+
+    /// Ждёт входящий звонок и отвечает на него или отклоняет.
+    ///
+    /// Зеркало `placeCall` и нужна ровно затем же: тесты проверяют логику
+    /// приёма, а придирчивость chan_sip к нашему 200 OK — только живой сервер.
+    /// Кто именно позвонит, инструмент не решает; на лабе проще всего так:
+    ///
+    ///   docker exec elitesip-lab13 asterisk -rx 'channel originate SIP/100 extension 600@internal'
+    private static func waitForIncomingCall(
+        agent: SIPUserAgent,
+        incoming: IncomingSlot,
+        host: String,
+        duration: Double,
+        answering: Bool,
+        withAudio: Bool,
+        narrowbandOnly: Bool,
+        secureMedia: Bool
+    ) async -> Bool {
+        print("→ жду входящий \(Int(duration)) с…")
+
+        guard let call = await incoming.wait(timeout: duration) else {
+            print("❌ входящего так и не было")
+            return false
+        }
+
+        guard answering else {
+            await agent.rejectIncomingCall(status: 486)
+            print("✅ вызов отклонён 486")
+            return true
+        }
+
+        let address = await agent.mediaAddress ?? host
+        let prepared: (answer: SessionDescription, media: NegotiatedMedia, port: UInt16)
+        do {
+            prepared = try MediaSession.makeAnswer(
+                to: try SessionDescription(parsing: call.offer),
+                localAddress: address,
+                codecs: narrowbandOnly ? SDPNegotiator.narrowbandCodecs : SDPNegotiator.defaultCodecs,
+                security: secureMedia ? .sdesRequired : .none
+            )
+        } catch {
+            await agent.rejectIncomingCall(status: 488)
+            print("❌ на предложение ответить нечем: \(error)")
+            return false
+        }
+
+        let media = prepared.media
+        print("   отвечаю: \(media.security.isEncrypted ? "SRTP" : "RTP") \(media.codec.sdpName) на \(media.remoteAddress):\(media.remotePort), свой порт \(prepared.port)")
+
+        let received = Counter()
+        var rtp: RTPSession?
+        var audio: MediaSession?
+
+        // Медиа поднимается ДО 200 OK: Asterisk начинает слать RTP сразу по
+        // ответу, и порт к этому моменту обязан слушать.
+        do {
+            if withAudio {
+                guard await VoiceAudioEngine.requestMicrophoneAccess() else {
+                    await agent.rejectIncomingCall(status: 486)
+                    print("❌ микрофон не разрешён — разрешите его терминалу и повторите")
+                    return false
+                }
+                let session = try MediaSession(negotiated: media, localPort: prepared.port)
+                session.onDiagnostic = { print("   звук: \($0)") }
+                try session.start()
+                audio = session
+            } else {
+                let session = try RTPSession(
+                    configuration: .init(negotiated: media),
+                    localPort: prepared.port,
+                    remoteHost: media.remoteAddress,
+                    remotePort: media.remotePort
+                )
+                session.onReceivedPacket = { _ in received.increment() }
+                session.start()
+                rtp = session
+
+                let silence = silenceFrame(for: media)
+                Task {
+                    while !Task.isCancelled {
+                        session.send(encodedFrame: silence)
+                        try? await Task.sleep(for: .milliseconds(media.packetTimeMilliseconds))
+                    }
+                }
+            }
+        } catch {
+            await agent.rejectIncomingCall(status: 500)
+            print("❌ медиа не поднялось: \(error)")
+            return false
+        }
+
+        guard await agent.answerIncomingCall(answer: prepared.answer.encodedData) else {
+            print("❌ ответить не удалось: вызова уже нет")
+            return false
+        }
+        print("✅ отправлен 200 OK")
+
+        try? await Task.sleep(for: .seconds(duration))
+        await agent.hangUp()
+
+        let count = audio.map { $0.statistics.received } ?? received.value
+        if let audio {
+            print("   звук: \(audio.summary)")
+            audio.stop()
+        }
+        rtp?.stop()
+
+        print(count > 0
+            ? "✅ встречный поток RTP получен: \(count) пакетов"
+            : "❌ встречного потока RTP не было — медиа не дошло")
+        return count > 0
+    }
+
+    /// Кадр тишины для любого согласованного кодека.
+    ///
+    /// Не константный байт: у G.722 постоянного байта тишины не существует —
+    /// это ADPCM с состоянием, и нули в полезной нагрузке дают не тишину, а
+    /// щелчки. Тишина здесь получается тем же путём, что и настоящий звук, —
+    /// кодированием нулевых отсчётов.
+    private static func silenceFrame(for media: NegotiatedMedia) -> Data {
+        var encoder = AudioFrameEncoder(codec: media.codec)
+        return encoder.encode(
+            [Int16](repeating: 0, count: media.codec.sampleCount(forPacketTime: media.packetTimeMilliseconds))
+        )
     }
 
     /// Звонит и гоняет RTP.
@@ -211,10 +357,7 @@ struct SIPCheck {
 
                         // Шлём тишину: эхо-тест вернёт её обратно, и по встречному
                         // потоку видно, что медиа-путь живой в обе стороны.
-                        let silence = Data(
-                            repeating: G711.silenceByte(for: media.codec),
-                            count: media.codec.byteCount(forPacketTime: media.packetTimeMilliseconds)
-                        )
+                        let silence = silenceFrame(for: media)
                         Task {
                             while !Task.isCancelled {
                                 rtp.send(encodedFrame: silence)
@@ -300,6 +443,50 @@ private struct Arguments {
 }
 
 /// Потокобезопасный счётчик: пакеты считаются на очереди RTP-сессии.
+/// Место под входящий звонок.
+///
+/// Существует потому, что входящий приезжает в общий поток событий агента, а
+/// ждать его надо в другом месте. Актор, а не мьютекс с семафором: звонок может
+/// прийти и до того, как его начали ждать, и это нормальный случай — сервер
+/// звонит, когда захочет.
+private actor IncomingSlot {
+
+    private var pending: SIPIncomingCall?
+    private var waiter: CheckedContinuation<SIPIncomingCall?, Never>?
+
+    func deliver(_ call: SIPIncomingCall) {
+        if let waiter {
+            self.waiter = nil
+            waiter.resume(returning: call)
+        } else {
+            pending = call
+        }
+    }
+
+    func wait(timeout: Double) async -> SIPIncomingCall? {
+        if let pending {
+            self.pending = nil
+            return pending
+        }
+
+        let timer = Task {
+            try? await Task.sleep(for: .seconds(timeout))
+            await self.giveUp()
+        }
+        defer { timer.cancel() }
+
+        return await withCheckedContinuation { continuation in
+            waiter = continuation
+        }
+    }
+
+    private func giveUp() {
+        guard let waiter else { return }
+        self.waiter = nil
+        waiter.resume(returning: nil)
+    }
+}
+
 private final class Counter: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0

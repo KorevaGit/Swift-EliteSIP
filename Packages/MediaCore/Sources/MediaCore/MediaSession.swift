@@ -33,6 +33,37 @@ public final class MediaSession: @unchecked Sendable {
         )
     }
 
+    /// Отвечает на чужое предложение и занимает порт под RTP.
+    ///
+    /// Зеркало `makeOffer`, и порядок здесь так же обязателен: порт нужен уже в
+    /// ответе. Разница в том, что выбор кодека и защиты сделан не нами —
+    /// предложение задаёт рамки, а мы в них укладываемся.
+    ///
+    /// Политика защиты проверяется отдельно от согласования: `sdesRequired`
+    /// означает, что открытое предложение надо отклонить звонком, а не принять
+    /// молча. Незаметный откат на открытый RTP на TLS-профиле — это ровно то,
+    /// от чего защищались в M2b.
+    public static func makeAnswer(
+        to offer: SessionDescription,
+        localAddress: String,
+        codecs: [AudioCodec] = SDPNegotiator.defaultCodecs,
+        security: MediaSecurityPolicy = .none
+    ) throws -> (answer: SessionDescription, media: NegotiatedMedia, port: UInt16) {
+        if security == .sdesRequired,
+           offer.audio?.protocolName.caseInsensitiveCompare("RTP/SAVP") != .orderedSame {
+            throw SDPNegotiationError.secureMediaRequired
+        }
+
+        let port = try RTPSession.reserveEvenPort()
+        let negotiated = try SDPNegotiator.makeAnswer(
+            to: offer,
+            address: localAddress,
+            port: port,
+            supported: codecs
+        )
+        return (negotiated.answer, negotiated.media, port)
+    }
+
     private let configuration: RTPSession.Configuration
     private let engine: VoiceAudioEngine
     private let rtp: RTPSession

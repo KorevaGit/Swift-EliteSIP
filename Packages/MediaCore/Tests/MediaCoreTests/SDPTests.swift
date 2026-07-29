@@ -403,6 +403,26 @@ struct SDPNegotiationTests {
         #expect(media.direction == .recvonly)
     }
 
+    @Test("Ответная сессия занимает порт и отдаёт его в SDP")
+    func mediaSessionAnswerReservesPort() throws {
+        let offer = try SessionDescription(parsing: asteriskOffer)
+        let result = try MediaSession.makeAnswer(to: offer, localAddress: "10.0.0.5")
+
+        #expect(result.answer.audio?.port == result.port)
+        #expect(result.port.isMultiple(of: 2), "RTCP живёт на порту плюс один — значит наш обязан быть чётным")
+        #expect(result.media.codec == .pcmu)
+    }
+
+    @Test("Обязательный SRTP не принимает открытое предложение")
+    func mediaSessionAnswerRefusesPlainOfferWhenSecured() throws {
+        let offer = try SessionDescription(parsing: asteriskOffer)
+        // Молча ответить открытым RTP на TLS-профиле — это незаметный downgrade
+        // ровно того рода, от которого закрывались в M2b.
+        #expect(throws: SDPNegotiationError.secureMediaRequired) {
+            try MediaSession.makeAnswer(to: offer, localAddress: "10.0.0.5", security: .sdesRequired)
+        }
+    }
+
     @Test("Таблица пересечения направлений")
     func directionIntersection() {
         #expect(SDPNegotiator.intersect(ours: .sendrecv, theirs: .sendrecv) == .sendrecv)

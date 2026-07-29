@@ -17,13 +17,12 @@ enum WindowID {
 struct EliteSIPApp: App {
 
     @State private var model = AppModel()
-    @State private var incomingCall = IncomingCallPanel()
 
     var body: some Scene {
         Window("EliteSIP", id: WindowID.phone) {
             PhonePanelView()
                 .environment(model)
-                .environment(incomingCall)
+                .environment(model.incomingCallPanel)
         }
         .defaultSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelHeight)
         .windowResizability(.contentSize)
@@ -33,7 +32,7 @@ struct EliteSIPApp: App {
         Window("Настройки EliteSIP", id: WindowID.settings) {
             SettingsView()
                 .environment(model)
-                .environment(incomingCall)
+                .environment(model.incomingCallPanel)
         }
         .defaultSize(width: 660, height: 460)
     }

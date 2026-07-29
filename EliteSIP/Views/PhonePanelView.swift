@@ -93,9 +93,9 @@ struct PhonePanelView: View {
 
     private func showIncomingCallDemo() {
         incomingCall.show(
-            callerNumber: "22998",
-            callerName: "Проверка размещения",
-            placement: model.settings.incomingCall,
+            callerNumber: "2929",
+            callerName: "AutoDialer",
+            policy: model.settings.incomingCall,
             onAnswer: {},
             onDecline: {}
         )
@@ -142,7 +142,7 @@ struct PhonePanelView: View {
 
     private var debugSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            MilestoneNote("M1 готов. Звонки — M2, приём — M3.")
+            MilestoneNote("M3 готов: приём звонков и защита. Удержание и DTMF — M4.")
 
             Button {
                 showIncomingCallDemo()

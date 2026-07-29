@@ -21,7 +21,10 @@ enum Theme {
         static let panelWidth: CGFloat = 280
         static let panelHeight: CGFloat = 500
 
-        static let incomingCallPanelSize = CGSize(width: 320, height: 186)
+        /// Высота рассчитана на ряд целей подтверждения: с одной кнопкой
+        /// «Ответить» хватало 186, но ряд из нескольких целей и подпись над ним
+        /// требуют места, иначе номер звонящего сжимается до нечитаемого.
+        static let incomingCallPanelSize = CGSize(width: 320, height: 212)
 
         static let contentPadding: CGFloat = 12
         static let sectionSpacing: CGFloat = 8
