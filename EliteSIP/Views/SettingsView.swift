@@ -605,6 +605,47 @@ private struct DTMFSettingsTab: View {
                 }
                 .help("Без паузы две одинаковые цифры подряд слышны как одна длинная")
             }
+
+            Section {
+                TextField(
+                    "Feature-code",
+                    text: Binding(
+                        get: { model.settings.conference.featureCode },
+                        set: { model.settings.conference.featureCode = $0 }
+                    )
+                )
+                .font(.system(.body, design: .monospaced))
+
+                TextField(
+                    "Добавочный комнаты",
+                    text: Binding(
+                        get: { model.settings.conference.roomExtension },
+                        set: { model.settings.conference.roomExtension = $0 }
+                    )
+                )
+                .font(.system(.body, design: .monospaced))
+
+                if !model.settings.conference.isUsable {
+                    Label(
+                        "Код должен содержать только DTMF-символы и хотя бы один тон.",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Конференция")
+            } footer: {
+                Text(
+                    """
+                    Код выполняет dynamic feature Asterisk и переводит оба плеча \
+                    текущего разговора в ConfBridge. В лаборатории это *3; боевой \
+                    код нужно сверить с features.conf.
+                    """
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }

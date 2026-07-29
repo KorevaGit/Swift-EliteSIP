@@ -131,7 +131,8 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
       созданного сервером INVITE; протокольная основа консультационного
       перевода через Replaces — [docs/transfer.md](docs/transfer.md)
 - [ ] **M6** — три адресуемые линии, консультационный перевод и серверная
-      конференция через ConfBridge
+      конференция через ConfBridge. Первый срез — настраиваемая команда
+      конференции для текущего разговора — [docs/conference.md](docs/conference.md)
 - [ ] **M7** — настройки, Keychain, логи, подпись, нотаризация, DMG
 - [ ] **M8** — синхронизация с EliteDash (включая телеметрию защиты) и
       баш-скрипт для удалёнщиков

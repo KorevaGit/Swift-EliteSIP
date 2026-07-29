@@ -156,7 +156,7 @@ struct PhonePanelView: View {
 
     private var debugSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            MilestoneNote("M5: слепой перевод готов; консультация и три линии — в работе.")
+            MilestoneNote("M6: команда ConfBridge готова; три линии и консультация — в работе.")
 
             Button {
                 showIncomingCallDemo()
@@ -341,21 +341,27 @@ struct CallControls: View {
                 }
             }
 
-            Button {
-                model.showTransferEntry()
-            } label: {
-                Label("Перевести", systemImage: "phone.arrow.right")
-                    .font(Theme.Text.controlLabel)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .contentShape(.rect)
+            HStack(spacing: 6) {
+                controlButton(
+                    title: "Перевести",
+                    systemImage: "phone.arrow.right",
+                    isOn: model.isTransferEntryVisible,
+                    isEnabled: model.canTransfer && !model.isTransferEntryVisible,
+                    help: "Слепой перевод текущего разговора"
+                ) {
+                    model.showTransferEntry()
+                }
+
+                controlButton(
+                    title: "Конференция",
+                    systemImage: "person.3.fill",
+                    isOn: model.isConferenceCommandSent,
+                    isEnabled: model.canStartConference,
+                    help: "Перевести оба плеча разговора в ConfBridge"
+                ) {
+                    model.startConference()
+                }
             }
-            .buttonStyle(.plain)
-            .themedControlSurface()
-            .hoverHighlight(isEnabled: model.canTransfer)
-            .disabled(!model.canTransfer)
-            .opacity(model.canTransfer ? 1 : 0.4)
-            .help("Слепой перевод текущего разговора")
 
             if model.isTransferEntryVisible {
                 TransferEntry()

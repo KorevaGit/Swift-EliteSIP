@@ -24,6 +24,7 @@ struct AppSettings: Codable, Sendable, Equatable {
     var incomingCall: CallGuardPolicy
     var ringtone: RingtoneSettings = RingtoneSettings()
     var dtmf: DTMFSettings = DTMFSettings()
+    var conference: ConferenceSettings = ConferenceSettings()
     var minimumLogLevel: SIPLogLevel
 
     /// Доверять любому сертификату TLS.
@@ -42,6 +43,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         incomingCall: CallGuardPolicy = CallGuardPolicy(),
         ringtone: RingtoneSettings = RingtoneSettings(),
         dtmf: DTMFSettings = DTMFSettings(),
+        conference: ConferenceSettings = ConferenceSettings(),
         minimumLogLevel: SIPLogLevel = .info,
         acceptsAnyTLSCertificate: Bool = false
     ) {
@@ -51,6 +53,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.incomingCall = incomingCall
         self.ringtone = ringtone
         self.dtmf = dtmf
+        self.conference = conference
         self.minimumLogLevel = minimumLogLevel
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
@@ -71,6 +74,9 @@ struct AppSettings: Codable, Sendable, Equatable {
         ) ?? CallGuardPolicy()
         ringtone = try container.decodeIfPresent(RingtoneSettings.self, forKey: .ringtone) ?? RingtoneSettings()
         dtmf = try container.decodeIfPresent(DTMFSettings.self, forKey: .dtmf) ?? DTMFSettings()
+        conference =
+            try container.decodeIfPresent(ConferenceSettings.self, forKey: .conference)
+                ?? ConferenceSettings()
         minimumLogLevel = try container.decodeIfPresent(SIPLogLevel.self, forKey: .minimumLogLevel) ?? .info
         acceptsAnyTLSCertificate =
             try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
@@ -163,6 +169,38 @@ struct AppSettings: Codable, Sendable, Equatable {
             isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
             volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? 0.5
             usesSystemOutput = try container.decodeIfPresent(Bool.self, forKey: .usesSystemOutput) ?? true
+        }
+    }
+
+    /// Серверная конференция через dynamic feature Asterisk.
+    ///
+    /// Клиент не смешивает звук сам: код переводит оба плеча текущего Dial в
+    /// одну комнату ConfBridge. Значение настраивается, потому что `*3` в
+    /// лаборатории восстановлен по виду боевого кода, а не скопирован с боя.
+    struct ConferenceSettings: Codable, Sendable, Equatable {
+
+        var featureCode: String = "*3"
+
+        /// Добавочный прямого входа в комнату. Нужен для проверки и станет
+        /// целью третьей линии после появления многолинейного UI.
+        var roomExtension: String = "8000"
+
+        init(featureCode: String = "*3", roomExtension: String = "8000") {
+            self.featureCode = featureCode
+            self.roomExtension = roomExtension
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            featureCode = try container.decodeIfPresent(String.self, forKey: .featureCode) ?? "*3"
+            roomExtension = try container.decodeIfPresent(String.self, forKey: .roomExtension) ?? "8000"
+        }
+
+        var command: DTMFSequence { DTMFSequence(featureCode) }
+
+        var isUsable: Bool {
+            command.hasTones
+                && DTMFSequence.unsupportedCharacters(in: featureCode).isEmpty
         }
     }
 

@@ -261,6 +261,7 @@ final class AppModel {
     var transferNumber: String = ""
     private(set) var isTransferEntryVisible = false
     private(set) var isTransferring = false
+    private(set) var isConferenceCommandSent = false
 
     /// Окно входящего вызова вместе с защитой. Живёт здесь, а не в сцене:
     /// показывает его приезд INVITE, а не действие пользователя.
@@ -283,6 +284,14 @@ final class AppModel {
 
     var hasTransferNumber: Bool {
         !transferNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var canStartConference: Bool {
+        callPhase == .active
+            && !isTransferring
+            && !isConferenceCommandSent
+            && settings.conference.isUsable
+            && (media?.supportsTelephoneEvents ?? false)
     }
 
     /// Кодеки, которые предлагаем и на которые соглашаемся.
@@ -402,6 +411,36 @@ final class AppModel {
         }
 
         isTransferring = false
+    }
+
+    // MARK: - Конференция
+
+    /// Отправляет серверный feature-code, который переводит оба плеча
+    /// текущего разговора в одну комнату ConfBridge.
+    ///
+    /// Подтвердить вход отдельным SIP-событием Asterisk 13 не умеет: dynamic
+    /// feature выполняется внутри Dial. Поэтому состояние называется именно
+    /// «команда отправлена», а не «конференция установлена».
+    func startConference() {
+        guard let media, canStartConference else { return }
+        let command = settings.conference.command
+
+        guard media.send(dtmf: command, timing: settings.dtmf.timing) else {
+            callStatus = "Конференция недоступна"
+            append(
+                level: .warning,
+                message: "конференция: собеседник не подтвердил telephone-event"
+            )
+            return
+        }
+
+        sentDTMF += command.displayText
+        isConferenceCommandSent = true
+        callStatus = "Команда конференции отправлена"
+        append(
+            level: .info,
+            message: "конференция: отправлен серверный код \(command.displayText)"
+        )
     }
 
     private func handle(call event: SIPCallEvent, offer: SessionDescription, localPort: UInt16) async {
@@ -727,6 +766,7 @@ final class AppModel {
         isTransferEntryVisible = false
         isTransferring = false
         transferNumber = ""
+        isConferenceCommandSent = false
         callPhase = .idle
         callPeer = ""
         audioRoute = nil
