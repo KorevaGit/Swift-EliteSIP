@@ -49,10 +49,14 @@ public struct SIPMessageFramer: Sendable {
         let contentLength = try declaredContentLength(in: headerData)
 
         let headerByteCount = boundary.upperBound - buffer.startIndex
-        let totalByteCount = headerByteCount + contentLength
 
-        if totalByteCount > maximumMessageSize {
-            throw FramingError.messageTooLarge(bufferedBytes: totalByteCount)
+        // Сложение с проверкой переполнения, а не обычное. `Content-Length`
+        // приходит из сети, и `Int("9223372036854775807")` разбирается успешно:
+        // обычное сложение с длиной заголовков переполнилось бы и уронило
+        // процесс на трапе — одним пакетом, ещё до всякого разбора.
+        let (totalByteCount, overflowed) = headerByteCount.addingReportingOverflow(contentLength)
+        if overflowed || totalByteCount > maximumMessageSize {
+            throw FramingError.messageTooLarge(bufferedBytes: overflowed ? Int.max : totalByteCount)
         }
         guard buffer.count >= totalByteCount else { return nil }
 

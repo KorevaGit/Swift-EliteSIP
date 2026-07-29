@@ -45,7 +45,7 @@ final class AppModel: ObservableObject {
     @Published var dialedNumber: String = ""
 
     @Published private var agent: SIPUserAgent?
-    @Published private var eventPump: Task<Void, Never>?
+    private var eventPump: Task<Void, Never>?
 
     init() {
         settings = SettingsStore.load()
@@ -278,12 +278,12 @@ final class AppModel: ObservableObject {
     private let ringtone = Ringtone()
 
     @Published private var media: MediaSession?
-    @Published private var callTask: Task<Void, Never>?
+    private var callTask: Task<Void, Never>?
 
     /// Последнее описание медиа, которое мы отправили по этому звонку —
     /// предложение или ответ. Из него строится повторное предложение: порт,
     /// кодеки и ключ SRTP обязаны в нём остаться прежними.
-    @Published private var localDescription: SessionDescription?
+    private var localDescription: SessionDescription?
 
     var isInCall: Bool { callPhase != .idle }
 
@@ -820,8 +820,7 @@ final class AppModel: ObservableObject {
         remoteAudioView = nil
         levelTask?.cancel()
         levelTask = nil
-        inputLevel = 0
-        outputLevel = 0
+        audioLevels.reset()
     }
 
     // MARK: - Входящий звонок
@@ -986,7 +985,7 @@ final class AppModel: ObservableObject {
     ///
     /// Флаг, а не сравнение с прошлым отчётом: два подряд одинаково отклонённых
     /// вызова дают одинаковые отчёты, и сравнение проглотило бы второй.
-    @Published private var didLogGuardReport = false
+    private var didLogGuardReport = false
 
     /// Пишет отчёт защиты в журнал ровно один раз за вызов.
     private func logGuardReport() {
@@ -1012,10 +1011,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var remoteAudioView: RTCPSession.RemoteView?
 
     /// Уровни для индикатора: микрофон и приём, от 0 до 1.
-    @Published private(set) var inputLevel: Float = 0
-    @Published private(set) var outputLevel: Float = 0
+    /// Уровни живут отдельно — см. `AudioLevels`: они меняются двадцать раз в
+    /// секунду, а `ObservableObject` не различает, какое свойство изменилось.
+    let audioLevels = AudioLevels()
 
-    @Published private var levelTask: Task<Void, Never>?
+    private var levelTask: Task<Void, Never>?
 
     /// Опрос уровней для индикатора.
     ///
@@ -1028,8 +1028,7 @@ final class AppModel: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(.milliseconds(50))
                 guard let self, let media else { return }
-                inputLevel = media.inputLevel
-                outputLevel = media.outputLevel
+                audioLevels.update(input: media.inputLevel, output: media.outputLevel)
             }
         }
     }

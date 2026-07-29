@@ -74,6 +74,23 @@ struct IntervalTests {
 
         #expect(MonotonicClock.now - start < .seconds(1))
     }
+
+    /// Отмена обязана срабатывать и на нулевом интервале.
+    ///
+    /// Иначе цикл ретрансмиссии с обнулёнными таймерами — так их укорачивают
+    /// тесты — не отменяется и не уступает управление, то есть занимает ядро.
+    @Test func нулеваяПаузаУважаетОтмену() async throws {
+        let task = Task {
+            // Дожидаемся отмены явно: иначе `cancel()` успевает сработать до
+            // входа в тело, и проверять уже нечего.
+            while !Task.isCancelled { await Task.yield() }
+            try await Task.sleep(.zero)
+        }
+        task.cancel()
+
+        let result = await task.result
+        #expect(throws: CancellationError.self) { try result.get() }
+    }
 }
 
 struct UnfairLockTests {

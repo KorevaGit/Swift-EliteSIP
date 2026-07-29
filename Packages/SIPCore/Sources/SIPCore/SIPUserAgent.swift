@@ -333,7 +333,7 @@ public actor SIPUserAgent {
         request.headers.append(SIPHeaderName.maxForwards, "70")
 
         var from = NameAddress(
-            displayName: account.displayName.isEmpty ? nil : account.displayName,
+            displayName: account.effectiveDisplayName,
             uri: account.addressOfRecord
         )
         from.tag = localTag
@@ -397,16 +397,39 @@ public actor SIPUserAgent {
     private func grantedExpires(from response: SIPResponse, requested: Int) -> Int {
         // Срок может приехать и в Expires, и параметром у Contact. Второе
         // приоритетнее: оно относится именно к нашей привязке.
+        let raw: Int
         if let ours = response.contacts.first(where: { $0.uri.user == account.username })?.expires {
-            return ours
+            raw = ours
+        } else if let contactExpires = response.contacts.compactMap(\.expires).first {
+            raw = contactExpires
+        } else if let header = response.expires {
+            raw = header
+        } else {
+            raw = requested
         }
-        if let contactExpires = response.contacts.compactMap(\.expires).first {
-            return contactExpires
+        return Self.sanitizedExpires(raw, requested: requested)
+    }
+
+    /// Заведомый потолок срока регистрации — сутки.
+    ///
+    /// У chan_sip `maxexpiry` по умолчанию час, так что суток хватает с запасом
+    /// на любую настройку, которая имеет смысл.
+    static let maximumExpires = 86_400
+
+    /// Приводит срок из ответа сервера к разумным границам.
+    ///
+    /// Это число приезжает из сети, а дальше становится интервалом сна — и без
+    /// границ ломается дважды. `Expires: 9223372036854775807` переполняет
+    /// арифметику наносекунд и роняет процесс на трапе. Значение поменьше, но
+    /// всё равно огромное, процесс не роняет, а делает хуже: обновление
+    /// регистрации уезжает на годы, привязка на сервере тем временем истекает,
+    /// и софтфон молча перестаёт принимать вызовы, считая себя на линии.
+    static func sanitizedExpires(_ value: Int, requested: Int) -> Int {
+        // Отрицательный срок — мусор. Берём то, что просили сами.
+        guard value >= 0 else {
+            return min(max(requested, 0), maximumExpires)
         }
-        if let header = response.expires {
-            return header
-        }
-        return requested
+        return min(value, maximumExpires)
     }
 
     // MARK: - Исходящий звонок
@@ -1046,7 +1069,7 @@ public actor SIPUserAgent {
         request.headers.append(SIPHeaderName.maxForwards, "70")
 
         var from = NameAddress(
-            displayName: account.displayName.isEmpty ? nil : account.displayName,
+            displayName: account.effectiveDisplayName,
             uri: account.addressOfRecord
         )
         from.tag = localTag

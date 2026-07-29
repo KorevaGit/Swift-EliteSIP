@@ -72,6 +72,17 @@ public struct SIPAccount: Sendable, Hashable, Codable {
         authUsername?.isEmpty == false ? authUsername! : username
     }
 
+    /// Имя, которое уходит в `From`.
+    ///
+    /// Пустое поле означает не «имени нет», а «имя равно номеру»: по
+    /// согласованному плану номер аккаунта служит и user-part, и отображаемым
+    /// именем, и локальной меткой профиля. Без этой подстановки `From` уходил
+    /// бы вовсе без display-name, и на плече агента вместо номера оператора
+    /// сервер видел бы пустоту.
+    public var effectiveDisplayName: String {
+        displayName.isEmpty ? username : displayName
+    }
+
     public var isUsable: Bool {
         !username.isEmpty && !domain.isEmpty
     }

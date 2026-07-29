@@ -336,4 +336,35 @@ struct RegistrationTests {
         #expect(SIPUserAgent.backoffDelay(forAttempt: 7) == 300)
         #expect(SIPUserAgent.backoffDelay(forAttempt: 100) == 300, "потолок нужен, чтобы не уйти в часы ожидания")
     }
+
+    /// Срок из ответа сервера идёт прямо в интервал сна. `Int.max` секунд
+    /// переполняет арифметику наносекунд и роняет процесс; просто очень большое
+    /// значение уводит обновление регистрации на годы, и софтфон молча
+    /// перестаёт принимать вызовы, считая себя на линии.
+    @Test("Срок регистрации из ответа ограничен разумными рамками")
+    func expiresFromServerIsClamped() {
+        #expect(SIPUserAgent.sanitizedExpires(300, requested: 300) == 300)
+        #expect(SIPUserAgent.sanitizedExpires(0, requested: 0) == 0, "снятие регистрации — законный ноль")
+
+        #expect(SIPUserAgent.sanitizedExpires(.max, requested: 300) == SIPUserAgent.maximumExpires)
+        #expect(SIPUserAgent.sanitizedExpires(100_000_000, requested: 300) == SIPUserAgent.maximumExpires)
+
+        // Отрицательного срока не бывает: берём то, что просили сами.
+        #expect(SIPUserAgent.sanitizedExpires(-5, requested: 300) == 300)
+        #expect(SIPUserAgent.sanitizedExpires(.min, requested: 300) == 300)
+
+        // И собственная настройка тоже не должна уводить сон в годы.
+        #expect(SIPUserAgent.sanitizedExpires(-1, requested: .max) == SIPUserAgent.maximumExpires)
+    }
+
+    /// Прямая проверка того, ради чего нужен предел: интервал сна после
+    /// ограничения обязан переводиться в наносекунды без переполнения.
+    @Test("Ограниченный срок безопасно становится интервалом")
+    func clampedExpiresFitsInInterval() {
+        let granted = SIPUserAgent.sanitizedExpires(.max, requested: 300)
+        let refresh = SIPUserAgent.refreshInterval(forGrantedExpires: granted)
+
+        #expect(refresh > 0)
+        #expect(Interval.seconds(refresh).nanoseconds > 0, "переполнение дало бы отрицательное или нулевое значение")
+    }
 }

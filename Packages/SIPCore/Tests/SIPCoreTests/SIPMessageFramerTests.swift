@@ -102,4 +102,23 @@ struct SIPMessageFramerTests {
             _ = try framer.nextMessageData()
         }
     }
+
+    /// `Int.max` разбирается как число успешно, и дальше длина заголовков к
+    /// нему прибавляется. Без проверки переполнения это трап, то есть падение
+    /// процесса от одного пакета — ещё до всякого разбора сообщения.
+    @Test("Content-Length у самого предела Int не роняет процесс")
+    func rejectsOverflowingContentLength() {
+        for value in ["9223372036854775807", "9223372036854775806"] {
+            var framer = SIPMessageFramer()
+            framer.append(sipMessage([
+                "OPTIONS sip:host SIP/2.0",
+                "Call-ID: c1",
+                "Content-Length: \(value)",
+            ]))
+
+            #expect(throws: SIPMessageFramer.FramingError.self) {
+                _ = try framer.nextMessageData()
+            }
+        }
+    }
 }

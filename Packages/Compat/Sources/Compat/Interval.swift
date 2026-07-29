@@ -134,8 +134,14 @@ public extension Task where Success == Never, Failure == Never {
     /// Без метки аргумента намеренно: `Task.sleep(for:)` из стандартной
     /// библиотеки принимает `Duration`, и одноимённая перегрузка сделала бы
     /// `.milliseconds(100)` в каждом вызове неоднозначным.
+    ///
+    /// Неположительный интервал не возвращается мгновенно, а всё равно уходит в
+    /// `Task.sleep(nanoseconds: 0)`. Разница принципиальная в двух местах:
+    /// отмена по-прежнему бросает `CancellationError`, и задача обязательно
+    /// уступает управление. Иначе цикл ретрансмиссии SIP вида
+    /// `while !Task.isCancelled { try? await Task.sleep(interval) … }` при
+    /// нулевом таймере превратился бы в занятое ожидание на целом ядре.
     static func sleep(_ interval: Interval) async throws {
-        guard interval > .zero else { return }
-        try await Task.sleep(nanoseconds: UInt64(interval.nanoseconds))
+        try await Task.sleep(nanoseconds: UInt64(max(interval.nanoseconds, 0)))
     }
 }

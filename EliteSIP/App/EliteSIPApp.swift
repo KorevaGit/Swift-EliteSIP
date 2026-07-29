@@ -74,6 +74,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: withEnvironment(PhonePanelView()))
+
+        // Размер задаётся до центрирования, а не после: `NSHostingController`
+        // подгоняет окно под содержимое, и `center()` посчитал бы середину для
+        // той, промежуточной величины. Панель после этого встаёт по своему
+        // размеру (`WindowAccessor`), сохраняя верхний левый угол, — и уезжает
+        // от центра ровно на разницу.
+        window.setFrame(
+            CGRect(
+                origin: .zero,
+                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelHeight)
+            ),
+            display: false
+        )
         window.center()
 
         phoneWindow = window

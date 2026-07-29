@@ -277,8 +277,7 @@ private struct AudioSettingsTab: View {
                             value: codec.sdpName + (codec.isWideband ? " — широкая полоса" : "")
                         )
                     }
-                    LevelMeter(title: "Микрофон", level: model.inputLevel)
-                    LevelMeter(title: "Приём", level: model.outputLevel)
+                    LevelMeters(levels: model.audioLevels)
 
                     if let remote = model.remoteAudioView {
                         CompatLabeledContent("У собеседника", value: remote.summary)
@@ -316,6 +315,24 @@ private struct AudioSettingsTab: View {
 ///
 /// Нужна затем, чтобы оператор видел, что микрофон живой, до того как начнёт
 /// говорить, — а не узнавал об этом от собеседника.
+/// Пара индикаторов.
+///
+/// Отдельная вьюха с собственной подпиской, а не два вызова прямо в форме:
+/// уровни обновляются двадцать раз в секунду, и подписываться на них должно
+/// только то, что их показывает. Читай `AppModel.audioLevels` эта форма
+/// напрямую — перерисовывалась бы вся вкладка вместе со списками устройств.
+private struct LevelMeters: View {
+
+    @ObservedObject var levels: AudioLevels
+
+    var body: some View {
+        Group {
+            LevelMeter(title: "Микрофон", level: levels.input)
+            LevelMeter(title: "Приём", level: levels.output)
+        }
+    }
+}
+
 private struct LevelMeter: View {
 
     let title: String

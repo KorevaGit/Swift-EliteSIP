@@ -68,4 +68,32 @@ struct SIPPrimitiveTests {
         #expect(SIPToken.callID(host: "mac.local").hasSuffix("@mac.local"))
         #expect(!SIPToken.callID(host: "").contains("@"), "пустой хост не должен давать висячую собаку")
     }
+
+    /// По согласованному плану номер аккаунта служит и user-part, и
+    /// отображаемым именем: пустое поле означает «имя равно номеру», а не
+    /// «имени нет».
+    @Test("Отображаемое имя по умолчанию равно номеру")
+    func displayNameFallsBackToNumber() {
+        let bare = SIPAccount(username: "711", domain: "pbx.example")
+        #expect(bare.effectiveDisplayName == "711")
+
+        var named = bare
+        named.displayName = "Call_Center"
+        #expect(named.effectiveDisplayName == "Call_Center")
+    }
+
+    /// Логин для аутентификации падает на номер по тому же правилу — проверяем
+    /// рядом, чтобы две подстановки не разъехались.
+    @Test("Логин аутентификации по умолчанию равен номеру")
+    func authUsernameFallsBackToNumber() {
+        let bare = SIPAccount(username: "711", domain: "pbx.example")
+        #expect(bare.effectiveAuthUsername == "711")
+
+        var separate = bare
+        separate.authUsername = "711-auth"
+        #expect(separate.effectiveAuthUsername == "711-auth")
+
+        separate.authUsername = ""
+        #expect(separate.effectiveAuthUsername == "711", "пустая строка — это не логин")
+    }
 }
