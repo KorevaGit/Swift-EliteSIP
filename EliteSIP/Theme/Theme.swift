@@ -21,13 +21,14 @@ enum Theme {
         static let panelWidth: CGFloat = 280
         static let panelHeight: CGFloat = 500
 
-        /// Окно входящего. Высота зависит от того, включено ли подтверждение
-        /// цифрой: в макете это два разных состояния, 186 и 244 точки. Ряду
-        /// цифр и подписи над ним нужно место, а без них тянуть окно нечем —
-        /// пустая карточка выглядит недорисованной.
-        static func incomingCallPanelSize(withDigitChallenge: Bool) -> CGSize {
-            CGSize(width: 320, height: withDigitChallenge ? 244 : 186)
-        }
+        /// Ширина окна входящего. Высота не задаётся — окно подгоняется под
+        /// содержимое.
+        ///
+        /// Фиксированная высота здесь уже стоила бага: в макете два состояния,
+        /// 186 и 244 точки, но зафиксировать их значит получить пустую полосу
+        /// между именем звонящего и кнопками всякий раз, когда содержимого
+        /// меньше расчётного — например когда сервер не прислал имя.
+        static let incomingCallPanelWidth: CGFloat = 320
 
         static let contentPadding: CGFloat = 12
         static let sectionSpacing: CGFloat = 8
@@ -40,8 +41,8 @@ enum Theme {
         /// заголовке.
         static let titleBarInset: CGFloat = 24
 
-        /// Размер цифры на клавише и в поле номера.
-        static let dialpadKeyFontSize: CGFloat = 20
+        /// Размер номера в поле набора. Цифра на клавише теперь берётся из
+        /// `Theme.Text.controlKey` — она же стоит на целях окна входящего.
         static let dialedNumberFontSize: CGFloat = 22
     }
 
@@ -52,11 +53,10 @@ enum Theme {
 
     /// Начертания из макета.
     ///
-    /// Заданы размером, а не именованным стилем (`.caption`, `.body`), потому
-    /// что окно входящего фиксированного размера: Dynamic Type растянул бы
-    /// текст, а расти окну некуда — оно и так плавающее и должно оставаться
-    /// компактным. Для остальных экранов по-прежнему используются системные
-    /// стили.
+    /// Заданы размером, а не именованным стилем (`.caption`, `.body`): окно
+    /// входящего фиксированной ширины и висит поверх чужого интерфейса, а
+    /// Dynamic Type на крупной настройке растянул бы его в половину экрана.
+    /// Для остальных экранов по-прежнему используются системные стили.
     enum Text {
         /// Подпись «Входящий вызов».
         static let incomingCaption = Font.system(size: 11)
@@ -86,6 +86,29 @@ enum Theme {
     }
 }
 
+/// Наложение поверх содержимого, а не замена фона: под ним может быть и
+/// материал, и сплошная заливка, и подсветка должна работать одинаково.
+private struct HoverHighlight: ViewModifier {
+
+    let cornerRadius: CGFloat
+    let isEnabled: Bool
+
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color.primary.opacity(isHovered && isEnabled ? 0.12 : 0))
+                    // Наложение обязано быть прозрачным для мыши, иначе оно же
+                    // и съест нажатие, ради которого рисовалось.
+                    .allowsHitTesting(false)
+            }
+            .onHover { isHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+    }
+}
+
 extension View {
 
     /// Основная поверхность: стекло на macOS 26, материал на 14–15.
@@ -96,6 +119,22 @@ extension View {
         } else {
             self.background(.ultraThinMaterial, in: .rect(cornerRadius: cornerRadius))
         }
+    }
+
+    /// Подсветка при наведении курсора.
+    ///
+    /// Нужна всем кнопкам со стилем `.plain`: он рисует только содержимое и
+    /// никакой реакции на курсор не даёт. Для окна входящего это не косметика —
+    /// оператор должен видеть, что попал в цель, до того как нажмёт, иначе
+    /// промах по цифре выглядит как неработающая кнопка.
+    ///
+    /// Цвет берётся от `.primary`: в тёмной теме это белый и подсвечивает, в
+    /// светлой — чёрный и притемняет. То есть верно в обеих.
+    func hoverHighlight(
+        cornerRadius: CGFloat = Theme.Radius.control,
+        isEnabled: Bool = true
+    ) -> some View {
+        modifier(HoverHighlight(cornerRadius: cornerRadius, isEnabled: isEnabled))
     }
 
     /// Поверхность управляющего элемента — то же самое, но радиусом поменьше.

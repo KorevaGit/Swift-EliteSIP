@@ -40,13 +40,14 @@ private struct DialpadKey: View {
     var body: some View {
         Button(action: action) {
             Text(String(character))
-                .font(.system(size: Theme.Metrics.dialpadKeyFontSize, weight: .regular, design: .rounded))
+                .font(Theme.Text.controlKey)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .frame(minHeight: Theme.Metrics.dialpadButtonMinHeight)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .themedControlSurface()
+        .hoverHighlight()
         // Набор с физической клавиатуры — базовое ожидание от софтфона.
         .keyboardShortcut(KeyEquivalent(character), modifiers: [])
     }

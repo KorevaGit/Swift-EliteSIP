@@ -134,6 +134,7 @@ struct PhonePanelView: View {
             // радиус меньше макетного, а в неактивном окне акцент выцветает в
             // серый — панель висит поверх CRM и активной бывает редко.
             .buttonStyle(.plain)
+            .hoverHighlight(isEnabled: isCallButtonEnabled)
             .disabled(!isCallButtonEnabled)
             // Системное затемнение выключенной кнопки на стеклянном фоне почти
             // не видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.

@@ -72,21 +72,19 @@ final class IncomingCallPanel {
         lastReport = session.report
         refusal = nil
 
-        let size = Theme.Metrics.incomingCallPanelSize(withDigitChallenge: session.challenge.hasChoice)
+        // Borderless, а не titled со скрытым заголовком. Со вторым окно рисовало
+        // поверх карточки собственную рамку и добавляло сверху полосу заголовка
+        // — на экране это выглядело как тёмный прямоугольник вокруг панели и
+        // пустая полоса внутри неё.
         let panel = NSPanel(
-            contentRect: CGRect(origin: .zero, size: size),
-            styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+            contentRect: CGRect(origin: .zero, size: CGSize(width: Theme.Metrics.incomingCallPanelWidth, height: 1)),
+            styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
         )
 
         panel.isFloatingPanel = true
         panel.level = .floating
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.standardWindowButton(.closeButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
         panel.isMovableByWindowBackground = true
         // Окно не должно исчезать, когда оператор уходит в другое приложение —
         // это единственный индикатор того, что кто-то звонит.
@@ -97,7 +95,10 @@ final class IncomingCallPanel {
         panel.hasShadow = true
         panel.animationBehavior = .utilityWindow
 
-        panel.contentView = NSHostingView(
+        // contentViewController, а не contentView: так окно само подгоняется
+        // под размер содержимого SwiftUI, и высоту не приходится держать
+        // константой, которая расходится с вёрсткой при первом же изменении.
+        panel.contentViewController = NSHostingController(
             rootView: IncomingCallView(
                 callerNumber: callerNumber,
                 callerName: callerName,
@@ -115,13 +116,11 @@ final class IncomingCallPanel {
             .environment(self)
         )
 
-        // Размер окна берём после установки контента, а не из константы:
-        // NSHostingView сообщает окну свой идеальный размер, а стиль .titled
-        // добавляет сверху прозрачную полосу заголовка, так что настоящая рамка
-        // выше нарисованной карточки. Если считать размещение по константе,
-        // панель вылезет за верхний отступ экрана ровно на её высоту.
-        let frameSize = panel.frame.size
-        let origin = nextOrigin(forPanelSize: frameSize, policy: policy)
+        // Размер берём у собранного окна, а не из константы: высота зависит от
+        // содержимого, и посчитанное по константе размещение вылезало бы за
+        // край экрана ровно на разницу.
+        panel.layoutIfNeeded()
+        let origin = nextOrigin(forPanelSize: panel.frame.size, policy: policy)
         panel.setFrameOrigin(origin)
         lastOrigin = origin
 

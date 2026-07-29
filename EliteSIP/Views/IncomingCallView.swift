@@ -31,15 +31,13 @@ struct IncomingCallView: View {
     /// переключения кнопки остались бы серыми до первого чужого события.
     @State private var isActive = false
 
-    private var size: CGSize {
-        Theme.Metrics.incomingCallPanelSize(withDigitChallenge: challenge.hasChoice)
-    }
-
     var body: some View {
+        // Без Spacer и без заданной высоты: окно подгоняется под содержимое.
+        // Растянутый по фиксированной высоте столбец оставлял пустую полосу
+        // между именем звонящего и кнопками.
         VStack(alignment: .leading, spacing: challenge.hasChoice ? 12 : 14) {
             header
             caller
-            Spacer(minLength: 0)
 
             if challenge.hasChoice {
                 prompt
@@ -50,7 +48,7 @@ struct IncomingCallView: View {
             }
         }
         .padding(16)
-        .frame(width: size.width, height: size.height)
+        .frame(width: Theme.Metrics.incomingCallPanelWidth)
         .themedSurface()
         .task {
             let remaining = activatesAt - .now
@@ -63,9 +61,10 @@ struct IncomingCallView: View {
 
     /// Причина отказа занимает место подписи «Входящий вызов».
     ///
-    /// Одно место на оба сообщения и в обоих состояниях окна: высота у него
-    /// фиксированная, лишней строке взяться неоткуда, а подпись в этот момент
-    /// всё равно ничего не сообщает — что вызов входящий, оператор уже понял.
+    /// Одно место на оба сообщения и в обоих состояниях окна: отдельная строка
+    /// под отказ дёргала бы высоту окна прямо под рукой оператора, а подпись в
+    /// этот момент всё равно ничего не сообщает — что вызов входящий, он уже
+    /// понял.
     private var header: some View {
         HStack(spacing: 6) {
             Image(systemName: "phone.arrow.down.left.fill")
@@ -140,6 +139,7 @@ struct IncomingCallView: View {
         }
         .buttonStyle(.plain)
         .themedControlSurface()
+        .hoverHighlight()
         .keyboardShortcut(.cancelAction)
         .accessibilityLabel("Отклонить вызов")
     }
@@ -150,7 +150,8 @@ struct IncomingCallView: View {
             FilledCallButton(
                 title: "Ответить",
                 icon: "phone.fill",
-                fill: Theme.Palette.answer.opacity(isActive ? 1 : 0.35)
+                fill: Theme.Palette.answer.opacity(isActive ? 1 : 0.35),
+                isHoverable: isActive
             ) {
                 onAttempt(.mouse, challenge.answer)
             }
@@ -193,6 +194,9 @@ private struct DigitTargetButton: View {
         }
         .buttonStyle(.plain)
         .themedControlSurface()
+        // Подсветка только у активной цели: пока идёт задержка, отзывчивая на
+        // вид кнопка обещала бы то, чего ещё нет.
+        .hoverHighlight(isEnabled: isActive)
         // Нажать через Accessibility API нельзя — см. пояснение у «Ответить».
         .accessibilityHidden(true)
         .animation(.easeOut(duration: 0.2), value: isActive)
@@ -209,6 +213,7 @@ private struct FilledCallButton: View {
     let title: String
     let icon: String
     let fill: Color
+    var isHoverable = true
     let action: @MainActor () -> Void
 
     var body: some View {
@@ -225,5 +230,6 @@ private struct FilledCallButton: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .hoverHighlight(isEnabled: isHoverable)
     }
 }
