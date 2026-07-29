@@ -21,10 +21,13 @@ enum Theme {
         static let panelWidth: CGFloat = 280
         static let panelHeight: CGFloat = 500
 
-        /// Высота рассчитана на ряд целей подтверждения: с одной кнопкой
-        /// «Ответить» хватало 186, но ряд из нескольких целей и подпись над ним
-        /// требуют места, иначе номер звонящего сжимается до нечитаемого.
-        static let incomingCallPanelSize = CGSize(width: 320, height: 212)
+        /// Окно входящего. Высота зависит от того, включено ли подтверждение
+        /// цифрой: в макете это два разных состояния, 186 и 244 точки. Ряду
+        /// цифр и подписи над ним нужно место, а без них тянуть окно нечем —
+        /// пустая карточка выглядит недорисованной.
+        static func incomingCallPanelSize(withDigitChallenge: Bool) -> CGSize {
+            CGSize(width: 320, height: withDigitChallenge ? 244 : 186)
+        }
 
         static let contentPadding: CGFloat = 12
         static let sectionSpacing: CGFloat = 8
@@ -45,6 +48,32 @@ enum Theme {
     enum Radius {
         static let surface: CGFloat = 16
         static let control: CGFloat = 10
+    }
+
+    /// Начертания из макета.
+    ///
+    /// Заданы размером, а не именованным стилем (`.caption`, `.body`), потому
+    /// что окно входящего фиксированного размера: Dynamic Type растянул бы
+    /// текст, а расти окну некуда — оно и так плавающее и должно оставаться
+    /// компактным. Для остальных экранов по-прежнему используются системные
+    /// стили.
+    enum Text {
+        /// Подпись «Входящий вызов».
+        static let incomingCaption = Font.system(size: 11)
+        /// Номер звонящего.
+        static let incomingNumber = Font.system(size: 24, weight: .medium, design: .rounded)
+        /// Имя звонящего и указание под ним.
+        static let incomingDetail = Font.system(size: 13)
+        /// Цифра, которую надо нажать, — в тексте указания.
+        static let incomingTarget = Font.system(size: 15)
+        /// Цифра на кнопке-цели и на клавише набора.
+        static let controlKey = Font.system(size: 20, design: .rounded)
+        /// Надпись на кнопке.
+        static let controlLabel = Font.system(size: 13, weight: .medium)
+        /// Состояние регистрации в бейдже панели.
+        static let panelStatus = Font.system(size: 13)
+        /// Вторая строка бейджа — срок регистрации или время повтора.
+        static let panelDetail = Font.system(size: 10)
     }
 
     enum Palette {

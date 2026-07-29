@@ -24,6 +24,14 @@ struct CallGuardSessionTests {
 
     private let start = ContinuousClock.now
 
+    /// Политика с включённым цифровым подтверждением: по умолчанию оно
+    /// выключено, а проверять выбор цели надо именно на нём.
+    private var withDigits: CallGuardPolicy {
+        var policy = CallGuardPolicy()
+        policy.targetCount = 3
+        return policy
+    }
+
     private func session(
         policy: CallGuardPolicy = CallGuardPolicy(),
         seed: [UInt64] = [7, 11, 13, 17, 19, 23]
@@ -55,11 +63,31 @@ struct CallGuardSessionTests {
 
     // MARK: - Задание
 
+    @Test("По умолчанию цифрового подтверждения нет — есть только случайность")
+    func digitChallengeIsOptional() {
+        let session = session()
+        // Основная мера — случайная позиция и задержка: они ничего не стоят
+        // оператору. Выбор цифры стоит внимания на каждом вызове, поэтому
+        // включается отдельно.
+        #expect(session.challenge.hasChoice == false)
+        #expect(session.challenge.activationDelay > .zero)
+        #expect(session.report.wasGuardEnabled)
+    }
+
+    @Test("Без цифрового подтверждения приём работает обычной кнопкой")
+    func acceptsWithoutDigitChallenge() {
+        var session = session()
+        moveCursorLikeHuman(&session)
+
+        let delay = Int(session.challenge.activationDelay / .milliseconds(1))
+        #expect(session.evaluate(attempt: mouseAttempt(on: session, after: delay + 100)) == .accepted)
+    }
+
     @Test("Задание собирается из непересекающихся целей и попадает в диапазон задержки")
     func buildsChallenge() {
         for seed in UInt64(0)..<32 {
             var generator = SequenceGenerator([seed, seed &* 3 &+ 1, seed &+ 7])
-            let session = CallGuardSession(policy: CallGuardPolicy(), presentedAt: start, using: &generator)
+            let session = CallGuardSession(policy: withDigits, presentedAt: start, using: &generator)
 
             #expect(session.challenge.targets.count == 3)
             #expect(Set(session.challenge.targets).count == 3, "две одинаковые цифры сделали бы задание неразрешимым")
@@ -126,7 +154,7 @@ struct CallGuardSessionTests {
 
     @Test("Нажатие не на ту цель отклоняется, но роботом не считается")
     func rejectsWrongTarget() {
-        var session = session()
+        var session = session(policy: withDigits)
         moveCursorLikeHuman(&session)
 
         let wrong = session.challenge.targets.first { $0 != session.challenge.answer }
@@ -220,7 +248,7 @@ struct CallGuardSessionTests {
 
     @Test("Отчёт накапливает все отклонённые попытки")
     func reportCountsAttempts() {
-        var session = session()
+        var session = session(policy: withDigits)
         let wrong = session.challenge.targets.first { $0 != session.challenge.answer }
 
         _ = session.evaluate(attempt: mouseAttempt(on: session, after: 10))

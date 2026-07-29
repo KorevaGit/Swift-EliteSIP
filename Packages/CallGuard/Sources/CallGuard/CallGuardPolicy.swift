@@ -37,8 +37,14 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
     public var minimumActivationDelayMilliseconds: Int
     public var maximumActivationDelayMilliseconds: Int
 
-    /// Сколько кнопок-целей показывать. Единица означает, что цель одна и
-    /// выбирать не из чего, — поиск по шаблону снова работает.
+    /// Сколько кнопок-целей показывать. Единица означает обычную кнопку
+    /// «Ответить» без выбора.
+    ///
+    /// По умолчанию именно единица. Основная мера — случайная позиция окна: она
+    /// ломает кликер по координатам и при этом ничего не стоит оператору.
+    /// Цифровое подтверждение стоит внимания на каждом вызове, поэтому
+    /// включается отдельно и осознанно — против кликера по шаблону изображения,
+    /// когда такой появится.
     public var targetCount: Int
 
     // MARK: - Слой 2: признаки живого человека
@@ -65,7 +71,7 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
         screenMargin: Double = 24,
         minimumActivationDelayMilliseconds: Int = 300,
         maximumActivationDelayMilliseconds: Int = 1500,
-        targetCount: Int = 3,
+        targetCount: Int = 1,
         requiresCursorMovement: Bool = true,
         requiredCursorTravel: Double = 40,
         requiredCursorSamples: Int = 3,

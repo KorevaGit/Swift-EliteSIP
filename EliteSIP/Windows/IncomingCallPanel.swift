@@ -72,7 +72,7 @@ final class IncomingCallPanel {
         lastReport = session.report
         refusal = nil
 
-        let size = Theme.Metrics.incomingCallPanelSize
+        let size = Theme.Metrics.incomingCallPanelSize(withDigitChallenge: session.challenge.hasChoice)
         let panel = NSPanel(
             contentRect: CGRect(origin: .zero, size: size),
             styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
@@ -103,6 +103,7 @@ final class IncomingCallPanel {
                 callerName: callerName,
                 challenge: session.challenge,
                 activatesAt: session.activatesAt,
+                isGuarded: policy.isEnabled,
                 onAttempt: { [weak self] source, target in
                     self?.attempt(source: source, target: target, onAnswer: onAnswer)
                 },

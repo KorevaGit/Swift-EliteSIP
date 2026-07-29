@@ -120,11 +120,20 @@ struct PhonePanelView: View {
                     model.isInCall ? "Завершить" : "Позвонить",
                     systemImage: model.isInCall ? "phone.down.fill" : "phone.fill"
                 )
+                .font(Theme.Text.controlLabel)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .padding(.vertical, 10)
+                .background(
+                    (model.isInCall ? Theme.Palette.decline : Theme.Palette.answer),
+                    in: .rect(cornerRadius: Theme.Radius.control)
+                )
+                .contentShape(.rect)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(model.isInCall ? Theme.Palette.decline : Theme.Palette.answer)
+            // Заливка задана явно, а не через .borderedProminent с tint: у того
+            // радиус меньше макетного, а в неактивном окне акцент выцветает в
+            // серый — панель висит поверх CRM и активной бывает редко.
+            .buttonStyle(.plain)
             .disabled(!isCallButtonEnabled)
             // Системное затемнение выключенной кнопки на стеклянном фоне почти
             // не видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
@@ -167,11 +176,11 @@ struct RegistrationBadge: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(model.registrationTitle)
-                    .font(.callout)
+                    .font(Theme.Text.panelStatus)
                     .lineLimit(1)
                 if let detail = model.registrationDetail {
                     Text(detail)
-                        .font(.caption2)
+                        .font(Theme.Text.panelDetail)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }

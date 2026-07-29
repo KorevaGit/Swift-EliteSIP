@@ -421,12 +421,33 @@ private struct IncomingCallSettingsTab: View {
                 }
                 .help("Клик раньше срока не принимается и попадает в отчёт")
 
-                Picker("Целей на выбор", selection: policy.targetCount) {
-                    ForEach(1...5, id: \.self) { count in
-                        Text(count == 1 ? "одна" : "\(count)").tag(count)
+            }
+            .disabled(!isGuardOn)
+
+            Section {
+                Toggle("Цифровое подтверждение", isOn: Binding(
+                    get: { model.settings.incomingCall.targetCount > 1 },
+                    set: { model.settings.incomingCall.targetCount = $0 ? 3 : 1 }
+                ))
+
+                if model.settings.incomingCall.targetCount > 1 {
+                    Picker("Целей на выбор", selection: policy.targetCount) {
+                        ForEach(2...5, id: \.self) { count in
+                            Text("\(count)").tag(count)
+                        }
                     }
                 }
-                .help("Одна цель означает, что поиск кнопки по шаблону снова работает")
+            } header: {
+                Text("Подтверждение цифрой")
+            } footer: {
+                Text("""
+                Вместо кнопки «Ответить» показывается ряд цифр, и вызов принимает \
+                только одна из них — названная в подписи. Ломает кликер, который ищет \
+                кнопку по картинке. Выключено по умолчанию: это внимание оператора на \
+                каждом вызове, а случайная позиция окна обходится ему бесплатно.
+                """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             .disabled(!isGuardOn)
 
