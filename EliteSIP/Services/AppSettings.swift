@@ -1,5 +1,6 @@
 import CallGuard
 import Foundation
+import MediaCore
 import SIPCore
 
 /// Всё, что приложение помнит между запусками, кроме пароля.
@@ -22,6 +23,7 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// значениями по умолчанию. Файл настроек от обновления не пострадает.
     var incomingCall: CallGuardPolicy
     var ringtone: RingtoneSettings = RingtoneSettings()
+    var dtmf: DTMFSettings = DTMFSettings()
     var minimumLogLevel: SIPLogLevel
 
     /// Доверять любому сертификату TLS.
@@ -39,6 +41,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         audio: AudioSettings = AudioSettings(),
         incomingCall: CallGuardPolicy = CallGuardPolicy(),
         ringtone: RingtoneSettings = RingtoneSettings(),
+        dtmf: DTMFSettings = DTMFSettings(),
         minimumLogLevel: SIPLogLevel = .info,
         acceptsAnyTLSCertificate: Bool = false
     ) {
@@ -47,6 +50,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.audio = audio
         self.incomingCall = incomingCall
         self.ringtone = ringtone
+        self.dtmf = dtmf
         self.minimumLogLevel = minimumLogLevel
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
@@ -66,6 +70,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             CallGuardPolicy.self, forKey: .incomingCall
         ) ?? CallGuardPolicy()
         ringtone = try container.decodeIfPresent(RingtoneSettings.self, forKey: .ringtone) ?? RingtoneSettings()
+        dtmf = try container.decodeIfPresent(DTMFSettings.self, forKey: .dtmf) ?? DTMFSettings()
         minimumLogLevel = try container.decodeIfPresent(SIPLogLevel.self, forKey: .minimumLogLevel) ?? .info
         acceptsAnyTLSCertificate =
             try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
@@ -158,6 +163,83 @@ struct AppSettings: Codable, Sendable, Equatable {
             isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
             volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? 0.5
             usesSystemOutput = try container.decodeIfPresent(Bool.self, forKey: .usesSystemOutput) ?? true
+        }
+    }
+
+    /// DTMF: длительность тонов и макросы.
+    ///
+    /// Формат макроса заказчиком пока не задан — это открытый вопрос 1 в README.
+    /// Здесь принято то, к чему привыкли по телефонам: цифры, `*`, `#`, `A`–`D`
+    /// и запятая как секундная пауза. Автоотправки нет: макрос уходит по
+    /// нажатию оператора, а не сам по себе. Из готовых макросов не поставляется
+    /// ни одного — боевые коды переводов известны только по виду (открытый
+    /// вопрос 4), и вписывать догадку в настройки по умолчанию нельзя.
+    struct DTMFSettings: Codable, Sendable, Equatable {
+
+        struct Macro: Codable, Sendable, Equatable, Identifiable, Hashable {
+            var id: UUID = UUID()
+            /// Подпись на кнопке. Коротко: панель узкая.
+            var title: String = ""
+            /// Запись набора: цифры и запятые.
+            var sequence: String = ""
+
+            init(id: UUID = UUID(), title: String = "", sequence: String = "") {
+                self.id = id
+                self.title = title
+                self.sequence = sequence
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+                title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+                sequence = try container.decodeIfPresent(String.self, forKey: .sequence) ?? ""
+            }
+
+            /// Годен ли макрос к отправке.
+            var isUsable: Bool {
+                !title.trimmingCharacters(in: .whitespaces).isEmpty
+                    && DTMFSequence(sequence).hasTones
+                    && DTMFSequence.unsupportedCharacters(in: sequence).isEmpty
+            }
+        }
+
+        var toneMilliseconds: Int = 120
+        var gapMilliseconds: Int = 80
+        var pauseMilliseconds: Int = DTMFSequence.defaultPauseMilliseconds
+        var macros: [Macro] = []
+
+        init(
+            toneMilliseconds: Int = 120,
+            gapMilliseconds: Int = 80,
+            pauseMilliseconds: Int = DTMFSequence.defaultPauseMilliseconds,
+            macros: [Macro] = []
+        ) {
+            self.toneMilliseconds = toneMilliseconds
+            self.gapMilliseconds = gapMilliseconds
+            self.pauseMilliseconds = pauseMilliseconds
+            self.macros = macros
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            toneMilliseconds = try container.decodeIfPresent(Int.self, forKey: .toneMilliseconds) ?? 120
+            gapMilliseconds = try container.decodeIfPresent(Int.self, forKey: .gapMilliseconds) ?? 80
+            pauseMilliseconds = try container.decodeIfPresent(Int.self, forKey: .pauseMilliseconds)
+                ?? DTMFSequence.defaultPauseMilliseconds
+            macros = try container.decodeIfPresent([Macro].self, forKey: .macros) ?? []
+        }
+
+        /// То же самое в терминах MediaCore.
+        var timing: DTMFTiming {
+            DTMFTiming(
+                toneMilliseconds: toneMilliseconds,
+                gapMilliseconds: gapMilliseconds
+            )
+        }
+
+        func sequence(of macro: Macro) -> DTMFSequence {
+            DTMFSequence(macro.sequence, pauseMilliseconds: pauseMilliseconds)
         }
     }
 

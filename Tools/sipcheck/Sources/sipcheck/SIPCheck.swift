@@ -33,6 +33,9 @@ struct SIPCheck {
               --reject              ждать входящий и отклонить (486)
               --audio               поднять настоящий звук: микрофон, буфер, карта
               --narrowband          предлагать только G.711, без широкой полосы
+              --dtmf <набор>        отправить тоны в разговоре: цифры и запятые-паузы
+              --dtmf-after <сек>    через сколько их отправить, по умолчанию 1
+              --hold <секунды>      поставить на удержание и через столько вернуть
             """)
             exit(2)
         }
@@ -107,6 +110,26 @@ struct SIPCheck {
         }
         print("✅ регистрация прошла")
 
+        // Пересогласователь нужен обеим веткам: удержание с той стороны — это
+        // повторный INVITE, и без него sipcheck проверял бы не то, что делает
+        // приложение. Заодно это единственный способ увидеть, чем именно
+        // Asterisk объявляет удержание на живом стенде.
+        let live = LiveMedia(
+            codecs: arguments.hasFlag("narrowband")
+                ? SDPNegotiator.narrowbandCodecs
+                : SDPNegotiator.defaultCodecs
+        )
+        await agent.setMediaRenegotiator { offer in
+            live.renegotiate(offer: offer)
+        }
+
+        let plan = CallPlan(
+            duration: duration,
+            dtmf: arguments["dtmf"],
+            dtmfAfter: arguments["dtmf-after"].flatMap { Double($0) },
+            holdAfter: arguments["hold"].flatMap { Double($0) }
+        )
+
         var callSucceeded = true
         if arguments.hasFlag("answer") || arguments.hasFlag("reject") {
             callSucceeded = await waitForIncomingCall(
@@ -117,7 +140,9 @@ struct SIPCheck {
                 answering: arguments.hasFlag("answer"),
                 withAudio: arguments.hasFlag("audio"),
                 narrowbandOnly: arguments.hasFlag("narrowband"),
-                secureMedia: transport == .tls
+                secureMedia: transport == .tls,
+                live: live,
+                plan: plan
             )
         } else if let number = arguments["call"] {
             callSucceeded = await placeCall(
@@ -127,7 +152,9 @@ struct SIPCheck {
                 duration: duration,
                 withAudio: arguments.hasFlag("audio"),
                 narrowbandOnly: arguments.hasFlag("narrowband"),
-                secureMedia: transport == .tls
+                secureMedia: transport == .tls,
+                live: live,
+                plan: plan
             )
         } else {
             let deadline = Date().addingTimeInterval(duration)
@@ -156,7 +183,9 @@ struct SIPCheck {
         answering: Bool,
         withAudio: Bool,
         narrowbandOnly: Bool,
-        secureMedia: Bool
+        secureMedia: Bool,
+        live: LiveMedia,
+        plan: CallPlan
     ) async -> Bool {
         print("→ жду входящий \(Int(duration)) с…")
 
@@ -220,7 +249,11 @@ struct SIPCheck {
                 let silence = silenceFrame(for: media)
                 Task {
                     while !Task.isCancelled {
-                        session.send(encodedFrame: silence)
+                        // Пока идёт тон, звук молчит: иначе кадр посреди события
+                        // сдвинет метку времени и разрежет одно нажатие на два.
+                        if !live.isSendingTone {
+                            session.send(encodedFrame: silence)
+                        }
                         try? await Task.sleep(for: .milliseconds(media.packetTimeMilliseconds))
                     }
                 }
@@ -231,13 +264,15 @@ struct SIPCheck {
             return false
         }
 
+        live.install(session: audio, rtp: rtp, local: prepared.answer, address: address, port: prepared.port)
+
         guard await agent.answerIncomingCall(answer: prepared.answer.encodedData) else {
             print("❌ ответить не удалось: вызова уже нет")
             return false
         }
         print("✅ отправлен 200 OK")
 
-        try? await Task.sleep(for: .seconds(duration))
+        await plan.run(agent: agent, live: live)
         await agent.hangUp()
 
         let count = audio.map { $0.statistics.received } ?? received.value
@@ -284,7 +319,9 @@ struct SIPCheck {
         duration: Double,
         withAudio: Bool = false,
         narrowbandOnly: Bool = false,
-        secureMedia: Bool = false
+        secureMedia: Bool = false,
+        live: LiveMedia,
+        plan: CallPlan
     ) async -> Bool {
         let address = await agent.mediaAddress ?? host
         let port: UInt16
@@ -360,7 +397,9 @@ struct SIPCheck {
                         let silence = silenceFrame(for: media)
                         Task {
                             while !Task.isCancelled {
-                                rtp.send(encodedFrame: silence)
+                                if !live.isSendingTone {
+                                    rtp.send(encodedFrame: silence)
+                                }
                                 try? await Task.sleep(for: .milliseconds(media.packetTimeMilliseconds))
                             }
                         }
@@ -370,7 +409,8 @@ struct SIPCheck {
                     return false
                 }
 
-                try? await Task.sleep(for: .seconds(duration))
+                live.install(session: audio, rtp: session, local: offer, address: address, port: port)
+                await plan.run(agent: agent, live: live)
                 await agent.hangUp()
 
             case .failed(_, let reason):
@@ -407,6 +447,196 @@ struct SIPCheck {
             "зарегистрирован до \(expiresAt.formatted(date: .omitted, time: .standard)), Contact \(contact)"
         case .unregistering: "снятие регистрации"
         case .failed(let reason, _): "ошибка — \(reason)"
+        }
+    }
+}
+
+/// Медиа идущего звонка — общее место для звонка и пересогласователя.
+///
+/// Пересогласователь ставится на агента до звонка, а дотянуться ему нужно до
+/// сессии, которая появится позже. Отсюда этот ящик: без него проверить
+/// серверное удержание на живом стенде нечем.
+final class LiveMedia: @unchecked Sendable {
+
+    private let lock = NSLock()
+    private let codecs: [AudioCodec]
+
+    private var session: MediaSession?
+    private var rtp: RTPSession?
+    private var local: SessionDescription?
+    private var address = ""
+    private var port: UInt16 = 0
+    private var sendingTone = false
+
+    init(codecs: [AudioCodec]) {
+        self.codecs = codecs
+    }
+
+    /// Идёт событие DTMF: кадры звука в этот момент отправлять нельзя.
+    ///
+    /// В `MediaSession` этот запрет встроен, а здесь поток тишины гоняет
+    /// отдельная задача, и без флага она двигает метку времени посреди тона.
+    /// Asterisk читает это как конец одного события и начало нового —
+    /// и слышит лишнюю цифру. Проверено на 603: «4915» доехало как «49155».
+    var isSendingTone: Bool {
+        get { lock.withLock { sendingTone } }
+        set { lock.withLock { sendingTone = newValue } }
+    }
+
+    func install(
+        session: MediaSession?,
+        rtp: RTPSession?,
+        local: SessionDescription,
+        address: String,
+        port: UInt16
+    ) {
+        lock.withLock {
+            self.session = session
+            self.rtp = rtp
+            self.local = local
+            self.address = address
+            self.port = port
+        }
+    }
+
+    var localDescription: SessionDescription? { lock.withLock { local } }
+    var mediaSession: MediaSession? { lock.withLock { session } }
+    var rtpSession: RTPSession? { lock.withLock { rtp } }
+
+    func remember(local description: SessionDescription) {
+        lock.withLock { local = description }
+    }
+
+    /// Ответ на чужой повторный INVITE. Тот же путь, что в приложении.
+    func renegotiate(offer body: Data) -> Data? {
+        let state = lock.withLock { (session, local, address, port) }
+        guard state.1 != nil else { return nil }
+
+        do {
+            let offer = try SessionDescription(parsing: body)
+            let negotiated = try SDPNegotiator.makeAnswer(
+                to: offer,
+                address: state.2,
+                port: state.3,
+                supported: codecs,
+                localKey: state.0?.negotiated?.security.localKey
+            )
+            print("← повторный INVITE: \(negotiated.media.direction.rawValue) "
+                + "\(negotiated.media.remoteAddress):\(negotiated.media.remotePort)"
+                + (negotiated.media.isHeld ? " — нас поставили на удержание" : ""))
+
+            if let session = state.0 {
+                let outcome = try session.renegotiate(to: negotiated.media)
+                if outcome == .streamRebuilt { print("   поток RTP пересобран") }
+                session.isMicrophoneMuted = negotiated.media.isHeld
+            }
+            lock.withLock { local = negotiated.answer }
+            return negotiated.answer.encodedData
+        } catch {
+            print("❌ пересогласование отклонено: \(error)")
+            return nil
+        }
+    }
+}
+
+/// Что делать внутри разговора: подождать, поставить на удержание, набрать тоны.
+struct CallPlan: Sendable {
+
+    let duration: Double
+    let dtmf: String?
+    let dtmfAfter: Double?
+    let holdAfter: Double?
+
+    func run(agent: SIPUserAgent, live: LiveMedia) async {
+        // Ждём, пока на той стороне будет кому слушать.
+        //
+        // Момент важен и настраивается: голосовое меню начинает принимать
+        // цифры не с первой секунды, а после приглашения. Тон, отправленный
+        // раньше, просто пропадает — и выглядит это как неработающий DTMF.
+        // На стенде 603 (Read с приглашением) верный момент — около четырёх
+        // секунд, по умолчанию берём одну.
+        let settle = dtmfAfter ?? min(1.0, duration / 4)
+        try? await Task.sleep(for: .seconds(settle))
+
+        if let dtmf {
+            await send(dtmf: dtmf, live: live)
+        }
+
+        if let holdAfter {
+            await hold(agent: agent, live: live, seconds: holdAfter)
+        }
+
+        let spent = settle + (holdAfter ?? 0)
+        if spent < duration {
+            try? await Task.sleep(for: .seconds(duration - spent))
+        }
+    }
+
+    private func send(dtmf text: String, live: LiveMedia) async {
+        let sequence = DTMFSequence(text)
+        guard sequence.hasTones else {
+            print("❌ в наборе «\(text)» нет ни одного тона")
+            return
+        }
+
+        if let session = live.mediaSession {
+            guard session.send(dtmf: sequence) else {
+                print("❌ собеседник не подтвердил telephone-event — тоны отправить нечем")
+                return
+            }
+            print("→ тоны \(sequence.displayText) отправлены")
+            return
+        }
+
+        // Без --audio сессии звука нет, а проверить DTMF всё равно надо: на
+        // headless-машине микрофона может не быть вовсе. Раскладка та же самая.
+        guard let rtp = live.rtpSession else { return }
+        live.isSendingTone = true
+        defer { live.isSendingTone = false }
+
+        for action in DTMFPlanner.actions(for: sequence) {
+            switch action {
+            case .wait(let milliseconds):
+                try? await Task.sleep(for: .milliseconds(milliseconds))
+            case .packet(let packet):
+                rtp.send(event: packet.payload, isFirst: packet.isFirst)
+                if packet.completesEvent {
+                    rtp.finishEvent(advancingTimestampBy: packet.timestampAdvance)
+                }
+            }
+        }
+        print("→ тоны \(sequence.displayText) отправлены")
+    }
+
+    private func hold(agent: SIPUserAgent, live: LiveMedia, seconds: Double) async {
+        guard let local = live.localDescription else { return }
+
+        do {
+            let held = SDPNegotiator.makeReoffer(from: local, direction: .sendonly)
+            _ = try await agent.reinvite(offer: held.encodedData)
+            live.remember(local: held)
+            live.mediaSession?.isHeld = true
+            print("→ разговор на удержании, вернём через \(Int(seconds)) с")
+
+            try? await Task.sleep(for: .seconds(seconds))
+
+            let resumed = SDPNegotiator.makeReoffer(from: held, direction: .sendrecv)
+            let answer = try await agent.reinvite(offer: resumed.encodedData)
+            live.remember(local: resumed)
+            live.mediaSession?.isHeld = false
+
+            if !answer.isEmpty, let session = live.mediaSession {
+                let negotiated = try SDPNegotiator.resolveAnswer(
+                    try SessionDescription(parsing: answer), toOffer: resumed
+                )
+                let outcome = try session.renegotiate(to: negotiated)
+                if outcome == .streamRebuilt {
+                    print("   поток RTP пересобран на \(negotiated.remoteAddress):\(negotiated.remotePort)")
+                }
+            }
+            print("✅ возврат с удержания")
+        } catch {
+            print("❌ удержание не удалось: \(error)")
         }
     }
 }

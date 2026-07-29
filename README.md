@@ -55,7 +55,7 @@ Packages/CallGuard/     защита приёма вызова: случайно
                         человека, отчёт. Чистая логика, время и ГПСЧ снаружи
 Config/                 entitlements
 docs/                   решения, которые нужно объяснять: аудиотракт, защита
-                        от автокликеров
+                        от автокликеров, удержание и DTMF
 Lab/                    три стенда в Docker: Asterisk 13.38.3 (боевая версия),
                         Asterisk 16 для сравнения, FreePBX 15 для понимания
 ```
@@ -86,6 +86,17 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 (cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --duration 15 --answer)
 ```
 
+Тоны и удержание против живой АТС. Добавочный 603 на стенде читает набранное
+вслух, и в журнале Asterisk видно, что именно он принял:
+
+```bash
+(cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --call 603 --duration 24 --dtmf "4915" --dtmf-after 4)
+```
+
+```bash
+(cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --call 600 --duration 14 --hold 5)
+```
+
 ```bash
 (cd Tools/audioprobe && swift run audioprobe list)
 ```
@@ -112,8 +123,12 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
       синтетических нажатий, отчёт на каждый вызов. Подтверждение цифрой — опция
       в настройках, по умолчанию выключена. Плюс рингтон —
       [docs/incoming.md](docs/incoming.md)
-- [ ] **M4** — удержание, DTMF, макросы
-- [ ] **M5** — перевод: слепой и с консультацией, три линии
+- [x] **M4** — удержание, DTMF и макросы. Удержание — повторный INVITE в обе
+      стороны, включая старую запись `c=0.0.0.0`, которую chan_sip шлёт до сих
+      пор; тоны по RFC 4733 внутри RTP; макросы с паузами —
+      [docs/hold-dtmf.md](docs/hold-dtmf.md)
+- [ ] **M5** — перевод: слепой и с консультацией, три линии. Слепой перевод и
+      протокольная основа Replaces готовы — [docs/transfer.md](docs/transfer.md)
 - [ ] **M6** — конференция
 - [ ] **M7** — настройки, Keychain, логи, подпись, нотаризация, DMG
 - [ ] **M8** — синхронизация с EliteDash (включая телеметрию защиты) и
@@ -152,6 +167,9 @@ xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Debug bui
 ## Открытые вопросы
 
 1. Формат DTMF-макроса: паузы, количество, кто задаёт, нужна ли автоотправка.
+   В M4 принято привычное по телефонам: цифры, `*`, `#`, `A`–`D` и запятая как
+   секундная пауза; задаёт оператор в настройках; автоотправки нет. Готовых
+   макросов не поставляется — см. вопрос 4.
 2. Что показывать в окне входящего при раздаче? Судя по CDR, номера клиента в
    SIP нет. Оставляем «раздача из 2929» или просим админа передавать номер?
 3. Выключатель защиты от автокликеров: локальный, управляемый из EliteDash или

@@ -90,6 +90,15 @@ public enum MediaSecurity: Sendable, Hashable {
     public var isEncrypted: Bool {
         if case .sdes = self { true } else { false }
     }
+
+    /// Наш ключ, если поток защищён.
+    ///
+    /// Нужен пересогласованию: отвечая на повторный INVITE, ключ надо повторить,
+    /// а не выпустить новый. Новый означал бы пересборку потока на каждое
+    /// удержание — со сменой SSRC и слышимым разрывом на ровном месте.
+    public var localKey: SRTPMasterKey? {
+        if case .sdes(let local, _) = self { local } else { nil }
+    }
 }
 
 public enum SRTPError: Error, Sendable, Equatable, LocalizedError {

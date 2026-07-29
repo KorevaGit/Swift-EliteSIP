@@ -66,11 +66,28 @@ public actor SIPUserAgent {
 
         /// Последнее тело SDP, которое мы отправили по этому звонку.
         ///
-        /// Нужно на повторный INVITE: пока пересогласование не сделано (M4),
-        /// честный способ не уронить разговор — повторить то, о чём уже
-        /// договорились, а не отказать.
+        /// Нужно на повторный INVITE без предложения: такой запрос означает
+        /// «объяви заново, чем ты располагаешь», и отвечать на него надо тем,
+        /// о чём уже договорились.
         var localSDP: Data?
+
+        /// Наш повторный INVITE в пути.
+        ///
+        /// Встречное предложение в этот момент обязано получить 491, а не
+        /// второй ответ: два пересогласования одного диалога, разошедшиеся в
+        /// пути, — это классическая ничья, из которой без 491 не выбраться.
+        var isRenegotiating = false
+
+        /// REFER уже принят в работу. Второй перевод того же диалога до
+        /// финального NOTIFY двусмысленен и потому отклоняется локально.
+        var isTransferring = false
     }
+
+    /// Активная подписка, созданная REFER. Ключ — Call-ID исходного диалога:
+    /// NOTIFY приходит внутри него и тем же ключом однозначно находится.
+    private var transferSubscriptions:
+        [String: AsyncStream<SIPTransferEvent>.Continuation] = [:]
+    private var transferTimeoutTasks: [String: Task<Void, Never>] = [:]
 
     private var state: SIPRegistrationState = .idle
     private var registrationTask: Task<Void, Never>?
@@ -390,6 +407,14 @@ public actor SIPUserAgent {
 
     public var callState: SIPCallState? { activeCall?.state }
 
+    /// Идентификатор текущего установленного диалога для Replaces.
+    ///
+    /// Он нужен второму разговору при консультационном переводе. До ответа
+    /// диалога ещё нет, поэтому возвращается nil.
+    public var currentDialogIdentifier: SIPDialogIdentifier? {
+        activeCall?.dialog.map(SIPDialogIdentifier.init(dialog:))
+    }
+
     /// Адрес, который надо указывать в SDP.
     ///
     /// Это тот же адрес, что в Contact, то есть внешний, сообщённый сервером в
@@ -557,6 +582,385 @@ public actor SIPUserAgent {
         call.continuation.yield(.answered(body: response.body, contentType: response.contentType))
     }
 
+    // MARK: - Пересогласование медиа
+
+    /// Как отвечать на чужой повторный INVITE. Задаёт приложение.
+    private var mediaRenegotiator: SIPMediaRenegotiator?
+
+    public func setMediaRenegotiator(_ handler: SIPMediaRenegotiator?) {
+        mediaRenegotiator = handler
+    }
+
+    /// Пересогласовывает медиа внутри идущего разговора — наш повторный INVITE.
+    ///
+    /// Так делается удержание: отдельной команды «hold» в SIP нет, есть
+    /// повторный INVITE со сменой направления в SDP. В консультационном
+    /// переводе им же исходная линия ставится на удержание перед вторым
+    /// звонком; сам перевод затем выполняется REFER с Replaces.
+    ///
+    /// Возвращает тело ответа — новый SDP собеседника. Разбирает его вызывающий:
+    /// граница слоёв та же, что у обычного звонка.
+    @discardableResult
+    public func reinvite(offer: Data, contentType: String = "application/sdp") async throws -> Data {
+        guard let existing = activeCall, existing.dialog != nil, existing.state == .answered else {
+            throw SIPRenegotiationError.noActiveCall
+        }
+        guard !existing.isRenegotiating else { throw SIPRenegotiationError.alreadyRenegotiating }
+
+        setRenegotiating(true, callID: existing.callID)
+        defer { setRenegotiating(false, callID: existing.callID) }
+
+        // Две попытки по той же причине, что и у первого INVITE: chan_sip
+        // требует авторизацию и на повторный.
+        for attempt in 0..<2 {
+            let local: SIPEndpoint
+            do {
+                local = try await transactions.waitUntilReady()
+            } catch {
+                throw SIPRenegotiationError.transportFailed(Self.describe(error))
+            }
+
+            guard var call = activeCall, let dialog = call.dialog else {
+                throw SIPRenegotiationError.noActiveCall
+            }
+
+            let (updated, sequence) = dialog.nextSequence()
+            call.dialog = updated
+            activeCall = call
+
+            var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
+            via.branch = SIPToken.branch()
+            via.requestRport()
+
+            var request = updated.makeRequest(
+                .invite,
+                sequence: sequence,
+                via: via,
+                contact: localContact(local),
+                userAgent: userAgentName
+            )
+            request.body = offer
+            request.headers.append(SIPHeaderName.contentType, contentType)
+            request.headers.append(SIPHeaderName.allow, Self.allowedMethods)
+            request.headers.append(SIPHeaderName.supported, "replaces")
+            if let cached = cachedChallenge,
+               let value = try? authorization(for: .invite, uri: request.uri, challenge: cached) {
+                request.headers.append(cached.responseHeader, value)
+            }
+
+            log(.debug, "-> повторный INVITE cseq=\(sequence)")
+
+            var needsRetryWithAuth = false
+
+            events: for await event in await transactions.sendInvite(request) {
+                switch event {
+                case .provisional:
+                    continue
+
+                case .success(let response):
+                    await acknowledge(reinvite: response, sequence: sequence, local: local, offer: offer)
+                    log(.info, "<- 200 OK на повторный INVITE")
+                    return response.body
+
+                case .failure(let response):
+                    if response.isAuthenticationRequired,
+                       attempt == 0,
+                       let offered = response.authenticationChallenges.first {
+                        cachedChallenge = offered
+                        nonceCount = 0
+                        needsRetryWithAuth = true
+                        break events
+                    }
+                    // 491 — не ошибка сети и не отказ по существу: собеседник
+                    // просто успел первым. Решать, ждать ли и повторять,
+                    // должен вызывающий — он один знает, зачем звал.
+                    if response.statusCode == 491 {
+                        throw SIPRenegotiationError.requestPending
+                    }
+                    throw SIPRenegotiationError.rejected(
+                        status: response.statusCode,
+                        reason: response.reasonPhrase
+                    )
+
+                case .timeout:
+                    throw SIPRenegotiationError.timeout
+
+                case .transportFailed(let reason):
+                    throw SIPRenegotiationError.transportFailed(reason)
+                }
+            }
+
+            guard needsRetryWithAuth else {
+                throw SIPRenegotiationError.timeout
+            }
+        }
+
+        throw SIPRenegotiationError.rejected(status: 401, reason: "сервер не принял авторизацию")
+    }
+
+    private func setRenegotiating(_ value: Bool, callID: String) {
+        guard var call = activeCall, call.callID == callID else { return }
+        call.isRenegotiating = value
+        activeCall = call
+    }
+
+    /// Подтверждает 200 OK на наш повторный INVITE и запоминает новые параметры.
+    private func acknowledge(
+        reinvite response: SIPResponse,
+        sequence: Int,
+        local: SIPEndpoint,
+        offer: Data
+    ) async {
+        guard var call = activeCall, var dialog = call.dialog else { return }
+
+        // Contact в ответе может смениться: RFC 3261 §12.2.1.2 называет это
+        // обновлением цели, и пропустить его значит слать следующий BYE туда,
+        // где собеседника уже нет.
+        if let contact = response.contacts.first?.uri {
+            dialog.remoteTarget = contact
+        }
+        call.dialog = dialog
+        call.localSDP = offer
+        activeCall = call
+
+        var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
+        via.branch = SIPToken.branch()
+        via.requestRport()
+        let ack = dialog.makeRequest(
+            .ack,
+            sequence: sequence,
+            via: via,
+            contact: localContact(local),
+            userAgent: userAgentName
+        )
+        try? await transactions.sendWithoutTransaction(ack)
+    }
+
+    // MARK: - Перевод
+
+    /// Переводит текущий разговор на номер через REFER (RFC 3515).
+    ///
+    /// Без `replacing` это слепой перевод. С `replacing` в Refer-To добавляется
+    /// URI-header Replaces — адресат нового INVITE заменит уже идущий
+    /// консультационный разговор (RFC 3891).
+    public func transfer(
+        to target: String,
+        replacing: SIPDialogIdentifier? = nil
+    ) -> AsyncStream<SIPTransferEvent> {
+        let (stream, continuation) = AsyncStream<SIPTransferEvent>.makeStream(
+            bufferingPolicy: .bufferingNewest(16)
+        )
+
+        func reject(_ error: SIPTransferError) -> AsyncStream<SIPTransferEvent> {
+            let status: Int
+            switch error {
+            case .rejected(let code, _): status = code
+            default: status = 0
+            }
+            continuation.yield(.failed(status: status, reason: error.description))
+            continuation.finish()
+            return stream
+        }
+
+        let number = target.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !number.isEmpty else { return reject(.emptyTarget) }
+        guard number.rangeOfCharacter(
+            from: .whitespacesAndNewlines.union(.controlCharacters)
+        ) == nil else {
+            return reject(.invalidTarget)
+        }
+        guard let call = activeCall, call.dialog != nil, call.state == .answered else {
+            return reject(.noActiveCall)
+        }
+        guard !call.isTransferring else { return reject(.alreadyTransferring) }
+
+        transferSubscriptions[call.callID] = continuation
+        setTransferring(true, callID: call.callID)
+        Task { [weak self] in
+            await self?.runTransfer(
+                callID: call.callID,
+                target: number,
+                replacing: replacing,
+                continuation: continuation
+            )
+        }
+        return stream
+    }
+
+    private func runTransfer(
+        callID: String,
+        target: String,
+        replacing: SIPDialogIdentifier?,
+        continuation: AsyncStream<SIPTransferEvent>.Continuation
+    ) async {
+        defer {
+            // После 202 флаг останется до NOTIFY; при ранней ошибке подписка
+            // уже снята `finishTransfer`, и здесь его можно отпустить.
+            if transferSubscriptions[callID] == nil {
+                setTransferring(false, callID: callID)
+            }
+        }
+
+        // REFER, как INVITE и BYE, chan_sip может сначала вызвать на
+        // авторизацию. Повторяем один раз со свежим challenge.
+        for attempt in 0..<2 {
+            let local: SIPEndpoint
+            do {
+                local = try await transactions.waitUntilReady()
+            } catch {
+                finishTransfer(
+                    callID: callID,
+                    event: .failed(status: 0, reason: SIPTransferError.transportFailed(Self.describe(error)).description)
+                )
+                return
+            }
+
+            guard var call = activeCall, call.callID == callID, let dialog = call.dialog else {
+                finishTransfer(
+                    callID: callID,
+                    event: .failed(status: 0, reason: SIPTransferError.noActiveCall.description)
+                )
+                return
+            }
+
+            let (updated, sequence) = dialog.nextSequence()
+            call.dialog = updated
+            activeCall = call
+
+            var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
+            via.branch = SIPToken.branch()
+            via.requestRport()
+
+            var request = updated.makeRequest(
+                .refer,
+                sequence: sequence,
+                via: via,
+                contact: localContact(local),
+                userAgent: userAgentName
+            )
+            request.headers.append(SIPHeaderName.referTo, referTo(target: target, replacing: replacing))
+            request.headers.append(SIPHeaderName.referredBy, NameAddress(uri: account.addressOfRecord).description)
+            request.headers.append(SIPHeaderName.event, "refer")
+            request.headers.append(SIPHeaderName.allow, Self.allowedMethods)
+
+            if let cached = cachedChallenge,
+               let value = try? authorization(for: .refer, uri: request.uri, challenge: cached) {
+                request.headers.append(cached.responseHeader, value)
+            }
+
+            log(
+                .info,
+                replacing == nil
+                    ? "-> REFER \(target)"
+                    : "-> REFER \(target) с Replaces"
+            )
+
+            do {
+                let response = try await transactions.send(request)
+                if response.isAuthenticationRequired,
+                   attempt == 0,
+                   let offered = response.authenticationChallenges.first {
+                    cachedChallenge = offered
+                    nonceCount = 0
+                    continue
+                }
+
+                guard response.isSuccess else {
+                    finishTransfer(
+                        callID: callID,
+                        event: .failed(
+                            status: response.statusCode,
+                            reason: SIPTransferError.rejected(
+                                status: response.statusCode,
+                                reason: response.reasonPhrase
+                            ).description
+                        )
+                    )
+                    return
+                }
+
+                // На быстром сервере финальный NOTIFY теоретически может
+                // обогнать 202 в транспортном потоке. Тогда подписка уже
+                // закрыта, и заново заводить ей таймер нельзя.
+                guard transferSubscriptions[callID] != nil else { return }
+                continuation.yield(.accepted)
+                transferTimeoutTasks[callID]?.cancel()
+                transferTimeoutTasks[callID] = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(60)) } catch { return }
+                    await self?.expireTransfer(callID: callID)
+                }
+                log(.info, "<- \(response.statusCode) \(response.reasonPhrase) на REFER")
+                return
+            } catch let error as SIPTransactionLayer.TransactionError {
+                let transferError: SIPTransferError = switch error {
+                case .timeout: .timeout
+                case .transportFailed(let reason): .transportFailed(reason)
+                case .cancelled: .transportFailed("соединение закрыто")
+                case .notReady: .transportFailed("транспорт не готов")
+                case .unknownTransaction: .transportFailed("транзакция потеряна")
+                }
+                finishTransfer(
+                    callID: callID,
+                    event: .failed(status: 0, reason: transferError.description)
+                )
+                return
+            } catch {
+                finishTransfer(
+                    callID: callID,
+                    event: .failed(status: 0, reason: Self.describe(error))
+                )
+                return
+            }
+        }
+
+        finishTransfer(
+            callID: callID,
+            event: .failed(
+                status: 401,
+                reason: SIPTransferError.rejected(
+                    status: 401,
+                    reason: "сервер не принял авторизацию"
+                ).description
+            )
+        )
+    }
+
+    private func referTo(target: String, replacing: SIPDialogIdentifier?) -> String {
+        // Номер — user-часть SIP URI, не готовая строка заголовка. Кодируем
+        // разделители (`#`, `?`, `@`, `%`) и тем самым одновременно сохраняем
+        // их смысл и исключаем подстановку второго заголовка.
+        let allowed = CharacterSet.alphanumerics.union(
+            CharacterSet(charactersIn: "-_.!~*'()+")
+        )
+        let encodedTarget = target.addingPercentEncoding(withAllowedCharacters: allowed) ?? target
+        var value = "sip:\(encodedTarget)@\(account.domain)"
+        if let replacing {
+            value += "?Replaces=\(replacing.percentEncodedHeaderValue)"
+        }
+        return "<\(value)>"
+    }
+
+    private func setTransferring(_ value: Bool, callID: String) {
+        guard var call = activeCall, call.callID == callID else { return }
+        call.isTransferring = value
+        activeCall = call
+    }
+
+    private func finishTransfer(callID: String, event: SIPTransferEvent) {
+        transferTimeoutTasks.removeValue(forKey: callID)?.cancel()
+        guard let continuation = transferSubscriptions.removeValue(forKey: callID) else { return }
+        continuation.yield(event)
+        continuation.finish()
+        setTransferring(false, callID: callID)
+    }
+
+    private func expireTransfer(callID: String) {
+        finishTransfer(
+            callID: callID,
+            event: .failed(status: 408, reason: "сервер не сообщил результат перевода")
+        )
+    }
+
     /// Завершает звонок со своей стороны.
     public func hangUp() async {
         guard var call = activeCall else { return }
@@ -699,6 +1103,12 @@ public actor SIPUserAgent {
             let callID = call.callID
             Task { await transactions.forgetServerInvite(callID: callID) }
         }
+        if let callID = activeCall?.callID,
+           let transfer = transferSubscriptions.removeValue(forKey: callID) {
+            transferTimeoutTasks.removeValue(forKey: callID)?.cancel()
+            transfer.yield(.failed(status: 0, reason: "разговор завершился во время перевода"))
+            transfer.finish()
+        }
         activeCall = nil
 
         let reason = switch event {
@@ -721,20 +1131,9 @@ public actor SIPUserAgent {
     /// что дольше, — уже решение оператора, и торопить его нечем.
     private func handle(invite request: SIPRequest) async {
         // Повторный INVITE внутри установленного диалога — это удержание или
-        // смена медиа. Пересогласование делается в M4; до тех пор честнее
-        // подтвердить то, о чём уже договорились, чем отказать и уронить
-        // разговор на ровном месте.
+        // смена медиа.
         if let call = activeCall, call.callID == request.callID, call.dialog != nil {
-            var response = SIPResponse(
-                statusCode: 200,
-                headers: responseHeaders(for: request, localTag: call.localTag),
-                body: call.localSDP ?? Data()
-            )
-            response.headers.append(SIPHeaderName.contentType, "application/sdp")
-            response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
-            response.headers.append(SIPHeaderName.userAgent, userAgentName)
-            try? await transactions.respondToInvite(to: request, with: response)
-            log(.info, "<- повторный INVITE подтверждён прежним SDP; пересогласование — M4")
+            await handle(reinvite: request, call: call)
             return
         }
 
@@ -808,6 +1207,91 @@ public actor SIPUserAgent {
         log(.info, "<- INVITE от \(call.displayNumber), ответили 180")
         continuation.yield(.state(.incoming))
         eventContinuation.yield(.incomingCall(call))
+    }
+
+    /// Отвечает на чужой повторный INVITE.
+    ///
+    /// Это удержание с той стороны, снятие с удержания, смена кодека или
+    /// переброс медиа на другой адрес. Отвечать прежним SDP, как делалось до
+    /// M4, нельзя: на серверном удержании мы продолжали бы отправлять голос
+    /// оператора в линию, где его слушает музыка ожидания.
+    private func handle(reinvite request: SIPRequest, call: ActiveCall) async {
+        // 100 сразу: разбор предложения и пересборка медиа занимают время, а
+        // ретрансмиссии INVITE на UDP начинаются через полсекунды.
+        let trying = SIPResponse(statusCode: 100, headers: responseHeaders(for: request, localTag: call.localTag))
+        try? await transactions.respondToInvite(to: request, with: trying)
+
+        // Встречное предложение. Ждать «своей очереди» здесь нельзя: пока мы
+        // ждём, наш собственный INVITE ждёт ответа от собеседника — и это
+        // взаимная блокировка, ради разрыва которой 491 и придуман.
+        guard !call.isRenegotiating else {
+            var pending = SIPResponse(
+                statusCode: 491,
+                headers: responseHeaders(for: request, localTag: call.localTag)
+            )
+            pending.headers.append(SIPHeaderName.userAgent, userAgentName)
+            try? await transactions.respondToInvite(to: request, with: pending)
+            log(.info, "<- повторный INVITE встретился с нашим, ответили 491")
+            return
+        }
+
+        // Обновление цели: собеседник мог сменить Contact.
+        if let contact = request.contacts.first?.uri,
+           var current = activeCall, var dialog = current.dialog {
+            dialog.remoteTarget = contact
+            current.dialog = dialog
+            activeCall = current
+        }
+
+        let answer: Data?
+        if request.body.isEmpty {
+            // INVITE без тела означает «объяви заново, чем располагаешь».
+            // Ответ на него — наше прежнее описание, и это не заглушка.
+            answer = call.localSDP
+            log(.debug, "<- повторный INVITE без предложения, отвечаем прежним описанием")
+        } else if let renegotiator = mediaRenegotiator {
+            answer = await renegotiator(request.body)
+        } else {
+            // Пересогласователь не задан — значит медиа никто не держит. Так
+            // бывает только в тестах сигнализации; в приложении и в sipcheck он
+            // есть всегда, и умолчание тут сказано вслух, а не спрятано.
+            answer = call.localSDP
+            log(.warning, "<- повторный INVITE подтверждён прежним SDP: пересогласователь не задан")
+        }
+
+        // Пока пересогласователь работал, звонок мог завершиться.
+        guard let current = activeCall, current.callID == request.callID else {
+            log(.debug, "пересогласование закончилось позже звонка")
+            return
+        }
+
+        guard let answer else {
+            var unacceptable = SIPResponse(
+                statusCode: 488,
+                headers: responseHeaders(for: request, localTag: current.localTag)
+            )
+            unacceptable.headers.append(SIPHeaderName.userAgent, userAgentName)
+            try? await transactions.respondToInvite(to: request, with: unacceptable)
+            log(.warning, "<- повторный INVITE отклонён 488: предложение не подходит")
+            return
+        }
+
+        var response = SIPResponse(
+            statusCode: 200,
+            headers: responseHeaders(for: request, localTag: current.localTag),
+            body: answer
+        )
+        response.headers.append(SIPHeaderName.contentType, "application/sdp")
+        response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
+        response.headers.append(SIPHeaderName.supported, "replaces")
+        response.headers.append(SIPHeaderName.userAgent, userAgentName)
+
+        var updated = current
+        updated.localSDP = answer
+        activeCall = updated
+
+        try? await transactions.respondToInvite(to: request, with: response)
+        log(.info, "<- повторный INVITE пересогласован")
     }
 
     /// Отвечает на входящий звонок: 200 OK с нашим SDP.
@@ -956,6 +1440,55 @@ public actor SIPUserAgent {
             log(.info, "<- CANCEL, вызов отменён до ответа")
             finishCall(with: .ended(reason: "отменён вызывающим"), continuation: call.continuation)
 
+        case .notify:
+            // REFER создаёт неявную подписку. Результат нового INVITE сервер
+            // сообщает телом message/sipfrag, а сам NOTIFY всегда требует 200.
+            let response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
+            try? await transactions.respond(to: request, with: response)
+
+            guard request.headers[SIPHeaderName.event]?
+                .lowercased()
+                .hasPrefix("refer") == true,
+                let callID = request.callID,
+                transferSubscriptions[callID] != nil
+            else {
+                log(.debug, "<- NOTIFY без активного REFER, ответили 200")
+                return
+            }
+
+            guard let fragment = parseSIPFragmentStatus(request.body) else {
+                if request.headers[SIPHeaderName.subscriptionState]?
+                    .lowercased()
+                    .hasPrefix("terminated") == true {
+                    finishTransfer(
+                        callID: callID,
+                        event: .failed(status: 500, reason: "сервер завершил перевод без результата")
+                    )
+                }
+                return
+            }
+
+            if (200..<300).contains(fragment.status) {
+                log(.info, "<- NOTIFY: перевод завершён")
+                finishTransfer(callID: callID, event: .succeeded)
+            } else if fragment.status >= 300 {
+                let reason = describeCallFailure(status: fragment.status, reason: fragment.reason)
+                log(.warning, "<- NOTIFY: перевод не состоялся, \(fragment.status) \(fragment.reason)")
+                finishTransfer(
+                    callID: callID,
+                    event: .failed(status: fragment.status, reason: reason)
+                )
+            }
+
+        case .refer:
+            // В M5 перевод инициирует оператор. Управлять нашим разговором
+            // удалённой стороне не разрешаем: это отдельная политика, а не
+            // обязательная часть поддержки исходящего REFER.
+            var response = SIPResponse(statusCode: 501, headers: responseHeaders(for: request))
+            response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
+            try? await transactions.respond(to: request, with: response)
+            eventContinuation.yield(.unsupportedRequest(method: request.method))
+
         default:
             var response = SIPResponse(statusCode: 405, headers: responseHeaders(for: request))
             response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
@@ -1008,10 +1541,15 @@ public actor SIPUserAgent {
     // MARK: - Служебное
 
     /// Список растёт по этапам, и в нём только то, что мы действительно
-    /// обрабатываем. Заявить REFER или INFO заранее — значит соврать серверу:
-    /// Asterisk на основании Allow решает, что нам можно присылать.
-    /// REFER и NOTIFY добавятся в M5 (перевод), INFO — в M4 (DTMF по SIP INFO).
-    static let allowedMethods = "INVITE, ACK, CANCEL, BYE, OPTIONS"
+    /// обрабатываем. NOTIFY появился в M5 вместе с переводом. REFER здесь нет:
+    /// мы умеем его отправлять, но входящий явно получает 501, потому что
+    /// удалённое управление нашим разговором — отдельная политика.
+    ///
+    /// INFO в списке не появился и в M4: DTMF мы шлём по RFC 4733, внутри
+    /// потока RTP, и отдельный метод SIP для этого не нужен. Заявить INFO
+    /// значило бы разрешить серверу присылать нам DTMF тем путём, которого мы
+    /// не обрабатываем.
+    static let allowedMethods = "INVITE, ACK, CANCEL, BYE, OPTIONS, NOTIFY"
 
     /// Когда обновлять регистрацию.
     ///

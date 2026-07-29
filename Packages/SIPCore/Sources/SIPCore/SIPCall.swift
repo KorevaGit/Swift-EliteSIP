@@ -101,6 +101,43 @@ public enum SIPCallError: Error, Sendable, Equatable, CustomStringConvertible {
     }
 }
 
+/// Что могло пойти не так при пересогласовании медиа внутри разговора.
+///
+/// Отдельно от `SIPCallError` потому, что смысл у этих ошибок другой: звонок
+/// после них продолжается. RFC 3261 §14.1 требует именно этого — отказ на
+/// повторный INVITE оставляет разговор на прежних параметрах, а не завершает
+/// его. Для оператора это значит «удержание не сработало», а не «связь упала».
+public enum SIPRenegotiationError: Error, Sendable, Equatable, CustomStringConvertible {
+    case noActiveCall
+    /// Наш повторный INVITE уже в пути.
+    case alreadyRenegotiating
+    /// 491: собеседник прислал встречное предложение раньше нашего.
+    case requestPending
+    case rejected(status: Int, reason: String)
+    case timeout
+    case transportFailed(String)
+
+    public var description: String {
+        switch self {
+        case .noActiveCall: "разговора нет"
+        case .alreadyRenegotiating: "пересогласование уже идёт"
+        case .requestPending: "собеседник пересогласовывает первым (491)"
+        case .rejected(let status, let reason): "отказ \(status) \(reason)"
+        case .timeout: "сервер не ответил"
+        case .transportFailed(let reason): "сеть: \(reason)"
+        }
+    }
+}
+
+/// Как отвечать на чужой повторный INVITE.
+///
+/// На вход — предложение SDP байтами, на выход — наш ответ или nil, если
+/// принять предложение нечем (тогда уйдёт 488). Замыкание, а не событие в
+/// потоке, ровно по одной причине: ответить надо в рамках той же транзакции,
+/// и «отправить событие и надеяться, что кто-то ответит» здесь не работает.
+/// Разбор SDP при этом остаётся снаружи — SIPCore про медиа не знает ничего.
+public typealias SIPMediaRenegotiator = @Sendable (Data) async -> Data?
+
 /// Человеческое объяснение кода отказа.
 ///
 /// Существует потому, что «сервер ответил 486» ничего не говорит оператору, а

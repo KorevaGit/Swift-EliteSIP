@@ -191,10 +191,18 @@ final class AppModel {
         // момент и больше не мешает никогда.
         Task { _ = await VoiceAudioEngine.requestMicrophoneAccess() }
 
+        // Ответ на чужой повторный INVITE собирает приложение: это удержание с
+        // той стороны, смена кодека или переброс медиа на другой адрес — всё
+        // то, о чём SIPCore не знает и знать не должен.
+        await agent.setMediaRenegotiator { [weak self] offer in
+            guard let self else { return nil }
+            return await renegotiateMedia(offer: offer)
+        }
+
         let events = agent.events
         eventPump = Task { [weak self] in
             for await event in events {
-                await self?.handle(event)
+                self?.handle(event)
             }
         }
 
@@ -248,6 +256,12 @@ final class AppModel {
     private(set) var callStatus: String = ""
     private(set) var callPeer: String = ""
 
+    /// Номер, на который переводим текущий разговор. Не переиспользуем
+    /// `dialedNumber`: тот остаётся историей исходного набора и DTMF.
+    var transferNumber: String = ""
+    private(set) var isTransferEntryVisible = false
+    private(set) var isTransferring = false
+
     /// Окно входящего вызова вместе с защитой. Живёт здесь, а не в сцене:
     /// показывает его приезд INVITE, а не действие пользователя.
     let incomingCallPanel = IncomingCallPanel()
@@ -256,7 +270,20 @@ final class AppModel {
     private var media: MediaSession?
     private var callTask: Task<Void, Never>?
 
+    /// Последнее описание медиа, которое мы отправили по этому звонку —
+    /// предложение или ответ. Из него строится повторное предложение: порт,
+    /// кодеки и ключ SRTP обязаны в нём остаться прежними.
+    private var localDescription: SessionDescription?
+
     var isInCall: Bool { callPhase != .idle }
+
+    var canTransfer: Bool {
+        callPhase == .active && !isRenegotiating && !isTransferring
+    }
+
+    var hasTransferNumber: Bool {
+        !transferNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     /// Кодеки, которые предлагаем и на которые соглашаемся.
     ///
@@ -304,6 +331,7 @@ final class AppModel {
         callPeer = number
         callPhase = .dialing
         callStatus = "Набор…"
+        localDescription = prepared.offer
         append(level: .info, message: "звоню на \(number), RTP-порт \(prepared.port)")
 
         let events = await agent.placeCall(to: number, offer: prepared.offer.encodedData)
@@ -319,6 +347,61 @@ final class AppModel {
         callPhase = .ending
         callStatus = "Завершение…"
         await agent.hangUp()
+    }
+
+    // MARK: - Перевод
+
+    func showTransferEntry() {
+        guard canTransfer else { return }
+        transferNumber = ""
+        isTransferEntryVisible = true
+    }
+
+    func cancelTransferEntry() {
+        guard !isTransferring else { return }
+        isTransferEntryVisible = false
+        transferNumber = ""
+    }
+
+    /// Слепой перевод: текущий собеседник сразу уходит на указанный номер.
+    ///
+    /// Успехом считаем не 202 на REFER, а только финальный NOTIFY с 2xx
+    /// созданного сервером INVITE. Иначе кнопка могла бы показать «готово»,
+    /// хотя адресат занят или номера не существует.
+    func blindTransfer() async {
+        guard let agent, canTransfer, hasTransferNumber else { return }
+        let target = transferNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        isTransferring = true
+        callStatus = "Перевод…"
+        append(level: .info, message: "слепой перевод на \(target)")
+
+        let events = await agent.transfer(to: target)
+        for await event in events {
+            switch event {
+            case .accepted:
+                callStatus = "Сервер переводит…"
+
+            case .succeeded:
+                append(level: .info, message: "разговор переведён на \(target)")
+                callStatus = "Переведён"
+                isTransferring = false
+                isTransferEntryVisible = false
+                transferNumber = ""
+                // После успешного REFER наша нога больше не нужна. Если
+                // Asterisk уже прислал BYE, hangUp станет безопасным no-op.
+                await hangUp()
+                return
+
+            case .failed(_, let reason):
+                append(level: .error, message: "перевод не удался: \(reason)")
+                callStatus = "Перевод не удался"
+                isTransferring = false
+                return
+            }
+        }
+
+        isTransferring = false
     }
 
     private func handle(call event: SIPCallEvent, offer: SessionDescription, localPort: UInt16) async {
@@ -420,6 +503,212 @@ final class AppModel {
         }
     }
 
+    // MARK: - Удержание
+
+    /// Разговор поставлен на удержание нами.
+    private(set) var isOnHold = false
+
+    /// На удержание поставили нас: сервер прислал повторный INVITE, в котором
+    /// нашего голоса больше не ждут.
+    private(set) var isRemotelyHeld = false
+
+    /// Микрофон выключен кнопкой. От удержания отличается тем, что собеседник
+    /// об этом не знает и музыки ожидания не слышит.
+    private(set) var isMicrophoneMuted = false
+
+    /// Пересогласование в пути: вторую кнопку в этот момент нажимать нельзя.
+    private(set) var isRenegotiating = false
+
+    var canHold: Bool { callPhase == .active && !isRenegotiating }
+
+    func toggleHold() async {
+        await setHold(!isOnHold)
+    }
+
+    /// Ставит разговор на удержание и снимает с него.
+    ///
+    /// Отдельной команды в SIP для этого нет: удержание — это повторный INVITE
+    /// со сменой направления в SDP. Отказ на него разговор не рвёт (RFC 3261
+    /// §14.1), поэтому неудача здесь означает «удержание не сработало», а не
+    /// «звонок потерян», и обрабатывается соответственно.
+    func setHold(_ hold: Bool) async {
+        guard let agent, let media, callPhase == .active, !isRenegotiating else { return }
+        guard let local = localDescription else {
+            append(level: .error, message: "нет своего описания медиа — удержание собрать не из чего")
+            return
+        }
+
+        isRenegotiating = true
+        defer { isRenegotiating = false }
+
+        let reoffer = SDPNegotiator.makeReoffer(from: local, direction: hold ? .sendonly : .sendrecv)
+        callStatus = hold ? "Удержание…" : "Возврат…"
+
+        do {
+            let answerBody = try await agent.reinvite(offer: reoffer.encodedData)
+            localDescription = reoffer
+
+            // Ответ без тела законен: сервер согласился, не меняя ничего.
+            if !answerBody.isEmpty {
+                let negotiated = try SDPNegotiator.resolveAnswer(
+                    try SessionDescription(parsing: answerBody),
+                    toOffer: reoffer,
+                    supported: preferredCodecs
+                )
+                let outcome = try media.renegotiate(to: negotiated)
+                if outcome == .streamRebuilt {
+                    append(level: .info, message: "медиа переехало на \(negotiated.remoteAddress):\(negotiated.remotePort)")
+                }
+            }
+
+            isOnHold = hold
+            applyAudioState()
+            callStatus = hold ? "На удержании" : "Разговор"
+            append(level: .info, message: hold ? "разговор на удержании" : "возврат с удержания")
+        } catch {
+            // Разговор продолжается на прежних параметрах — и это надо сказать
+            // вслух, иначе оператор решит, что собеседник его не слышит.
+            append(level: .error, message: "удержание не удалось: \(describe(error))")
+            callStatus = isOnHold ? "На удержании" : "Разговор"
+        }
+    }
+
+    func toggleMicrophone() {
+        guard callPhase == .active else { return }
+        isMicrophoneMuted.toggle()
+        applyAudioState()
+        append(level: .info, message: isMicrophoneMuted ? "микрофон выключен" : "микрофон включён")
+    }
+
+    /// Сводит все причины молчать в одно состояние звука.
+    ///
+    /// Причин три, и они складываются: своё удержание, серверное удержание и
+    /// кнопка микрофона. Раскладывать это по месту каждый раз — верный способ
+    /// получить разговор, в котором микрофон остался выключенным после возврата.
+    private func applyAudioState() {
+        guard let media else { return }
+        media.isMicrophoneMuted = isOnHold || isRemotelyHeld || isMicrophoneMuted
+        // Музыку ожидания, которую включил сервер, оператор слышать должен:
+        // по ней и понятно, что его поставили на удержание. А вот собственное
+        // удержание глушит приём — оператор в это время говорит с другим.
+        media.isReceivingAudio = !isOnHold
+    }
+
+    /// Собирает ответ на чужой повторный INVITE.
+    ///
+    /// Возврат nil означает 488: предложение не подходит. Так бывает, когда
+    /// сервер сменил кодек посреди разговора — пересобрать под него весь тракт
+    /// на ходу нельзя, а сделать вид, что всё в порядке, значит получить тишину.
+    private func renegotiateMedia(offer body: Data) async -> Data? {
+        guard let media, let agent else { return nil }
+        guard let address = await agent.mediaAddress else {
+            append(level: .error, message: "неизвестен внешний адрес — пересогласовать нечем")
+            return nil
+        }
+
+        do {
+            let offer = try SessionDescription(parsing: body)
+
+            // Правило TLS-профиля работает и здесь: молчаливый откат на
+            // открытый RTP посреди разговора — та же дыра, что и в начале.
+            if mediaSecurityPolicy == .sdesRequired,
+               offer.audio?.protocolName.caseInsensitiveCompare("RTP/SAVP") != .orderedSame {
+                append(level: .error, message: "пересогласование без SRTP на защищённом профиле отклонено")
+                return nil
+            }
+
+            let negotiated = try SDPNegotiator.makeAnswer(
+                to: offer,
+                address: address,
+                port: media.localPort,
+                supported: preferredCodecs,
+                // Ключ повторяем прежний: выпустить новый ради удержания
+                // значит пересобрать поток со сменой SSRC — то есть услышать
+                // разрыв там, где ничего не менялось.
+                localKey: media.negotiated?.security.localKey
+            )
+            let outcome = try media.renegotiate(to: negotiated.media)
+
+            localDescription = negotiated.answer
+            isRemotelyHeld = negotiated.media.isHeld
+            applyAudioState()
+
+            if isRemotelyHeld {
+                callStatus = "Вас поставили на удержание"
+                append(level: .info, message: "собеседник поставил разговор на удержание")
+            } else {
+                callStatus = isOnHold ? "На удержании" : "Разговор"
+                append(level: .info, message: "собеседник вернулся к разговору")
+            }
+            if outcome == .streamRebuilt {
+                append(
+                    level: .info,
+                    message: "медиа переехало на \(negotiated.media.remoteAddress):\(negotiated.media.remotePort)"
+                )
+            }
+
+            return negotiated.answer.encodedData
+        } catch {
+            append(level: .error, message: "пересогласование отклонено: \(describe(error))")
+            return nil
+        }
+    }
+
+    // MARK: - DTMF
+
+    /// Что уже отправлено в этом звонке. Показывается вместо набранного номера:
+    /// без обратной связи оператор не отличит «цифра ушла» от «кнопка не нажалась».
+    private(set) var sentDTMF: String = ""
+
+    /// Умеет ли текущий разговор принимать тоны.
+    var canSendDTMF: Bool { callPhase == .active && (media?.supportsTelephoneEvents ?? false) }
+
+    /// Отправляет одну цифру.
+    @discardableResult
+    func sendDTMF(_ character: Character) -> Bool {
+        guard let media, callPhase == .active else { return false }
+        guard media.send(dtmf: character, timing: settings.dtmf.timing) else {
+            // Молча проглотить нельзя: оператор будет думать, что попал в меню,
+            // а на той стороне не произошло ничего.
+            append(level: .warning, message: "собеседник не подтвердил telephone-event — тоны отправить нечем")
+            callStatus = "DTMF не поддерживается"
+            return false
+        }
+        sentDTMF.append(character)
+        return true
+    }
+
+    /// Отправляет макрос целиком.
+    func send(macro: AppSettings.DTMFSettings.Macro) {
+        guard let media, callPhase == .active else { return }
+        let sequence = settings.dtmf.sequence(of: macro)
+        guard sequence.hasTones else {
+            append(level: .warning, message: "макрос «\(macro.title)» пуст")
+            return
+        }
+        guard media.send(dtmf: sequence, timing: settings.dtmf.timing) else {
+            append(level: .warning, message: "собеседник не подтвердил telephone-event — макрос не отправлен")
+            callStatus = "DTMF не поддерживается"
+            return
+        }
+        sentDTMF += sequence.displayText
+        append(level: .info, message: "макрос «\(macro.title)»: \(sequence.displayText)")
+    }
+
+    /// Макросы, годные к отправке.
+    var usableMacros: [AppSettings.DTMFSettings.Macro] {
+        settings.dtmf.macros.filter(\.isUsable)
+    }
+
+    private func describe(_ error: Error) -> String {
+        switch error {
+        case let error as SIPRenegotiationError: error.description
+        case let error as SDPNegotiationError: error.description
+        case let error as MediaSession.SessionError: error.description
+        default: error.localizedDescription
+        }
+    }
+
     private func teardownCall() {
         callTask?.cancel()
         callTask = nil
@@ -429,6 +718,15 @@ final class AppModel {
         incomingCall = nil
         media?.stop()
         media = nil
+        localDescription = nil
+        isOnHold = false
+        isRemotelyHeld = false
+        isMicrophoneMuted = false
+        isRenegotiating = false
+        sentDTMF = ""
+        isTransferEntryVisible = false
+        isTransferring = false
+        transferNumber = ""
         callPhase = .idle
         callPeer = ""
         audioRoute = nil
@@ -573,6 +871,7 @@ final class AppModel {
         // Asterisk начинает слать RTP по 200 OK, и в зазоре между ответом и
         // подъёмом тракта первые кадры уходят в закрытый порт, а сам порт в это
         // время может занять кто угодно ещё.
+        localDescription = prepared.answer
         startMedia(negotiated: prepared.media, localPort: prepared.port)
         guard media != nil else { return }
 
@@ -690,6 +989,24 @@ final class AppModel {
     }
 
     var hasDialedNumber: Bool { !dialedNumber.isEmpty }
+
+    /// Нажатие на клавиатуру. В разговоре это тон, вне разговора — цифра номера.
+    ///
+    /// Одна кнопка на оба смысла — то, как устроен любой телефон: набирать
+    /// номер во время разговора незачем, а вот попасть в голосовое меню нужно
+    /// ровно теми же клавишами.
+    func press(_ digit: Character) {
+        if callPhase == .active {
+            sendDTMF(digit)
+        } else {
+            append(digit)
+        }
+    }
+
+    /// Что показывать в поле номера: набранное или уже отправленные тоны.
+    var displayedNumber: String {
+        callPhase == .active && !sentDTMF.isEmpty ? sentDTMF : dialedNumber
+    }
 
     func append(_ digit: Character) {
         guard dialedNumber.count < 32 else { return }

@@ -86,13 +86,13 @@ struct InboundRequestTests {
     // `IncomingCallTests`: с M3 это уже не «отказ на неподдерживаемое», а
     // полноценный звонок со своей транзакцией и своими таймерами.
 
-    @Test("Неподдерживаемый метод получает 405 со списком Allow")
-    func rejectsUnknownMethod() async throws {
+    @Test("Входящий REFER отклоняется явно: удалённо управлять переводом нельзя")
+    func rejectsInboundRefer() async throws {
         let server = acceptingServer()
         let agent = await registeredAgent(server)
 
-        // REFER мы начнём обрабатывать только в M5, и до тех пор он не заявлен
-        // в Allow — значит на него должен приходить честный 405.
+        // Исходящий REFER в M5 поддерживается, но принимать удалённую команду
+        // перевода — отдельная политика. Отвечаем 501, а не молчим.
         var request = SIPRequest(method: .refer, uri: SIPURI(user: "100", host: "192.168.1.50"))
         request.headers.append(SIPHeaderName.via, "SIP/2.0/UDP 172.17.0.2:5060;branch=z9hG4bKrefer1")
         request.headers.append(SIPHeaderName.from, "<sip:asterisk@172.17.0.2>;tag=as1")
@@ -105,7 +105,7 @@ struct InboundRequestTests {
         await agent.stop()
 
         let response = try #require(server.sentResponses.first)
-        #expect(response.statusCode == 405)
-        #expect(response.headers["Allow"] != nil, "405 без Allow не говорит клиенту ничего полезного")
+        #expect(response.statusCode == 501)
+        #expect(response.headers["Allow"] != nil)
     }
 }

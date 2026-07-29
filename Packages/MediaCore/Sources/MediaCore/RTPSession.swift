@@ -84,6 +84,9 @@ public final class RTPSession: @unchecked Sendable {
     private var needsMarker = true
     private var isStopped = false
 
+    /// Сигналит, когда сокет действительно закрыт и порт свободен.
+    private let released = DispatchSemaphore(value: 0)
+
     /// Счётчики для отчётов RTCP. Растут на той же очереди, что и отправка.
     private var packetsSent: UInt32 = 0
     private var octetsSent: UInt32 = 0
@@ -142,13 +145,24 @@ public final class RTPSession: @unchecked Sendable {
         receiveNext()
     }
 
-    public func stop() {
-        queue.sync {
-            guard !isStopped else { return }
+    /// Закрывает поток и дожидается, пока порт действительно освободится.
+    ///
+    /// Ждать приходится ради пересогласования: при удержании собеседник может
+    /// вернуться с другого адреса, и тогда поток пересобирается на том же
+    /// локальном порту. `cancel()` асинхронный, и без ожидания новый сокет
+    /// встаёт на ещё занятый порт — звонок при этом продолжается, а звука нет.
+    public func stop(waitingForReleaseUpTo timeout: DispatchTimeInterval = .milliseconds(500)) {
+        let started: Bool = queue.sync {
+            guard !isStopped else { return false }
             isStopped = true
-            connection.stateUpdateHandler = nil
+            connection.stateUpdateHandler = { [weak self] state in
+                if case .cancelled = state { self?.released.signal() }
+            }
             connection.cancel()
+            return true
         }
+        guard started else { return }
+        _ = released.wait(timeout: .now() + timeout)
     }
 
     // MARK: - Отправка
@@ -213,9 +227,13 @@ public final class RTPSession: @unchecked Sendable {
     }
 
     /// Завершает событие DTMF и возвращает поток к звуку.
-    public func finishEvent() {
+    ///
+    /// Метка времени сдвигается на всю длительность тона, а не на один пакет:
+    /// внутри события она не росла, но время шло, и без этого сдвига весь
+    /// остаток разговора уедет назад относительно часов отправителя.
+    public func finishEvent(advancingTimestampBy ticks: UInt32? = nil) {
         queue.async { [self] in
-            timestamp &+= configuration.timestampIncrement
+            timestamp &+= ticks ?? configuration.timestampIncrement
             needsMarker = true
         }
     }

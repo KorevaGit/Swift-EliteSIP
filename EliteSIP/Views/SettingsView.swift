@@ -17,6 +17,9 @@ struct SettingsView: View {
             IncomingCallSettingsTab()
                 .tabItem { Label("Входящие", systemImage: "bell") }
 
+            DTMFSettingsTab()
+                .tabItem { Label("Тоны", systemImage: "square.grid.3x3") }
+
             DiagnosticsTab()
                 .tabItem { Label("Диагностика", systemImage: "stethoscope") }
         }
@@ -514,6 +517,145 @@ private struct IncomingCallSettingsTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Макросы DTMF и длительность тонов.
+private struct DTMFSettingsTab: View {
+
+    @Environment(AppModel.self) private var model
+
+    private var macros: [AppSettings.DTMFSettings.Macro] {
+        model.settings.dtmf.macros
+    }
+
+    var body: some View {
+        Form {
+            Section("Макросы") {
+                if macros.isEmpty {
+                    Text("Макросов нет. Кнопка появится на панели во время разговора.")
+                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                }
+
+                ForEach(macros) { macro in
+                    MacroRow(
+                        macro: Binding(
+                            get: { macro },
+                            set: { updated in
+                                guard let index = macros.firstIndex(where: { $0.id == macro.id }) else { return }
+                                model.settings.dtmf.macros[index] = updated
+                            }
+                        ),
+                        onDelete: {
+                            model.settings.dtmf.macros.removeAll { $0.id == macro.id }
+                        }
+                    )
+                }
+
+                Button {
+                    model.settings.dtmf.macros.append(.init(title: "Новый", sequence: ""))
+                } label: {
+                    Label("Добавить макрос", systemImage: "plus")
+                }
+            }
+
+            Section("Запись") {
+                // Формат заказчиком не задан — открытый вопрос 1 в README.
+                // Пока принято привычное по телефонам, и об этом честно сказано
+                // здесь, а не только в документации.
+                Text(
+                    """
+                    Цифры, «*», «#» и A–D отправляются как тоны. Запятая — пауза; \
+                    несколько запятых подряд складываются. Пробелы и дефисы \
+                    ни на что не влияют и нужны только для читаемости.
+                    """
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+                LabeledContent("Длина паузы") {
+                    DelayField(
+                        milliseconds: Binding(
+                            get: { model.settings.dtmf.pauseMilliseconds },
+                            set: { model.settings.dtmf.pauseMilliseconds = max(100, $0) }
+                        )
+                    )
+                }
+            }
+
+            Section("Тон") {
+                LabeledContent("Длительность") {
+                    DelayField(
+                        milliseconds: Binding(
+                            get: { model.settings.dtmf.toneMilliseconds },
+                            set: { model.settings.dtmf.toneMilliseconds = max(40, $0) }
+                        )
+                    )
+                }
+                .help("Минимум по RFC 4733 — 40 мс. Глухие голосовые меню лучше слышат 120")
+
+                LabeledContent("Пауза между тонами") {
+                    DelayField(
+                        milliseconds: Binding(
+                            get: { model.settings.dtmf.gapMilliseconds },
+                            set: { model.settings.dtmf.gapMilliseconds = max(20, $0) }
+                        )
+                    )
+                }
+                .help("Без паузы две одинаковые цифры подряд слышны как одна длинная")
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct MacroRow: View {
+
+    @Binding var macro: AppSettings.DTMFSettings.Macro
+    let onDelete: () -> Void
+
+    private var problem: String? {
+        let unsupported = DTMFSequence.unsupportedCharacters(in: macro.sequence)
+        if !unsupported.isEmpty {
+            return "не тоны: \(String(unsupported))"
+        }
+        if !DTMFSequence(macro.sequence).hasTones {
+            return "нет ни одного тона"
+        }
+        if macro.title.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "нет подписи"
+        }
+        return nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                TextField("Подпись", text: $macro.title)
+                    .frame(width: 140)
+                TextField("Набор, например 2,,101#", text: $macro.sequence)
+                    .font(.system(.body, design: .monospaced))
+
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .help("Удалить макрос")
+            }
+
+            // Негодный макрос на панели не появится, и молчать об этом нельзя:
+            // оператор будет искать кнопку, которой нет.
+            if let problem {
+                Label(problem, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else {
+                Text(DTMFSequence(macro.sequence).displayText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 

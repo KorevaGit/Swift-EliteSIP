@@ -33,9 +33,23 @@ public struct NegotiatedMedia: Sendable, Hashable {
         self.security = security
     }
 
-    /// Собеседник поставил нас на удержание: порт 0 или inactive.
+    /// Поток отключён целиком: отправлять физически некуда.
+    ///
+    /// Нулевой порт и адрес `0.0.0.0` — старая запись удержания из RFC 2543, и
+    /// chan_sip до сих пор шлёт именно её, иногда вообще не трогая направление.
+    /// Отличать её от нового `a=sendonly` приходится вот зачем: на этот адрес
+    /// нельзя пересобирать сокет, его надо просто переждать.
+    public var isStreamDisabled: Bool {
+        remotePort == 0 || remoteAddress == "0.0.0.0"
+    }
+
+    /// Собеседник поставил нас на удержание: звука от нас больше не ждут.
+    ///
+    /// Заметить это важнее, чем кажется: если пропустить, оператор продолжит
+    /// говорить в линию, где его никто не слышит, и узнает об этом только по
+    /// недоумению собеседника после возврата.
     public var isHeld: Bool {
-        remotePort == 0 || direction == .inactive
+        isStreamDisabled || !direction.sendsAudio
     }
 }
 
@@ -155,6 +169,39 @@ public enum SDPNegotiator {
         )
     }
 
+    /// Повторное предложение внутри уже идущего разговора.
+    ///
+    /// Строится правкой прежнего описания, а не сборкой нового, и это
+    /// принципиально. Порт менять нельзя — он объявлен и занят. Ключ SDES
+    /// перевыпускать нельзя — по нему собеседник расшифровывает наш поток, и
+    /// новый ключ означает пересборку контекстов на обеих сторонах ради смены
+    /// одной строчки направления. Набор кодеков менять тоже незачем: договорились
+    /// один раз.
+    ///
+    /// Расти обязана только версия сессии в `o=`: по ней принимающая сторона
+    /// понимает, что описание новое. Неизменная версия — законный повод
+    /// проигнорировать предложение целиком (RFC 3264 §8), и Asterisk этим
+    /// правом пользуется.
+    public static func makeReoffer(
+        from previous: SessionDescription,
+        direction: MediaDirection
+    ) -> SessionDescription {
+        var reoffer = previous
+        reoffer.origin.sessionVersion &+= 1
+
+        reoffer.media = previous.media.map { section in
+            guard section.type == "audio" else { return section }
+            var updated = section
+            updated.attributes.removeAll { attribute in
+                MediaDirection.allCases.contains { $0.rawValue == attribute.name.lowercased() }
+            }
+            updated.attributes.append(.init(name: direction.rawValue))
+            return updated
+        }
+
+        return reoffer
+    }
+
     /// Разбирает ответ на наше предложение.
     public static func resolveAnswer(
         _ answer: SessionDescription,
@@ -212,13 +259,17 @@ public enum SDPNegotiator {
     }
 
     /// Составляет ответ на чужое предложение и заодно возвращает итог.
+    /// - Parameter localKey: наш ключ SRTP. Задаётся при пересогласовании: в
+    ///   ответе на повторный INVITE ключ обязан остаться прежним, иначе поток
+    ///   придётся пересобирать на каждое удержание.
     public static func makeAnswer(
         to offer: SessionDescription,
         address: String,
         port: UInt16,
         supported: [AudioCodec] = defaultCodecs,
         sessionID: UInt64 = UInt64(Date().timeIntervalSince1970),
-        packetTimeMilliseconds: Int = defaultPacketTimeMilliseconds
+        packetTimeMilliseconds: Int = defaultPacketTimeMilliseconds,
+        localKey: SRTPMasterKey? = nil
     ) throws -> (answer: SessionDescription, media: NegotiatedMedia) {
         guard let audio = offer.audio else { throw SDPNegotiationError.noAudioSection }
         guard let remoteAddress = audio.connection?.address ?? offer.connection?.address else {
@@ -276,13 +327,13 @@ public enum SDPNegotiator {
             guard let remoteCrypto = audio.sdesCryptoAttributes.first else {
                 throw SDPNegotiationError.missingCryptoAttribute
             }
-            let localKey = SRTPMasterKey.random()
+            let key = localKey ?? SRTPMasterKey.random()
             attributes.append(.init(
                 name: "crypto",
-                value: SDESCryptoAttribute(tag: remoteCrypto.tag, suite: remoteCrypto.suite, key: localKey).value
+                value: SDESCryptoAttribute(tag: remoteCrypto.tag, suite: remoteCrypto.suite, key: key).value
             ))
             protocolName = "RTP/SAVP"
-            security = .sdes(local: localKey, remote: remoteCrypto.key)
+            security = .sdes(local: key, remote: remoteCrypto.key)
         default:
             throw SDPNegotiationError.unsupportedMediaProtocol(audio.protocolName)
         }

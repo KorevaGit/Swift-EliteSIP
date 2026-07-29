@@ -256,6 +256,24 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     private let runningFlag = OSAllocatedUnfairLock(initialState: false)
     public var isRunning: Bool { runningFlag.withLock { $0 } }
 
+    private let mutedFlag = OSAllocatedUnfairLock(initialState: false)
+
+    /// Немой микрофон: в линию уходит тишина, но уходит.
+    ///
+    /// Именно тишина, а не пустота. Перестать отправлять пакеты вовсе — значит
+    /// заморозить метку времени и номер пакета на всё время удержания, а потом
+    /// вернуться в разговор с разрывом, который собеседник услышит как щелчок.
+    /// Заодно живёт привязка в NAT, которая от нескольких минут молчания
+    /// вполне может протухнуть.
+    ///
+    /// Отсчёты обнуляются до кодирования, а не после: у G.722 состояние, и
+    /// подменять уже закодированный кадр постоянным «байтом тишины» нельзя —
+    /// декодер на той стороне услышит треск (грабли M3).
+    public var isMuted: Bool {
+        get { mutedFlag.withLock { $0 } }
+        set { mutedFlag.withLock { $0 = newValue } }
+    }
+
     private var configurationObserver: NSObjectProtocol?
     private var routeObservation: AudioDeviceCatalog.Observation?
     private var usesVoiceProcessing = false
@@ -982,10 +1000,15 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             captured, using: converter, from: formats.source, to: formats.destination
         ) else { return }
 
-        let peak = converted.reduce(Float(0)) { max($0, abs(Float($1) / 32768)) }
+        let isMuted = mutedFlag.withLock { $0 }
+
+        // Индикатор микрофона на удержании обязан лежать на нуле: показывать
+        // уровень голоса, который никуда не уходит, — это ровно тот случай,
+        // когда оператор говорит в пустоту и уверен, что его слышат.
+        let peak = isMuted ? 0 : converted.reduce(Float(0)) { max($0, abs(Float($1) / 32768)) }
         levelLock.withLock { $0.inputPeak = max($0.inputPeak, peak) }
 
-        captureRemainder.append(contentsOf: converted)
+        captureRemainder.append(contentsOf: isMuted ? [Int16](repeating: 0, count: converted.count) : converted)
 
         // Режем на кадры ровно по packet time: RTP не терпит кусков
         // произвольной длины, а остаток переносим в следующий заход.

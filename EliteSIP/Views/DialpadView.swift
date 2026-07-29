@@ -22,7 +22,7 @@ struct DialpadView: View {
                 HStack(spacing: Theme.Metrics.dialpadSpacing) {
                     ForEach(row, id: \.self) { key in
                         DialpadKey(character: key) {
-                            model.append(key)
+                            model.press(key)
                         }
                     }
                 }
