@@ -201,7 +201,12 @@ struct SIPCheck {
         }
 
         let address = await agent.mediaAddress ?? host
-        let prepared: (answer: SessionDescription, media: NegotiatedMedia, port: UInt16)
+        let prepared: (
+            answer: SessionDescription,
+            media: NegotiatedMedia,
+            port: UInt16,
+            reservation: RTPPortReservation
+        )
         do {
             prepared = try MediaSession.makeAnswer(
                 to: try SessionDescription(parsing: call.offer),
@@ -214,6 +219,7 @@ struct SIPCheck {
             print("❌ на предложение ответить нечем: \(error)")
             return false
         }
+        defer { prepared.reservation.release() }
 
         let media = prepared.media
         print("   отвечаю: \(media.security.isEncrypted ? "SRTP" : "RTP") \(media.codec.sdpName) на \(media.remoteAddress):\(media.remotePort), свой порт \(prepared.port)")
@@ -231,7 +237,10 @@ struct SIPCheck {
                     print("❌ микрофон не разрешён — разрешите его терминалу и повторите")
                     return false
                 }
-                let session = try MediaSession(negotiated: media, localPort: prepared.port)
+                let session = try MediaSession(
+                    negotiated: media,
+                    reservation: prepared.reservation
+                )
                 session.onDiagnostic = { print("   звук: \($0)") }
                 try session.start()
                 audio = session
@@ -243,6 +252,7 @@ struct SIPCheck {
                     remotePort: media.remotePort
                 )
                 session.onReceivedPacket = { _ in received.increment() }
+                prepared.reservation.activate()
                 session.start()
                 rtp = session
 
@@ -324,10 +334,12 @@ struct SIPCheck {
         plan: CallPlan
     ) async -> Bool {
         let address = await agent.mediaAddress ?? host
+        let reservation: RTPPortReservation
         let port: UInt16
         let offer: SessionDescription
         do {
-            port = try RTPSession.reserveEvenPort()
+            reservation = try RTPSession.reservePortPair()
+            port = reservation.rtpPort
             offer = SDPNegotiator.makeOffer(
                 address: address,
                 port: port,
@@ -338,6 +350,7 @@ struct SIPCheck {
             print("❌ не удалось занять порт RTP: \(error)")
             return false
         }
+        defer { reservation.release() }
         print("→ звоню на \(number), локальный RTP-порт \(port), адрес в SDP \(address)")
 
         let received = Counter()
@@ -363,7 +376,10 @@ struct SIPCheck {
                             print("❌ микрофон не разрешён — разрешите его терминалу и повторите")
                             return false
                         }
-                        let session = try MediaSession(negotiated: media, localPort: port)
+                        let session = try MediaSession(
+                            negotiated: media,
+                            reservation: reservation
+                        )
                         session.onDiagnostic = { print("   звук: \($0)") }
                         session.onAudioEvent = { event in
                             switch event {
@@ -389,6 +405,7 @@ struct SIPCheck {
                             remotePort: media.remotePort
                         )
                         rtp.onReceivedPacket = { _ in received.increment() }
+                        reservation.activate()
                         rtp.start()
                         session = rtp
 
@@ -701,7 +718,7 @@ private actor IncomingSlot {
 
         let timer = Task {
             try? await Task.sleep(for: .seconds(timeout))
-            await self.giveUp()
+            self.giveUp()
         }
         defer { timer.cancel() }
 

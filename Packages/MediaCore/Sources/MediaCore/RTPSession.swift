@@ -282,34 +282,100 @@ public final class RTPSession: @unchecked Sendable {
     }
 }
 
-// MARK: - Выбор порта
+// MARK: - Резервирование портов
 
-public extension RTPSession {
+/// Владение парой локальных портов RTP/RTCP.
+///
+/// Одного номера недостаточно: между сборкой SDP и ответом на INVITE проходят
+/// секунды, а будущие линии M6 готовятся параллельно. Резервация держит оба UDP-
+/// сокета связанными до запуска Network.framework и дополнительно не даёт
+/// сессиям этого процесса выбрать ту же пару до завершения разговора.
+public final class RTPPortReservation: @unchecked Sendable {
 
-    /// Диапазон портов должен совпадать с `rtp.conf` на сервере и с публикацией
-    /// портов в docker-compose лаборатории.
-    static let defaultPortRange: ClosedRange<UInt16> = 16384...16482
+    /// Диапазон должен совпадать с `rtp.conf` и публикацией портов лаборатории.
+    public static let defaultPortRange: ClosedRange<UInt16> = 16384...16482
 
-    /// Находит свободный чётный порт.
-    ///
-    /// Чётный не по эстетике: по RFC 3550 §11 за RTP-портом следует RTCP на
-    /// порт+1, и нечётный порт ломает это соглашение.
-    static func reserveEvenPort(in range: ClosedRange<UInt16> = defaultPortRange) throws -> UInt16 {
-        var candidate = range.lowerBound.isMultiple(of: 2) ? range.lowerBound : range.lowerBound + 1
+    public let rtpPort: UInt16
+    public var rtcpPort: UInt16 { rtpPort + 1 }
+
+    private static let registryLock = NSLock()
+    nonisolated(unsafe) private static var claimedPorts = Set<UInt16>()
+
+    private let stateLock = NSLock()
+    private var descriptors: [Int32]
+    private var isReleased = false
+
+    private init(rtpPort: UInt16, descriptors: [Int32]) {
+        self.rtpPort = rtpPort
+        self.descriptors = descriptors
+    }
+
+    deinit {
+        release()
+    }
+
+    /// Занимает сразу RTP и следующий за ним RTCP-порт.
+    public static func reserve(
+        in range: ClosedRange<UInt16> = defaultPortRange
+    ) throws -> RTPPortReservation {
+        registryLock.lock()
+        defer { registryLock.unlock() }
+
+        var candidate = range.lowerBound.isMultiple(of: 2)
+            ? range.lowerBound
+            : range.lowerBound + 1
 
         while candidate < range.upperBound {
-            if isPortAvailable(candidate) {
-                return candidate
+            if !claimedPorts.contains(candidate),
+               let rtp = boundDatagramSocket(port: candidate) {
+                if let rtcp = boundDatagramSocket(port: candidate + 1) {
+                    claimedPorts.insert(candidate)
+                    return RTPPortReservation(
+                        rtpPort: candidate,
+                        descriptors: [rtp, rtcp]
+                    )
+                }
+                close(rtp)
             }
             candidate += 2
         }
-        throw SessionError.noFreePort(range: range)
+        throw RTPSession.SessionError.noFreePort(range: range)
     }
 
-    private static func isPortAvailable(_ port: UInt16) -> Bool {
+    /// Освобождает проверочные сокеты непосредственно перед запуском RTP/RTCP.
+    ///
+    /// Логическое владение парой остаётся за объектом до `release()`, поэтому
+    /// другая линия этого процесса не сможет забрать порт в коротком зазоре,
+    /// пока Network.framework создаёт рабочие сокеты.
+    public func activate() {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard !isReleased else { return }
+        descriptors.forEach { close($0) }
+        descriptors.removeAll()
+    }
+
+    /// Снимает и системную, и внутрипроцессную резервацию.
+    public func release() {
+        stateLock.lock()
+        guard !isReleased else {
+            stateLock.unlock()
+            return
+        }
+        isReleased = true
+        let heldDescriptors = descriptors
+        descriptors.removeAll()
+        stateLock.unlock()
+
+        heldDescriptors.forEach { close($0) }
+        _ = Self.registryLock.withLock {
+            Self.claimedPorts.remove(rtpPort)
+        }
+    }
+
+    private static func boundDatagramSocket(port: UInt16) -> Int32? {
         let descriptor = socket(AF_INET, SOCK_DGRAM, 0)
-        guard descriptor >= 0 else { return false }
-        defer { close(descriptor) }
+        guard descriptor >= 0 else { return nil }
 
         var address = sockaddr_in()
         address.sin_family = sa_family_t(AF_INET)
@@ -321,6 +387,21 @@ public extension RTPSession {
                 bind(descriptor, rebound, socklen_t(MemoryLayout<sockaddr_in>.size))
             }
         }
-        return result == 0
+        guard result == 0 else {
+            close(descriptor)
+            return nil
+        }
+        return descriptor
+    }
+}
+
+public extension RTPSession {
+
+    static let defaultPortRange = RTPPortReservation.defaultPortRange
+
+    static func reservePortPair(
+        in range: ClosedRange<UInt16> = defaultPortRange
+    ) throws -> RTPPortReservation {
+        try RTPPortReservation.reserve(in: range)
     }
 }

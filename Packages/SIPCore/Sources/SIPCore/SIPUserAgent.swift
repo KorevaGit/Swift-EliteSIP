@@ -165,6 +165,11 @@ public actor SIPUserAgent {
         registrationTask?.cancel()
         registrationTask = nil
 
+        // Сначала закрываем текущий диалог, пока транспорт ещё доступен. Иначе
+        // приложение уже отключено, а сервер продолжает держать канал; поток
+        // событий звонка также обязан завершиться до остановки event pump.
+        await hangUp()
+
         if state.isRegistered {
             set(state: .unregistering)
             // Именно register(expires: 0), а не одиночный sendRegister: снятие
@@ -1132,9 +1137,25 @@ public actor SIPUserAgent {
     private func handle(invite request: SIPRequest) async {
         // Повторный INVITE внутри установленного диалога — это удержание или
         // смена медиа.
-        if let call = activeCall, call.callID == request.callID, call.dialog != nil {
-            await handle(reinvite: request, call: call)
-            return
+        if let call = activeCall, call.dialog != nil {
+            if matchesDialog(request, call: call) {
+                await handle(reinvite: request, call: call)
+                return
+            }
+
+            // To-tag означает запрос внутри уже существующего диалога. Если
+            // тройка идентификаторов не совпала, это не новый звонок и не
+            // «занято», а неизвестный диалог.
+            if request.to?.tag != nil {
+                var missing = SIPResponse(
+                    statusCode: 481,
+                    headers: responseHeaders(for: request)
+                )
+                missing.headers.append(SIPHeaderName.userAgent, userAgentName)
+                try? await transactions.respondToInvite(to: request, with: missing)
+                log(.warning, "<- повторный INVITE с чужими тегами, ответили 481")
+                return
+            }
         }
 
         // Линия одна. Второй вызов получает «занято», а не молчание: очередь
@@ -1260,7 +1281,7 @@ public actor SIPUserAgent {
         }
 
         // Пока пересогласователь работал, звонок мог завершиться.
-        guard let current = activeCall, current.callID == request.callID else {
+        guard let current = activeCall, matchesDialog(request, call: current) else {
             log(.debug, "пересогласование закончилось позже звонка")
             return
         }
@@ -1395,15 +1416,25 @@ public actor SIPUserAgent {
             log(.debug, "<- OPTIONS, ответили 200")
 
         case .bye:
+            guard let call = activeCall, matchesDialog(request, call: call) else {
+                let missing = SIPResponse(
+                    statusCode: 481,
+                    headers: responseHeaders(for: request)
+                )
+                try? await transactions.respond(to: request, with: missing)
+                log(.warning, "<- BYE вне активного диалога, ответили 481")
+                return
+            }
+
             // Собеседник положил трубку. Ответить обязаны, иначе Asterisk будет
             // повторять BYE и держать диалог открытым.
             let response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
             try? await transactions.respond(to: request, with: response)
-
-            if let call = activeCall, request.callID == call.callID {
-                log(.info, "<- BYE, собеседник завершил звонок")
-                finishCall(with: .ended(reason: "собеседник завершил звонок"), continuation: call.continuation)
-            }
+            log(.info, "<- BYE, собеседник завершил звонок")
+            finishCall(
+                with: .ended(reason: "собеседник завершил звонок"),
+                continuation: call.continuation
+            )
 
         case .ack:
             // ACK ответа не требует по определению: это подтверждение, а не
@@ -1442,19 +1473,27 @@ public actor SIPUserAgent {
 
         case .notify:
             // REFER создаёт неявную подписку. Результат нового INVITE сервер
-            // сообщает телом message/sipfrag, а сам NOTIFY всегда требует 200.
-            let response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
-            try? await transactions.respond(to: request, with: response)
-
-            guard request.headers[SIPHeaderName.event]?
+            // сообщает телом message/sipfrag. Чужой диалог подтверждать нельзя:
+            // такой NOTIFY не относится к созданной нами подписке.
+            guard let call = activeCall,
+                  matchesDialog(request, call: call),
+                  request.headers[SIPHeaderName.event]?
                 .lowercased()
                 .hasPrefix("refer") == true,
                 let callID = request.callID,
                 transferSubscriptions[callID] != nil
             else {
-                log(.debug, "<- NOTIFY без активного REFER, ответили 200")
+                let missing = SIPResponse(
+                    statusCode: 481,
+                    headers: responseHeaders(for: request)
+                )
+                try? await transactions.respond(to: request, with: missing)
+                log(.debug, "<- NOTIFY без активного REFER-диалога, ответили 481")
                 return
             }
+
+            let response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
+            try? await transactions.respond(to: request, with: response)
 
             guard let fragment = parseSIPFragmentStatus(request.body) else {
                 if request.headers[SIPHeaderName.subscriptionState]?
@@ -1495,6 +1534,21 @@ public actor SIPUserAgent {
             try? await transactions.respond(to: request, with: response)
             eventContinuation.yield(.unsupportedRequest(method: request.method))
         }
+    }
+
+    /// Проверяет полную тройку идентификаторов диалога.
+    ///
+    /// В запросе с удалённой стороны наш тег находится в To, удалённый — во
+    /// From. Один Call-ID недостаточен для BYE, re-INVITE и REFER-NOTIFY.
+    private func matchesDialog(_ request: SIPRequest, call: ActiveCall) -> Bool {
+        guard let dialog = call.dialog, let callID = request.callID else {
+            return false
+        }
+        return dialog.matches(
+            callID: callID,
+            localTag: request.to?.tag,
+            remoteTag: request.from?.tag
+        )
     }
 
     /// Заголовки ответа, скопированные из запроса по RFC 3261 §8.2.6.2.

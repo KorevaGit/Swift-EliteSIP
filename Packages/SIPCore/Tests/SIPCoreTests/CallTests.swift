@@ -210,6 +210,47 @@ struct CallTests {
         await agent.stop()
     }
 
+    @Test("BYE с чужим тегом получает 481 и не завершает звонок")
+    func foreignDialogByeIsRejected() async throws {
+        let server = makeServer()
+        let agent = await makeAgent(server)
+
+        _ = await agent.placeCall(to: "600", offer: sdpOffer())
+        #expect(await waitUntil {
+            server.receivedRequests.filter { $0.method == .invite }.count >= 2
+        })
+        let invite = try #require(lastInvite(server))
+        server.inject(response: answer(to: invite))
+        #expect(await waitUntil { await agent.callState == .answered })
+
+        var bye = SIPRequest(
+            method: .bye,
+            uri: SIPURI(user: "100", host: "192.168.1.50")
+        )
+        bye.headers.append(
+            SIPHeaderName.via,
+            "SIP/2.0/UDP 172.17.0.2:5060;branch=z9hG4bKforeign-bye"
+        )
+        bye.headers.append(SIPHeaderName.from, "<sip:600@127.0.0.1>;tag=wrong-remote")
+        bye.headers.append(SIPHeaderName.to, invite.headers[SIPHeaderName.from] ?? "")
+        bye.headers.append(SIPHeaderName.callID, invite.callID ?? "")
+        bye.headers.append(SIPHeaderName.cseq, "9 BYE")
+        server.inject(request: bye)
+
+        #expect(await waitUntil {
+            server.sentResponses.contains {
+                $0.cseq?.method == .bye && $0.statusCode == 481
+            }
+        })
+        #expect(await agent.callState == .answered)
+
+        // stop обязан закрыть оставшийся настоящий диалог до остановки
+        // транспорта — это ядро сценария AppModel.disconnect().
+        await agent.stop()
+        #expect(server.receivedRequests.contains { $0.method == .bye })
+        #expect(await agent.callState == nil)
+    }
+
     @Test("Второй звонок при активном первом отклоняется")
     func rejectsSecondCall() async throws {
         let server = makeServer()

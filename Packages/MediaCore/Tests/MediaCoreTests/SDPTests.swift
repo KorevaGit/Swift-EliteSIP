@@ -111,7 +111,7 @@ struct SDPTests {
         #expect(lines[2].hasPrefix("s="))
         #expect(lines[3].hasPrefix("c="))
         #expect(lines[4].hasPrefix("t="))
-        let mediaIndex = try? #require(lines.firstIndex { $0.hasPrefix("m=") })
+        let mediaIndex = lines.firstIndex { $0.hasPrefix("m=") }
         #expect(mediaIndex == 5)
         // Все a= после m= относятся к секции.
         #expect(lines.dropFirst(6).allSatisfy { $0.hasPrefix("a=") || $0.isEmpty })

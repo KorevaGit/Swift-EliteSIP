@@ -271,7 +271,21 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// декодер на той стороне услышит треск (грабли M3).
     public var isMuted: Bool {
         get { mutedFlag.withLock { $0 } }
-        set { mutedFlag.withLock { $0 = newValue } }
+        set {
+            let becameMuted = mutedFlag.withLock { current in
+                let changed = !current && newValue
+                current = newValue
+                return changed
+            }
+
+            // На входе в mute выбрасываем ещё не обработанный хвост микрофона.
+            // Иначе оператор уже видит mic.slash, а encoder ещё до четверти
+            // секунды отправляет то, что лежало в кольце до нажатия.
+            if becameMuted {
+                captureLock.withLock { $0.ring.removeAll() }
+                levelLock.withLock { $0.inputPeak = 0 }
+            }
+        }
     }
 
     private var configurationObserver: NSObjectProtocol?
@@ -918,7 +932,8 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             onDiagnostic?("вход многоканальный (\(inputFormat.channelCount)), беру канал 0")
         }
 
-        let node = AVAudioSinkNode { [captureLock, captureSignal] _, frameCount, audioBufferList in
+        let node = AVAudioSinkNode {
+            [captureLock, captureSignal, mutedFlag] _, frameCount, audioBufferList in
             // Приёмнику список приходит константным, а обёртка для перебора
             // есть только изменяемая. Мы из него только читаем.
             nonisolated(unsafe) let buffers = UnsafeMutableAudioBufferListPointer(
@@ -928,13 +943,25 @@ public final class VoiceAudioEngine: @unchecked Sendable {
 
             nonisolated(unsafe) let samples = raw.assumingMemoryBound(to: Float.self)
             let count = Int(frameCount)
+            let isMuted = mutedFlag.withLock { $0 }
             // Чересполосный буфер отдаёт все каналы одним куском, раздельный —
             // каждый своим. Нам в обоих случаях нужен канал 0, и различаются
             // они только шагом между его отсчётами.
             let stride = Int(first.mNumberChannels)
 
             captureLock.withLock { state in
-                if stride == 1 {
+                if isMuted {
+                    // Глушим в момент захвата, а не при позднем чтении кольца.
+                    // Тогда короткий mute/unmute не выпустит записанный в паузе
+                    // голос после того, как кнопка уже снова включена.
+                    let usable = min(count, state.scratch.count)
+                    state.scratch.withUnsafeMutableBufferPointer { destination in
+                        for index in 0..<usable {
+                            destination[index] = 0
+                        }
+                        state.ring.write(destination.baseAddress!, count: usable)
+                    }
+                } else if stride == 1 {
                     state.ring.write(samples, count: count)
                 } else {
                     // Расчёску приходится собирать поэлементно, зато буфер под
@@ -1000,23 +1027,29 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             captured, using: converter, from: formats.source, to: formats.destination
         ) else { return }
 
-        let isMuted = mutedFlag.withLock { $0 }
-
         // Индикатор микрофона на удержании обязан лежать на нуле: показывать
         // уровень голоса, который никуда не уходит, — это ровно тот случай,
         // когда оператор говорит в пустоту и уверен, что его слышат.
+        let isMuted = mutedFlag.withLock { $0 }
         let peak = isMuted ? 0 : converted.reduce(Float(0)) { max($0, abs(Float($1) / 32768)) }
         levelLock.withLock { $0.inputPeak = max($0.inputPeak, peak) }
 
-        captureRemainder.append(contentsOf: isMuted ? [Int16](repeating: 0, count: converted.count) : converted)
+        // В кольце уже лежат нули для всего, что было записано во время mute.
+        // Повторная проверка ниже нужна для переключения посреди этой пачки:
+        // решение принимается перед каждым 20-мс кадром, а не раз в 250 мс.
+        captureRemainder.append(contentsOf: converted)
 
         // Режем на кадры ровно по packet time: RTP не терпит кусков
         // произвольной длины, а остаток переносим в следующий заход.
         let samplesPerFrame = configuration.samplesPerFrame
         var offset = 0
         while captureRemainder.count - offset >= samplesPerFrame {
-            let frame = Array(captureRemainder[offset..<(offset + samplesPerFrame)])
+            let capturedFrame = Array(captureRemainder[offset..<(offset + samplesPerFrame)])
             offset += samplesPerFrame
+            let frame = Self.gateMicrophoneFrame(
+                capturedFrame,
+                isMuted: mutedFlag.withLock { $0 }
+            )
             onEncodedFrame?(encoder.encode(frame))
         }
         // Один сдвиг в конце вместо `removeFirst` на каждом кадре: тот двигает
@@ -1024,6 +1057,17 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         if offset > 0 {
             captureRemainder.removeFirst(offset)
         }
+    }
+
+    /// Последний, кодек-независимый рубеж mute перед кодированием RTP-кадра.
+    ///
+    /// `internal` ради регрессионного теста: проверка должна доказывать не только
+    /// смену флага, но и отсутствие исходных отсчётов в передаваемом кадре.
+    static func gateMicrophoneFrame(
+        _ samples: [Int16],
+        isMuted: Bool
+    ) -> [Int16] {
+        isMuted ? [Int16](repeating: 0, count: samples.count) : samples
     }
 
     /// Пересчитывает моно-отсчёты микрофона в частоту кодека.

@@ -23,13 +23,15 @@ public final class MediaSession: @unchecked Sendable {
         localAddress: String,
         codecs: [AudioCodec] = SDPNegotiator.defaultCodecs,
         security: MediaSecurityPolicy = .none
-    ) throws -> (offer: SessionDescription, port: UInt16) {
-        let port = try RTPSession.reserveEvenPort()
+    ) throws -> (offer: SessionDescription, port: UInt16, reservation: RTPPortReservation) {
+        let reservation = try RTPSession.reservePortPair()
+        let port = reservation.rtpPort
         return (
             SDPNegotiator.makeOffer(
                 address: localAddress, port: port, codecs: codecs, security: security
             ),
-            port
+            port,
+            reservation
         )
     }
 
@@ -48,20 +50,35 @@ public final class MediaSession: @unchecked Sendable {
         localAddress: String,
         codecs: [AudioCodec] = SDPNegotiator.defaultCodecs,
         security: MediaSecurityPolicy = .none
-    ) throws -> (answer: SessionDescription, media: NegotiatedMedia, port: UInt16) {
+    ) throws -> (
+        answer: SessionDescription,
+        media: NegotiatedMedia,
+        port: UInt16,
+        reservation: RTPPortReservation
+    ) {
         if security == .sdesRequired,
            offer.audio?.protocolName.caseInsensitiveCompare("RTP/SAVP") != .orderedSame {
             throw SDPNegotiationError.secureMediaRequired
         }
 
-        let port = try RTPSession.reserveEvenPort()
-        let negotiated = try SDPNegotiator.makeAnswer(
-            to: offer,
-            address: localAddress,
-            port: port,
-            supported: codecs
-        )
-        return (negotiated.answer, negotiated.media, port)
+        let reservation = try RTPSession.reservePortPair()
+        do {
+            let negotiated = try SDPNegotiator.makeAnswer(
+                to: offer,
+                address: localAddress,
+                port: reservation.rtpPort,
+                supported: codecs
+            )
+            return (
+                negotiated.answer,
+                negotiated.media,
+                reservation.rtpPort,
+                reservation
+            )
+        } catch {
+            reservation.release()
+            throw error
+        }
     }
 
     public enum SessionError: Error, Sendable, Equatable, CustomStringConvertible {
@@ -89,6 +106,7 @@ public final class MediaSession: @unchecked Sendable {
     /// Локальный порт RTP. Нужен приложению: повторное предложение обязано
     /// нести тот же порт, а при пересборке сессии — занять его заново.
     public let localPort: UInt16
+    private let portReservation: RTPPortReservation
 
     private let engine: VoiceAudioEngine
 
@@ -126,13 +144,14 @@ public final class MediaSession: @unchecked Sendable {
 
     public init(
         negotiated: NegotiatedMedia,
-        localPort: UInt16,
+        reservation: RTPPortReservation,
         inputDeviceUID: String? = nil,
         outputDeviceUID: String? = nil,
         releasesDeviceWhenIdle: Bool = true,
         automaticGainControl: Bool = true
     ) throws {
-        self.localPort = localPort
+        localPort = reservation.rtpPort
+        portReservation = reservation
 
         jitter = JitterBuffer(
             codec: negotiated.codec,
@@ -238,8 +257,14 @@ public final class MediaSession: @unchecked Sendable {
             )
         }
 
+        portReservation.activate()
         startTransport()
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            stop()
+            throw error
+        }
     }
 
     /// Вешает обработчики на текущий поток RTP и RTCP.
@@ -333,10 +358,7 @@ public final class MediaSession: @unchecked Sendable {
     }
 
     public func stop() {
-        dtmfTask.withLock { task in
-            task?.cancel()
-            task = nil
-        }
+        cancelDTMFQueue()
         engine.stop()
         let current = transport.withLock { $0 }
         if let current {
@@ -344,6 +366,7 @@ public final class MediaSession: @unchecked Sendable {
             current.rtp.stop()
         }
         bufferLock.withLock { jitter.reset() }
+        portReservation.release()
     }
 
     // MARK: - Удержание
@@ -461,8 +484,19 @@ public final class MediaSession: @unchecked Sendable {
 
     // MARK: - DTMF
 
-    private let dtmfTask = OSAllocatedUnfairLock(initialState: Task<Void, Never>?.none)
-    private let dtmfQueue = OSAllocatedUnfairLock(initialState: [DTMFStep]())
+    private enum QueuedDTMFItem {
+        case step(DTMFStep)
+        case completion(CheckedContinuation<Bool, Never>)
+    }
+
+    private struct DTMFState {
+        var task: Task<Void, Never>?
+        var queue: [QueuedDTMFItem] = []
+    }
+
+    /// Задача и очередь живут под одним замком. Иначе новый тон мог попасть
+    /// между обнаружением пустой очереди и обнулением task и остаться без worker.
+    private let dtmfState = OSAllocatedUnfairLock(initialState: DTMFState())
 
     /// Согласован ли telephone-event. Если нет, тоны отправить нечем.
     public var supportsTelephoneEvents: Bool {
@@ -482,17 +516,24 @@ public final class MediaSession: @unchecked Sendable {
     public func send(dtmf sequence: DTMFSequence, timing: DTMFTiming? = nil) -> Bool {
         guard supportsTelephoneEvents else { return false }
         guard !sequence.isEmpty else { return true }
-
-        dtmfQueue.withLock { $0.append(contentsOf: sequence.steps) }
-
-        dtmfTask.withLock { task in
-            guard task == nil else { return }
-            task = Task { [weak self] in
-                await self?.drainDTMFQueue(timing: timing)
-                self?.dtmfTask.withLock { $0 = nil }
-            }
-        }
+        enqueueDTMF(sequence, timing: timing, completion: nil)
         return true
+    }
+
+    /// Ждёт, пока последовательность действительно выйдет из очереди RTP.
+    ///
+    /// Это не подтверждение выполнения команды сервером, но уже не простое
+    /// «поставлено в очередь». При остановке media-сессии возвращает false.
+    public func sendAndWait(
+        dtmf sequence: DTMFSequence,
+        timing: DTMFTiming? = nil
+    ) async -> Bool {
+        guard supportsTelephoneEvents else { return false }
+        guard !sequence.isEmpty else { return true }
+
+        return await withCheckedContinuation { continuation in
+            enqueueDTMF(sequence, timing: timing, completion: continuation)
+        }
     }
 
     /// Отправляет один символ: цифру, звёздочку или решётку.
@@ -502,24 +543,81 @@ public final class MediaSession: @unchecked Sendable {
         return send(dtmf: DTMFSequence(steps: [.tone(event)]), timing: timing)
     }
 
+    private func enqueueDTMF(
+        _ sequence: DTMFSequence,
+        timing: DTMFTiming?,
+        completion: CheckedContinuation<Bool, Never>?
+    ) {
+        dtmfState.withLock { state in
+            state.queue.append(contentsOf: sequence.steps.map(QueuedDTMFItem.step))
+            if let completion {
+                state.queue.append(.completion(completion))
+            }
+            guard state.task == nil else { return }
+            state.task = Task { [weak self] in
+                await self?.drainDTMFQueue(timing: timing)
+            }
+        }
+    }
+
     private func drainDTMFQueue(timing requested: DTMFTiming?) async {
         let timing = effectiveTiming(requested)
 
         while !Task.isCancelled {
-            let step = dtmfQueue.withLock { queue -> DTMFStep? in
-                queue.isEmpty ? nil : queue.removeFirst()
+            let item = dtmfState.withLock { state -> QueuedDTMFItem? in
+                guard !state.queue.isEmpty else {
+                    // Обнуление task атомарно с проверкой очереди: следующий
+                    // send либо увидит worker, либо сам создаст новый.
+                    state.task = nil
+                    return nil
+                }
+                return state.queue.removeFirst()
             }
-            guard let step else { return }
+            guard let item else { return }
 
-            switch step {
-            case .pause(let milliseconds):
+            switch item {
+            case .completion(let continuation):
+                continuation.resume(returning: !Task.isCancelled)
+
+            case .step(.pause(let milliseconds)):
                 try? await Task.sleep(for: .milliseconds(milliseconds))
 
-            case .tone(let event):
-                await sendTone(event: event, timing: timing)
+            case .step(.tone(let event)):
+                guard await sendTone(event: event, timing: timing) else {
+                    failPendingDTMF()
+                    return
+                }
                 // Пауза между тонами — здесь, а не в раскладке: очередь
                 // пополняется по нажатию, и заранее раскладывать нечего.
                 try? await Task.sleep(for: .milliseconds(timing.gapMilliseconds))
+            }
+        }
+        failPendingDTMF()
+    }
+
+    private func cancelDTMFQueue() {
+        let pending = dtmfState.withLock { state -> [QueuedDTMFItem] in
+            state.task?.cancel()
+            state.task = nil
+            defer { state.queue.removeAll() }
+            return state.queue
+        }
+        resumeCompletions(in: pending, result: false)
+    }
+
+    private func failPendingDTMF() {
+        let pending = dtmfState.withLock { state -> [QueuedDTMFItem] in
+            state.task = nil
+            defer { state.queue.removeAll() }
+            return state.queue
+        }
+        resumeCompletions(in: pending, result: false)
+    }
+
+    private func resumeCompletions(in items: [QueuedDTMFItem], result: Bool) {
+        for item in items {
+            if case .completion(let continuation) = item {
+                continuation.resume(returning: result)
             }
         }
     }
@@ -535,24 +633,25 @@ public final class MediaSession: @unchecked Sendable {
         return timing
     }
 
-    private func sendTone(event: UInt8, timing: DTMFTiming) async {
+    private func sendTone(event: UInt8, timing: DTMFTiming) async -> Bool {
         flow.withLock { $0.isSendingTone = true }
         defer { flow.withLock { $0.isSendingTone = false } }
 
         for action in DTMFPlanner.actions(forEvent: event, timing: timing) {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { return false }
             switch action {
             case .wait(let milliseconds):
                 try? await Task.sleep(for: .milliseconds(milliseconds))
 
             case .packet(let packet):
-                guard let rtp = currentRTP else { return }
+                guard let rtp = currentRTP else { return false }
                 rtp.send(event: packet.payload, isFirst: packet.isFirst)
                 if packet.completesEvent {
                     rtp.finishEvent(advancingTimestampBy: packet.timestampAdvance)
                 }
             }
         }
+        return !Task.isCancelled
     }
 
     // MARK: - Диагностика

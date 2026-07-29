@@ -104,6 +104,24 @@ struct TransferTests {
         #expect(refer.headers[SIPHeaderName.referTo] == "<sip:601@127.0.0.1>")
         #expect(refer.callID == invite.callID, "REFER обязан идти внутри исходного диалога")
 
+        var foreign = notify(for: invite, status: 200, reason: "OK")
+        foreign.headers.set(
+            SIPHeaderName.from,
+            to: "<sip:600@127.0.0.1>;tag=wrong-remote"
+        )
+        foreign.headers.set(
+            SIPHeaderName.via,
+            to: "SIP/2.0/UDP 172.17.0.2:5060;branch=z9hG4bKnotify-foreign"
+        )
+        foreign.headers.set(SIPHeaderName.cseq, to: "2 NOTIFY")
+        server.inject(request: foreign)
+        #expect(await waitUntil {
+            server.sentResponses.contains {
+                $0.cseq?.method == .notify && $0.statusCode == 481
+            }
+        })
+        #expect(await agent.callState == .answered)
+
         server.inject(request: notify(for: invite, status: 200, reason: "OK"))
         #expect(await collector.value == [.accepted, .succeeded])
         #expect(await waitUntil {

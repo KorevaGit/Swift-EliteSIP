@@ -7,12 +7,26 @@ struct RTPSessionTests {
 
     @Test("Занимает чётный порт из диапазона")
     func reservesEvenPort() throws {
-        let port = try RTPSession.reserveEvenPort()
+        let reservation = try RTPSession.reservePortPair()
+        defer { reservation.release() }
+        let port = reservation.rtpPort
 
         // Чётность не эстетика: по RFC 3550 §11 за RTP-портом идёт RTCP на
         // порт+1, и нечётный порт ломает это соглашение.
         #expect(port.isMultiple(of: 2), "порт \(port) нечётный")
         #expect(RTPSession.defaultPortRange.contains(port))
+        #expect(reservation.rtcpPort == port + 1)
+    }
+
+    @Test("Две подготовленные линии удерживают разные пары портов")
+    func simultaneousReservationsAreDistinct() throws {
+        let first = try RTPSession.reservePortPair()
+        defer { first.release() }
+        let second = try RTPSession.reservePortPair()
+        defer { second.release() }
+
+        #expect(first.rtpPort != second.rtpPort)
+        #expect(first.rtcpPort != second.rtcpPort)
     }
 
     @Test("Диапазон по умолчанию согласован с лабораторией")
@@ -27,7 +41,7 @@ struct RTPSessionTests {
     func emptyRangeThrows() {
         // Заведомо занятый системой диапазон из одного нечётного порта.
         #expect(throws: RTPSession.SessionError.self) {
-            _ = try RTPSession.reserveEvenPort(in: 1...1)
+            _ = try RTPSession.reservePortPair(in: 1...1)
         }
     }
 

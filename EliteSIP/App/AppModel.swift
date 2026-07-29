@@ -210,11 +210,15 @@ final class AppModel {
     }
 
     func disconnect() async {
-        guard let agent else { return }
+        guard let agent else {
+            if isInCall { teardownCall() }
+            return
+        }
         self.agent = nil
         await agent.stop()
         eventPump?.cancel()
         eventPump = nil
+        if isInCall { teardownCall() }
         registration = .idle
         append(level: .info, message: "отключено")
     }
@@ -261,6 +265,7 @@ final class AppModel {
     var transferNumber: String = ""
     private(set) var isTransferEntryVisible = false
     private(set) var isTransferring = false
+    private(set) var isConferenceCommandPending = false
     private(set) var isConferenceCommandSent = false
 
     /// Окно входящего вызова вместе с защитой. Живёт здесь, а не в сцене:
@@ -289,6 +294,7 @@ final class AppModel {
     var canStartConference: Bool {
         callPhase == .active
             && !isTransferring
+            && !isConferenceCommandPending
             && !isConferenceCommandSent
             && settings.conference.isUsable
             && (media?.supportsTelephoneEvents ?? false)
@@ -324,7 +330,11 @@ final class AppModel {
             return
         }
 
-        let prepared: (offer: SessionDescription, port: UInt16)
+        let prepared: (
+            offer: SessionDescription,
+            port: UInt16,
+            reservation: RTPPortReservation
+        )
         do {
             prepared = try MediaSession.makeOffer(
                 localAddress: address,
@@ -346,7 +356,11 @@ final class AppModel {
         let events = await agent.placeCall(to: number, offer: prepared.offer.encodedData)
         callTask = Task { [weak self] in
             for await event in events {
-                await self?.handle(call: event, offer: prepared.offer, localPort: prepared.port)
+                await self?.handle(
+                    call: event,
+                    offer: prepared.offer,
+                    reservation: prepared.reservation
+                )
             }
         }
     }
@@ -424,26 +438,44 @@ final class AppModel {
     func startConference() {
         guard let media, canStartConference else { return }
         let command = settings.conference.command
+        let timing = settings.dtmf.timing
 
-        guard media.send(dtmf: command, timing: settings.dtmf.timing) else {
-            callStatus = "Конференция недоступна"
-            append(
-                level: .warning,
-                message: "конференция: собеседник не подтвердил telephone-event"
+        isConferenceCommandPending = true
+        callStatus = "Отправка команды конференции…"
+
+        Task { [weak self, weak media] in
+            guard let self, let media else { return }
+            let sent = await media.sendAndWait(dtmf: command, timing: timing)
+
+            // Завершившийся звонок уже сбросил состояние; результат его старой
+            // очереди не должен изменить следующую линию.
+            guard self.media === media, self.callPhase == .active else { return }
+            self.isConferenceCommandPending = false
+
+            guard sent else {
+                self.callStatus = "Конференция недоступна"
+                self.append(
+                    level: .warning,
+                    message: "конференция: DTMF-команда не вышла в RTP"
+                )
+                return
+            }
+
+            self.sentDTMF += command.displayText
+            self.isConferenceCommandSent = true
+            self.callStatus = "Команда конференции отправлена"
+            self.append(
+                level: .info,
+                message: "конференция: отправлен серверный код \(command.displayText)"
             )
-            return
         }
-
-        sentDTMF += command.displayText
-        isConferenceCommandSent = true
-        callStatus = "Команда конференции отправлена"
-        append(
-            level: .info,
-            message: "конференция: отправлен серверный код \(command.displayText)"
-        )
     }
 
-    private func handle(call event: SIPCallEvent, offer: SessionDescription, localPort: UInt16) async {
+    private func handle(
+        call event: SIPCallEvent,
+        offer: SessionDescription,
+        reservation: RTPPortReservation
+    ) async {
         switch event {
         case .state(let state):
             switch state {
@@ -457,14 +489,16 @@ final class AppModel {
             }
 
         case .answered(let body, _):
-            startMedia(answerBody: body, offer: offer, localPort: localPort)
+            startMedia(answerBody: body, offer: offer, reservation: reservation)
 
         case .failed(_, let reason):
+            reservation.release()
             append(level: .info, message: "звонок не состоялся: \(reason)")
             callStatus = reason
             teardownCall()
 
         case .ended(let reason):
+            reservation.release()
             append(level: .info, message: "звонок завершён: \(reason)")
             if let media {
                 append(level: .debug, message: "медиа: \(media.summary)")
@@ -474,13 +508,17 @@ final class AppModel {
         }
     }
 
-    private func startMedia(answerBody: Data, offer: SessionDescription, localPort: UInt16) {
+    private func startMedia(
+        answerBody: Data,
+        offer: SessionDescription,
+        reservation: RTPPortReservation
+    ) {
         do {
             let answer = try SessionDescription(parsing: answerBody)
             let negotiated = try SDPNegotiator.resolveAnswer(
                 answer, toOffer: offer, supported: preferredCodecs
             )
-            startMedia(negotiated: negotiated, localPort: localPort)
+            startMedia(negotiated: negotiated, reservation: reservation)
         } catch {
             append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
             callStatus = "Ошибка звука"
@@ -492,7 +530,10 @@ final class AppModel {
     ///
     /// Общая для обоих направлений часть: чем звонок кончился — нашим
     /// предложением или нашим ответом — звуку безразлично.
-    private func startMedia(negotiated: NegotiatedMedia, localPort: UInt16) {
+    private func startMedia(
+        negotiated: NegotiatedMedia,
+        reservation: RTPPortReservation
+    ) {
         do {
             append(
                 level: .info,
@@ -501,7 +542,7 @@ final class AppModel {
 
             let session = try MediaSession(
                 negotiated: negotiated,
-                localPort: localPort,
+                reservation: reservation,
                 inputDeviceUID: settings.audio.inputDeviceUID,
                 outputDeviceUID: settings.audio.outputDeviceUID,
                 releasesDeviceWhenIdle: settings.audio.releasesDeviceWhenIdle,
@@ -766,6 +807,7 @@ final class AppModel {
         isTransferEntryVisible = false
         isTransferring = false
         transferNumber = ""
+        isConferenceCommandPending = false
         isConferenceCommandSent = false
         callPhase = .idle
         callPeer = ""
@@ -882,7 +924,12 @@ final class AppModel {
             return
         }
 
-        let prepared: (answer: SessionDescription, media: NegotiatedMedia, port: UInt16)
+        let prepared: (
+            answer: SessionDescription,
+            media: NegotiatedMedia,
+            port: UInt16,
+            reservation: RTPPortReservation
+        )
         do {
             prepared = try MediaSession.makeAnswer(
                 to: try SessionDescription(parsing: call.offer),
@@ -912,7 +959,7 @@ final class AppModel {
         // подъёмом тракта первые кадры уходят в закрытый порт, а сам порт в это
         // время может занять кто угодно ещё.
         localDescription = prepared.answer
-        startMedia(negotiated: prepared.media, localPort: prepared.port)
+        startMedia(negotiated: prepared.media, reservation: prepared.reservation)
         guard media != nil else { return }
 
         guard await agent.answerIncomingCall(answer: prepared.answer.encodedData) else {

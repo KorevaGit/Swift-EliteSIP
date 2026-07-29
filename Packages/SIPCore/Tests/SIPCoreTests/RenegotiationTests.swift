@@ -167,6 +167,32 @@ struct RenegotiationTests {
         #expect(ok.to?.tag == toTag)
     }
 
+    @Test("Повторный INVITE с чужим локальным тегом получает 481")
+    func foreignDialogReinviteIsRejected() async throws {
+        let server = acceptingServer()
+        let agent = await registeredAgent(server)
+
+        let seen = OfferBox()
+        await agent.setMediaRenegotiator { offer in
+            seen.store(offer)
+            return Data(Self.heldAnswerSDP.utf8)
+        }
+
+        _ = try await answeredCall(on: agent, server: server)
+        let before = server.sentResponses.count
+
+        server.inject(request: makeReinvite(toTag: "wrong-local-tag"))
+        #expect(await waitUntil {
+            server.sentResponses.dropFirst(before).contains {
+                $0.statusCode == 481 && $0.cseq?.method == .invite
+            }
+        })
+
+        #expect(seen.value == nil, "чужое предложение не должно дойти до media-слоя")
+        #expect(await agent.callState == .answered)
+        await agent.stop()
+    }
+
     @Test("Повторный INVITE подтверждается сразу: сначала 100, потом 200")
     func sendsTryingBeforeAnswer() async throws {
         let server = acceptingServer()
