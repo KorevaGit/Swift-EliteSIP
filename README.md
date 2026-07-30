@@ -196,8 +196,9 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
       [docs/ROADMAP.md](docs/ROADMAP.md): **M7a** файловые логи, **M7b** профили
       аккаунтов, **M7c** административный режим, **M7d** локальная история
       звонков, **M7e** подпись, нотарификация и DMG, **M7f** приёмка на живом
-      Intel с Catalina, **M7g** отдельный аудио-DSP. Цепочка зависимостей одна:
-      M7e → M7f → M7g
+      Intel с Catalina, **M7g** отдельный аудио-DSP, **M7h** автообновление.
+      Цепочка зависимостей: M7e → M7f → M7g и M7e → M7h. Разбор подписи,
+      нотарификации и Gatekeeper — [docs/release.md](docs/release.md)
 - [ ] **M8** — синхронизация с EliteDash: политика защиты, имена extension,
       макросы, полные CDR/CEL, объединённая история и провижининг удалёнщиков
 
