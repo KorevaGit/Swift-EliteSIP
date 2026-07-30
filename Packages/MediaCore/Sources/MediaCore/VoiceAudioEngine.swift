@@ -59,7 +59,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         public var releasesDeviceWhenIdle: Bool
         /// Автоматическая регулировка усиления в блоке обработки голоса.
         ///
-        /// Система включает её сама. На встроенном микрофоне она полезна, на
+        /// Система включает её сама, поэтому по умолчанию здесь стоит `false`:
+        /// продуктовое решение — выключено, включение остаётся пользовательской
+        /// или административной опцией. На встроенном микрофоне AGC полезна, на
         /// хорошей гарнитуре — «дышит»: подтягивает шум в паузах и приседает на
         /// громком слоге. Эхоподавление и шумодав от неё не зависят.
         public var automaticGainControl: Bool
@@ -72,7 +74,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             inputDeviceUID: String? = nil,
             outputDeviceUID: String? = nil,
             releasesDeviceWhenIdle: Bool = true,
-            automaticGainControl: Bool = true
+            automaticGainControl: Bool = false
         ) {
             self.codec = codec
             self.packetTimeMilliseconds = packetTimeMilliseconds

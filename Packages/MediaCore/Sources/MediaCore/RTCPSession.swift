@@ -76,6 +76,16 @@ public final class RTCPSession: @unchecked Sendable {
     private var lastRemoteReport: (middleBits: UInt32, receivedAt: Date)?
     private var timer: DispatchSourceTimer?
     private var isStopped = false
+    private var isStarted = false
+
+    /// Сигналит, когда сокет действительно закрыт и порт свободен.
+    ///
+    /// Ровно то же, что и у `RTPSession`, и по той же причине: при
+    /// пересогласовании поток пересобирается на том же локальном порту, а
+    /// `cancel()` асинхронный. Без ожидания новый сокет встаёт на ещё занятый
+    /// порт, а провал привязки в UDP ничем не мешает разговору — просто отчёты
+    /// собеседника перестают приходить, и понять это по звуку невозможно.
+    private let released = DispatchSemaphore(value: 0)
 
     public init(
         ssrc: UInt32,
@@ -104,6 +114,18 @@ public final class RTCPSession: @unchecked Sendable {
     // MARK: - Жизненный цикл
 
     public func start() {
+        // Провал привязки к порту надо говорить вслух.
+        //
+        // У RTP это заметно по тишине, у RTCP — ничем: разговор идёт, а
+        // статистики собеседника просто нет. Молчащий `.failed` здесь означал бы
+        // потерю единственного ответа на жалобу «меня плохо слышно».
+        connection.stateUpdateHandler = { [weak self] state in
+            guard let self else { return }
+            if case .failed(let error) = state {
+                self.onDiagnostic?("RTCP не поднялся: \(error.localizedDescription)")
+            }
+        }
+        isStarted = true
         connection.start(queue: queue)
         receiveNext()
 
@@ -119,17 +141,30 @@ public final class RTCPSession: @unchecked Sendable {
         self.timer = timer
     }
 
-    public func stop() {
-        queue.sync {
-            guard !isStopped else { return }
+    /// Закрывает поток и дожидается, пока порт действительно освободится.
+    ///
+    /// Ждать приходится ради пересогласования — см. `released`. Ожидание идёт
+    /// вне `queue`, потому что сигналит его обработчик состояния, живущий на той
+    /// же очереди: дождаться изнутри `queue.sync` значило бы встать намертво.
+    public func stop(waitingForReleaseUpTo timeout: DispatchTimeInterval = .milliseconds(500)) {
+        let started: Bool = queue.sync {
+            guard !isStopped else { return false }
             isStopped = true
             timer?.cancel()
             timer = nil
             // Прощание по RFC 3550 §6.6: собеседник сразу освобождает состояние
             // источника, а не ждёт истечения таймаута.
             sendGoodbye()
+            let wasStarted = isStarted
+            connection.stateUpdateHandler = { [weak self] state in
+                if case .cancelled = state { self?.released.signal() }
+            }
             connection.cancel()
+            return wasStarted
         }
+        // Незапущенное соединение состояний не отдаёт, и ждать от него нечего.
+        guard started else { return }
+        _ = released.wait(timeout: .now() + timeout)
     }
 
     // MARK: - Отправка

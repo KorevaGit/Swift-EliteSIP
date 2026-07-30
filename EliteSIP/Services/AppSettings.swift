@@ -114,16 +114,18 @@ struct AppSettings: Codable, Sendable, Equatable {
 
         /// Автоусиление в блоке обработки голоса.
         ///
-        /// Система включает его сама. На хорошей гарнитуре оно «дышит»:
-        /// подтягивает шум в паузах и приседает на громком слоге.
-        var automaticGainControl: Bool = true
+        /// Система включает его сама, мы его сразу выключаем. На хорошей
+        /// гарнитуре оно «дышит»: подтягивает шум в паузах и приседает на громком
+        /// слоге. Эхоподавитель при выключенном AGC остаётся — это независимые
+        /// блоки, так что цена решения нулевая, а вернуть его можно галочкой.
+        var automaticGainControl: Bool = false
 
         init(
             inputDeviceUID: String? = nil,
             outputDeviceUID: String? = nil,
             releasesDeviceWhenIdle: Bool = true,
             prefersWideband: Bool = true,
-            automaticGainControl: Bool = true
+            automaticGainControl: Bool = false
         ) {
             self.inputDeviceUID = inputDeviceUID
             self.outputDeviceUID = outputDeviceUID
@@ -139,8 +141,12 @@ struct AppSettings: Codable, Sendable, Equatable {
             releasesDeviceWhenIdle =
                 try container.decodeIfPresent(Bool.self, forKey: .releasesDeviceWhenIdle) ?? true
             prefersWideband = try container.decodeIfPresent(Bool.self, forKey: .prefersWideband) ?? true
+            // Отсутствие ключа — это файл, записанный до продуктового решения
+            // «AGC по умолчанию выключено». Возвращать там `true` значило бы
+            // молча оставить прежним рабочим местам поведение, от которого
+            // отказались; явно записанное значение пользователя уважается.
             automaticGainControl =
-                try container.decodeIfPresent(Bool.self, forKey: .automaticGainControl) ?? true
+                try container.decodeIfPresent(Bool.self, forKey: .automaticGainControl) ?? false
         }
     }
 

@@ -149,7 +149,7 @@ public final class MediaSession: @unchecked Sendable {
         inputDeviceUID: String? = nil,
         outputDeviceUID: String? = nil,
         releasesDeviceWhenIdle: Bool = true,
-        automaticGainControl: Bool = true
+        automaticGainControl: Bool = false
     ) throws {
         localPort = reservation.rtpPort
         portReservation = reservation
@@ -320,6 +320,12 @@ public final class MediaSession: @unchecked Sendable {
             return statistics
         }
 
+        // Журнал RTCP выводится там же, где форматы звука: провал привязки порта
+        // и прощание собеседника иначе не видны ничем.
+        rtcp.onDiagnostic = { [weak self] message in
+            self?.onDiagnostic?(message)
+        }
+
         rtcp.onRemoteView = { [weak self] view in
             self?.remoteViewLock.withLock { $0 = view }
             self?.onRemoteView?(view)
@@ -469,6 +475,11 @@ public final class MediaSession: @unchecked Sendable {
         // только потом чистить буфер. Закрыть первым — значит потерять кадры,
         // почистить раньше закрытия — значит оставить в буфере то, что старый
         // сокет успел отдать уже после чистки.
+        //
+        // Оба сокета закрываются с ожиданием и обязательно ДО `startTransport`:
+        // новая пара встаёт на те же локальные порты, а `cancel()` асинхронный.
+        // Для RTP это слышно как тишина, для RTCP не слышно вообще — просто
+        // пропадает статистика собеседника.
         transport.withLock { $0 = replacement }
         current.rtp.stop()
         if !current.rtp.isSecured { current.rtcp.stop() }
