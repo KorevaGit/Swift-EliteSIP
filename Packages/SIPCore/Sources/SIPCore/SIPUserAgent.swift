@@ -90,6 +90,12 @@ public actor SIPUserAgent {
         [String: AsyncStream<SIPTransferEvent>.Continuation] = [:]
     private var transferTimeoutTasks: [String: Task<Void, Never>] = [:]
 
+    /// Сколько ждать финальный NOTIFY после принятого REFER.
+    ///
+    /// Настраивается только ради проверок: боевое значение согласовано с
+    /// заказчиком и равно минуте.
+    private let transferResultTimeout: Interval
+
     private var state: SIPRegistrationState = .idle
     private var registrationTask: Task<Void, Never>?
     private var requestPumpTask: Task<Void, Never>?
@@ -102,12 +108,14 @@ public actor SIPUserAgent {
         credentials: DigestAuthentication.Credentials,
         channel: SIPTransportChannel,
         timers: SIPTransactionLayer.Timers = .init(),
-        userAgentName: String = SIPUserAgent.defaultUserAgentName
+        userAgentName: String = SIPUserAgent.defaultUserAgentName,
+        transferResultTimeout: Interval = .seconds(60)
     ) {
         self.account = account
         self.credentials = credentials
         self.transactions = SIPTransactionLayer(channel: channel, timers: timers)
         self.userAgentName = userAgentName
+        self.transferResultTimeout = transferResultTimeout
 
         let (stream, continuation) = AsyncStream<Event>.makeStream(bufferingPolicy: .bufferingNewest(256))
         events = stream
@@ -914,8 +922,9 @@ public actor SIPUserAgent {
                 guard transferSubscriptions[callID] != nil else { return }
                 continuation.yield(.accepted)
                 transferTimeoutTasks[callID]?.cancel()
+                let timeout = transferResultTimeout
                 transferTimeoutTasks[callID] = Task { [weak self] in
-                    do { try await Task.sleep(.seconds(60)) } catch { return }
+                    do { try await Task.sleep(timeout) } catch { return }
                     await self?.expireTransfer(callID: callID)
                 }
                 log(.info, "<- \(response.statusCode) \(response.reasonPhrase) на REFER")
@@ -1519,27 +1528,31 @@ public actor SIPUserAgent {
             let response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
             try? await transactions.respond(to: request, with: response)
 
-            guard let fragment = parseSIPFragmentStatus(request.body) else {
-                if request.headers[SIPHeaderName.subscriptionState]?
-                    .lowercased()
-                    .hasPrefix("terminated") == true {
-                    finishTransfer(
-                        callID: callID,
-                        event: .failed(status: 500, reason: "сервер завершил перевод без результата")
-                    )
-                }
-                return
-            }
+            let fragment = parseSIPFragmentStatus(request.body)
+            let isTerminated = request.headers[SIPHeaderName.subscriptionState]?
+                .lowercased()
+                .hasPrefix("terminated") == true
 
-            if (200..<300).contains(fragment.status) {
+            if let fragment, (200..<300).contains(fragment.status) {
                 log(.info, "<- NOTIFY: перевод завершён")
                 finishTransfer(callID: callID, event: .succeeded)
-            } else if fragment.status >= 300 {
+            } else if let fragment, fragment.status >= 300 {
                 let reason = describeCallFailure(status: fragment.status, reason: fragment.reason)
                 log(.warning, "<- NOTIFY: перевод не состоялся, \(fragment.status) \(fragment.reason)")
                 finishTransfer(
                     callID: callID,
                     event: .failed(status: fragment.status, reason: reason)
+                )
+            } else if isTerminated {
+                // Подписка закрыта, а судьба созданного INVITE не названа: тела
+                // нет вовсе либо в нём остался промежуточный код. Ждать после
+                // этого нечего — NOTIFY больше не придёт, и без явного отказа
+                // оператор просидел бы минуту до таймаута с заблокированной
+                // кнопкой перевода.
+                log(.warning, "<- NOTIFY: подписка закрыта без результата перевода")
+                finishTransfer(
+                    callID: callID,
+                    event: .failed(status: 500, reason: "сервер завершил перевод без результата")
                 )
             }
 

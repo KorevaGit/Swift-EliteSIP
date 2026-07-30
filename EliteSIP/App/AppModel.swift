@@ -294,6 +294,12 @@ final class AppModel: ObservableObject {
     @Published var transferNumber: String = ""
     @Published private(set) var isTransferEntryVisible = false
     @Published private(set) var isTransferring = false
+
+    /// Чем закончился перевод, если он закончился успехом.
+    ///
+    /// Наша нога после успешного REFER завершается сразу, и обычная причина
+    /// окончания («завершён») стёрла бы единственное подтверждение оператору.
+    private var transferOutcome: String?
     @Published private(set) var isConferenceCommandPending = false
     @Published private(set) var isConferenceCommandSent = false
 
@@ -316,8 +322,16 @@ final class AppModel: ObservableObject {
         callPhase == .active && !isRenegotiating && !isTransferring
     }
 
-    var hasTransferNumber: Bool {
-        !transferNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    var hasTransferNumber: Bool { !normalizedTransferTarget.isEmpty }
+
+    /// Номер перевода без пробелов.
+    ///
+    /// Поле принимает вставку из буфера, а номера копируют вместе с
+    /// разделителями. `SIPCore` такой номер обязан отклонить — пробел в
+    /// Request-URI ломает разбор, — и оставлять оператору отказ «недопустимые
+    /// символы» вместо набора значило бы наказывать его за формат источника.
+    private var normalizedTransferTarget: String {
+        transferNumber.filter { !$0.isWhitespace }
     }
 
     var canStartConference: Bool {
@@ -422,7 +436,7 @@ final class AppModel: ObservableObject {
     /// хотя адресат занят или номера не существует.
     func blindTransfer() async {
         guard let agent, canTransfer, hasTransferNumber else { return }
-        let target = transferNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        let target = normalizedTransferTarget
 
         isTransferring = true
         callStatus = "Перевод…"
@@ -436,7 +450,8 @@ final class AppModel: ObservableObject {
 
             case .succeeded:
                 append(level: .info, message: "разговор переведён на \(target)")
-                callStatus = "Переведён"
+                callStatus = "Переведён на \(target)"
+                transferOutcome = "Переведён на \(target)"
                 isTransferring = false
                 isTransferEntryVisible = false
                 transferNumber = ""
@@ -446,14 +461,30 @@ final class AppModel: ObservableObject {
                 return
 
             case .failed(_, let reason):
+                // Причину показываем в строке состояния, а не только в журнале:
+                // журнала на панели нет, и «не удался» без «занято» не говорит
+                // оператору, звонить ли ему снова.
                 append(level: .error, message: "перевод не удался: \(reason)")
-                callStatus = "Перевод не удался"
                 isTransferring = false
+                // «Не переведён» говорим только там, где говорить есть кому:
+                // разговор уцелел и оператор решает, звонить ли снова. Если же
+                // подписку закрыл конец самого разговора — а BYE от Asterisk
+                // может обогнать финальный NOTIFY, — судьба перевода нам
+                // неизвестна, и объявлять отказ было бы неправдой. На экране в
+                // этом случае остаётся причина окончания звонка.
+                if callPhase == .active {
+                    callStatus = "Не переведён: \(reason)"
+                }
                 return
             }
         }
 
+        // Поток закончился, не назвав исхода. Оставлять «Перевод…» нельзя:
+        // разговор при этом никуда не делся.
         isTransferring = false
+        if callPhase == .active {
+            callStatus = isOnHold ? "На удержании" : "Разговор"
+        }
     }
 
     // MARK: - Конференция
@@ -532,7 +563,7 @@ final class AppModel: ObservableObject {
             if let media {
                 append(level: .debug, message: "медиа: \(media.summary)")
             }
-            callStatus = reason
+            callStatus = transferOutcome ?? reason
             teardownCall()
         }
     }
@@ -840,6 +871,7 @@ final class AppModel: ObservableObject {
         isTransferEntryVisible = false
         isTransferring = false
         transferNumber = ""
+        transferOutcome = nil
         isConferenceCommandPending = false
         isConferenceCommandSent = false
         callPhase = .idle
@@ -927,7 +959,7 @@ final class AppModel: ObservableObject {
             if let media {
                 append(level: .debug, message: "медиа: \(media.summary)")
             }
-            callStatus = reason
+            callStatus = transferOutcome ?? reason
             teardownCall()
         }
     }
