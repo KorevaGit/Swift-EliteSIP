@@ -1,5 +1,6 @@
 import Compat
 import CallGuard
+import Diagnostics
 import MediaCore
 import SIPCore
 import SwiftUI
@@ -23,8 +24,8 @@ final class AppModel: ObservableObject {
         let message: String
     }
 
-    /// Сколько строк лога держим в памяти. Больше не нужно: подробная история
-    /// поедет в файл в M7, а здесь она только для быстрой диагностики.
+    /// Сколько строк лога держим в памяти. Больше не нужно: подробное живёт в
+    /// файле (M7a), а здесь журнал только для быстрого взгляда на панели.
     private static let logCapacity = 500
 
     @Published var settings: AppSettings {
@@ -38,6 +39,11 @@ final class AppModel: ObservableObject {
             if settings.account.username != oldValue.account.username
                 || settings.account.domain != oldValue.account.domain {
                 refreshStoredPasswordFlag()
+            }
+            // Журнал пересобирается только при смене его собственных настроек:
+            // переоткрывать файл на каждое движение ползунка громкости незачем.
+            if settings.logFile != oldValue.logFile {
+                openLogFileIfNeeded()
             }
             persistSettings()
         }
@@ -59,6 +65,58 @@ final class AppModel: ObservableObject {
     init() {
         settings = SettingsStore.load()
         refreshStoredPasswordFlag()
+        openLogFileIfNeeded()
+    }
+
+    // MARK: - Файловый журнал
+
+    /// Журнал в файле. nil, когда выключен настройками.
+    ///
+    /// Живёт рядом с журналом в памяти, а не вместо него: на панели нужен
+    /// короткий взгляд на последние строки, а в файле — подробности, по которым
+    /// потом разбирают жалобу.
+    private(set) var logFile: LogFile?
+
+    private func openLogFileIfNeeded() {
+        guard settings.logFile.isEnabled else {
+            logFile = nil
+            return
+        }
+        logFile = LogFile(settings: settings.logFile.storage)
+    }
+
+    /// Каталог журнала — для кнопки «Показать в Finder».
+    var logDirectory: URL { AppSettings.LogFileSettings.directory }
+
+    /// Собирает архив для поддержки: журнал плюс сведения о сборке и системе.
+    ///
+    /// Возвращает путь готового файла. Секреты в справку не попадают: маскирование
+    /// журнала на неё не распространяется, и класть туда лишнее нельзя.
+    func makeSupportArchive() throws -> URL {
+        logFile?.flush()
+        let destination = logDirectory.appendingPathComponent(SupportArchive.suggestedName())
+        return try SupportArchive.make(
+            logs: logFile?.files() ?? [],
+            summary: supportSummary,
+            destination: destination
+        )
+    }
+
+    private var supportSummary: String {
+        let bundle = Bundle.main
+        let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        let system = ProcessInfo.processInfo.operatingSystemVersionString
+        let codecs = settings.audio.prefersWideband ? "широкая полоса" : "только G.711"
+        return [
+            "EliteSIP \(version) (\(build))",
+            system,
+            "транспорт: \(settings.account.transport.protocolName)",
+            "кодеки: \(codecs)",
+            "уровень на экране: \(settings.minimumLogLevel.rawValue)",
+            "уровень в файле: \(settings.logFile.minimumLevel.rawValue)",
+            "линий сейчас: \(lines.count)",
+        ].joined(separator: "\n")
     }
 
     // MARK: - Учётная запись
@@ -1578,6 +1636,12 @@ final class AppModel: ObservableObject {
     // MARK: - Лог
 
     private func append(level: SIPLogLevel, message: String) {
+        // В файл — до фильтра экрана и по своему уровню. Иначе «покажите
+        // поменьше» на панели молча обрезало бы и то, ради чего журнал заводили.
+        if let logFile, level >= settings.logFile.minimumLevel {
+            logFile.write(message, level: level.rawValue)
+        }
+
         #if DEBUG
         // Журнал приложения живёт только во вкладке «Диагностика», и при
         // запуске из скрипта его негде посмотреть. Флаг зеркалит его в stderr.

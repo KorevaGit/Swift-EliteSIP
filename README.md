@@ -62,6 +62,8 @@ Packages/SIPCore/       протокол SIP. Без AppKit, без аудио, 
 Packages/MediaCore/     RTP и кодеки. Без AppKit
 Packages/CallGuard/     защита приёма вызова: случайность, признаки живого
                         человека, отчёт. Чистая логика, время и ГПСЧ снаружи
+Packages/Diagnostics/   файловый журнал: маскирование секретов, ротация,
+                        архив для поддержки
 Config/                 entitlements
 docs/                   решения, которые нужно объяснять: аудиотракт, защита
                         от автокликеров, удержание и DTMF
@@ -94,8 +96,9 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
 ```
 
 ```bash
-(cd Packages/Compat && swift test) && (cd Packages/SIPCore && swift test) \
-  && (cd Packages/MediaCore && swift test) && (cd Packages/CallGuard && swift test)
+(cd Packages/Compat && swift test) && (cd Packages/Diagnostics && swift test) \
+  && (cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test) \
+  && (cd Packages/CallGuard && swift test)
 ```
 
 Разговор со звуком против живой АТС и замеры аудиотракта:

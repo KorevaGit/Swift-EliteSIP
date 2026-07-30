@@ -1,4 +1,5 @@
 import CallGuard
+import Diagnostics
 import Foundation
 import MediaCore
 import SIPCore
@@ -27,6 +28,10 @@ struct AppSettings: Codable, Sendable, Equatable {
     var conference: ConferenceSettings = ConferenceSettings()
     var minimumLogLevel: SIPLogLevel
 
+    /// Журнал в файле. Отдельно от `minimumLogLevel`: на экране нужен короткий,
+    /// в файле — подробный.
+    var logFile: LogFileSettings = LogFileSettings()
+
     /// Доверять любому сертификату TLS.
     ///
     /// Отключает защиту от подмены сервера: перехватчик увидит и пароль, и
@@ -45,6 +50,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         dtmf: DTMFSettings = DTMFSettings(),
         conference: ConferenceSettings = ConferenceSettings(),
         minimumLogLevel: SIPLogLevel = .info,
+        logFile: LogFileSettings = LogFileSettings(),
         acceptsAnyTLSCertificate: Bool = false
     ) {
         self.schemaVersion = schemaVersion
@@ -55,6 +61,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.dtmf = dtmf
         self.conference = conference
         self.minimumLogLevel = minimumLogLevel
+        self.logFile = logFile
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
 
@@ -78,8 +85,82 @@ struct AppSettings: Codable, Sendable, Equatable {
             try container.decodeIfPresent(ConferenceSettings.self, forKey: .conference)
                 ?? ConferenceSettings()
         minimumLogLevel = try container.decodeIfPresent(SIPLogLevel.self, forKey: .minimumLogLevel) ?? .info
+        // Файла настроек без этого ключа достаточно, чтобы журнал заработал:
+        // умолчание включено. Диагностика, которую надо сперва включить, не
+        // помогает там, где нужна, — жалоба всегда про то, что уже случилось.
+        logFile = try container.decodeIfPresent(LogFileSettings.self, forKey: .logFile) ?? LogFileSettings()
         acceptsAnyTLSCertificate =
             try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
+    }
+
+    /// Файловый журнал.
+    ///
+    /// Уровень отдельный от экранного и по умолчанию подробнее: на панели
+    /// пятьсот строк живут в памяти и нужны для быстрого взгляда, а в файл
+    /// пишется то, по чему потом разбирают жалобу. Разбирать «info» бесполезно —
+    /// в нём нет ни кодов ответов, ни причин пересогласования.
+    struct LogFileSettings: Codable, Sendable, Equatable {
+
+        var isEnabled: Bool = true
+        var minimumLevel: SIPLogLevel = .debug
+
+        /// Потолок одного файла в мегабайтах.
+        var maximumFileMegabytes: Int = 4
+
+        /// Сколько отложенных файлов держим, не считая текущего.
+        var keptFiles: Int = 5
+
+        /// Сколько дней храним отложенные файлы. Записи содержат номера лидов,
+        /// поэтому «хранить вечно» — решение не про диск.
+        var maximumAgeInDays: Int = 14
+
+        init(
+            isEnabled: Bool = true,
+            minimumLevel: SIPLogLevel = .debug,
+            maximumFileMegabytes: Int = 4,
+            keptFiles: Int = 5,
+            maximumAgeInDays: Int = 14
+        ) {
+            self.isEnabled = isEnabled
+            self.minimumLevel = minimumLevel
+            self.maximumFileMegabytes = maximumFileMegabytes
+            self.keptFiles = keptFiles
+            self.maximumAgeInDays = maximumAgeInDays
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+            minimumLevel = try container.decodeIfPresent(SIPLogLevel.self, forKey: .minimumLevel) ?? .debug
+            maximumFileMegabytes =
+                try container.decodeIfPresent(Int.self, forKey: .maximumFileMegabytes) ?? 4
+            keptFiles = try container.decodeIfPresent(Int.self, forKey: .keptFiles) ?? 5
+            maximumAgeInDays = try container.decodeIfPresent(Int.self, forKey: .maximumAgeInDays) ?? 14
+        }
+
+        /// Приводит настройки к тому, что понимает `Diagnostics`, и заодно к
+        /// разумным границам: значения приезжают из файла, который правит
+        /// человек, и «ноль мегабайт» означал бы ротацию на каждой строке.
+        var storage: LogFile.Settings {
+            LogFile.Settings(
+                directory: LogFileSettings.directory,
+                maximumFileBytes: min(max(maximumFileMegabytes, 1), 64) * 1024 * 1024,
+                keptFiles: min(max(keptFiles, 0), 50),
+                maximumAgeInDays: min(max(maximumAgeInDays, 0), 365)
+            )
+        }
+
+        /// `~/Library/Logs/EliteSIP` — то место, куда смотрят и Console, и
+        /// человек, которого попросили прислать журнал. Настройки лежат в
+        /// Application Support, но журналу там не место: это разные вещи по
+        /// сроку жизни и по тому, кто их читает.
+        static var directory: URL {
+            let base = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
+                ?? FileManager.default.temporaryDirectory
+            return base
+                .appendingPathComponent("Logs", isDirectory: true)
+                .appendingPathComponent("EliteSIP", isDirectory: true)
+        }
     }
 
     struct AudioSettings: Codable, Sendable, Equatable {

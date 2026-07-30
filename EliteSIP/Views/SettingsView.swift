@@ -788,6 +788,8 @@ private struct DiagnosticsTab: View {
                     }
                     .pickerStyle(.segmented)
                 }
+
+                LogFileSection()
             }
             .compatGroupedForm()
             .frame(maxHeight: 240)
@@ -878,6 +880,87 @@ private struct DiagnosticsTab: View {
         case .info: .primary
         case .warning: Theme.Palette.connecting
         case .error: Theme.Palette.failure
+        }
+    }
+}
+
+
+/// Файловый журнал: включение, подробность, срок хранения и выдача наружу.
+///
+/// Отдельная секция, а не пара переключателей рядом с экранным уровнем: у файла
+/// другой смысл. Экранный уровень — это «что мне сейчас видно», файловый — «что
+/// останется, когда позвонят в поддержку», и путать их нельзя. Оператор,
+/// поставивший на панели «только ошибки», не должен этим лишить себя разбора.
+private struct LogFileSection: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    /// Что показать после сборки архива: путь или причину отказа.
+    @State private var archiveResult: String?
+
+    var body: some View {
+        Section(header: Text("Журнал в файле")) {
+            Toggle("Вести журнал в файле", isOn: Binding(
+                get: { model.settings.logFile.isEnabled },
+                set: { model.settings.logFile.isEnabled = $0 }
+            ))
+
+            if model.settings.logFile.isEnabled {
+                Picker("Писать от", selection: Binding(
+                    get: { model.settings.logFile.minimumLevel },
+                    set: { model.settings.logFile.minimumLevel = $0 }
+                )) {
+                    ForEach(SIPLogLevel.allCases, id: \.self) { level in
+                        Text(level.rawValue).tag(level)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Stepper(
+                    "Хранить \(model.settings.logFile.maximumAgeInDays) дн.",
+                    value: Binding(
+                        get: { model.settings.logFile.maximumAgeInDays },
+                        set: { model.settings.logFile.maximumAgeInDays = $0 }
+                    ),
+                    in: 1...365
+                )
+
+                CompatLabel(
+                    title: "Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. Номера и SIP-логины остаются — по ним и разбирают звонок.",
+                    symbol: "lock.shield"
+                )
+                .font(.footnote)
+                .compatForeground(.secondary)
+
+                HStack {
+                    Button("Показать в Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([model.logDirectory])
+                    }
+                    Button("Собрать архив для поддержки") {
+                        makeArchive()
+                    }
+                    Spacer()
+                }
+
+                if let archiveResult {
+                    Text(archiveResult)
+                        .font(.footnote)
+                        .compatForeground(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+    }
+
+    /// Архив собирается и сразу показывается в Finder: инструкция оператору
+    /// должна состоять из одного шага, а дальше он его просто перетащит.
+    private func makeArchive() {
+        do {
+            let url = try model.makeSupportArchive()
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            archiveResult = "Готово: \(url.lastPathComponent)"
+        } catch {
+            archiveResult = "Не удалось собрать архив: \(error.localizedDescription)"
         }
     }
 }
