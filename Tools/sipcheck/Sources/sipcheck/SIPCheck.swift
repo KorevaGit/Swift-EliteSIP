@@ -36,6 +36,9 @@ struct SIPCheck {
               --dtmf <набор>        отправить тоны в разговоре: цифры и запятые-паузы
               --dtmf-after <сек>    через сколько их отправить, по умолчанию 1
               --hold <секунды>      поставить на удержание и через столько вернуть
+              --lines <a,b,c>       живой прогон параллельных линий (M6)
+              --consult <номер>     консультационный перевод: --call клиент,
+                                    --consult коллега, REFER с Replaces
             """)
             exit(2)
         }
@@ -131,7 +134,31 @@ struct SIPCheck {
         )
 
         var callSucceeded = true
-        if arguments.hasFlag("answer") || arguments.hasFlag("reject") {
+        if let list = arguments["lines"] {
+            // Многолинейный прогон живёт отдельно от `placeCall`: там одна
+            // линия со звуком, здесь три без него. Смешивать их в одном методе
+            // значило бы получить третий режим, который не проверяет ни одного
+            // из двух.
+            let numbers = list.split(separator: ",").map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }.filter { !$0.isEmpty }
+            callSucceeded = await LinesCheck.runParallel(
+                agent: agent,
+                host: host,
+                numbers: numbers,
+                codecs: live.supportedCodecs,
+                secureMedia: transport == .tls
+            )
+        } else if let colleague = arguments["consult"] {
+            callSucceeded = await LinesCheck.runConsultation(
+                agent: agent,
+                host: host,
+                client: arguments["call"] ?? "600",
+                colleague: colleague,
+                codecs: live.supportedCodecs,
+                secureMedia: transport == .tls
+            )
+        } else if arguments.hasFlag("answer") || arguments.hasFlag("reject") {
             callSucceeded = await waitForIncomingCall(
                 agent: agent,
                 incoming: incoming,
@@ -304,7 +331,7 @@ struct SIPCheck {
     /// это ADPCM с состоянием, и нули в полезной нагрузке дают не тишину, а
     /// щелчки. Тишина здесь получается тем же путём, что и настоящий звук, —
     /// кодированием нулевых отсчётов.
-    private static func silenceFrame(for media: NegotiatedMedia) -> Data {
+    static func silenceFrame(for media: NegotiatedMedia) -> Data {
         var encoder = AudioFrameEncoder(codec: media.codec)
         return encoder.encode(
             [Int16](repeating: 0, count: media.codec.sampleCount(forPacketTime: media.packetTimeMilliseconds))
@@ -488,6 +515,10 @@ final class LiveMedia: @unchecked Sendable {
     init(codecs: [AudioCodec]) {
         self.codecs = codecs
     }
+
+    /// Список кодеков, с которым собран этот прогон. Многолинейной проверке
+    /// нужен тот же самый: разные списки у линий означали бы разные разговоры.
+    var supportedCodecs: [AudioCodec] { codecs }
 
     /// Идёт событие DTMF: кадры звука в этот момент отправлять нельзя.
     ///

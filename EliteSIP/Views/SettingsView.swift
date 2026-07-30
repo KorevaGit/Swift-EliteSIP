@@ -140,8 +140,17 @@ private struct AccountSettingsTab: View {
             Section {
                 HStack {
                     if model.isConnected || model.isBusy {
+                        // Оба действия закрывают активные диалоги, поэтому в
+                        // разговоре недоступны — как и на панели.
                         Button("Отключить") { Task { await model.disconnect() } }
+                            .disabled(!model.canDisconnect)
                         Button("Переподключить") { Task { await model.reconnect() } }
+                            .disabled(!model.canDisconnect)
+                        if !model.canDisconnect {
+                            Text("недоступно в разговоре")
+                                .font(.footnote)
+                                .compatForeground(.secondary)
+                        }
                     } else {
                         Button("Подключить") { Task { await model.connect() } }
                             .disabled(!model.canConnect)

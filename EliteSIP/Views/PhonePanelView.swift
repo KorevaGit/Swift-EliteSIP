@@ -217,6 +217,14 @@ struct RegistrationBadge: View {
                 Task { await model.disconnect() }
             }
             .controlSize(.small)
+            // Кнопка в двух сантиметрах от «Завершить», а снимает регистрацию
+            // вместе со всеми диалогами. В разговоре она недоступна.
+            .disabled(!model.canDisconnect)
+            .compatHelp(
+                model.canDisconnect
+                    ? "Снять регистрацию на сервере"
+                    : "Недоступно в разговоре: сначала завершите звонок"
+            )
         } else {
             Button("Подключить") {
                 Task { await model.connect() }

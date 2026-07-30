@@ -111,6 +111,18 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
 (cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --duration 15 --answer)
 ```
 
+Три линии сразу и консультационный перевод против живой АТС. Цели 700/701/702
+уводят звонок в `Local`-канал: перевести можно только канал, у которого есть
+собеседник, а внутри `Echo()` его нет — см. [Lab/README.md](Lab/README.md):
+
+```bash
+(cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --lines 700,701,702)
+```
+
+```bash
+(cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --call 700 --consult 701)
+```
+
 Тоны и удержание против живой АТС. Добавочный 603 на стенде читает набранное
 вслух, и в журнале Asterisk видно, что именно он принял:
 
@@ -172,13 +184,13 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
 - [x] **M6** — три адресуемые по Call-ID линии, одна активная аудиолиния,
       консультационный перевод через REFER с Replaces и серверная конференция
       через ConfBridge настраиваемой командой — [docs/lines.md](docs/lines.md) и
-      [docs/conference.md](docs/conference.md). Живой прогон параллельных линий
-      и сверка боевого feature-code — впереди
+      [docs/conference.md](docs/conference.md). Три линии и перевод прогнаны на
+      живом Asterisk 13.38.3; сверка боевого feature-code — впереди
 - [x] **M6b** — стабилизация после аудита перед многолинейной архитектурой:
       реальная резервация пары RTP/RTCP, безопасный disconnect, строгая проверка
       SIP-диалогов, надёжная очередь DTMF и гарантированный mute микрофона.
-      Повторён на трёх линиях, четыре расхождения закрыты —
-      [docs/m6b.md](docs/m6b.md)
+      Повторён на трёх линиях, закрыт запрет отключения профиля в разговоре,
+      выполнен живой прогон линий — [docs/m6b.md](docs/m6b.md)
 - [ ] **M7** — одна Universal для Catalina Intel и Big Sur Apple Silicon,
       мультиаккаунт с одним активным профилем, локальная история,
       административный режим, аудио-DSP, логи, подпись, нотаризация и DMG

@@ -43,6 +43,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    /// Выход снимает регистрацию и закрывает диалоги, пока транспорт жив.
+    ///
+    /// Без этого сервер держит и привязку пира, и разговор до истечения сроков:
+    /// оператор вышел, а очередь продолжает считать его на линии и раздавать ему
+    /// лиды. Отключение здесь принудительное — в разговоре обычная кнопка
+    /// «Отключить» недоступна (M6b), и выход остаётся единственной дорогой,
+    /// поэтому он спрашивает подтверждение, а не рвёт разговор молча.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if model.isInCall {
+            let alert = NSAlert()
+            alert.messageText = "Идёт разговор"
+            alert.informativeText = "Выход завершит его и снимет регистрацию."
+            alert.addButton(withTitle: "Завершить и выйти")
+            alert.addButton(withTitle: "Отмена")
+            guard alert.runModal() == .alertFirstButtonReturn else {
+                return .terminateCancel
+            }
+        }
+
+        Task { @MainActor in
+            await model.disconnect(force: true)
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     /// Клик по иконке в доке возвращает панель — иначе закрытое окно уже ничем
     /// не открыть: пункт «Новый» из меню убран.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

@@ -238,7 +238,23 @@ final class AppModel: ObservableObject {
         await agent.start()
     }
 
-    func disconnect() async {
+    /// Отключаться в разговоре нельзя.
+    ///
+    /// Снятие регистрации закрывает диалоги: кнопка «Отключить» рядом с бейджем
+    /// кладёт трубку клиенту, и отменить это нечем. Соседство с индикатором
+    /// делает промах особенно дешёвым, а последствия — нет. Требование M6b.
+    ///
+    /// Выйти из приложения это не мешает: выход спрашивает подтверждение и
+    /// отключается принудительно, то есть вслух.
+    var canDisconnect: Bool { lines.isEmpty }
+
+    func disconnect(force: Bool = false) async {
+        guard force || canDisconnect else {
+            append(level: .warning, message: "отключение недоступно: идёт разговор")
+            callStatus = "Сначала завершите разговор"
+            return
+        }
+
         guard let agent else {
             teardownAllLines()
             return
@@ -256,6 +272,11 @@ final class AppModel: ObservableObject {
     }
 
     func reconnect() async {
+        guard canDisconnect else {
+            append(level: .warning, message: "переподключение недоступно: идёт разговор")
+            callStatus = "Сначала завершите разговор"
+            return
+        }
         await disconnect()
         await connect()
     }
