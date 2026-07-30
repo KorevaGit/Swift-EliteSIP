@@ -499,8 +499,13 @@ public final class MediaSession: @unchecked Sendable {
 
     // MARK: - DTMF
 
+    /// Шаг несёт свой тайминг с собой.
+    ///
+    /// Иначе набор, вставший в очередь позади чужого, играется чужими
+    /// длительностями: worker создаётся один раз и запомнил бы тайминг того,
+    /// кто его завёл. Настройки при этом меняются прямо во время разговора.
     private enum QueuedDTMFItem {
-        case step(DTMFStep)
+        case step(DTMFStep, timing: DTMFTiming?)
         case completion(CheckedContinuation<Bool, Never>)
     }
 
@@ -564,20 +569,18 @@ public final class MediaSession: @unchecked Sendable {
         completion: CheckedContinuation<Bool, Never>?
     ) {
         dtmfState.withLock { state in
-            state.queue.append(contentsOf: sequence.steps.map(QueuedDTMFItem.step))
+            state.queue.append(contentsOf: sequence.steps.map { .step($0, timing: timing) })
             if let completion {
                 state.queue.append(.completion(completion))
             }
             guard state.task == nil else { return }
             state.task = Task { [weak self] in
-                await self?.drainDTMFQueue(timing: timing)
+                await self?.drainDTMFQueue()
             }
         }
     }
 
-    private func drainDTMFQueue(timing requested: DTMFTiming?) async {
-        let timing = effectiveTiming(requested)
-
+    private func drainDTMFQueue() async {
         while !Task.isCancelled {
             let item = dtmfState.withLock { state -> QueuedDTMFItem? in
                 guard !state.queue.isEmpty else {
@@ -594,10 +597,11 @@ public final class MediaSession: @unchecked Sendable {
             case .completion(let continuation):
                 continuation.resume(returning: !Task.isCancelled)
 
-            case .step(.pause(let milliseconds)):
+            case .step(.pause(let milliseconds), _):
                 try? await Task.sleep(.milliseconds(milliseconds))
 
-            case .step(.tone(let event)):
+            case .step(.tone(let event), let requested):
+                let timing = effectiveTiming(requested)
                 guard await sendTone(event: event, timing: timing) else {
                     failPendingDTMF()
                     return

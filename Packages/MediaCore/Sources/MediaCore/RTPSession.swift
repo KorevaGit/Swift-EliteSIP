@@ -208,15 +208,22 @@ public final class RTPSession: @unchecked Sendable {
         queue.async { [self] in
             guard !isStopped else { return }
 
+            let payload = event.encoded
             let packet = RTPPacket(
                 payloadType: eventPayloadType,
                 sequenceNumber: sequenceNumber,
                 timestamp: timestamp,
                 ssrc: ssrc,
                 marker: isFirst,
-                payload: event.encoded
+                payload: payload
             )
             sequenceNumber &+= 1
+            // Событие — такой же отправленный RTP-пакет, как и кадр звука, и в
+            // счёт отправителя оно входит наравне с ним (RFC 3550 §6.4.1: счёт
+            // ведётся по всем отправленным пакетам данных). Не считать их значит
+            // занизить свой же Sender Report ровно на набранные цифры.
+            packetsSent &+= 1
+            octetsSent &+= UInt32(payload.count)
             do {
                 let data = try outboundSRTP?.protect(packet) ?? packet.encoded()
                 connection.send(content: data, completion: .idempotent)

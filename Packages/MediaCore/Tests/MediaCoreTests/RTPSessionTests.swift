@@ -70,4 +70,39 @@ struct RTPSessionTests {
         #expect(wideband.timestampIncrement == 160)
         #expect(AudioCodec.g722.sampleCount(forPacketTime: 20) == 320)
     }
+
+    @Test("Счёт отправителя включает пакеты DTMF, а не только звук")
+    func senderCountsIncludeEvents() throws {
+        // Отчёт RTCP объявляет, сколько всего пакетов данных мы отправили
+        // (RFC 3550 §6.4.1). События telephone-event идут тем же потоком и тем
+        // же SSRC, поэтому пропуск их в счёте — занижённый отчёт ровно на
+        // набранные цифры, и заметно это только у собеседника.
+        let reservation = try RTPSession.reservePortPair()
+        defer { reservation.release() }
+        reservation.activate()
+
+        let session = try RTPSession(
+            configuration: RTPSession.Configuration(telephoneEventPayloadType: 101),
+            localPort: reservation.rtpPort,
+            remoteHost: "127.0.0.1",
+            remotePort: 40106
+        )
+        defer { session.stop() }
+
+        session.send(encodedFrame: Data(repeating: G711.muLawSilence, count: 160))
+        let before = session.sendStatistics
+        #expect(before.packets == 1)
+        #expect(before.octets == 160)
+
+        let payload = TelephoneEventPayload(event: 4, isEnd: false, volume: 10, duration: 160)
+        session.send(event: payload, isFirst: true)
+
+        let after = session.sendStatistics
+        #expect(after.packets == 2, "пакет события не попал в счёт отправителя")
+        #expect(after.octets == 160 + UInt32(payload.encoded.count))
+
+        // А вот метка времени внутри события расти не должна — это отдельное
+        // правило RFC 4733 §2.5.1, и счётчики его не отменяют.
+        #expect(after.timestamp == before.timestamp)
+    }
 }
