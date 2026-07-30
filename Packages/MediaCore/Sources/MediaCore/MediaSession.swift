@@ -269,6 +269,7 @@ public final class MediaSession: @unchecked Sendable {
             stop()
             throw error
         }
+        isAudioRunning.withLock { $0 = true }
     }
 
     /// Вешает обработчики на текущий поток RTP и RTCP.
@@ -369,6 +370,7 @@ public final class MediaSession: @unchecked Sendable {
 
     public func stop() {
         cancelDTMFQueue()
+        isAudioRunning.withLock { $0 = false }
         engine.stop()
         let current = transport.withLock { $0 }
         if let current {
@@ -378,6 +380,51 @@ public final class MediaSession: @unchecked Sendable {
         bufferLock.withLock { jitter.reset() }
         portReservation.release()
     }
+
+    // MARK: - Фоновая линия
+
+    /// Отпускает звуковую карту, не трогая ни RTP, ни резервацию порта.
+    ///
+    /// Нужно многолинейности: аудиотракт у оператора один — один микрофон, один
+    /// выход, одна обработка голоса, — а разговоров до трёх. Держать три
+    /// запущенных `VoiceProcessingIO` на одном устройстве нельзя: они делят
+    /// устройство между собой, а на Bluetooth-гарнитуре ещё и удерживают её в
+    /// режиме двусторонней связи всё время, пока жива хоть одна линия.
+    ///
+    /// Сигнализация при этом продолжается полностью: удержанная линия остаётся
+    /// в диалоге, отвечает на повторные INVITE и держит свою пару портов, так
+    /// что вернуть её в разговор можно без пересогласования.
+    public func suspendAudio() {
+        // Без проверки «а был ли запущен»: линия могла уйти в фон и до того,
+        // как поднялся её тракт, и заглушить её надо всё равно.
+        isAudioRunning.withLock { $0 = false }
+        // Порядок тот же, что при удержании: сначала замолчать, потом отпускать
+        // устройство. Иначе последний захваченный кадр успевает уйти в линию
+        // уже после того, как оператор переключился на другую.
+        isHeld = true
+        engine.stop()
+        bufferLock.withLock { jitter.reset() }
+    }
+
+    /// Возвращает линию в разговор: аудиотракт собирается заново на том же
+    /// потоке RTP.
+    ///
+    /// Слышно как короткий провал — ровно как при смене устройства посреди
+    /// разговора, и по той же причине: граф собирается с нуля.
+    public func resumeAudio() throws {
+        guard !isAudioRunning.withLock({ $0 }) else { return }
+        try engine.start()
+        isAudioRunning.withLock { $0 = true }
+        isHeld = false
+    }
+
+    /// Работает ли аудиотракт этой линии.
+    public var isAudioActive: Bool { isAudioRunning.withLock { $0 } }
+
+    /// Признак ведётся здесь, а не спрашивается у движка: `VoiceAudioEngine`
+    /// считает себя запущенным и после отказа сборки графа, а решение
+    /// «отпустили ли мы карту» принимаем мы.
+    private let isAudioRunning = UnfairLock(initialState: false)
 
     // MARK: - Удержание
 

@@ -154,7 +154,7 @@ struct PhonePanelView: View {
 
     private var debugSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            MilestoneNote("M6: команда ConfBridge готова; три линии и консультация — в работе.")
+            MilestoneNote("M6: три линии, консультация и ConfBridge готовы; живой прогон впереди.")
 
             Button {
                 showIncomingCallDemo()
@@ -293,6 +293,10 @@ struct CallControls: View {
 
     var body: some View {
         VStack(spacing: 6) {
+            if model.lines.count > 1 {
+                LineStrip()
+            }
+
             HStack(spacing: 6) {
                 controlButton(
                     title: model.isOnHold ? "Вернуть" : "Удержать",
@@ -340,7 +344,7 @@ struct CallControls: View {
                 controlButton(
                     title: "Перевести",
                     systemImage: "phone.arrow.right",
-                    isOn: model.isTransferEntryVisible,
+                    isOn: model.isTransferEntryVisible && model.numberEntry == .blindTransfer,
                     isEnabled: model.canTransfer && !model.isTransferEntryVisible,
                     help: "Слепой перевод текущего разговора"
                 ) {
@@ -355,6 +359,42 @@ struct CallControls: View {
                     help: "Перевести оба плеча разговора в ConfBridge"
                 ) {
                     model.startConference()
+                }
+            }
+
+            // Консультация: клиент уходит на удержание, оператор набирает
+            // коллегу и только после разговора соединяет их.
+            if let consultation = model.consultationLine {
+                HStack(spacing: 6) {
+                    controlButton(
+                        title: "Соединить",
+                        systemImage: "arrow.triangle.merge",
+                        isOn: false,
+                        isEnabled: model.canCompleteConsultation,
+                        help: "Соединить собеседников и уйти из разговора"
+                    ) {
+                        Task { await model.completeConsultation() }
+                    }
+
+                    controlButton(
+                        title: "Отбой \(consultation.title)",
+                        systemImage: "phone.down",
+                        isOn: false,
+                        isEnabled: !model.isTransferring,
+                        help: "Завершить консультацию и вернуться к клиенту"
+                    ) {
+                        Task { await model.cancelConsultation() }
+                    }
+                }
+            } else {
+                controlButton(
+                    title: "Консультация",
+                    systemImage: "person.badge.plus",
+                    isOn: model.isTransferEntryVisible && model.numberEntry == .consultation,
+                    isEnabled: model.canConsult && !model.isTransferEntryVisible,
+                    help: "Позвонить коллеге, пока клиент на удержании"
+                ) {
+                    model.showConsultationEntry()
                 }
             }
 
@@ -395,7 +435,56 @@ struct CallControls: View {
     }
 }
 
-/// Номер и подтверждение слепого перевода.
+/// Линии оператора: какая звучит, какие ждут на удержании.
+///
+/// Появляется только со второй линией. Одна линия — это обычный разговор, и
+/// полоса с единственной строкой заняла бы место, ничего не сообщив.
+private struct LineStrip: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    private func isSwitchable(_ line: AppModel.CallLine) -> Bool {
+        line.id != model.activeLineID && !model.isSwitchingLines && !model.isTransferring
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ForEach(model.lines) { line in
+                Button {
+                    Task { await model.switchLine(to: line.id) }
+                } label: {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(line.id == model.activeLineID ? Theme.Palette.registered : Theme.Palette.offline)
+                            .frame(width: 6, height: 6)
+                        Text(line.title)
+                            .font(Theme.Text.panelStatus)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        Text(line.status)
+                            .font(Theme.Text.panelDetail)
+                            .compatForeground(Theme.Palette.tertiary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .themedControlSurface()
+                .hoverHighlight(isEnabled: isSwitchable(line))
+                .disabled(!isSwitchable(line))
+                .compatHelp(
+                    line.id == model.activeLineID
+                        ? "Звук идёт по этой линии"
+                        : "Переключить звук на \(line.title)"
+                )
+            }
+        }
+    }
+}
+
+/// Номер перевода или консультации и его подтверждение.
 ///
 /// Поле показывается только по явному нажатию: в панели 280 точек, и постоянно
 /// занимать место редкой операцией за счёт клавиатуры и статуса звонка нельзя.
@@ -403,18 +492,30 @@ private struct TransferEntry: View {
 
     @EnvironmentObject private var model: AppModel
 
+    private var isConsultation: Bool { model.numberEntry == .consultation }
+
+    private var actionTitle: String { isConsultation ? "Позвонить" : "Перевести" }
+
+    private func submit() {
+        guard model.hasTransferNumber, !model.isTransferring else { return }
+        Task {
+            if isConsultation {
+                await model.startConsultation()
+            } else {
+                await model.blindTransfer()
+            }
+        }
+    }
+
     var body: some View {
         VStack(spacing: 6) {
             CompatTextField(
-                title: "Номер перевода",
+                title: isConsultation ? "Номер коллеги" : "Номер перевода",
                 text: Binding(
                     get: { model.transferNumber },
                     set: { model.transferNumber = $0 }
                 ),
-                onSubmit: {
-                    guard model.hasTransferNumber, !model.isTransferring else { return }
-                    Task { await model.blindTransfer() }
-                }
+                onSubmit: submit
             )
                 .textFieldStyle(.roundedBorder)
                 .disabled(model.isTransferring)
@@ -426,15 +527,13 @@ private struct TransferEntry: View {
                 .frame(maxWidth: .infinity)
                 .disabled(model.isTransferring)
 
-                Button {
-                    Task { await model.blindTransfer() }
-                } label: {
+                Button(action: submit) {
                     if model.isTransferring {
                         CompatSpinner()
                             .frame(height: 12)
                             .frame(maxWidth: .infinity)
                     } else {
-                        Text("Перевести")
+                        Text(actionTitle)
                             .frame(maxWidth: .infinity)
                     }
                 }

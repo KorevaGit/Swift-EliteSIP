@@ -64,7 +64,7 @@ struct CallTests {
         let server = makeServer()
         let agent = await makeAgent(server)
 
-        let events = await agent.placeCall(to: "600", offer: sdpOffer())
+        let events = await agent.placeCall(to: "600", offer: sdpOffer()).events
         let collector = Task { () -> (states: [String], body: Data?) in
             var states: [String] = []
             var answerBody: Data?
@@ -112,7 +112,7 @@ struct CallTests {
         let server = makeServer()
         let agent = await makeAgent(server)
 
-        let events = await agent.placeCall(to: "600", offer: sdpOffer())
+        let events = await agent.placeCall(to: "600", offer: sdpOffer()).events
         let collector = Task { () -> String? in
             for await event in events {
                 if case .failed(_, let reason) = event { return reason }
@@ -181,7 +181,7 @@ struct CallTests {
         let server = makeServer()
         let agent = await makeAgent(server)
 
-        let events = await agent.placeCall(to: "600", offer: sdpOffer())
+        let events = await agent.placeCall(to: "600", offer: sdpOffer()).events
         let collector = Task { () -> String? in
             for await event in events {
                 if case .ended(let reason) = event { return reason }
@@ -251,21 +251,36 @@ struct CallTests {
         #expect(await agent.callState == nil)
     }
 
-    @Test("Второй звонок при активном первом отклоняется")
-    func rejectsSecondCall() async throws {
+    @Test("Линий три, четвёртая отклоняется")
+    func rejectsFourthLine() async throws {
         let server = makeServer()
         let agent = await makeAgent(server)
 
-        _ = await agent.placeCall(to: "600", offer: sdpOffer())
-        #expect(await waitUntil { !server.receivedRequests.filter { $0.method == .invite }.isEmpty })
+        var identifiers: [String] = []
+        for number in ["600", "601", "602"] {
+            let call = await agent.placeCall(to: number, offer: sdpOffer())
+            identifiers.append(call.callID)
+        }
+        #expect(await waitUntil { await agent.lines.count == SIPUserAgent.maximumLines })
+        #expect(Set(identifiers).count == 3, "у каждой линии свой Call-ID")
 
-        let second = await agent.placeCall(to: "601", offer: sdpOffer())
+        // Четвёртая линия отказывается сразу, не отправляя INVITE.
+        let extra = await agent.placeCall(to: "603", offer: sdpOffer())
+
         var reason: String?
-        for await event in second {
+        for await event in extra.events {
             if case .failed(_, let text) = event { reason = text }
         }
-        // Линия одна: несколько появятся в M5 вместе с переводом.
-        #expect(reason == "звонок уже идёт")
+        #expect(reason == "заняты все линии (3)")
+        #expect(await agent.lines.count == 3)
+
+        // Считаем не запросы, а линии, до которых они дошли: каждая шлёт по два
+        // INVITE — без авторизации и с ней, — и момент второго нам не подвластен.
+        // Линия заводится на шаг раньше отправки, поэтому здесь тоже ожидание.
+        let expected = Set(identifiers)
+        #expect(await waitUntil {
+            Set(server.receivedRequests.filter { $0.method == .invite }.compactMap(\.callID)) == expected
+        })
 
         await agent.stop()
     }
@@ -276,7 +291,7 @@ struct CallTests {
         let agent = await makeAgent(server)
 
         let before = server.receivedRequests.filter { $0.method == .invite }.count
-        let events = await agent.placeCall(to: "   ", offer: sdpOffer())
+        let events = await agent.placeCall(to: "   ", offer: sdpOffer()).events
 
         var reason: String?
         for await event in events {

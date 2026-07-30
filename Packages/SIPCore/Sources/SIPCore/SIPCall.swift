@@ -70,6 +70,22 @@ public struct SIPIncomingCall: Sendable {
     }
 }
 
+/// Исходящий звонок: линия и её события.
+///
+/// Call-ID отдаётся сразу, ещё до первого INVITE, потому что именно им линия
+/// адресуется дальше — на удержание, перевод и завершение. Ждать его из потока
+/// событий значило бы иметь окно, в котором звонок уже идёт, а сказать про него
+/// нечего.
+public struct SIPOutgoingCall: Sendable {
+    public let callID: String
+    public let events: AsyncStream<SIPCallEvent>
+
+    public init(callID: String, events: AsyncStream<SIPCallEvent>) {
+        self.callID = callID
+        self.events = events
+    }
+}
+
 /// События звонка для того, кто им управляет.
 ///
 /// Тело SDP передаётся байтами: слой сигнализации не разбирает медиа и не
@@ -86,6 +102,8 @@ public enum SIPCallEvent: Sendable {
 public enum SIPCallError: Error, Sendable, Equatable, CustomStringConvertible {
     case notRegistered
     case alreadyInCall
+    /// Все линии заняты: разговор, консультация и третий участник.
+    case tooManyLines(maximum: Int)
     case emptyTarget
     /// Звонка, которым просят управлять, уже нет: обычно его отменили, пока
     /// оператор тянулся к кнопке.
@@ -95,6 +113,7 @@ public enum SIPCallError: Error, Sendable, Equatable, CustomStringConvertible {
         switch self {
         case .notRegistered: "нет регистрации на сервере"
         case .alreadyInCall: "звонок уже идёт"
+        case .tooManyLines(let maximum): "заняты все линии (\(maximum))"
         case .emptyTarget: "не задан номер"
         case .noIncomingCall: "входящего звонка больше нет"
         }
@@ -131,12 +150,16 @@ public enum SIPRenegotiationError: Error, Sendable, Equatable, CustomStringConve
 
 /// Как отвечать на чужой повторный INVITE.
 ///
-/// На вход — предложение SDP байтами, на выход — наш ответ или nil, если
-/// принять предложение нечем (тогда уйдёт 488). Замыкание, а не событие в
-/// потоке, ровно по одной причине: ответить надо в рамках той же транзакции,
-/// и «отправить событие и надеяться, что кто-то ответит» здесь не работает.
-/// Разбор SDP при этом остаётся снаружи — SIPCore про медиа не знает ничего.
-public typealias SIPMediaRenegotiator = @Sendable (Data) async -> Data?
+/// На вход — Call-ID линии и предложение SDP байтами, на выход — наш ответ или
+/// nil, если принять предложение нечем (тогда уйдёт 488). Замыкание, а не
+/// событие в потоке, ровно по одной причине: ответить надо в рамках той же
+/// транзакции, и «отправить событие и надеяться, что кто-то ответит» здесь не
+/// работает. Разбор SDP при этом остаётся снаружи — SIPCore про медиа не знает
+/// ничего.
+///
+/// Call-ID обязателен: у оператора до трёх линий, и пересогласовать сервер
+/// может ту, которая стоит на удержании.
+public typealias SIPMediaRenegotiator = @Sendable (String, Data) async -> Data?
 
 /// Человеческое объяснение кода отказа.
 ///

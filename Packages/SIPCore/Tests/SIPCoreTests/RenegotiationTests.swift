@@ -144,7 +144,7 @@ struct RenegotiationTests {
         let agent = await registeredAgent(server)
 
         let seen = OfferBox()
-        await agent.setMediaRenegotiator { offer in
+        await agent.setMediaRenegotiator { _, offer in
             seen.store(offer)
             return Data(Self.heldAnswerSDP.utf8)
         }
@@ -173,7 +173,7 @@ struct RenegotiationTests {
         let agent = await registeredAgent(server)
 
         let seen = OfferBox()
-        await agent.setMediaRenegotiator { offer in
+        await agent.setMediaRenegotiator { _, offer in
             seen.store(offer)
             return Data(Self.heldAnswerSDP.utf8)
         }
@@ -197,7 +197,7 @@ struct RenegotiationTests {
     func sendsTryingBeforeAnswer() async throws {
         let server = acceptingServer()
         let agent = await registeredAgent(server)
-        await agent.setMediaRenegotiator { _ in Data(Self.heldAnswerSDP.utf8) }
+        await agent.setMediaRenegotiator { _, _ in Data(Self.heldAnswerSDP.utf8) }
 
         let toTag = try await answeredCall(on: agent, server: server)
         let before = server.sentResponses.count
@@ -219,7 +219,7 @@ struct RenegotiationTests {
     func rejectsUnacceptableOfferWith488() async throws {
         let server = acceptingServer()
         let agent = await registeredAgent(server)
-        await agent.setMediaRenegotiator { _ in nil }
+        await agent.setMediaRenegotiator { _, _ in nil }
 
         let toTag = try await answeredCall(on: agent, server: server)
         let before = server.sentResponses.count
@@ -239,7 +239,7 @@ struct RenegotiationTests {
     func answersEmptyReinviteWithCurrentDescription() async throws {
         let server = acceptingServer()
         let agent = await registeredAgent(server)
-        await agent.setMediaRenegotiator { _ in
+        await agent.setMediaRenegotiator { _, _ in
             Issue.record("пересогласовывать нечего: предложения не было")
             return nil
         }
@@ -265,7 +265,7 @@ struct RenegotiationTests {
     func sendsReinviteWithinDialog() async throws {
         let server = acceptingServer()
         let agent = await registeredAgent(server)
-        await agent.setMediaRenegotiator { _ in nil }
+        await agent.setMediaRenegotiator { _, _ in nil }
 
         let toTag = try await answeredCall(on: agent, server: server)
 
@@ -315,7 +315,7 @@ struct RenegotiationTests {
     func failedReinviteKeepsCallAlive() async throws {
         let server = acceptingServer()
         let agent = await registeredAgent(server)
-        await agent.setMediaRenegotiator { _ in nil }
+        await agent.setMediaRenegotiator { _, _ in nil }
 
         _ = try await answeredCall(on: agent, server: server)
 
@@ -341,7 +341,7 @@ struct RenegotiationTests {
     func answersGlareWith491() async throws {
         let server = acceptingServer()
         let agent = await registeredAgent(server)
-        await agent.setMediaRenegotiator { _ in
+        await agent.setMediaRenegotiator { _, _ in
             Issue.record("на встречное предложение отвечать 491, а не пересогласовывать")
             return nil
         }

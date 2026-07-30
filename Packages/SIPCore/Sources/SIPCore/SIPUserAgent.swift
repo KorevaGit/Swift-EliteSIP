@@ -41,9 +41,24 @@ public actor SIPUserAgent {
     private var cachedChallenge: (challenge: DigestChallenge, responseHeader: String)?
     private var nonceCount = 0
 
-    /// Текущий звонок. Линия одна: несколько линий появятся в M5 вместе с
-    /// переводом, и тогда это станет словарём по Call-ID.
-    private var activeCall: ActiveCall?
+    /// Линии, адресуемые по Call-ID.
+    ///
+    /// Ключ именно Call-ID, а не порядковый номер линии: все входящие запросы
+    /// приходят с ним, и любой другой ключ пришлось бы искать перебором на
+    /// каждый BYE, повторный INVITE и NOTIFY.
+    private var calls: [String: ActiveCall] = [:]
+
+    /// Порядок появления линий. Словарь его не хранит, а оператору линии нужны
+    /// в том порядке, в каком он их завёл: первая — разговор, вторая —
+    /// консультация, третья — конференция.
+    private var lineOrder: [String] = []
+
+    /// Сколько разговоров агент держит одновременно.
+    ///
+    /// Три — это исходный разговор, консультационный звонок и третий участник
+    /// для конференции. Четвёртую линию оператор не удержит в голове, а
+    /// каждая занимает пару портов RTP/RTCP и свой диалог на сервере.
+    public static let maximumLines = 3
 
     private struct ActiveCall {
 
@@ -54,6 +69,8 @@ public actor SIPUserAgent {
 
         let role: Role
         let callID: String
+        /// Номер собеседника: цель набора у исходящего, From у входящего.
+        let peer: String
         let localTag: String
         let branch: String
         /// Номер CSeq INVITE. ACK на 2xx обязан повторить его.
@@ -82,6 +99,79 @@ public actor SIPUserAgent {
         /// REFER уже принят в работу. Второй перевод того же диалога до
         /// финального NOTIFY двусмысленен и потому отклоняется локально.
         var isTransferring = false
+    }
+
+    // MARK: - Линии
+
+    /// Что снаружи видно про одну линию.
+    ///
+    /// Снимок, а не ссылка на живой звонок: агент — actor, и отдавать наружу
+    /// изменяемое состояние значило бы отдать гонку.
+    public struct Line: Sendable, Equatable {
+        public let callID: String
+        public let peer: String
+        public let state: SIPCallState
+        /// Позвонили мы. Входящая линия одна и только первая: занятому
+        /// оператору второй вызов не показывается вовсе.
+        public let isOutgoing: Bool
+        /// Идентификатор для Replaces. До ответа диалога ещё нет.
+        public let dialogIdentifier: SIPDialogIdentifier?
+    }
+
+    /// Линии в порядке появления.
+    public var lines: [Line] {
+        lineOrder.compactMap { callID in
+            guard let call = calls[callID] else { return nil }
+            return Line(
+                callID: call.callID,
+                peer: call.peer,
+                state: call.state,
+                isOutgoing: call.role == .caller,
+                dialogIdentifier: call.dialog.map(SIPDialogIdentifier.init(dialog:))
+            )
+        }
+    }
+
+    /// Линии, место под которые занято, а диалога ещё нет.
+    ///
+    /// Между `placeCall` и первым INVITE есть ожидание готовности транспорта, и
+    /// без этого множества два быстрых нажатия проходят проверку свободной
+    /// линии оба: `calls` в этот момент ещё пуст. Занять место надо там, где
+    /// решение принимается, — в синхронной части `placeCall`.
+    private var reservedLines: Set<String> = []
+
+    /// Свободна ли ещё одна линия.
+    public var hasFreeLine: Bool {
+        calls.count + reservedLines.count < Self.maximumLines
+    }
+
+    private func add(_ call: ActiveCall) {
+        reservedLines.remove(call.callID)
+        if calls.updateValue(call, forKey: call.callID) == nil {
+            lineOrder.append(call.callID)
+        }
+    }
+
+    private func removeCall(_ callID: String) {
+        reservedLines.remove(callID)
+        calls.removeValue(forKey: callID)
+        lineOrder.removeAll { $0 == callID }
+    }
+
+    /// Приводит необязательный Call-ID к существующей линии.
+    ///
+    /// Без аргумента адресуется единственная линия — так вызывают `sipcheck` и
+    /// проверки, которым многолинейность не нужна. При двух и более линиях
+    /// умолчания нет: догадка здесь означала бы положить трубку не тому.
+    private func resolve(_ callID: String?) -> ActiveCall? {
+        if let callID { return calls[callID] }
+        guard lineOrder.count == 1 else { return nil }
+        return calls[lineOrder[0]]
+    }
+
+    /// Линия, на которой сейчас звонят нам.
+    private var incomingCall: ActiveCall? {
+        lineOrder.lazy.compactMap { self.calls[$0] }.first { $0.state == .incoming }
     }
 
     /// Активная подписка, созданная REFER. Ключ — Call-ID исходного диалога:
@@ -442,14 +532,25 @@ public actor SIPUserAgent {
 
     // MARK: - Исходящий звонок
 
-    public var callState: SIPCallState? { activeCall?.state }
+    /// Состояние единственной линии. При двух и более возвращает nil —
+    /// спрашивать надо `callState(of:)` или `lines`.
+    public var callState: SIPCallState? { resolve(nil)?.state }
 
-    /// Идентификатор текущего установленного диалога для Replaces.
+    public func callState(of callID: String) -> SIPCallState? {
+        calls[callID]?.state
+    }
+
+    /// Идентификатор установленного диалога для Replaces.
     ///
-    /// Он нужен второму разговору при консультационном переводе. До ответа
-    /// диалога ещё нет, поэтому возвращается nil.
+    /// Он нужен исходному разговору, чтобы сослаться на консультационный. До
+    /// ответа диалога ещё нет, поэтому возвращается nil.
+    public func dialogIdentifier(of callID: String) -> SIPDialogIdentifier? {
+        calls[callID]?.dialog.map(SIPDialogIdentifier.init(dialog:))
+    }
+
+    /// То же для единственной линии.
     public var currentDialogIdentifier: SIPDialogIdentifier? {
-        activeCall?.dialog.map(SIPDialogIdentifier.init(dialog:))
+        resolve(nil)?.dialog.map(SIPDialogIdentifier.init(dialog:))
     }
 
     /// Адрес, который надо указывать в SDP.
@@ -464,37 +565,51 @@ public actor SIPUserAgent {
     /// `offer` — готовое тело SDP. Слой сигнализации его не разбирает: медиа
     /// согласовывает вызывающий, и благодаря этому SIPCore не зависит ни от
     /// кодеков, ни от аудио, и тестируется без звуковой карты.
+    ///
+    /// Возвращается не только поток событий, но и Call-ID: им линия
+    /// адресуется дальше — на удержание, перевод и завершение.
     public func placeCall(
         to target: String,
         offer: Data,
         contentType: String = "application/sdp"
-    ) -> AsyncStream<SIPCallEvent> {
+    ) -> SIPOutgoingCall {
+        let callID = SIPToken.callID()
         let (stream, continuation) = AsyncStream<SIPCallEvent>.makeStream(bufferingPolicy: .bufferingNewest(32))
 
-        func reject(_ error: SIPCallError) -> AsyncStream<SIPCallEvent> {
+        func reject(_ error: SIPCallError) -> SIPOutgoingCall {
             continuation.yield(.failed(status: 0, reason: error.description))
             continuation.finish()
-            return stream
+            return SIPOutgoingCall(callID: callID, events: stream)
         }
 
-        guard activeCall == nil else { return reject(.alreadyInCall) }
+        guard hasFreeLine else { return reject(.tooManyLines(maximum: Self.maximumLines)) }
 
         let number = target.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !number.isEmpty else { return reject(.emptyTarget) }
 
+        // Место под линию занимается здесь, в синхронной части: дальше идёт
+        // ожидание транспорта, и до него `calls` про эту линию ещё не знает.
+        reservedLines.insert(callID)
+
         Task { [weak self] in
-            await self?.runCall(to: number, offer: offer, contentType: contentType, continuation: continuation)
+            await self?.runCall(
+                callID: callID,
+                to: number,
+                offer: offer,
+                contentType: contentType,
+                continuation: continuation
+            )
         }
-        return stream
+        return SIPOutgoingCall(callID: callID, events: stream)
     }
 
     private func runCall(
+        callID: String,
         to target: String,
         offer: Data,
         contentType: String,
         continuation: AsyncStream<SIPCallEvent>.Continuation
     ) async {
-        let callID = SIPToken.callID()
         let localTag = SIPToken.tag()
         var sequence = 0
 
@@ -515,13 +630,18 @@ public actor SIPUserAgent {
                     local: local
                 )
                 guard let branch = request.topVia?.branch else {
-                    finishCall(with: .failed(status: 0, reason: "не удалось собрать запрос"), continuation: continuation)
+                    finishCall(
+                        callID: callID,
+                        with: .failed(status: 0, reason: "не удалось собрать запрос"),
+                        continuation: continuation
+                    )
                     return
                 }
 
-                activeCall = ActiveCall(
+                add(ActiveCall(
                     role: .caller,
                     callID: callID,
+                    peer: target,
                     localTag: localTag,
                     branch: branch,
                     inviteSequence: sequence,
@@ -529,8 +649,8 @@ public actor SIPUserAgent {
                     dialog: nil,
                     state: .dialing,
                     localSDP: offer
-                )
-                emitCallState(.dialing)
+                ))
+                emitCallState(.dialing, of: callID)
                 log(.info, "-> INVITE \(target)")
 
                 var needsRetryWithAuth = false
@@ -543,11 +663,16 @@ public actor SIPUserAgent {
                     case .provisional(let response):
                         log(.debug, "<- \(response.statusCode) \(response.reasonPhrase)")
                         if response.statusCode >= 180 {
-                            emitCallState(.ringing)
+                            emitCallState(.ringing, of: callID)
                         }
 
                     case .success(let response):
-                        await handleCallAnswered(request: request, response: response, local: local)
+                        await handleCallAnswered(
+                            callID: callID,
+                            request: request,
+                            response: response,
+                            local: local
+                        )
                         return
 
                     case .failure(let response):
@@ -561,44 +686,77 @@ public actor SIPUserAgent {
                         }
                         let reason = describeCallFailure(status: response.statusCode, reason: response.reasonPhrase)
                         log(.info, "<- \(response.statusCode) \(response.reasonPhrase)")
-                        finishCall(with: .failed(status: response.statusCode, reason: reason), continuation: continuation)
+                        finishCall(
+                            callID: callID,
+                            with: .failed(status: response.statusCode, reason: reason),
+                            continuation: continuation
+                        )
                         return
 
                     case .timeout:
-                        finishCall(with: .failed(status: 408, reason: "сервер не ответил"), continuation: continuation)
+                        finishCall(
+                            callID: callID,
+                            with: .failed(status: 408, reason: "сервер не ответил"),
+                            continuation: continuation
+                        )
                         return
 
                     case .transportFailed(let reason):
-                        finishCall(with: .failed(status: 0, reason: "сеть: \(reason)"), continuation: continuation)
+                        finishCall(
+                            callID: callID,
+                            with: .failed(status: 0, reason: "сеть: \(reason)"),
+                            continuation: continuation
+                        )
                         return
                     }
                 }
 
                 guard needsRetryWithAuth else {
-                    finishCall(with: .failed(status: 0, reason: "звонок прерван"), continuation: continuation)
+                    finishCall(
+                        callID: callID,
+                        with: .failed(status: 0, reason: "звонок прерван"),
+                        continuation: continuation
+                    )
                     return
                 }
             } catch {
-                finishCall(with: .failed(status: 0, reason: Self.describe(error)), continuation: continuation)
+                finishCall(
+                    callID: callID,
+                    with: .failed(status: 0, reason: Self.describe(error)),
+                    continuation: continuation
+                )
                 return
             }
         }
 
-        finishCall(with: .failed(status: 401, reason: "сервер не принял авторизацию"), continuation: continuation)
+        finishCall(
+            callID: callID,
+            with: .failed(status: 401, reason: "сервер не принял авторизацию"),
+            continuation: continuation
+        )
     }
 
-    private func handleCallAnswered(request: SIPRequest, response: SIPResponse, local: SIPEndpoint) async {
-        guard var call = activeCall else { return }
+    private func handleCallAnswered(
+        callID: String,
+        request: SIPRequest,
+        response: SIPResponse,
+        local: SIPEndpoint
+    ) async {
+        guard var call = calls[callID] else { return }
 
         guard let dialog = SIPDialog(initiatorRequest: request, response: response) else {
             log(.error, "в 200 OK нет Contact — диалог собрать невозможно")
-            finishCall(with: .failed(status: 0, reason: "ответ без Contact"), continuation: call.continuation)
+            finishCall(
+                callID: callID,
+                with: .failed(status: 0, reason: "ответ без Contact"),
+                continuation: call.continuation
+            )
             return
         }
 
         call.dialog = dialog
         call.state = .answered
-        activeCall = call
+        calls[callID] = call
 
         // ACK на 2xx идёт ВНЕ транзакции, по маршруту диалога и с тем же
         // номером CSeq, что у INVITE.
@@ -638,14 +796,19 @@ public actor SIPUserAgent {
     /// Возвращает тело ответа — новый SDP собеседника. Разбирает его вызывающий:
     /// граница слоёв та же, что у обычного звонка.
     @discardableResult
-    public func reinvite(offer: Data, contentType: String = "application/sdp") async throws -> Data {
-        guard let existing = activeCall, existing.dialog != nil, existing.state == .answered else {
+    public func reinvite(
+        callID requested: String? = nil,
+        offer: Data,
+        contentType: String = "application/sdp"
+    ) async throws -> Data {
+        guard let existing = resolve(requested), existing.dialog != nil, existing.state == .answered else {
             throw SIPRenegotiationError.noActiveCall
         }
         guard !existing.isRenegotiating else { throw SIPRenegotiationError.alreadyRenegotiating }
 
-        setRenegotiating(true, callID: existing.callID)
-        defer { setRenegotiating(false, callID: existing.callID) }
+        let callID = existing.callID
+        setRenegotiating(true, callID: callID)
+        defer { setRenegotiating(false, callID: callID) }
 
         // Две попытки по той же причине, что и у первого INVITE: chan_sip
         // требует авторизацию и на повторный.
@@ -657,13 +820,13 @@ public actor SIPUserAgent {
                 throw SIPRenegotiationError.transportFailed(Self.describe(error))
             }
 
-            guard var call = activeCall, let dialog = call.dialog else {
+            guard var call = calls[callID], let dialog = call.dialog else {
                 throw SIPRenegotiationError.noActiveCall
             }
 
             let (updated, sequence) = dialog.nextSequence()
             call.dialog = updated
-            activeCall = call
+            calls[callID] = call
 
             var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
             via.branch = SIPToken.branch()
@@ -695,7 +858,13 @@ public actor SIPUserAgent {
                     continue
 
                 case .success(let response):
-                    await acknowledge(reinvite: response, sequence: sequence, local: local, offer: offer)
+                    await acknowledge(
+                        callID: callID,
+                        reinvite: response,
+                        sequence: sequence,
+                        local: local,
+                        offer: offer
+                    )
                     log(.info, "<- 200 OK на повторный INVITE")
                     return response.body
 
@@ -736,19 +905,20 @@ public actor SIPUserAgent {
     }
 
     private func setRenegotiating(_ value: Bool, callID: String) {
-        guard var call = activeCall, call.callID == callID else { return }
+        guard var call = calls[callID] else { return }
         call.isRenegotiating = value
-        activeCall = call
+        calls[callID] = call
     }
 
     /// Подтверждает 200 OK на наш повторный INVITE и запоминает новые параметры.
     private func acknowledge(
+        callID: String,
         reinvite response: SIPResponse,
         sequence: Int,
         local: SIPEndpoint,
         offer: Data
     ) async {
-        guard var call = activeCall, var dialog = call.dialog else { return }
+        guard var call = calls[callID], var dialog = call.dialog else { return }
 
         // Contact в ответе может смениться: RFC 3261 §12.2.1.2 называет это
         // обновлением цели, и пропустить его значит слать следующий BYE туда,
@@ -758,7 +928,7 @@ public actor SIPUserAgent {
         }
         call.dialog = dialog
         call.localSDP = offer
-        activeCall = call
+        calls[callID] = call
 
         var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
         via.branch = SIPToken.branch()
@@ -780,7 +950,12 @@ public actor SIPUserAgent {
     /// Без `replacing` это слепой перевод. С `replacing` в Refer-To добавляется
     /// URI-header Replaces — адресат нового INVITE заменит уже идущий
     /// консультационный разговор (RFC 3891).
+    ///
+    /// `callID` — линия, ПО КОТОРОЙ уходит REFER, то есть исходный разговор.
+    /// Консультационная линия при этом называется в `replacing`, и завершать её
+    /// после успеха — дело вызывающего.
     public func transfer(
+        callID requested: String? = nil,
         to target: String,
         replacing: SIPDialogIdentifier? = nil
     ) -> AsyncStream<SIPTransferEvent> {
@@ -806,7 +981,7 @@ public actor SIPUserAgent {
         ) == nil else {
             return reject(.invalidTarget)
         }
-        guard let call = activeCall, call.dialog != nil, call.state == .answered else {
+        guard let call = resolve(requested), call.dialog != nil, call.state == .answered else {
             return reject(.noActiveCall)
         }
         guard !call.isTransferring else { return reject(.alreadyTransferring) }
@@ -852,7 +1027,7 @@ public actor SIPUserAgent {
                 return
             }
 
-            guard var call = activeCall, call.callID == callID, let dialog = call.dialog else {
+            guard var call = calls[callID], let dialog = call.dialog else {
                 finishTransfer(
                     callID: callID,
                     event: .failed(status: 0, reason: SIPTransferError.noActiveCall.description)
@@ -862,7 +1037,7 @@ public actor SIPUserAgent {
 
             let (updated, sequence) = dialog.nextSequence()
             call.dialog = updated
-            activeCall = call
+            calls[callID] = call
 
             var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
             via.branch = SIPToken.branch()
@@ -979,9 +1154,9 @@ public actor SIPUserAgent {
     }
 
     private func setTransferring(_ value: Bool, callID: String) {
-        guard var call = activeCall, call.callID == callID else { return }
+        guard var call = calls[callID] else { return }
         call.isTransferring = value
-        activeCall = call
+        calls[callID] = call
     }
 
     private func finishTransfer(callID: String, event: SIPTransferEvent) {
@@ -1000,32 +1175,41 @@ public actor SIPUserAgent {
     }
 
     /// Завершает звонок со своей стороны.
-    public func hangUp() async {
-        guard var call = activeCall else { return }
+    ///
+    /// Без Call-ID кладёт трубку на всех линиях сразу. Это не удобство, а
+    /// требование выхода: `stop()` обязан закрыть каждый диалог, пока транспорт
+    /// ещё жив, иначе сервер продолжит держать разговоры, о которых мы уже
+    /// забыли.
+    public func hangUp(callID: String? = nil) async {
+        guard let callID else {
+            for line in lineOrder { await hangUp(callID: line) }
+            return
+        }
+        guard var call = calls[callID] else { return }
 
         // Входящий, на который мы ещё не ответили, завершается отказом, а не
         // CANCEL: CANCEL отменяет СВОЙ запрос, а этот запрос не наш.
         if call.role == .callee, call.dialog == nil {
-            await rejectIncomingCall(status: 486)
+            await rejectIncomingCall(callID: callID, status: 486)
             return
         }
 
         if let dialog = call.dialog {
-            emitCallState(.ending)
+            emitCallState(.ending, of: callID)
             let (updated, sequence) = dialog.nextSequence()
             call.dialog = updated
-            activeCall = call
+            calls[callID] = call
 
             if let local = try? await transactions.waitUntilReady() {
                 await sendBye(dialog: updated, sequence: sequence, local: local)
             }
-            finishCall(with: .ended(reason: "завершён"), continuation: call.continuation)
+            finishCall(callID: callID, with: .ended(reason: "завершён"), continuation: call.continuation)
         } else {
             // Диалога ещё нет: собеседник не ответил, значит отменяем INVITE.
-            emitCallState(.ending)
+            emitCallState(.ending, of: callID)
             _ = try? await transactions.cancelInvite(branch: call.branch)
             log(.info, "-> CANCEL")
-            finishCall(with: .ended(reason: "отменён"), continuation: call.continuation)
+            finishCall(callID: callID, with: .ended(reason: "отменён"), continuation: call.continuation)
         }
     }
 
@@ -1127,27 +1311,29 @@ public actor SIPUserAgent {
         )
     }
 
-    private func emitCallState(_ newState: SIPCallState) {
-        guard var call = activeCall, call.state != newState else { return }
+    private func emitCallState(_ newState: SIPCallState, of callID: String) {
+        guard var call = calls[callID], call.state != newState else { return }
         call.state = newState
-        activeCall = call
+        calls[callID] = call
         call.continuation.yield(.state(newState))
     }
 
-    private func finishCall(with event: SIPCallEvent, continuation: AsyncStream<SIPCallEvent>.Continuation) {
+    private func finishCall(
+        callID: String,
+        with event: SIPCallEvent,
+        continuation: AsyncStream<SIPCallEvent>.Continuation
+    ) {
         // Серверную транзакцию снимаем вместе со звонком: ждать ACK на ответ
         // по завершённому вызову незачем, а её таймеры пережили бы сам звонок.
-        if let call = activeCall, call.role == .callee {
-            let callID = call.callID
+        if calls[callID]?.role == .callee {
             Task { await transactions.forgetServerInvite(callID: callID) }
         }
-        if let callID = activeCall?.callID,
-           let transfer = transferSubscriptions.removeValue(forKey: callID) {
+        if let transfer = transferSubscriptions.removeValue(forKey: callID) {
             transferTimeoutTasks.removeValue(forKey: callID)?.cancel()
             transfer.yield(.failed(status: 0, reason: "разговор завершился во время перевода"))
             transfer.finish()
         }
-        activeCall = nil
+        removeCall(callID)
 
         let reason = switch event {
         case .failed(_, let text): text
@@ -1169,31 +1355,33 @@ public actor SIPUserAgent {
     /// что дольше, — уже решение оператора, и торопить его нечем.
     private func handle(invite request: SIPRequest) async {
         // Повторный INVITE внутри установленного диалога — это удержание или
-        // смена медиа.
-        if let call = activeCall, call.dialog != nil {
-            if matchesDialog(request, call: call) {
-                await handle(reinvite: request, call: call)
-                return
-            }
-
-            // To-tag означает запрос внутри уже существующего диалога. Если
-            // тройка идентификаторов не совпала, это не новый звонок и не
-            // «занято», а неизвестный диалог.
-            if request.to?.tag != nil {
-                var missing = SIPResponse(
-                    statusCode: 481,
-                    headers: responseHeaders(for: request)
-                )
-                missing.headers.append(SIPHeaderName.userAgent, userAgentName)
-                try? await transactions.respondToInvite(to: request, with: missing)
-                log(.warning, "<- повторный INVITE с чужими тегами, ответили 481")
-                return
-            }
+        // смена медиа. Искать надо по всем линиям: пересогласовать сервер может
+        // ту, которая стоит на удержании, а не ту, где идёт разговор.
+        if let call = matchingCall(for: request) {
+            await handle(reinvite: request, call: call)
+            return
         }
 
-        // Линия одна. Второй вызов получает «занято», а не молчание: очередь
-        // раздачи должна сразу отдать лид следующему агенту.
-        guard activeCall == nil else {
+        // To-tag означает запрос внутри уже существующего диалога. Если тройка
+        // идентификаторов не совпала ни с одной линией, это не новый звонок и
+        // не «занято», а неизвестный диалог.
+        if request.to?.tag != nil {
+            var missing = SIPResponse(
+                statusCode: 481,
+                headers: responseHeaders(for: request)
+            )
+            missing.headers.append(SIPHeaderName.userAgent, userAgentName)
+            try? await transactions.respondToInvite(to: request, with: missing)
+            log(.warning, "<- повторный INVITE с чужими тегами, ответили 481")
+            return
+        }
+
+        // Свободные линии заводит только оператор — консультацией или третьим
+        // участником конференции. Входящий вызов занятому оператору по-прежнему
+        // получает «занято»: у раздачи лидов иначе нет повода отдать вызов
+        // следующему агенту, а оператор с чужим лидом в ухе разговаривает с
+        // текущим клиентом.
+        guard calls.isEmpty else {
             var busy = SIPResponse(statusCode: 486, headers: responseHeaders(for: request))
             busy.headers.append(SIPHeaderName.userAgent, userAgentName)
             try? await transactions.respondToInvite(to: request, with: busy)
@@ -1225,10 +1413,12 @@ public actor SIPUserAgent {
 
         let callTag = SIPToken.tag()
         let (stream, continuation) = AsyncStream<SIPCallEvent>.makeStream(bufferingPolicy: .bufferingNewest(32))
+        let from = request.from
 
-        activeCall = ActiveCall(
+        add(ActiveCall(
             role: .callee,
             callID: callID,
+            peer: from?.uri.user ?? "",
             localTag: callTag,
             branch: branch,
             inviteSequence: request.cseq?.number ?? 1,
@@ -1236,7 +1426,7 @@ public actor SIPUserAgent {
             dialog: nil,
             state: .incoming,
             inviteRequest: request
-        )
+        ))
 
         let trying = SIPResponse(statusCode: 100, headers: responseHeaders(for: request, localTag: callTag))
         try? await transactions.respondToInvite(to: request, with: trying)
@@ -1247,7 +1437,6 @@ public actor SIPUserAgent {
         ringing.headers.append(SIPHeaderName.userAgent, userAgentName)
         try? await transactions.respondToInvite(to: request, with: ringing)
 
-        let from = request.from
         let call = SIPIncomingCall(
             callID: callID,
             callerNumber: from?.uri.user ?? "",
@@ -1291,10 +1480,10 @@ public actor SIPUserAgent {
 
         // Обновление цели: собеседник мог сменить Contact.
         if let contact = request.contacts.first?.uri,
-           var current = activeCall, var dialog = current.dialog {
+           var current = calls[call.callID], var dialog = current.dialog {
             dialog.remoteTarget = contact
             current.dialog = dialog
-            activeCall = current
+            calls[call.callID] = current
         }
 
         let answer: Data?
@@ -1304,7 +1493,10 @@ public actor SIPUserAgent {
             answer = call.localSDP
             log(.debug, "<- повторный INVITE без предложения, отвечаем прежним описанием")
         } else if let renegotiator = mediaRenegotiator {
-            answer = await renegotiator(request.body)
+            // Линия называется явно: у оператора их до трёх, и ответить
+            // описанием активной на предложение по удержанной значит переехать
+            // звуком не туда.
+            answer = await renegotiator(call.callID, request.body)
         } else {
             // Пересогласователь не задан — значит медиа никто не держит. Так
             // бывает только в тестах сигнализации; в приложении и в sipcheck он
@@ -1314,7 +1506,7 @@ public actor SIPUserAgent {
         }
 
         // Пока пересогласователь работал, звонок мог завершиться.
-        guard let current = activeCall, matchesDialog(request, call: current) else {
+        guard let current = calls[call.callID], matchesDialog(request, call: current) else {
             log(.debug, "пересогласование закончилось позже звонка")
             return
         }
@@ -1342,7 +1534,7 @@ public actor SIPUserAgent {
 
         var updated = current
         updated.localSDP = answer
-        activeCall = updated
+        calls[updated.callID] = updated
 
         try? await transactions.respondToInvite(to: request, with: response)
         log(.info, "<- повторный INVITE пересогласован")
@@ -1354,8 +1546,12 @@ public actor SIPUserAgent {
     /// начинает слать RTP по 200 OK, и первые полсекунды разговора иначе
     /// уходят в никуда.
     @discardableResult
-    public func answerIncomingCall(answer: Data, contentType: String = "application/sdp") async -> Bool {
-        guard var call = activeCall,
+    public func answerIncomingCall(
+        callID requested: String? = nil,
+        answer: Data,
+        contentType: String = "application/sdp"
+    ) async -> Bool {
+        guard var call = requested.map({ calls[$0] }) ?? incomingCall,
               call.role == .callee,
               call.state == .incoming,
               let invite = call.inviteRequest
@@ -1363,7 +1559,7 @@ public actor SIPUserAgent {
 
         guard let dialog = SIPDialog(responderRequest: invite, localTag: call.localTag) else {
             log(.error, "во входящем INVITE нет Contact — диалог собрать невозможно")
-            await rejectIncomingCall(status: 400)
+            await rejectIncomingCall(callID: call.callID, status: 400)
             return false
         }
 
@@ -1380,13 +1576,17 @@ public actor SIPUserAgent {
         call.dialog = dialog
         call.state = .answered
         call.localSDP = answer
-        activeCall = call
+        calls[call.callID] = call
 
         do {
             try await transactions.respondToInvite(to: invite, with: response)
         } catch {
             log(.error, "не удалось отправить 200 OK: \(Self.describe(error))")
-            finishCall(with: .failed(status: 0, reason: "ответ не ушёл"), continuation: call.continuation)
+            finishCall(
+                callID: call.callID,
+                with: .failed(status: 0, reason: "ответ не ушёл"),
+                continuation: call.continuation
+            )
             return false
         }
 
@@ -1400,8 +1600,8 @@ public actor SIPUserAgent {
     /// 486 «занято» по умолчанию, а не 603 «отклонён»: при раздаче лидов
     /// первое возвращает вызов в очередь следующему агенту, второе завершает
     /// его совсем.
-    public func rejectIncomingCall(status: Int = 486) async {
-        guard let call = activeCall,
+    public func rejectIncomingCall(callID requested: String? = nil, status: Int = 486) async {
+        guard let call = requested.map({ calls[$0] }) ?? incomingCall,
               call.role == .callee,
               call.state == .incoming,
               let invite = call.inviteRequest
@@ -1415,23 +1615,23 @@ public actor SIPUserAgent {
         try? await transactions.respondToInvite(to: invite, with: response)
 
         log(.info, "-> \(status), звонок отклонён")
-        finishCall(with: .ended(reason: "отклонён"), continuation: call.continuation)
+        finishCall(callID: call.callID, with: .ended(reason: "отклонён"), continuation: call.continuation)
     }
 
     /// Судьба нашего 200 OK на входящий звонок.
     private func handle(serverInvite event: SIPServerInviteEvent) async {
         switch event {
         case .acknowledged(let callID):
-            guard let call = activeCall, call.callID == callID else { return }
+            guard calls[callID] != nil else { return }
             log(.debug, "<- ACK, разговор подтверждён")
 
         case .notAcknowledged(let callID):
-            guard let call = activeCall, call.callID == callID, call.dialog != nil else { return }
+            guard let call = calls[callID], call.dialog != nil else { return }
             // Диалог создан нашим 200, но подтверждения нет. RFC 3261 §13.3.1.4
             // требует закрыть его через BYE: иначе на нашей стороне разговор,
             // о котором собеседник не знает, а оператор говорит в пустоту.
             log(.warning, "ACK не пришёл за 32 с — закрываем звонок")
-            await hangUp()
+            await hangUp(callID: call.callID)
         }
     }
 
@@ -1449,7 +1649,7 @@ public actor SIPUserAgent {
             log(.debug, "<- OPTIONS, ответили 200")
 
         case .bye:
-            guard let call = activeCall, matchesDialog(request, call: call) else {
+            guard let call = matchingCall(for: request) else {
                 let missing = SIPResponse(
                     statusCode: 481,
                     headers: responseHeaders(for: request)
@@ -1465,6 +1665,7 @@ public actor SIPUserAgent {
             try? await transactions.respond(to: request, with: response)
             log(.info, "<- BYE, собеседник завершил звонок")
             finishCall(
+                callID: call.callID,
                 with: .ended(reason: "собеседник завершил звонок"),
                 continuation: call.continuation
             )
@@ -1484,9 +1685,9 @@ public actor SIPUserAgent {
             let response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
             try? await transactions.respond(to: request, with: response)
 
-            guard let call = activeCall,
+            guard let callID = request.callID,
+                  let call = calls[callID],
                   call.role == .callee,
-                  call.callID == request.callID,
                   call.dialog == nil,
                   let invite = call.inviteRequest
             else {
@@ -1502,19 +1703,17 @@ public actor SIPUserAgent {
             try? await transactions.respondToInvite(to: invite, with: terminated)
 
             log(.info, "<- CANCEL, вызов отменён до ответа")
-            finishCall(with: .ended(reason: "отменён вызывающим"), continuation: call.continuation)
+            finishCall(callID: callID, with: .ended(reason: "отменён вызывающим"), continuation: call.continuation)
 
         case .notify:
             // REFER создаёт неявную подписку. Результат нового INVITE сервер
             // сообщает телом message/sipfrag. Чужой диалог подтверждать нельзя:
             // такой NOTIFY не относится к созданной нами подписке.
-            guard let call = activeCall,
-                  matchesDialog(request, call: call),
+            guard let call = matchingCall(for: request),
                   request.headers[SIPHeaderName.event]?
                 .lowercased()
                 .hasPrefix("refer") == true,
-                let callID = request.callID,
-                transferSubscriptions[callID] != nil
+                transferSubscriptions[call.callID] != nil
             else {
                 let missing = SIPResponse(
                     statusCode: 481,
@@ -1535,12 +1734,12 @@ public actor SIPUserAgent {
 
             if let fragment, (200..<300).contains(fragment.status) {
                 log(.info, "<- NOTIFY: перевод завершён")
-                finishTransfer(callID: callID, event: .succeeded)
+                finishTransfer(callID: call.callID, event: .succeeded)
             } else if let fragment, fragment.status >= 300 {
                 let reason = describeCallFailure(status: fragment.status, reason: fragment.reason)
                 log(.warning, "<- NOTIFY: перевод не состоялся, \(fragment.status) \(fragment.reason)")
                 finishTransfer(
-                    callID: callID,
+                    callID: call.callID,
                     event: .failed(status: fragment.status, reason: reason)
                 )
             } else if isTerminated {
@@ -1551,7 +1750,7 @@ public actor SIPUserAgent {
                 // кнопкой перевода.
                 log(.warning, "<- NOTIFY: подписка закрыта без результата перевода")
                 finishTransfer(
-                    callID: callID,
+                    callID: call.callID,
                     event: .failed(status: 500, reason: "сервер завершил перевод без результата")
                 )
             }
@@ -1577,6 +1776,17 @@ public actor SIPUserAgent {
     ///
     /// В запросе с удалённой стороны наш тег находится в To, удалённый — во
     /// From. Один Call-ID недостаточен для BYE, re-INVITE и REFER-NOTIFY.
+    /// Находит линию, которой принадлежит входящий запрос.
+    ///
+    /// Ищется по всей тройке идентификаторов, а не по одному Call-ID: у линий
+    /// он разный, но полагаться на это нельзя — сервер вправе прислать в чужом
+    /// Call-ID что угодно, а перепутанная линия означает завершённый не тот
+    /// разговор.
+    private func matchingCall(for request: SIPRequest) -> ActiveCall? {
+        guard let callID = request.callID, let call = calls[callID] else { return nil }
+        return matchesDialog(request, call: call) ? call : nil
+    }
+
     private func matchesDialog(_ request: SIPRequest, call: ActiveCall) -> Bool {
         guard let dialog = call.dialog, let callID = request.callID else {
             return false

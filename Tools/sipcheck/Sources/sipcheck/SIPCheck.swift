@@ -119,7 +119,7 @@ struct SIPCheck {
                 ? SDPNegotiator.narrowbandCodecs
                 : SDPNegotiator.defaultCodecs
         )
-        await agent.setMediaRenegotiator { offer in
+        await agent.setMediaRenegotiator { _, offer in
             live.renegotiate(offer: offer)
         }
 
@@ -359,7 +359,7 @@ struct SIPCheck {
         var heard: ToneAnalyser?
         var answered = false
 
-        for await event in await agent.placeCall(to: number, offer: offer.encodedData) {
+        for await event in await agent.placeCall(to: number, offer: offer.encodedData).events {
             switch event {
             case .state(let state):
                 print("   состояние звонка: \(state)")
