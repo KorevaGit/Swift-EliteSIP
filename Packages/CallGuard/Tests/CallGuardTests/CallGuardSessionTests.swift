@@ -55,7 +55,6 @@ struct CallGuardSessionTests {
         isSynthetic: Bool = false
     ) -> CallGuardAttempt {
         CallGuardAttempt(
-            source: .mouse,
             target: target ?? session.challenge.answer,
             isSynthetic: isSynthetic,
             at: start + .milliseconds(milliseconds)
@@ -67,24 +66,29 @@ struct CallGuardSessionTests {
     @Test("По умолчанию цифрового подтверждения нет — есть только случайность")
     func digitChallengeIsOptional() {
         let session = session()
-        // Основная мера — случайная позиция и задержка: они ничего не стоят
-        // оператору. Выбор цифры стоит внимания на каждом вызове, поэтому
-        // включается отдельно.
+        // Основная мера — случайная позиция окна: она ничего не стоит оператору.
+        // Выбор цифры стоит внимания на каждом вызове, поэтому включается
+        // отдельно и осознанно.
         #expect(session.challenge.hasChoice == false)
-        #expect(session.challenge.activationDelay > .zero)
         #expect(session.report.wasGuardEnabled)
     }
 
-    @Test("Без цифрового подтверждения приём работает обычной кнопкой")
-    func acceptsWithoutDigitChallenge() {
+    @Test("Кнопка активна сразу: мгновенный клик живой руки принимается")
+    func acceptsImmediateClick() {
         var session = session()
         moveCursorLikeHuman(&session)
 
-        let delay = session.challenge.activationDelay.wholeMilliseconds
-        #expect(session.evaluate(attempt: mouseAttempt(on: session, after: delay + 100)) == .accepted)
+        // Ноль миллисекунд от появления окна. Локальной задержки активации нет
+        // намеренно: она стоила оператору внимания на каждом вызове, а кликеру —
+        // одной строки ожидания. Ровное время реакции ловит статистика EliteDash.
+        let verdict = session.evaluate(attempt: mouseAttempt(on: session, after: 0))
+
+        #expect(verdict == .accepted)
+        #expect(session.report.reactionMilliseconds == 0)
+        #expect(session.report.looksAutomated == false)
     }
 
-    @Test("Задание собирается из непересекающихся целей и попадает в диапазон задержки")
+    @Test("Задание собирается из непересекающихся целей")
     func buildsChallenge() {
         for seed in UInt64(0)..<32 {
             var generator = SequenceGenerator([seed, seed &* 3 &+ 1, seed &+ 7])
@@ -93,64 +97,55 @@ struct CallGuardSessionTests {
             #expect(session.challenge.targets.count == 3)
             #expect(Set(session.challenge.targets).count == 3, "две одинаковые цифры сделали бы задание неразрешимым")
             #expect(session.challenge.targets.contains(session.challenge.answer))
-
-            let delay = session.challenge.activationDelay.wholeMilliseconds
-            #expect(delay >= 300 && delay <= 1500)
         }
     }
 
-    @Test("Выключенная защита не задаёт ни задержки, ни выбора")
+    @Test("Выключенная защита не задаёт выбора")
     func disabledPolicyProducesNoChallenge() {
         let session = session(policy: .disabled)
-        #expect(session.challenge.activationDelay == .zero)
         #expect(session.challenge.hasChoice == false)
         #expect(session.report.wasGuardEnabled == false)
     }
 
-    @Test("Перевёрнутый диапазон задержки не выключает защиту молча")
+    @Test("Сломанная политика не выключает защиту молча")
     func normalizesBrokenPolicy() {
         var broken = CallGuardPolicy()
-        broken.minimumActivationDelayMilliseconds = 900
-        broken.maximumActivationDelayMilliseconds = 100
         broken.targetCount = 0
+        broken.requiredCursorTravel = -50
+        broken.minimumTravel = -1
 
         let normalized = broken.normalized
-        #expect(normalized.maximumActivationDelayMilliseconds >= normalized.minimumActivationDelayMilliseconds)
         #expect(normalized.targetCount == 1)
+        #expect(normalized.requiredCursorTravel == 0)
+        #expect(normalized.minimumTravel == 0)
+    }
+
+    @Test("Старый файл настроек не возвращает задержку активации")
+    func ignoresRetiredDelayKeys() throws {
+        // Файл, записанный до удаления задержки. Ключи должны быть молча
+        // проигнорированы: подхватить их значило бы вернуть поведение, от
+        // которого отказались, — и вернуть его тихо, одним старым файлом.
+        let old = Data("""
+        {
+          "isEnabled": true,
+          "minimumActivationDelayMilliseconds": 900,
+          "maximumActivationDelayMilliseconds": 1500,
+          "targetCount": 1
+        }
+        """.utf8)
+
+        let policy = try JSONDecoder().decode(CallGuardPolicy.self, from: old)
+        #expect(policy.isEnabled)
 
         var generator = SequenceGenerator([5])
-        let session = CallGuardSession(policy: broken, presentedAt: start, using: &generator)
-        #expect(session.challenge.activationDelay == .milliseconds(900))
-    }
-
-    // MARK: - Слой 1: случайность
-
-    @Test("Клик раньше активации не принимается и попадает в отчёт")
-    func rejectsEarlyClick() {
-        var session = session()
+        var session = CallGuardSession(policy: policy, presentedAt: start, using: &generator)
         moveCursorLikeHuman(&session)
+        #expect(session.evaluate(attempt: mouseAttempt(on: session, after: 0)) == .accepted)
 
-        let delay = session.challenge.activationDelay.wholeMilliseconds
-        let verdict = session.evaluate(attempt: mouseAttempt(on: session, after: delay - 1))
-
-        #expect(verdict == .rejected(.tooEarly))
-        #expect(session.report.rejections[.tooEarly] == 1)
-        #expect(session.report.confirmedBy == nil)
-        #expect(session.report.looksAutomated)
-    }
-
-    @Test("После активации тот же клик принимается")
-    func acceptsAfterActivation() {
-        var session = session()
-        moveCursorLikeHuman(&session)
-
-        let delay = session.challenge.activationDelay.wholeMilliseconds
-        let verdict = session.evaluate(attempt: mouseAttempt(on: session, after: delay + 200))
-
-        #expect(verdict == .accepted)
-        #expect(session.report.confirmedBy == .mouse)
-        #expect(session.report.reactionMilliseconds == delay + 200)
-        #expect(session.report.looksAutomated == false)
+        // И обратно: удалённые ключи не должны появиться в новом файле.
+        let encoded = try JSONEncoder().encode(policy)
+        let text = String(decoding: encoded, as: UTF8.self)
+        #expect(text.contains("ActivationDelay") == false)
     }
 
     @Test("Нажатие не на ту цель отклоняется, но роботом не считается")
@@ -195,19 +190,6 @@ struct CallGuardSessionTests {
         #expect(session.evaluate(attempt: mouseAttempt(on: session, after: 2000)) == .rejected(.noCursorMovement))
     }
 
-    @Test("Клавиатуре движение курсора не требуется")
-    func keyboardNeedsNoCursor() {
-        var session = session()
-        let attempt = CallGuardAttempt(
-            source: .keyboard,
-            target: session.challenge.answer,
-            at: start + .milliseconds(2000)
-        )
-
-        #expect(session.evaluate(attempt: attempt) == .accepted)
-        #expect(session.report.confirmedBy == .keyboard)
-    }
-
     @Test("Синтетическое нажатие по умолчанию проходит, но остаётся в отчёте")
     func recordsSyntheticWithoutRejecting() {
         var session = session()
@@ -236,7 +218,7 @@ struct CallGuardSessionTests {
     @Test("Выключенная защита принимает даже мгновенный синтетический клик")
     func disabledGuardAcceptsEverything() {
         var session = session(policy: .disabled)
-        let attempt = CallGuardAttempt(source: .mouse, target: "1", isSynthetic: true, at: start)
+        let attempt = CallGuardAttempt(target: "1", isSynthetic: true, at: start)
 
         #expect(session.evaluate(attempt: attempt) == .accepted)
         // Отчёт при этом честно говорит, что защиты не было: в M8 по нему
@@ -252,16 +234,18 @@ struct CallGuardSessionTests {
         var session = session(policy: withDigits)
         let wrong = session.challenge.targets.first { $0 != session.challenge.answer }
 
+        // Два нажатия без движения курсора, одно мимо цели, и только потом
+        // честная попытка живой руки.
         _ = session.evaluate(attempt: mouseAttempt(on: session, after: 10))
         _ = session.evaluate(attempt: mouseAttempt(on: session, after: 20))
         _ = session.evaluate(attempt: mouseAttempt(on: session, after: 2000, target: wrong))
         moveCursorLikeHuman(&session)
         _ = session.evaluate(attempt: mouseAttempt(on: session, after: 2100))
 
-        #expect(session.report.rejections[.tooEarly] == 2)
+        #expect(session.report.rejections[.noCursorMovement] == 2)
         #expect(session.report.rejections[.wrongTarget] == 1)
         #expect(session.report.rejectedAttempts == 3)
-        #expect(session.report.confirmedBy == .mouse)
+        #expect(session.report.reactionMilliseconds == 2100)
         #expect(session.report.summary.contains("реакция 2100 мс"))
     }
 

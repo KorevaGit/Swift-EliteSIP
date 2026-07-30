@@ -418,17 +418,6 @@ private struct IncomingCallSettingsTab: View {
                 CompatLabeledContent(title: "Отступ от краёв экрана") {
                     SettingSlider(value: policy.screenMargin, range: 0...200, step: 8, unit: "pt")
                 }
-
-                CompatLabeledContent(title: "Задержка активации") {
-                    HStack(spacing: 8) {
-                        DelayField(milliseconds: policy.minimumActivationDelayMilliseconds)
-                        Text("—").compatForeground(.secondary)
-                        DelayField(milliseconds: policy.maximumActivationDelayMilliseconds)
-                        Text("мс").compatForeground(.secondary)
-                    }
-                }
-                .compatHelp("Клик раньше срока не принимается и попадает в отчёт")
-
             }
             .disabled(!isGuardOn)
 
@@ -723,8 +712,8 @@ private struct SettingSlider: View {
 
 /// Поле для миллисекунд.
 ///
-/// Именно числом, а не ползунком: диапазон задержки — это то, что настраивают
-/// один раз и по договорённости, и «примерно 700» здесь бесполезно.
+/// Именно числом, а не ползунком: длительности тонов настраивают один раз и по
+/// договорённости с той стороной, и «примерно 700» здесь бесполезно.
 private struct DelayField: View {
 
     @Binding var milliseconds: Int

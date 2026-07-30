@@ -1,4 +1,3 @@
-import Compat
 import CallGuard
 import SwiftUI
 
@@ -15,22 +14,21 @@ import SwiftUI
 /// Порядок «ответить / отклонить» при этом не перемешивается: у этих действий
 /// разные последствия, и провоцировать оператора на случайный отказ от лида
 /// недопустимо.
+///
+/// Принять вызов можно только мышью и сразу: клавиатурного пути нет намеренно
+/// (нажатие клавиши не оставляет защите ни одного признака живого человека), а
+/// задержки активации нет по решению заказчика — её цену платил оператор на
+/// каждом вызове. «Отклонить» доступен и с клавиатуры, и для screen reader.
 struct IncomingCallView: View {
 
     let callerNumber: String
     let callerName: String?
     let challenge: CallGuardChallenge
-    let activatesAt: MonotonicClock.Instant
     let isGuarded: Bool
-    let onAttempt: @MainActor (CallGuardAttempt.Source, Character) -> Void
+    let onAttempt: @MainActor (Character) -> Void
     let onDecline: @MainActor () -> Void
 
     @EnvironmentObject private var panel: IncomingCallPanel
-
-    /// Активны ли цели. Отдельным состоянием, а не вычислением от текущего
-    /// времени: SwiftUI не перерисовывает вид по ходу часов, и без явного
-    /// переключения кнопки остались бы серыми до первого чужого события.
-    @State private var isActive = false
 
     var body: some View {
         // Без Spacer и без заданной высоты: окно подгоняется под содержимое.
@@ -51,13 +49,6 @@ struct IncomingCallView: View {
         .padding(16)
         .frame(width: Theme.Metrics.incomingCallPanelWidth)
         .themedSurface()
-        .compatTask {
-            let remaining = activatesAt - .now
-            if remaining > .zero {
-                try? await Task.sleep(remaining)
-            }
-            isActive = true
-        }
     }
 
     /// Причина отказа занимает место подписи «Входящий вызов».
@@ -115,12 +106,12 @@ struct IncomingCallView: View {
 
     private var digitTargets: some View {
         HStack(spacing: 8) {
-            // Клавиатурный путь ловится монитором событий в панели, а не
-            // `keyboardShortcut`: окно намеренно не забирает фокус, и ярлыки в
-            // нём просто не сработали бы.
+            // Только мышью: цифра на клавиатуре вызов не принимает. Клавиатурное
+            // нажатие не оставляет защите ни одного признака живого человека, и
+            // отдельного пути для него здесь нет.
             ForEach(challenge.targets, id: \.self) { target in
-                DigitTargetButton(digit: target, isActive: isActive) {
-                    onAttempt(.mouse, target)
+                DigitTargetButton(digit: target) {
+                    onAttempt(target)
                 }
             }
         }
@@ -148,13 +139,13 @@ struct IncomingCallView: View {
     /// Обычная пара кнопок, когда подтверждение цифрой выключено.
     private var plainActions: some View {
         HStack(spacing: 10) {
+            // Кнопка активна с первого кадра: локальной задержки активации нет.
             FilledCallButton(
                 title: "Ответить",
                 icon: "phone.fill",
-                fill: Theme.Palette.answer.opacity(isActive ? 1 : 0.35),
-                isHoverable: isActive
+                fill: Theme.Palette.answer
             ) {
-                onAttempt(.mouse, challenge.answer)
+                onAttempt(challenge.answer)
             }
             // У цели приёма намеренно нет действия доступности: `AXPress`
             // нажимает элемент вообще без событий мыши, и ни одна проверка
@@ -163,7 +154,6 @@ struct IncomingCallView: View {
             // звонящего доступность сохраняют, то есть отказаться от вызова
             // можно и без мыши.
             .compatAccessibilityHidden(true)
-            .animation(.easeOut(duration: 0.2), value: isActive)
 
             FilledCallButton(
                 title: "Отклонить",
@@ -181,26 +171,22 @@ struct IncomingCallView: View {
 private struct DigitTargetButton: View {
 
     let digit: Character
-    let isActive: Bool
     let action: @MainActor () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(String(digit))
                 .font(Theme.Text.controlKey)
-                .compatForeground(isActive ? Color.primary : Theme.Palette.tertiary)
+                .compatForeground(.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .themedControlSurface()
-        // Подсветка только у активной цели: пока идёт задержка, отзывчивая на
-        // вид кнопка обещала бы то, чего ещё нет.
-        .hoverHighlight(isEnabled: isActive)
+        .hoverHighlight()
         // Нажать через Accessibility API нельзя — см. пояснение у «Ответить».
         .compatAccessibilityHidden(true)
-        .animation(.easeOut(duration: 0.2), value: isActive)
     }
 }
 
@@ -214,7 +200,6 @@ private struct FilledCallButton: View {
     let title: String
     let icon: String
     let fill: Color
-    var isHoverable = true
     let action: @MainActor () -> Void
 
     var body: some View {
@@ -231,6 +216,6 @@ private struct FilledCallButton: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .hoverHighlight(isEnabled: isHoverable)
+        .hoverHighlight()
     }
 }

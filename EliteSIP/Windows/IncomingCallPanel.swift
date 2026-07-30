@@ -39,16 +39,6 @@ final class IncomingCallPanel: ObservableObject {
     private var localCursorMonitor: Any?
     private var globalCursorMonitor: Any?
 
-    /// Цифры с клавиатуры.
-    ///
-    /// Локальный монитор, а не `keyboardShortcut` во вьюхе: окно намеренно не
-    /// становится ключевым, и ярлыки SwiftUI в нём не срабатывают. Отсюда же
-    /// граница возможного — клавиатура работает, когда EliteSIP впереди.
-    /// Перехват клавиш из-под чужого приложения требует разрешения на
-    /// мониторинг ввода; просить его ради ускорения на полсекунды в M3 не
-    /// стали, вопрос отложен до M7 вместе с подписью и правами.
-    private var keyMonitor: Any?
-
     /// Что показать оператору, если нажатие не принято.
     @Published private(set) var refusal: String?
 
@@ -104,10 +94,9 @@ final class IncomingCallPanel: ObservableObject {
                 callerNumber: callerNumber,
                 callerName: callerName,
                 challenge: session.challenge,
-                activatesAt: session.activatesAt,
                 isGuarded: policy.isEnabled,
-                onAttempt: { [weak self] source, target in
-                    self?.attempt(source: source, target: target, onAnswer: onAnswer)
+                onAttempt: { [weak self] target in
+                    self?.attempt(target: target, onAnswer: onAnswer)
                 },
                 onDecline: { [weak self] in
                     self?.hide()
@@ -130,13 +119,10 @@ final class IncomingCallPanel: ObservableObject {
 
         self.panel = panel
         startWatchingCursor()
-        startWatchingKeys(onAnswer: onAnswer)
     }
 
     func hide() {
         stopWatchingCursor()
-        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
-        keyMonitor = nil
         if let guardSession {
             lastReport = guardSession.report
         }
@@ -149,17 +135,20 @@ final class IncomingCallPanel: ObservableObject {
     // MARK: - Защита
 
     /// Разбирает попытку принять вызов.
+    ///
+    /// Источник у попытки всегда один — мышь. Клавиатурного приёма нет
+    /// намеренно: он не оставлял защите ни одного признака живого человека, ни
+    /// пути курсора, ни его отсутствия. «Отклонить» с клавиатуры при этом
+    /// работает, то есть отказаться от вызова можно и без мыши.
     private func attempt(
-        source: CallGuardAttempt.Source,
         target: Character,
         onAnswer: @MainActor () -> Void
     ) {
         guard var session = guardSession else { return }
 
         let attempt = CallGuardAttempt(
-            source: source,
             target: target,
-            isSynthetic: source == .mouse && Self.isCurrentEventSynthetic(),
+            isSynthetic: Self.isCurrentEventSynthetic(),
             at: .now
         )
         let verdict = session.evaluate(attempt: attempt)
@@ -188,22 +177,6 @@ final class IncomingCallPanel: ObservableObject {
         guard let event = NSApp.currentEvent?.cgEvent else { return false }
         let stateID = event.getIntegerValueField(.eventSourceStateID)
         return stateID != Int64(CGEventSourceStateID.combinedSessionState.rawValue)
-    }
-
-    // MARK: - Клавиатура
-
-    private func startWatchingKeys(onAnswer: @escaping @MainActor () -> Void) {
-        let targets = Set(guardSession?.challenge.targets ?? [])
-
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, let characters = event.charactersIgnoringModifiers,
-                  let digit = characters.first,
-                  targets.contains(digit)
-            else { return event }
-
-            attempt(source: .keyboard, target: digit, onAnswer: onAnswer)
-            return nil
-        }
     }
 
     // MARK: - Курсор

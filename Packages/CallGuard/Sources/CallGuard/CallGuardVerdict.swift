@@ -2,23 +2,14 @@ import Compat
 import CoreGraphics
 
 /// Попытка принять вызов.
+///
+/// Источник у неё всегда один — мышь. Клавиатурного приёма нет намеренно: он не
+/// оставлял защите ни одного признака живого человека, а «Отклонить» с
+/// клавиатуры по-прежнему работает, то есть отказаться от вызова можно и без
+/// мыши.
 public struct CallGuardAttempt: Sendable, Hashable {
 
-    public enum Source: String, Sendable, Hashable, Codable {
-        case mouse
-        case keyboard
-
-        public var description: String {
-            switch self {
-            case .mouse: "мышь"
-            case .keyboard: "клавиатура"
-            }
-        }
-    }
-
-    public let source: Source
-
-    /// По какой цели нажали. Для клавиатуры — нажатая цифра.
+    /// По какой цели нажали.
     public let target: Character
 
     /// Признак программного происхождения события.
@@ -31,12 +22,10 @@ public struct CallGuardAttempt: Sendable, Hashable {
     public let at: MonotonicClock.Instant
 
     public init(
-        source: Source,
         target: Character,
         isSynthetic: Bool = false,
         at: MonotonicClock.Instant
     ) {
-        self.source = source
         self.target = target
         self.isSynthetic = isSynthetic
         self.at = at
@@ -45,8 +34,6 @@ public struct CallGuardAttempt: Sendable, Hashable {
 
 /// Почему попытка не принята.
 public enum CallGuardRejection: String, Sendable, Hashable, Codable {
-    /// Нажали раньше, чем кнопки стали активны.
-    case tooEarly
     /// Нажали не ту цель.
     case wrongTarget
     /// Курсор не двигался: приехал в точку и нажал.
@@ -61,7 +48,6 @@ public enum CallGuardRejection: String, Sendable, Hashable, Codable {
     /// подбирает обход.
     public var operatorMessage: String {
         switch self {
-        case .tooEarly: "Ещё рано"
         case .wrongTarget: "Не та кнопка"
         case .noCursorMovement: "Подведите курсор к окну"
         case .synthetic: "Нажатие не принято"
@@ -71,7 +57,6 @@ public enum CallGuardRejection: String, Sendable, Hashable, Codable {
     /// Что об этом написать в журнал.
     public var logMessage: String {
         switch self {
-        case .tooEarly: "нажатие раньше активации"
         case .wrongTarget: "нажата не та цель"
         case .noCursorMovement: "нажатие без движения курсора"
         case .synthetic: "нажатие с признаком синтетического события"
@@ -80,7 +65,7 @@ public enum CallGuardRejection: String, Sendable, Hashable, Codable {
 
     /// Стоит ли считать это признаком автоматизации, а не промахом человека.
     ///
-    /// Не та кнопка — обычная человеческая ошибка. Остальные три без участия
+    /// Не та кнопка — обычная человеческая ошибка. Остальные две без участия
     /// программы не получаются.
     public var suggestsAutomation: Bool {
         self != .wrongTarget
@@ -108,34 +93,30 @@ public enum CallGuardVerdict: Sendable, Hashable {
 public struct CallGuardReport: Codable, Sendable, Hashable {
 
     public var wasGuardEnabled: Bool
-    /// Выпавшая задержка активации, мс.
-    public var activationDelayMilliseconds: Int
     /// Сколько прошло от появления окна до принятого нажатия, мс.
+    ///
+    /// Заполнено — значит вызов приняли: другого способа сюда попасть нет.
+    /// Это же и главное число слоя обнаружения: локальной задержки активации
+    /// больше нет, и ровное время реакции ловится только статистикой.
     public var reactionMilliseconds: Int?
     /// Длина пути курсора внутри окна, в точках.
     public var cursorTravel: Double
     /// Сколько отдельных перемещений курсора зафиксировано.
     public var cursorSamples: Int
-    /// Чем подтверждён приём.
-    public var confirmedBy: CallGuardAttempt.Source?
     /// Отклонённые попытки по причинам.
     public var rejections: [CallGuardRejection: Int]
 
     public init(
         wasGuardEnabled: Bool = true,
-        activationDelayMilliseconds: Int = 0,
         reactionMilliseconds: Int? = nil,
         cursorTravel: Double = 0,
         cursorSamples: Int = 0,
-        confirmedBy: CallGuardAttempt.Source? = nil,
         rejections: [CallGuardRejection: Int] = [:]
     ) {
         self.wasGuardEnabled = wasGuardEnabled
-        self.activationDelayMilliseconds = activationDelayMilliseconds
         self.reactionMilliseconds = reactionMilliseconds
         self.cursorTravel = cursorTravel
         self.cursorSamples = cursorSamples
-        self.confirmedBy = confirmedBy
         self.rejections = rejections
     }
 
@@ -152,14 +133,11 @@ public struct CallGuardReport: Codable, Sendable, Hashable {
     public var summary: String {
         guard wasGuardEnabled else { return "защита выключена" }
 
-        var parts = ["задержка \(activationDelayMilliseconds) мс"]
+        var parts: [String] = []
         if let reactionMilliseconds {
             parts.append("реакция \(reactionMilliseconds) мс")
         }
         parts.append(String(format: "курсор %.0f pt за %d движ.", cursorTravel, cursorSamples))
-        if let confirmedBy {
-            parts.append("подтверждено: \(confirmedBy.description)")
-        }
         if rejectedAttempts > 0 {
             let detail = rejections
                 .filter { $0.value > 0 }

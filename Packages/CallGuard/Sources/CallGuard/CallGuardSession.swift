@@ -31,19 +31,7 @@ public struct CallGuardSession: Sendable {
         self.challenge = policy.isEnabled
             ? CallGuardChallenge(policy: policy, using: &generator)
             : .unguarded
-        self.report = CallGuardReport(
-            wasGuardEnabled: policy.isEnabled,
-            activationDelayMilliseconds: challenge.activationDelay.wholeMilliseconds
-        )
-    }
-
-    /// Момент, начиная с которого нажатие принимается.
-    public var activatesAt: MonotonicClock.Instant {
-        presentedAt + challenge.activationDelay
-    }
-
-    public func isActive(at now: MonotonicClock.Instant) -> Bool {
-        now >= activatesAt
+        self.report = CallGuardReport(wasGuardEnabled: policy.isEnabled)
     }
 
     // MARK: - Курсор
@@ -78,17 +66,18 @@ public struct CallGuardSession: Sendable {
     /// Разбирает попытку принять вызов.
     ///
     /// Порядок проверок не случаен и идёт от самого дешёвого обхода к самому
-    /// дорогому: сначала то, что ломает скрипт «жать сразу», потом поиск по
-    /// шаблону, потом отсутствие живой руки. Так в телеметрии видно, на каком
-    /// именно слое остановился нарушитель.
+    /// дорогому: сначала поиск по шаблону изображения, потом отсутствие живой
+    /// руки. Так в телеметрии видно, на каком именно слое остановился
+    /// нарушитель.
+    ///
+    /// Проверки «нажали слишком рано» здесь больше нет: кнопка активна с первого
+    /// кадра, а ровное время реакции — работа статистики в EliteDash, для которой
+    /// в отчёте лежит `reactionMilliseconds`. Локальная задержка стоила
+    /// оператору внимания на каждом вызове, а кликеру — одной строки ожидания.
     public mutating func evaluate(attempt: CallGuardAttempt) -> CallGuardVerdict {
         guard policy.isEnabled else {
             accept(attempt)
             return .accepted
-        }
-
-        if attempt.at < activatesAt {
-            return reject(.tooEarly)
         }
 
         if challenge.hasChoice, attempt.target != challenge.answer {
@@ -99,10 +88,10 @@ public struct CallGuardSession: Sendable {
             return reject(.synthetic)
         }
 
-        // Клавиатура от движения курсора освобождена: оператор, работающий с
-        // клавиатуры, мышь не трогает вовсе, и требовать от него ещё и
-        // потянуться к ней — значит наказывать за правильную привычку.
-        if attempt.source == .mouse, !hasEnoughCursorMovement {
+        // Единственный путь приёма — мышь, поэтому движение курсора требуется
+        // всегда. Клавиатурного пути нет намеренно: он не оставлял защите ни
+        // одного признака живого человека — ни пути курсора, ни его отсутствия.
+        if !hasEnoughCursorMovement {
             return reject(.noCursorMovement)
         }
 
@@ -118,7 +107,6 @@ public struct CallGuardSession: Sendable {
     }
 
     private mutating func accept(_ attempt: CallGuardAttempt) {
-        report.confirmedBy = attempt.source
         report.reactionMilliseconds = (attempt.at - presentedAt).wholeMilliseconds
     }
 

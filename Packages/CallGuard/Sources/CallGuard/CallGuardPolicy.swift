@@ -30,12 +30,13 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
     /// Отступ от краёв рабочей области, в точках.
     public var screenMargin: Double
 
-    /// Диапазон случайной задержки активации, в миллисекундах.
-    ///
-    /// Хранится парой чисел, а не `ClosedRange<Duration>`: так формат файла
-    /// настроек остаётся читаемым и его можно сгенерировать снаружи.
-    public var minimumActivationDelayMilliseconds: Int
-    public var maximumActivationDelayMilliseconds: Int
+    // Случайной задержки активации здесь больше нет, и это решение, а не
+    // потеря. В первой реализации кнопки активировались через 300–1500 мс,
+    // но цену платил оператор на каждом вызове, а кликер эту задержку просто
+    // пережидает. Подозрительно ровное время реакции ловится статистикой
+    // EliteDash, для чего в отчёте и лежит `reactionMilliseconds`. Ключи из
+    // старого файла настроек молча игнорируются: `CodingKeys` их больше не
+    // знает, а значит вернуть задержку файлом нельзя.
 
     /// Сколько кнопок-целей показывать. Единица означает обычную кнопку
     /// «Ответить» без выбора.
@@ -69,8 +70,6 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
         isRandomPositionEnabled: Bool = true,
         minimumTravel: Double = 150,
         screenMargin: Double = 24,
-        minimumActivationDelayMilliseconds: Int = 300,
-        maximumActivationDelayMilliseconds: Int = 1500,
         targetCount: Int = 1,
         requiresCursorMovement: Bool = true,
         requiredCursorTravel: Double = 40,
@@ -82,8 +81,6 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
         self.isRandomPositionEnabled = isRandomPositionEnabled
         self.minimumTravel = minimumTravel
         self.screenMargin = screenMargin
-        self.minimumActivationDelayMilliseconds = minimumActivationDelayMilliseconds
-        self.maximumActivationDelayMilliseconds = maximumActivationDelayMilliseconds
         self.targetCount = targetCount
         self.requiresCursorMovement = requiresCursorMovement
         self.requiredCursorTravel = requiredCursorTravel
@@ -106,10 +103,6 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
         isRandomPositionEnabled = try value(.isRandomPositionEnabled, fallback.isRandomPositionEnabled)
         minimumTravel = try value(.minimumTravel, fallback.minimumTravel)
         screenMargin = try value(.screenMargin, fallback.screenMargin)
-        minimumActivationDelayMilliseconds =
-            try value(.minimumActivationDelayMilliseconds, fallback.minimumActivationDelayMilliseconds)
-        maximumActivationDelayMilliseconds =
-            try value(.maximumActivationDelayMilliseconds, fallback.maximumActivationDelayMilliseconds)
         targetCount = try value(.targetCount, fallback.targetCount)
         requiresCursorMovement = try value(.requiresCursorMovement, fallback.requiresCursorMovement)
         requiredCursorTravel = try value(.requiredCursorTravel, fallback.requiredCursorTravel)
@@ -119,16 +112,11 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
 
     /// Приведение к работоспособному виду.
     ///
-    /// Нужно, потому что настройки редактируются снаружи: перевёрнутый диапазон
-    /// задержки или ноль целей выключили бы защиту молча, а молчаливо
+    /// Нужно, потому что настройки редактируются снаружи: ноль целей или
+    /// отрицательный путь курсора выключили бы защиту молча, а молчаливо
     /// выключенная защита хуже честно выключенной.
     public var normalized: CallGuardPolicy {
         var copy = self
-        copy.minimumActivationDelayMilliseconds = max(0, minimumActivationDelayMilliseconds)
-        copy.maximumActivationDelayMilliseconds = max(
-            copy.minimumActivationDelayMilliseconds,
-            maximumActivationDelayMilliseconds
-        )
         copy.targetCount = min(max(1, targetCount), CallGuardChallenge.maximumTargets)
         copy.requiredCursorTravel = max(0, requiredCursorTravel)
         copy.requiredCursorSamples = max(0, requiredCursorSamples)
@@ -137,13 +125,11 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
         return copy
     }
 
-    /// Защита, выключенная целиком. Окно ведёт себя как обычное: кнопка активна
-    /// сразу, цель одна, курсор ничего не должен.
+    /// Защита, выключенная целиком. Окно ведёт себя как обычное: одна кнопка
+    /// в середине экрана, курсор ничего не должен.
     public static let disabled = CallGuardPolicy(
         isEnabled: false,
         isRandomPositionEnabled: false,
-        minimumActivationDelayMilliseconds: 0,
-        maximumActivationDelayMilliseconds: 0,
         targetCount: 1,
         requiresCursorMovement: false,
         requiredCursorTravel: 0,
