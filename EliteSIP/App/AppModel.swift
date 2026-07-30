@@ -600,6 +600,10 @@ final class AppModel: ObservableObject {
             try session.start()
             media = session
             audioRoute = session.route
+            echoCancellationActive = session.usesEchoCancellation
+            if !session.usesEchoCancellation {
+                append(level: .warning, message: "звук без эхоподавления — через колонки собеседник услышит себя")
+            }
             negotiatedCodec = negotiated.codec
             startLevelPolling()
 
@@ -842,6 +846,7 @@ final class AppModel: ObservableObject {
         callPeer = ""
         audioRoute = nil
         negotiatedCodec = nil
+        echoCancellationActive = nil
         remoteAudioView = nil
         levelTask?.cancel()
         levelTask = nil
@@ -1027,6 +1032,14 @@ final class AppModel: ObservableObject {
 
     /// Куда идёт звук текущего разговора. nil вне звонка.
     @Published private(set) var audioRoute: AudioRoute?
+
+    /// Работает ли эхоподавление в текущем разговоре. nil вне звонка.
+    ///
+    /// Отпасть оно может само и молча: при разных устройствах на вход и выход
+    /// VoiceProcessingIO не запускается вовсе, а при отказе движка тракт
+    /// поднимается откатом. Через колонки в таком разговоре собеседник услышит
+    /// себя, поэтому знать об этом надо до жалобы, а не после.
+    private(set) var echoCancellationActive: Bool?
 
     /// Кодек, о котором договорились. nil вне звонка.
     @Published private(set) var negotiatedCodec: AudioCodec?

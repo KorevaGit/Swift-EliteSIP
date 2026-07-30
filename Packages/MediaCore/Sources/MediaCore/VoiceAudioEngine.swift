@@ -393,13 +393,27 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // Поэтому здесь не пытаемся и не падаем в откат, а сразу идём без
         // обработки голоса: попытка всё равно кончится тем же, только с
         // тревожным сообщением в журнале и лишней секундой на запуск.
+        //
+        // Но решать надо по СОБРАННОМУ агрегату, а не по запрошенному.
+        //
+        // Агрегат может не собраться — например, предыдущий ещё не разобран
+        // после смены устройства. Тогда мы откатываемся на системные умолчания,
+        // и это правильно. Неправильно было бы идти туда без обработки голоса:
+        // на системных умолчаниях с выключенным VPIO движок садится на
+        // устройство ВЫВОДА в обе стороны, микрофон не отдаёт ни одного отсчёта,
+        // и разговор получается односторонним. Заметить это по звуку нельзя —
+        // в наушниках всё в порядке, молчим только мы.
         if needsAggregateDevice {
-            onDiagnostic?(
-                "микрофон и выход — разные устройства, поэтому без системного эхоподавления"
-                    + " (VoiceProcessingIO не принимает агрегатные устройства)"
-            )
-            try startEngine(withVoiceProcessing: false)
-            return
+            prepareAggregateDevice()
+            if aggregate != nil {
+                onDiagnostic?(
+                    "микрофон и выход — разные устройства, поэтому без системного эхоподавления"
+                        + " (VoiceProcessingIO не принимает агрегатные устройства)"
+                )
+                try startEngine(withVoiceProcessing: false)
+                return
+            }
+            onDiagnostic?("агрегат не собрался — иду на системные устройства с эхоподавлением")
         }
 
         do {
@@ -471,9 +485,21 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // (44.1 кГц). Движок на этом расхождении отказывается стартовать
         // с -10875 (kAudioUnitErr_FormatNotSupported), и по номеру ошибки
         // понять, какой из форматов не сошёлся, невозможно.
+        // Формат берётся ДО отсоединения, и переставлять эти строки нельзя.
+        //
+        // `disconnectNodeOutput` сбрасывает формат узла выхода на движковый по
+        // умолчанию — 44 100 Гц. Замерено: до отсоединения выход отдаёт 48 000,
+        // сразу после — 44 100, хотя железо не менялось. Значит, «перечитать
+        // формат поближе к использованию» здесь даёт ровно обратный результат:
+        // подключение уедет на 44 100 при железе на 48 000, вход останется на
+        // своей частоте, и движок откажется стартовать с -10875. Симптом при
+        // этом — не отказ, а тихая потеря эхоподавления: откат поднимает тракт
+        // без обработки голоса, и разговор через колонки начинает фонить.
         if outputFormat.sampleRate > 0 {
             engine.disconnectNodeOutput(engine.mainMixerNode)
-            engine.connect(engine.mainMixerNode, to: output, format: outputFormat)
+            try AudioObjCException.trap(step: "подключение микшера к выходу") {
+                engine.connect(engine.mainMixerNode, to: output, format: outputFormat)
+            }
         }
 
         try startPlayback()
@@ -530,25 +556,37 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         )
     }
 
+    /// Пытается собрать агрегат заранее, до решения об обработке голоса.
+    ///
+    /// Отдельным шагом, потому что от результата зависит, включать ли VPIO, а
+    /// узнать результат можно только попыткой.
+    private func prepareAggregateDevice() {
+        guard let inputUID = configuration.inputDeviceUID,
+              let outputUID = configuration.outputDeviceUID,
+              aggregate == nil
+        else { return }
+
+        do {
+            aggregate = try AggregateAudioDevice(inputUID: inputUID, outputUID: outputUID)
+            let input = AudioDeviceCatalog.device(uid: inputUID)?.name ?? inputUID
+            let output = AudioDeviceCatalog.device(uid: outputUID)?.name ?? outputUID
+            onDiagnostic?("агрегатное устройство: микрофон \(input), выход \(output)")
+        } catch {
+            // Отказываться от разговора из-за этого нельзя: пусть звук пойдёт
+            // через системные умолчания, но пойдёт — и с эхоподавлением.
+            onDiagnostic?("агрегатное устройство не собралось: \(error.localizedDescription)")
+        }
+    }
+
     private func resolveDevice() throws -> (id: AudioDeviceID, uid: String, name: String)? {
         let inputUID = configuration.inputDeviceUID
         let outputUID = configuration.outputDeviceUID
 
-        if needsAggregateDevice, let inputUID, let outputUID {
-            do {
-                let aggregate = try AggregateAudioDevice(inputUID: inputUID, outputUID: outputUID)
-                self.aggregate = aggregate
-                let input = AudioDeviceCatalog.device(uid: inputUID)?.name ?? inputUID
-                let output = AudioDeviceCatalog.device(uid: outputUID)?.name ?? outputUID
-                onDiagnostic?("агрегатное устройство: микрофон \(input), выход \(output)")
-                return (aggregate.id, aggregate.uid, "агрегатное")
-            } catch {
-                // Отказываться от разговора из-за этого нельзя: пусть звук
-                // пойдёт через системные умолчания, но пойдёт.
-                onDiagnostic?("агрегатное устройство не собралось (\(error.localizedDescription)), беру системное")
-                return nil
-            }
+        if let aggregate {
+            return (aggregate.id, aggregate.uid, "агрегатное")
         }
+        // Агрегат нужен, но не собрался: системные умолчания сведёт macOS сама.
+        if needsAggregateDevice { return nil }
 
         // Одно устройство на обе стороны либо задана только одна сторона.
         guard let uid = inputUID ?? outputUID else { return nil }
@@ -773,7 +811,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         }
 
         engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: conversationFormat)
+        try AudioObjCException.trap(step: "подключение источника к микшеру") {
+            engine.connect(node, to: engine.mainMixerNode, format: conversationFormat)
+        }
         sourceNode = node
     }
 
@@ -876,8 +916,8 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// воспроизведение, и это не совпадение: правило одно и то же.
     private func startCapture() throws {
         let input = engine.inputNode
-        let inputFormat = input.outputFormat(forBus: 0)
 
+        let inputFormat = input.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw AudioError.engineFailed(
                 step: "чтение формата входа",
@@ -935,7 +975,32 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             onDiagnostic?("вход многоканальный (\(inputFormat.channelCount)), беру канал 0")
         }
 
-        let node = AVAudioSinkNode {
+        let node = makeCaptureSink()
+        engine.attach(node)
+
+        // Соединение с ЯВНЫМ форматом, и обязательно через ловушку исключений.
+        //
+        // Формат здесь нужен настоящий: с nil движок берёт не тот, и при
+        // включённой обработке голоса, когда вход трёхканальный, запуск падает
+        // с -10875. Проверено — три прогона из трёх.
+        //
+        // А ловушка нужна потому, что несовпадение формата с железом
+        // `AVAudioEngine` сообщает исключением Objective-C, которое Swift не
+        // ловит: это не ошибка, а падение процесса. Окно между чтением формата
+        // и соединением крохотное, но при смене устройства железо меняется
+        // именно в нём — воспроизводится прогоном `audioprobe matrix`.
+        // Пойманное исключение превращается в обычную ошибку, из-за которой
+        // тракт пересоберётся заново, а это штатный путь.
+        try AudioObjCException.trap(step: "подключение приёмника микрофона") {
+            engine.connect(input, to: node, format: inputFormat)
+        }
+        sinkNode = node
+    }
+
+    /// Узел приёмника. Формата не знает: он забирает канал 0 из того, что
+    /// пришло, а пересчётом занимается поток кодирования.
+    private func makeCaptureSink() -> AVAudioSinkNode {
+        AVAudioSinkNode {
             [captureLock, captureSignal, mutedFlag] _, frameCount, audioBufferList in
             // Приёмнику список приходит константным, а обёртка для перебора
             // есть только изменяемая. Мы из него только читаем.
@@ -983,10 +1048,6 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             captureSignal.signal()
             return noErr
         }
-
-        engine.attach(node)
-        engine.connect(input, to: node, format: inputFormat)
-        sinkNode = node
     }
 
     /// Поток кодирования: забирает накопленное микрофоном, пересчитывает и режет
@@ -1156,6 +1217,17 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// работать на выбранном устройстве или на своём агрегатном. Показывать
     /// пользователю системные умолчания, пока разговор идёт через другое
     /// устройство, — прямой путь к жалобе «в настройках одно, слышно другое».
+    /// Работает ли системное эхоподавление прямо сейчас.
+    ///
+    /// Не косметика: без него разговор через колонки невозможен — собеседник
+    /// услышит себя. Отпасть оно может само, без ошибки: при выборе разных
+    /// устройств на вход и выход VoiceProcessingIO не запускается вовсе, а при
+    /// отказе движка тракт поднимается откатом. Пользователю про это надо
+    /// сказать, а не оставлять его выяснять по жалобам.
+    public var usesEchoCancellation: Bool {
+        control.sync { usesVoiceProcessing }
+    }
+
     public var route: AudioRoute {
         let inputUID = configuration.inputDeviceUID
         let outputUID = configuration.outputDeviceUID

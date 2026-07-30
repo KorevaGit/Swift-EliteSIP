@@ -14,9 +14,17 @@ let package = Package(
         .package(path: "../Compat")
     ],
     targets: [
+        // Прослойка на Objective-C ради одной функции: поймать NSException.
+        // AVAudioEngine сообщает несовпадение формата с железом исключением, а
+        // не ошибкой, и Swift такое не ловит — без прослойки гонка при смене
+        // устройства роняет процесс.
+        .target(name: "AudioObjCTrap"),
         .target(
             name: "MediaCore",
-            dependencies: [.product(name: "Compat", package: "Compat")],
+            dependencies: [
+                "AudioObjCTrap",
+                .product(name: "Compat", package: "Compat"),
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

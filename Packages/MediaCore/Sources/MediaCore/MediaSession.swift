@@ -207,6 +207,9 @@ public final class MediaSession: @unchecked Sendable {
         set { engine.onDiagnostic = newValue }
     }
 
+    /// Работает ли системное эхоподавление в этом разговоре.
+    public var usesEchoCancellation: Bool { engine.usesEchoCancellation }
+
     /// Пиковые уровни в обе стороны, от 0 до 1. Чтение сбрасывает пик.
     public var inputLevel: Float { engine.inputLevel }
     public var outputLevel: Float { engine.outputLevel }

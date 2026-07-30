@@ -277,6 +277,17 @@ private struct AudioSettingsTab: View {
                             value: codec.sdpName + (codec.isWideband ? " — широкая полоса" : "")
                         )
                     }
+                    // Эхоподавление отпадает молча: при разных устройствах на
+                    // вход и выход VoiceProcessingIO не запускается вовсе, а при
+                    // отказе движка тракт поднимается откатом. Через колонки в
+                    // таком разговоре собеседник услышит себя.
+                    if let active = model.echoCancellationActive {
+                        CompatLabeledContent(
+                            "Эхоподавление",
+                            value: active ? "работает" : "выключено"
+                        )
+                        .foregroundColor(active ? nil : Theme.Palette.failure)
+                    }
                     LevelMeters(levels: model.audioLevels)
 
                     if let remote = model.remoteAudioView {

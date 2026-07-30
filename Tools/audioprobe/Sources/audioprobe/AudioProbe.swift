@@ -30,6 +30,8 @@ struct AudioProbe {
             await probeEngine(seconds: seconds, voiceProcessing: !arguments.contains("--no-vpio"))
         case "release":
             await probeRelease()
+        case "matrix":
+            await MatrixProbe.run(seconds: value(of: "--seconds", in: arguments).flatMap(Double.init) ?? 4)
         case "quality":
             QualityProbe.run(arguments: arguments)
         case "voice":
@@ -49,6 +51,7 @@ struct AudioProbe {
                      [--no-vpio]       без системной обработки голоса
               release                  чем именно отпускается Bluetooth-гарнитура
               quality                  качество пересчёта частоты и G.711, без устройства
+              matrix [--seconds N]     прогон по всем сочетаниям устройств
               voice  [--seconds N]     боевой VoiceAudioEngine на синтетическом потоке
                      [--device UID]    конкретное устройство вместо системного
                      [--input UID]     микрофон отдельно
