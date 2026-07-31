@@ -36,8 +36,11 @@ final class AppModel: ObservableObject {
             // без перепроверки настройки показывали бы «сохранён в Keychain»
             // для номера, у которого пароля нет. Проверка наличия дешёвая и
             // диалога не вызывает, поэтому её можно делать прямо здесь.
-            if settings.account.username != oldValue.account.username
-                || settings.account.domain != oldValue.account.domain {
+            //
+            // Со списком профилей сюда же попадает переключение профиля: ключ
+            // считается от активного, и «пароль задан» обязано относиться к
+            // тому профилю, который сейчас на экране.
+            if KeychainStore.key(for: settings.account) != KeychainStore.key(for: oldValue.account) {
                 refreshStoredPasswordFlag()
             }
             // Журнал пересобирается только при смене его собственных настроек:
@@ -63,9 +66,22 @@ final class AppModel: ObservableObject {
     private var eventPump: Task<Void, Never>?
 
     init() {
+        let storedVersion = SettingsStore.storedSchemaVersion()
         settings = SettingsStore.load()
         refreshStoredPasswordFlag()
         openLogFileIfNeeded()
+
+        // Наблюдатель `settings` в `init` не срабатывает, поэтому мигрированный
+        // файл сам собой не перезапишется. Записываем сразу: иначе профиль,
+        // полученный из старой учётки, получал бы при каждом запуске новый
+        // идентификатор — и «активный профиль» указывал бы каждый раз на другой.
+        if let storedVersion, storedVersion < AppSettings.currentSchemaVersion {
+            persistSettings()
+            append(
+                level: .info,
+                message: "настройки переведены в схему \(AppSettings.currentSchemaVersion): учётка стала профилем"
+            )
+        }
     }
 
     // MARK: - Файловый журнал
@@ -122,7 +138,7 @@ final class AppModel: ObservableObject {
     // MARK: - Учётная запись
 
     private var keychainKey: String {
-        KeychainStore.key(for: settings.account.username, domain: settings.account.domain)
+        KeychainStore.key(for: settings.account)
     }
 
     /// Обновляет признак «пароль задан».
@@ -1679,10 +1695,122 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func applyLabPreset(_ preset: AppSettings) {
+    func applyLabPreset(_ preset: AppSettings.LabPreset) {
+        guard canSwitchProfile else {
+            refuseProfileChange()
+            return
+        }
         // Признак «пароль задан» пересчитает наблюдатель `settings`: пресет
         // меняет и номер, и домен, то есть ключ записи в связке ключей.
-        settings = preset
+        passwordDraft = ""
+        settings.profiles.upsert(preset.account, label: preset.label)
+        settings.acceptsAnyTLSCertificate = preset.acceptsAnyTLSCertificate
+        settings.minimumLogLevel = preset.minimumLogLevel
         append(level: .info, message: "применены настройки лаборатории: \(preset.account.username)")
+    }
+
+    // MARK: - Профили
+
+    var profiles: [SIPProfile] { settings.profiles.profiles }
+
+    var activeProfileID: UUID { settings.profiles.activeID }
+
+    /// Менять профиль в разговоре нельзя — по той же причине, по которой в M6b
+    /// запрещено отключение: смена профиля снимает регистрацию и закрывает
+    /// диалоги. Кнопка стоит в настройках, а трубка от этого кладётся так же.
+    var canSwitchProfile: Bool { lines.isEmpty }
+
+    private func refuseProfileChange() {
+        append(level: .warning, message: "смена профиля недоступна: идёт разговор")
+        callStatus = "Сначала завершите разговор"
+    }
+
+    /// Делает профиль активным: снимает регистрацию со старого и, если у нового
+    /// есть сохранённый пароль, поднимает её заново.
+    ///
+    /// Молча оставаться отключённым нельзя — оператор нажал на профиль, а не на
+    /// «Отключить», — но и подключиться без пароля не получится. Поэтому второй
+    /// случай проговаривается вслух.
+    func selectProfile(_ id: UUID) async {
+        guard id != settings.profiles.activeID else { return }
+        guard settings.profiles[id] != nil else { return }
+        guard canSwitchProfile else {
+            refuseProfileChange()
+            return
+        }
+
+        let wasConnected = agent != nil
+        if wasConnected { await disconnect() }
+
+        passwordDraft = ""
+        settings.profiles.activate(id)
+        append(level: .info, message: "профиль: \(profileTitle(id))")
+
+        guard wasConnected else { return }
+        if hasStoredPassword {
+            await connect()
+        } else {
+            append(level: .warning, message: "у профиля нет сохранённого пароля — подключение не восстановлено")
+            callStatus = "Введите пароль профиля"
+        }
+    }
+
+    /// Добавляет пустой профиль и делает его активным: заполнять его всё равно
+    /// сразу же. Сервер и транспорт наследуются от текущего — обычно добавляют
+    /// второй добавочный на той же АТС.
+    func addProfile() {
+        guard canSwitchProfile else {
+            refuseProfileChange()
+            return
+        }
+        passwordDraft = ""
+        settings.profiles.add(SIPProfile.blank(basedOn: settings.account))
+        append(level: .info, message: "добавлен профиль")
+    }
+
+    /// Удаляет профиль вместе с его паролем.
+    ///
+    /// Пароль стирается только тогда, когда его больше некому делить: ключ в
+    /// связке ключей — «номер@домен», и два профиля с одной парой означают одно
+    /// и то же рабочее место, а не два.
+    func removeProfile(_ id: UUID) async {
+        let isActive = id == settings.profiles.activeID
+        if isActive {
+            guard canSwitchProfile else {
+                refuseProfileChange()
+                return
+            }
+            if agent != nil { await disconnect() }
+        }
+
+        guard let removed = settings.profiles[id] else { return }
+        let shared = settings.profiles.sharesCredentials(of: removed, excludingID: id)
+        settings.profiles.remove(id)
+
+        if shared {
+            append(level: .info, message: "профиль удалён; пароль остался у профиля с тем же номером")
+        } else {
+            try? KeychainStore.delete(for: KeychainStore.key(for: removed.account))
+            append(level: .info, message: "профиль удалён вместе с паролем")
+        }
+
+        if isActive {
+            passwordDraft = ""
+            // Ключ мог не измениться — например, у удалённого профиля не было
+            // ни номера, ни домена, как и у оставшегося. Пересчитываем прямо.
+            refreshStoredPasswordFlag()
+        }
+    }
+
+    /// Метка пишется как введена, без подрезки пробелов: подрезать на каждом
+    /// нажатии — значит не дать набрать метку из двух слов.
+    func renameProfile(_ id: UUID, to label: String) {
+        settings.profiles.rename(id, to: label)
+    }
+
+    /// Подпись профиля для списка и журнала.
+    func profileTitle(_ id: UUID) -> String {
+        guard let profile = settings.profiles[id] else { return "профиль" }
+        return profile.title.isEmpty ? "новый профиль" : profile.title
     }
 }

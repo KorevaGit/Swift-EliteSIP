@@ -35,6 +35,32 @@ private struct AccountSettingsTab: View {
 
     var body: some View {
         Form {
+            Section(header: Text("Профили")) {
+                ForEach(model.profiles) { profile in
+                    ProfileRow(profile: profile)
+                }
+
+                HStack {
+                    Button("Добавить профиль") { model.addProfile() }
+                        .disabled(!model.canSwitchProfile)
+                    Spacer()
+                    if !model.canSwitchProfile {
+                        Text("смена профиля недоступна в разговоре")
+                            .font(.footnote)
+                            .compatForeground(.secondary)
+                    }
+                }
+
+                TextField("Метка активного профиля", text: Binding(
+                    get: { model.settings.profiles.active.label },
+                    set: { model.renameProfile(model.activeProfileID, to: $0) }
+                ))
+
+                Text("Зарегистрирован всегда ровно один профиль — отмеченный. У каждого свой пароль в Keychain; удаление профиля стирает и его.")
+                    .font(.footnote)
+                    .compatForeground(.secondary)
+            }
+
             Section(header: Text("Учётная запись SIP")) {
                 TextField("Внутренний номер", text: Binding(
                     get: { model.settings.account.username },
@@ -164,8 +190,12 @@ private struct AccountSettingsTab: View {
 
             Section(header: Text("Лаборатория")) {
                 HStack {
+                    // Пресет заводит профиль и делает его активным, то есть это
+                    // та же смена профиля со всеми её последствиями.
                     Button("Пир 100 · UDP") { model.applyLabPreset(.labUDP) }
+                        .disabled(!model.canSwitchProfile)
                     Button("Пир 200 · TLS + SRTP") { model.applyLabPreset(.labTLS) }
+                        .disabled(!model.canSwitchProfile)
                     Spacer()
                 }
                 Text("Пароли лабораторных пиров: elite100 и elite200.")
@@ -174,6 +204,70 @@ private struct AccountSettingsTab: View {
             }
         }
         .compatGroupedForm()
+    }
+}
+
+/// Строка списка профилей: отметка активного, подпись и удаление.
+///
+/// Отдельная вью, а не кусок формы: `ForEach` по профилям иначе тянет за собой
+/// всё состояние вкладки, а строке нужен ровно один профиль.
+private struct ProfileRow: View {
+
+    @EnvironmentObject private var model: AppModel
+    let profile: SIPProfile
+
+    private var isActive: Bool { profile.id == model.activeProfileID }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                Task { await model.selectProfile(profile.id) }
+            } label: {
+                HStack(spacing: 8) {
+                    // Отметка занимает место и когда её нет: иначе строки
+                    // разъезжаются по горизонтали при смене активного профиля.
+                    // Пустого кружка в комплекте иконок для Catalina нет, а
+                    // заводить его ради одной строки незачем.
+                    if isActive {
+                        CompatSymbol(name: "checkmark.circle")
+                            .compatForeground(Theme.Palette.registered)
+                    } else {
+                        Color.clear.frame(width: 13, height: 13)
+                    }
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(profile.title.isEmpty ? "Новый профиль" : profile.title)
+                        Text(subtitle)
+                            .font(.footnote)
+                            .compatForeground(.secondary)
+                    }
+                }
+            }
+            .buttonStyle(.borderless)
+            // Активная строка не гасится никогда: серый текст читается как
+            // «профиль недоступен», а это ровно тот, на котором работают.
+            // Нажатие на неё и так ничего не делает.
+            .disabled(!isActive && !model.canSwitchProfile)
+
+            Spacer()
+
+            Button {
+                Task { await model.removeProfile(profile.id) }
+            } label: {
+                CompatSymbol(name: "trash")
+            }
+            .buttonStyle(.borderless)
+            .disabled(isActive && !model.canSwitchProfile)
+            .compatHelp("Удалить профиль вместе с его паролем")
+        }
+    }
+
+    /// Кому и куда: номер отдельно от метки, иначе два профиля на одной АТС
+    /// различимы только по слову, которое кто-то однажды вписал.
+    private var subtitle: String {
+        let account = profile.account
+        let address = account.domain.isEmpty ? "домен не задан" : account.domain
+        let number = account.username.isEmpty ? "номер не задан" : account.username
+        return "\(number) · \(address) · \(account.transport.protocolName)"
     }
 }
 

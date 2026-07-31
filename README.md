@@ -196,8 +196,10 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
       выполнен живой прогон линий — [docs/m6b.md](docs/m6b.md)
 - [ ] **M7** — локальное администрирование и выпуск. Совместимость сама по себе
       закрыта в M0b; остаток разбит на подэтапы в
-      [docs/ROADMAP.md](docs/ROADMAP.md): **M7a** файловые логи, **M7b** профили
-      аккаунтов, **M7c** административный режим, **M7d** локальная история
+      [docs/ROADMAP.md](docs/ROADMAP.md): **M7a** файловые логи (сделано,
+      [docs/logs.md](docs/logs.md)), **M7b** профили
+      аккаунтов (сделано, [docs/profiles.md](docs/profiles.md)),
+      **M7c** административный режим, **M7d** локальная история
       звонков, **M7e** подпись, нотарификация и DMG, **M7f** приёмка на живом
       Intel с Catalina, **M7g** отдельный аудио-DSP, **M7h** автообновление
       через Sparkle с раздачей с сайта EliteSIP. Цепочка зависимостей:

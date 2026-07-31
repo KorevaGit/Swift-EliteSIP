@@ -119,7 +119,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
-    @objc private func showSettingsWindow(_ sender: Any?) {
+    /// Не `private`: то же действие посылает кнопка на панели через
+    /// `NSApp.sendAction(_:to:from:)` с пустой целью. Делегат приложения стоит в
+    /// цепочке ответчиков, поэтому окно открывает один и тот же код — и пункт
+    /// меню, и кнопка.
+    @objc func showSettingsWindow(_ sender: Any?) {
         if let settingsWindow {
             settingsWindow.makeKeyAndOrderFront(nil)
             return
@@ -157,7 +161,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mainMenu = NSMenu()
 
         let appItem = NSMenuItem()
-        let appMenu = NSMenu()
+        // Заголовок обязателен, хотя система рисует вместо него имя приложения:
+        // меню без него получается безымянным и узким, и «Настройки…» в нём
+        // никто не находит.
+        let appMenu = NSMenu(title: "EliteSIP")
         appMenu.addItem(
             withTitle: "О программе EliteSIP",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),

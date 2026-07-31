@@ -12,9 +12,15 @@ import SIPCore
 struct AppSettings: Codable, Sendable, Equatable {
 
     /// Версия схемы. Растёт, когда формат меняется несовместимо.
-    var schemaVersion: Int = 1
+    ///
+    /// 1 — единственный `account`. 2 — список профилей с активным (M7b).
+    static let currentSchemaVersion = 2
 
-    var account: SIPAccount
+    var schemaVersion: Int = AppSettings.currentSchemaVersion
+
+    /// Сохранённые учётные записи. Зарегистрирован одновременно ровно один
+    /// профиль — активный.
+    var profiles: SIPProfileList
     var audio: AudioSettings = AudioSettings()
 
     /// Защита приёма вызова от автокликеров.
@@ -39,11 +45,22 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// лаборатории на localhost. В бою должно быть выключено.
     var acceptsAnyTLSCertificate: Bool
 
+    /// Учётная запись активного профиля.
+    ///
+    /// Остальное приложение работает ровно с одной учёткой — той, которой
+    /// сейчас регистрируются, — и после появления списка это не изменилось.
+    /// Поэтому доступ к ней остался прежним свойством, а не разошёлся по коду
+    /// цепочками `profiles.active.account`.
+    var account: SIPAccount {
+        get { profiles.active.account }
+        set { profiles.active.account = newValue }
+    }
+
     /// Свой почленный инициализатор: наличие `init(from:)` отменяет
     /// синтезированный.
     init(
-        schemaVersion: Int = 1,
-        account: SIPAccount,
+        schemaVersion: Int = AppSettings.currentSchemaVersion,
+        profiles: SIPProfileList,
         audio: AudioSettings = AudioSettings(),
         incomingCall: CallGuardPolicy = CallGuardPolicy(),
         ringtone: RingtoneSettings = RingtoneSettings(),
@@ -54,7 +71,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         acceptsAnyTLSCertificate: Bool = false
     ) {
         self.schemaVersion = schemaVersion
-        self.account = account
+        self.profiles = profiles
         self.audio = audio
         self.incomingCall = incomingCall
         self.ringtone = ringtone
@@ -73,8 +90,12 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// потерянная учётная запись при обычном обновлении версии.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-        account = try container.decode(SIPAccount.self, forKey: .account)
+        // Прочитанная версия схемы наружу не выходит: файл, прочитанный
+        // однажды, сохраняется уже во второй схеме. Держать в модели «версию,
+        // которая была» значило бы записать её обратно и мигрировать ещё раз.
+        _ = try container.decodeIfPresent(Int.self, forKey: .schemaVersion)
+        schemaVersion = AppSettings.currentSchemaVersion
+        profiles = try AppSettings.decodedProfiles(from: decoder)
         audio = try container.decodeIfPresent(AudioSettings.self, forKey: .audio) ?? AudioSettings()
         incomingCall = try container.decodeIfPresent(
             CallGuardPolicy.self, forKey: .incomingCall
@@ -91,6 +112,33 @@ struct AppSettings: Codable, Sendable, Equatable {
         logFile = try container.decodeIfPresent(LogFileSettings.self, forKey: .logFile) ?? LogFileSettings()
         acceptsAnyTLSCertificate =
             try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
+    }
+
+    /// Ключи схемы 1, которых в модели больше нет.
+    ///
+    /// Отдельным типом, а не лишним случаем в `CodingKeys`: синтезированный
+    /// `encode(to:)` перебирает именно `CodingKeys`, и случай без хранимого
+    /// свойства сломал бы синтез. Заодно видно, что ключ читается и не пишется.
+    private enum LegacyKeys: String, CodingKey {
+        case account
+    }
+
+    /// Список профилей из файла любой из двух схем.
+    ///
+    /// Решает наличие ключа, а не номер версии: файл провижининга или правка
+    /// руками вполне может нести профили при версии 1, и «мигрировать» такой
+    /// файл значило бы выбросить всё, кроме первого профиля. Отсутствие обоих
+    /// ключей — первый запуск, а не порча: получится один пустой профиль.
+    private static func decodedProfiles(from decoder: Decoder) throws -> SIPProfileList {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let stored = try container.decodeIfPresent(SIPProfileList.self, forKey: .profiles) {
+            return stored
+        }
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        if let account = try legacy.decodeIfPresent(SIPAccount.self, forKey: .account) {
+            return SIPProfileList(migrating: account)
+        }
+        return SIPProfileList()
     }
 
     /// Файловый журнал.
@@ -369,20 +417,32 @@ struct AppSettings: Codable, Sendable, Equatable {
     }
 
     static let `default` = AppSettings(
-        account: SIPAccount(
-            username: "",
-            displayName: "",
-            domain: "",
-            transport: .tls,
-            registrationExpires: 300
-        ),
+        profiles: SIPProfileList(),
         incomingCall: CallGuardPolicy(),
         minimumLogLevel: .info,
         acceptsAnyTLSCertificate: false
     )
 
-    /// Настройки лаборатории — чтобы проверить регистрацию одним нажатием.
-    static let labUDP = AppSettings(
+    /// Пресет лаборатории — чтобы проверить регистрацию одним нажатием.
+    ///
+    /// Со списком профилей пресет перестал быть «настройками целиком»: он
+    /// добавляет профиль и трогает только то, что относится к серверу. Иначе
+    /// нажатие «Пир 100» стирало бы выбранные устройства, макросы и политику
+    /// защиты — раньше именно так и было, и заметить это было негде.
+    struct LabPreset {
+        var label: String
+        var account: SIPAccount
+        var acceptsAnyTLSCertificate: Bool
+        var minimumLogLevel: SIPLogLevel = .debug
+    }
+}
+
+/// Пресеты лаборатории — отдельным расширением, чтобы `applyLabPreset(.labUDP)`
+/// читался по месту вызова без имени типа.
+extension AppSettings.LabPreset {
+
+    static let labUDP = Self(
+        label: "Лаборатория · UDP",
         account: SIPAccount(
             username: "100",
             displayName: "Agent 100",
@@ -391,12 +451,11 @@ struct AppSettings: Codable, Sendable, Equatable {
             transport: .udp,
             registrationExpires: 120
         ),
-        incomingCall: CallGuardPolicy(),
-        minimumLogLevel: .debug,
         acceptsAnyTLSCertificate: false
     )
 
-    static let labTLS = AppSettings(
+    static let labTLS = Self(
+        label: "Лаборатория · TLS",
         account: SIPAccount(
             username: "200",
             displayName: "Agent 200 secure",
@@ -405,8 +464,6 @@ struct AppSettings: Codable, Sendable, Equatable {
             transport: .tls,
             registrationExpires: 120
         ),
-        incomingCall: CallGuardPolicy(),
-        minimumLogLevel: .debug,
         acceptsAnyTLSCertificate: true
     )
 }
@@ -433,6 +490,20 @@ enum SettingsStore {
             // не повод падать: пользователь просто увидит пустые настройки.
             return .default
         }
+    }
+
+    /// Версия схемы, как она записана в файле. nil — файла нет или он испорчен.
+    ///
+    /// Нужна ровно для одного: понять при запуске, что файл мигрировали, и
+    /// записать его в новой схеме сразу. Иначе старая схема живёт до первой
+    /// правки настроек, и «мигрировано» превращается в «мигрируется каждый раз
+    /// заново» — с новыми идентификаторами профилей при каждом запуске.
+    static func storedSchemaVersion() -> Int? {
+        struct Header: Decodable { var schemaVersion: Int? }
+        guard let data = try? Data(contentsOf: fileURL),
+            let header = try? JSONDecoder().decode(Header.self, from: data)
+        else { return nil }
+        return header.schemaVersion ?? 1
     }
 
     static func save(_ settings: AppSettings) throws {

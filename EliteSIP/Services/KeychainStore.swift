@@ -1,4 +1,5 @@
 import Foundation
+import SIPCore
 import Security
 
 /// Пароль от SIP хранится только здесь.
@@ -25,6 +26,12 @@ enum KeychainStore {
     /// лаборатории, и в бою, и путать их пароли нельзя.
     static func key(for account: String, domain: String) -> String {
         "\(account)@\(domain)"
+    }
+
+    /// Тот же ключ по учётной записи. Профилей несколько (M7b), и брать поля
+    /// вручную на каждом вызове — способ однажды взять не те.
+    static func key(for account: SIPAccount) -> String {
+        key(for: account.username, domain: account.domain)
     }
 
     static func save(password: String, for key: String) throws {

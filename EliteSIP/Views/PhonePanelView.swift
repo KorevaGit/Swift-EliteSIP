@@ -30,6 +30,11 @@ struct PhonePanelView: View {
         .padding(.top, Theme.Metrics.titleBarInset)
         .frame(width: Theme.Metrics.panelWidth)
         .frame(maxHeight: .infinity)
+        // Шестерёнка живёт в полосе заголовка, справа от светофора, а не в
+        // бейдже: в бейдже она отъедала ширину у строки состояния, и «Не
+        // подключено» превращалось в «Не подключ…». Накладкой, а не элементом
+        // стопки, — чтобы вёрстка панели осталась ровно прежней.
+        .compatOverlay(alignment: .topTrailing) { settingsButton }
         .compatBackground {
             WindowAccessor { window in
                 // Заголовок скрыт, поэтому окно надо таскать за фон.
@@ -81,6 +86,27 @@ struct PhonePanelView: View {
             }
             #endif
         }
+    }
+
+    /// Вход в настройки с панели.
+    ///
+    /// До этого дорога была одна — пункт меню, и на рабочем месте её не
+    /// находили: панель показывается сама, а в строку меню оператор не смотрит.
+    /// Действие то же самое, что у пункта «Настройки…»: оно уходит в цепочку
+    /// ответчиков, где его ловит делегат приложения. Второго кода, умеющего
+    /// открывать окно настроек, в приложении нет — иначе окон стало бы два.
+    private var settingsButton: some View {
+        Button {
+            NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
+        } label: {
+            CompatSymbol(name: "gearshape")
+        }
+        .buttonStyle(.borderless)
+        .compatForeground(.secondary)
+        .padding(.top, 5)
+        .padding(.trailing, Theme.Metrics.contentPadding)
+        .compatHelp("Настройки EliteSIP (⌘,)")
+        .compatAccessibilityLabel("Настройки")
     }
 
     #if DEBUG
@@ -197,6 +223,7 @@ struct RegistrationBadge: View {
         .padding(.vertical, 8)
         .themedControlSurface()
     }
+
 
     @ViewBuilder
     private var indicator: some View {
