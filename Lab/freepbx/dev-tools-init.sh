@@ -87,7 +87,74 @@ exten => 22998,1,NoOp(EliteSIP dev: hot queue stub)
  same => n,Playback(demo-thanks)
  same => n,Wait(60)
  same => n,Hangup()
+
+; --- Конференция по *3 -------------------------------------------------------
+;
+; Перехватывает обычный набор номера для 100–103 и 200 (обычно это
+; ext-local/Macro(exten-vm,…) из extensions_additional.conf) и добавляет
+; dynamic feature conf_pull (см. features_applicationmap_dev.conf) плюс флаг
+; `g` у Dial. [from-internal-custom] включается в from-internal-xfer раньше,
+; чем ext-local (тот приезжает из from-internal-additional — на 30 include
+; позже), и потому наша запись обгоняет штатную. Проверено `dialplan show
+; 100@from-internal`: без этого блока штатная запись, с ним — наша.
+;
+; Расплата известная и принятая: голосовая почта, DND и переадресация из
+; ext-local для 100–103 здесь не работают — это тот же обмен, что был в
+; убранной лабе на голом Asterisk, а не новая потеря. Запись разговора — нет,
+; её сюда завели явно: Gosub(sub-record-check,…) — тот же вызов, которым
+; пользуется сам FreePBX (see extensions_additional.conf, _XXX,n), и без него
+; автоматическая запись для этих же номеров пропала бы вместе с конференцией.
+;
+; GotoIf/ConfBridge после Dial — часть исходного прототипа, и она НЕ
+; срабатывает: Dial(...,g) должен был возвращать управление, когда собеседник
+; уходит в конференцию, но проверка 31 июля показала, что в бридинге
+; Asterisk 13 (пост-12) это не так — канал собеседника остаётся формальным
+; членом исходного simple_bridge (`bridge show` держит Num-Channels: 2), и
+; Dial не возвращается ни через 10 секунд, ни через 37. Пробовал чинить через
+; ActivateOn=peer,Gosub,… с ChannelRedirect второго канала — сработало один
+; раз из трёх попыток и статистически ненадёжно; прямой `ConfBridge` в
+; applicationmap отработал стабильно во всех проверках. Оставляю строку ниже
+; недостижимой, а не удаляю: без нового способа дозвать оператора это честная
+; фиксация того, что задумано, но не получилось, а не работающий код.
+exten => _10X,1,NoOp(EliteSIP dev: dial ${EXTEN} с поддержкой конференции)
+ same => n,Gosub(sub-record-check,s,1(exten,${EXTEN},))
+ same => n,Set(__CONFROOM=conf-${CALLERID(num)})
+ same => n,Set(__DYNAMIC_FEATURES=conf_pull)
+ same => n,Dial(SIP/${EXTEN},30,gtT)
+ same => n,GotoIf($[${CONFBRIDGE_INFO(parties,${CONFROOM})} > 0]?join:done)
+ same => n(join),NoOp(Собеседник ушёл в конференцию ${CONFROOM}, заходим следом)
+ same => n,ConfBridge(${CONFROOM},default_bridge,admin_user)
+ same => n(done),Hangup()
+
+exten => 200,1,NoOp(EliteSIP dev: dial 200 (TLS) с поддержкой конференции)
+ same => n,Gosub(sub-record-check,s,1(exten,200,))
+ same => n,Set(__CONFROOM=conf-${CALLERID(num)})
+ same => n,Set(__DYNAMIC_FEATURES=conf_pull)
+ same => n,Dial(SIP/200,30,gtT)
+ same => n,GotoIf($[${CONFBRIDGE_INFO(parties,${CONFROOM})} > 0]?join:done)
+ same => n(join),ConfBridge(${CONFROOM},default_bridge,admin_user)
+ same => n(done),Hangup()
 EXTENSIONS
+
+# Dynamic feature conf_pull. Отдельный файл, не sip_general_dev.conf: это
+# features.conf, у него свой include (features_applicationmap_custom.conf).
+#
+# ActivateOn=peer — выполняется на канале СОБЕСЕДНИКА: он уходит в ConfBridge
+# в комнату ${CONFROOM}, унаследованную от канала звонящего через __ в
+# extensions_dev.conf. Это подтверждено стабильно на живом стенде — 31 июля
+# 2026, десятки последовательных вызовов без единого срыва. Дозаход самого
+# оператора в ту же комнату (флаг g у Dial выше) не работает — см. комментарий
+# там же; это открытая проблема, а не решённая.
+cat > "$ASTETC/features_applicationmap_dev.conf" <<'APPMAP'
+conf_pull => *3,peer,ConfBridge,${CONFROOM}
+APPMAP
+
+touch "$ASTETC/features_applicationmap_custom.conf"
+chown asterisk:asterisk "$ASTETC/features_applicationmap_dev.conf" "$ASTETC/features_applicationmap_custom.conf"
+if ! grep -Fqx '#include features_applicationmap_dev.conf' "$ASTETC/features_applicationmap_custom.conf"; then
+  printf '\n; EliteSIP: конференция по *3\n#include features_applicationmap_dev.conf\n' \
+    >> "$ASTETC/features_applicationmap_custom.conf"
+fi
 
 touch "$ASTETC/extensions_custom.conf"
 chown asterisk:asterisk "$ASTETC/extensions_dev.conf" "$ASTETC/extensions_custom.conf"
@@ -153,3 +220,4 @@ fi
 
 asterisk -rx 'dialplan reload' >/dev/null
 asterisk -rx 'sip reload' >/dev/null
+asterisk -rx 'module reload features' >/dev/null
