@@ -6,11 +6,19 @@
 # docker-compose.yml).
 set -euo pipefail
 
-CONTAINER=elitesip-lab
+CONTAINER=elitesip-lab13
 
 if ! docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
-  echo "Контейнер $CONTAINER не запущен. Сначала: docker compose up -d" >&2
+  echo "Контейнер $CONTAINER не запущен. Сначала: ./lab.sh up" >&2
   exit 1
+fi
+
+# Тот же адрес, что подставляет lab.sh при запуске: сеть могла смениться и
+# между запусками, а перечитывание конфигов — как раз тот момент, когда это
+# замечают. Симптом старого адреса — установленный звонок без звука.
+address="$(ipconfig getifaddr en0 2>/dev/null || true)"
+if [ -n "$address" ]; then
+  sed -i '' -E "s/^externaddr=.*/externaddr=$address/" asterisk/config/sip.conf
 fi
 
 docker exec "$CONTAINER" sh -c 'cp -f /etc/asterisk-elitesip/*.conf /etc/asterisk/'

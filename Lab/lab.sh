@@ -60,9 +60,36 @@ status() {
   номера/пароли:    100/elite100, 101/elite101, 102/elite102
   эхо-тест:         600
 
-  Если адрес Mac изменился, поправьте externaddr в asterisk/config/sip.conf
-  и выполните ./reload.sh — иначе звонок установится, а звука не будет.
+  externaddr в sip.conf: $(current_externaddr)
 INFO
+}
+
+current_externaddr() {
+  sed -nE 's/^externaddr=(.*)$/\1/p' asterisk/config/sip.conf | head -1
+}
+
+# Подставляет текущий адрес Mac в externaddr.
+#
+# Раньше это была строчка в подсказке «поправьте руками». Руками её забывают, а
+# симптом обманчивый: звонок устанавливается, ACK проходит, и только звука нет —
+# в обе стороны. Asterisk ставит externaddr в SDP, и по старому адресу RTP
+# уходит в никуда. Дважды на это наступили, поэтому теперь адрес берётся у
+# системы при каждом запуске.
+sync_externaddr() {
+  local address current
+  address="$(ipconfig getifaddr en0 2>/dev/null || true)"
+
+  if [ -z "$address" ]; then
+    echo "Адрес en0 не определён — externaddr оставлен как есть." >&2
+    return
+  fi
+
+  current="$(current_externaddr)"
+  [ "$current" = "$address" ] && return
+
+  # BSD sed: -i требует суффикса, пустой означает «без резервной копии».
+  sed -i '' -E "s/^externaddr=.*/externaddr=$address/" asterisk/config/sip.conf
+  echo "externaddr: $current → $address"
 }
 
 case "${1:-up}" in
@@ -78,6 +105,7 @@ up)
   fi
 
   ./certs/generate.sh >/dev/null 2>&1 || true
+  sync_externaddr
 
   echo "Запускаю Asterisk 13.38.3…"
   docker compose -f "$PRIMARY" up -d
