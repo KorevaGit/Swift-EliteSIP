@@ -28,18 +28,22 @@ $settings->setConfig("rtpend", "10230");
 $settings->setConfig("externip", getenv("FREEPBX_EXTERNAL_ADDRESS") ?: "127.0.0.1");
 '
 
-# chan_sip включает подмену адреса в SDP только при наличии localnet. Берём
-# точную сеть eth0, чтобы адрес Docker-хоста не считался локальным, и Asterisk
-# публиковал доступный с macOS 127.0.0.1 вместо внутреннего 172.x контейнера.
-CONTAINER_NETWORK="$(
-  ip -o -4 route show dev eth0 scope link 2>/dev/null |
-    awk 'NR == 1 { print $1 }'
-)"
-test -n "$CONTAINER_NETWORK"
+# chan_sip включает подмену адреса в SDP только при наличии localnet, поэтому
+# список обязан быть непустым. Но объявлять в нём сеть контейнера нельзя, хотя
+# ровно так здесь и было: Docker Desktop переписывает адрес источника, и клиент
+# с хоста приходит со шлюза этой же сети. Asterisk считал его локальным и клал
+# в SDP свой 172.x — адрес, до которого с macOS маршрута нет. Разговор при этом
+# устанавливался целиком, а звука не было: `freepbx-traffic.sh` показывал
+# «встречного потока RTP не было» при полностью прошедшей сигнализации.
+#
+# Поэтому диапазон заведомо ни с чем не совпадающий: он нужен, чтобы включить
+# подстановку, а не чтобы кого-то пометить локальным. Через SNAT из 127.0.0.0/8
+# не придёт никогда никто. То же самое и по той же причине сделано в основной
+# лабе — Lab/asterisk/config/sip.conf.
 printf '%s\n' \
   '; EliteSIP M1.6: Docker NAT для SIP/SDP' \
   "externip=${FREEPBX_EXTERNAL_ADDRESS:-127.0.0.1}" \
-  "localnet=$CONTAINER_NETWORK" \
+  'localnet=127.0.0.0/8' \
   > "$ASTETC/sip_general_m1_6.conf"
 chown asterisk:asterisk "$ASTETC/sip_general_m1_6.conf"
 touch "$ASTETC/sip_general_custom.conf"
