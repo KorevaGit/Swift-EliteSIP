@@ -236,6 +236,23 @@ docker exec elitesip-freepbx asterisk -rx 'queue show 2929'
 не в настройках FreePBX, а в `extensions_custom.conf` и `features.conf` боевого
 сервера — то есть в файлах, которые FreePBX не генерирует.
 
+30 июля 2026 подтвердилась половина: боевой `core show features` дал реальные
+builtin/dynamic коды (Blind Transfer `##`, Attended Transfer `*02`, Disconnect
+`**`, `apprecord` `*1`, `cancel-transfer` `*77` — разбор в
+[Lab/README.md](README.md#боевые-фич-коды-что-подтвердилось-а-что-нет)), но ни
+`*022998#`, ни `*3` в этом списке не появились. Значит оба — не записи
+`[featuremap]`/`[applicationmap]` вообще, а что-то на уровне диалплана: полноценный
+контекст/макрос в `extensions_custom.conf`, куда `core show features` не
+заглядывает. Догадка про `*022998#` как код `*0`-blindxfer с добором цифр до
+`#` тоже не подтвердилась — реальный Blind Transfer это `##`, а не `*0`.
+
+`apprecord` прояснился 31 июля 2026 без диалплана — через `sip show peer`
+на живом тестовом пире: `Record On/Off feature: apprecord`. Это штатный
+peer-level переключатель записи разговора (`recordonfeature`/
+`recordofffeature` в `sip.conf`), а *1 просто его дёргает. Тело самой фичи
+(что она делает при срабатывании) по-прежнему в `extensions_custom.conf`,
+которого нет.
+
 ## Что проверено на стенде
 
 Все контексты, которые видны в боевых CDR и CEL, FreePBX создаёт сам и они здесь
