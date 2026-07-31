@@ -4,6 +4,8 @@
 #   ./lab.sh up          — Asterisk 13.38.3 (боевая версия). Нужен для работы.
 #   ./lab.sh up freepbx  — плюс учебный стенд FreePBX
 #   ./lab.sh status      — что запущено и в каком состоянии
+#   ./lab.sh cli         — живая консоль Asterisk внутри FreePBX (asterisk -rvvv)
+#   ./lab.sh cli lab13   — то же самое, но у основной лабы
 #   ./lab.sh down        — остановить всё
 #   ./lab.sh down-all    — остановить и удалить тома FreePBX (сброс к чистому)
 set -euo pipefail
@@ -97,6 +99,33 @@ up)
 status)
   ensure_docker
   status
+  ;;
+
+cli)
+  ensure_docker
+
+  # По умолчанию FreePBX: команда добавлена именно ради него — у основной лабы
+  # `docker exec elitesip-lab13 asterisk -rx '...'` уже используется везде
+  # выше одноразовыми командами, а живая консоль (`-rvvv`, без `x`) нужна была
+  # только внутри FreePBX, где диалплан и очереди генерирует не человек.
+  case "${2:-freepbx}" in
+    freepbx) container="elitesip-freepbx" ;;
+    lab13|asterisk) container="elitesip-lab13" ;;
+    *)
+      echo "Неизвестная цель: ${2}. Ожидается freepbx или lab13." >&2
+      exit 2
+      ;;
+  esac
+
+  if ! docker ps --format '{{.Names}}' | grep -qx "$container"; then
+    echo "$container не запущен. Сначала: ./lab.sh up${2:+ freepbx}" >&2
+    exit 1
+  fi
+
+  # -it, а не -x: это интерактивная консоль (Ctrl+D или `quit` — выход из
+  # неё, не из контейнера), а не разовая команда. `-vvv` — тот же уровень
+  # подробности, что и у настоящего `asterisk -r` на живом сервере.
+  exec docker exec -it "$container" asterisk -rvvv
   ;;
 
 down)
