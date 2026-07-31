@@ -99,6 +99,17 @@ public actor SIPUserAgent {
         /// REFER уже принят в работу. Второй перевод того же диалога до
         /// финального NOTIFY двусмысленен и потому отклоняется локально.
         var isTransferring = false
+
+        /// Договорённость об обновлении сессии, если она состоялась.
+        ///
+        /// `nil` — таймера нет, и это не то же самое, что «таймер с большим
+        /// сроком»: без договорённости не заводится ни обновление, ни слежение,
+        /// потому что вторая сторона о них не знает.
+        var sessionTimer: SIPSessionTimer?
+
+        /// Обновление сессии или слежение за чужим — смотря какая роль нам
+        /// досталась. Задача одна: ролей взаимоисключающие две.
+        var sessionTimerTask: Task<Void, Never>?
     }
 
     // MARK: - Линии
@@ -154,7 +165,10 @@ public actor SIPUserAgent {
 
     private func removeCall(_ callID: String) {
         reservedLines.remove(callID)
-        calls.removeValue(forKey: callID)
+        // Снимать таймер сессии надо именно здесь: это единственная точка, через
+        // которую линия исчезает, а переживший её таймер положил бы трубку на
+        // чужом разговоре — Call-ID к тому времени принадлежит уже не ему.
+        calls.removeValue(forKey: callID)?.sessionTimerTask?.cancel()
         lineOrder.removeAll { $0 == callID }
     }
 
@@ -197,6 +211,9 @@ public actor SIPUserAgent {
     /// Как часто удерживать привязку NAT пустым пакетом.
     private let keepAliveInterval: Interval
 
+    /// Что предлагать по RFC 4028.
+    private let sessionTimerPolicy: SIPSessionTimerPolicy
+
     public init(
         account: SIPAccount,
         credentials: DigestAuthentication.Credentials,
@@ -204,7 +221,8 @@ public actor SIPUserAgent {
         timers: SIPTransactionLayer.Timers = .init(),
         userAgentName: String = SIPUserAgent.defaultUserAgentName,
         transferResultTimeout: Interval = .seconds(60),
-        keepAliveInterval: Interval? = nil
+        keepAliveInterval: Interval? = nil,
+        sessionTimerPolicy: SIPSessionTimerPolicy = SIPSessionTimerPolicy()
     ) {
         self.account = account
         self.credentials = credentials
@@ -213,6 +231,7 @@ public actor SIPUserAgent {
         self.transferResultTimeout = transferResultTimeout
         self.keepAliveInterval =
             keepAliveInterval ?? Self.defaultKeepAliveInterval(for: account.transport)
+        self.sessionTimerPolicy = sessionTimerPolicy
 
         let (stream, continuation) = AsyncStream<Event>.makeStream(bufferingPolicy: .bufferingNewest(256))
         events = stream
@@ -684,9 +703,15 @@ public actor SIPUserAgent {
         let localTag = SIPToken.tag()
         var sequence = 0
 
-        // Две попытки, а не одна: chan_sip требует авторизацию не только на
-        // REGISTER, но и на INVITE, и первый запрос уходит без неё.
-        for attempt in 0..<2 {
+        /// Порог сервера из ответа 422. `nil` — сервер про него ещё не говорил.
+        var serverMinimumExpires: Int?
+        var authenticationAttempts = 0
+
+        // Три попытки, а не две: к вызову авторизации (chan_sip требует её не
+        // только на REGISTER, но и на INVITE) добавился отказ 422 со слишком
+        // коротким сроком сессии. Прийти могут оба подряд, и тогда третий
+        // запрос — первый, у которого есть шанс.
+        for _ in 0..<3 {
             do {
                 let local = try await transactions.waitUntilReady()
                 sequence += 1
@@ -698,7 +723,8 @@ public actor SIPUserAgent {
                     sequence: sequence,
                     offer: offer,
                     contentType: contentType,
-                    local: local
+                    local: local,
+                    minimumExpires: serverMinimumExpires
                 )
                 guard let branch = request.topVia?.branch else {
                     finishCall(
@@ -724,7 +750,7 @@ public actor SIPUserAgent {
                 emitCallState(.dialing, of: callID)
                 log(.info, "-> INVITE \(target)")
 
-                var needsRetryWithAuth = false
+                var needsRetry = false
 
                 // Выходим из цикла на первом же финальном событии, а не по
                 // закрытию потока: после отказа транзакция ещё живёт таймером D
@@ -748,11 +774,24 @@ public actor SIPUserAgent {
 
                     case .failure(let response):
                         if response.isAuthenticationRequired,
-                           attempt == 0,
+                           authenticationAttempts == 0,
                            let offered = response.authenticationChallenges.first {
                             cachedChallenge = offered
                             nonceCount = 0
-                            needsRetryWithAuth = true
+                            authenticationAttempts += 1
+                            needsRetry = true
+                            break events
+                        }
+                        // 422 Session Interval Too Small — не отказ по существу:
+                        // сервер называет свой порог и ждёт того же запроса с
+                        // ним. Повторяем только если порог назван и он вырос,
+                        // иначе получился бы вечный круг одинаковых запросов.
+                        if response.statusCode == 422,
+                           let minimum = response.headers.integer(SIPSessionTimerHeader.minSE),
+                           minimum > (serverMinimumExpires ?? 0) {
+                            serverMinimumExpires = minimum
+                            log(.debug, "<- 422, сервер требует Min-SE \(minimum) с")
+                            needsRetry = true
                             break events
                         }
                         let reason = describeCallFailure(status: response.statusCode, reason: response.reasonPhrase)
@@ -782,7 +821,7 @@ public actor SIPUserAgent {
                     }
                 }
 
-                guard needsRetryWithAuth else {
+                guard needsRetry else {
                     finishCall(
                         callID: callID,
                         with: .failed(status: 0, reason: "звонок прерван"),
@@ -829,6 +868,11 @@ public actor SIPUserAgent {
         call.state = .answered
         calls[callID] = call
 
+        armSessionTimer(
+            callID: callID,
+            negotiated: sessionTimerPolicy.negotiated(fromResponse: response.headers)
+        )
+
         // ACK на 2xx идёт ВНЕ транзакции, по маршруту диалога и с тем же
         // номером CSeq, что у INVITE.
         var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
@@ -846,6 +890,109 @@ public actor SIPUserAgent {
         log(.info, "<- 200 OK, отправлен ACK")
         call.continuation.yield(.state(.answered))
         call.continuation.yield(.answered(body: response.body, contentType: response.contentType))
+    }
+
+    // MARK: - Таймер сессии (RFC 4028)
+
+    /// Заводит таймер по состоявшейся договорённости.
+    ///
+    /// `nil` снимает таймер и не заводит нового — так обрабатывается сервер,
+    /// промолчавший про `Session-Expires`. Промолчал значит не участвует, и
+    /// заводить слежение в одиночку нельзя: обновлять будет некому, а трубку в
+    /// срок положим мы, посреди работающего разговора.
+    private func armSessionTimer(callID: String, negotiated: SIPSessionTimer?) {
+        guard var call = calls[callID] else { return }
+
+        call.sessionTimerTask?.cancel()
+        call.sessionTimer = negotiated
+        call.sessionTimerTask = nil
+
+        guard let timer = negotiated else {
+            calls[callID] = call
+            return
+        }
+
+        // Чья роль в диалоге — вопрос не о том, кто сейчас шлёт запрос, а о
+        // том, кто позвонил. `uac` в договорённости означает звонящего, и для
+        // нас это «мы» только на исходящем звонке.
+        let weRefresh = (timer.refresher == .uac) == (call.role == .caller)
+
+        if weRefresh {
+            log(.debug, "таймер сессии \(timer.expires) с, обновляем мы")
+            call.sessionTimerTask = Task { [weak self] in
+                await self?.runSessionRefresh(callID: callID, timer: timer)
+            }
+        } else {
+            log(.debug, "таймер сессии \(timer.expires) с, обновляет собеседник")
+            call.sessionTimerTask = Task { [weak self] in
+                await self?.runSessionExpiry(callID: callID, timer: timer)
+            }
+        }
+
+        calls[callID] = call
+    }
+
+    /// Наша сторона обновляет сессию: повторный INVITE на середине срока.
+    ///
+    /// Тело берём то же, о котором уже договорились: обновление сессии — про
+    /// срок, а не про медиа, и менять в нём описание потока значило бы
+    /// пересогласовывать звук на ровном месте.
+    private func runSessionRefresh(callID: String, timer: SIPSessionTimer) async {
+        do {
+            try await Task.sleep(timer.refreshAfter)
+        } catch {
+            return
+        }
+        guard !isStopping, let call = calls[callID], call.state == .answered else { return }
+
+        guard let body = call.localSDP else {
+            log(.warning, "нечем обновить сессию: своего SDP нет")
+            return
+        }
+
+        do {
+            _ = try await reinvite(callID: callID, offer: body)
+            log(.debug, "сессия обновлена")
+        } catch SIPRenegotiationError.requestPending {
+            // Собеседник успел первым со своим повторным INVITE. Его запрос и
+            // обновит сессию — заново заводить таймер не нужно, это сделает
+            // обработчик входящего.
+            log(.debug, "обновление сессии разошлось со встречным — считаем обновлённой")
+        } catch {
+            // Не кладём трубку: до истечения срока остаётся ещё половина, и за
+            // это время собеседник может обновить сессию сам. Если не обновит,
+            // разговор закончит его собственный таймер.
+            log(.warning, "обновить сессию не удалось: \(error)")
+        }
+    }
+
+    /// Собеседник обновляет — мы следим и кладём трубку, если не обновил.
+    ///
+    /// Это единственное место, где клиент завершает разговор по своему
+    /// решению, а не по команде оператора или собеседника. Поэтому срабатывает
+    /// оно только по состоявшейся договорённости и только на полном сроке: к
+    /// этому моменту собеседник пропустил и обновление на середине, и весь
+    /// остаток срока.
+    private func runSessionExpiry(callID: String, timer: SIPSessionTimer) async {
+        do {
+            try await Task.sleep(timer.expireAfter)
+        } catch {
+            return
+        }
+        guard !isStopping, let call = calls[callID], call.state == .answered else { return }
+
+        log(.warning, "сессия не обновлена за \(timer.expires) с — кладём трубку")
+        await hangUp(callID: callID)
+    }
+
+    /// Перезаводит таймер после того, как сессию обновили.
+    ///
+    /// Вызывается на обе стороны обновления: и когда обновили нас чужим
+    /// повторным INVITE, и когда обновили мы своим. Договорённость при этом не
+    /// пересматривается — меняется только точка отсчёта.
+    private func restartSessionTimer(callID: String) {
+        guard let call = calls[callID], let timer = call.sessionTimer else { return }
+        armSessionTimer(callID: callID, negotiated: timer)
     }
 
     // MARK: - Пересогласование медиа
@@ -913,7 +1060,18 @@ public actor SIPUserAgent {
             request.body = offer
             request.headers.append(SIPHeaderName.contentType, contentType)
             request.headers.append(SIPHeaderName.allow, Self.allowedMethods)
-            request.headers.append(SIPHeaderName.supported, "replaces")
+            request.headers.append(SIPHeaderName.supported, Self.supportedOptionTags)
+            // Повторный INVITE внутри диалога с таймером обязан нести срок
+            // (RFC 4028 §7.4): без него собеседник читает запрос как отказ от
+            // договорённости и снимает свой таймер. Роль не пересматриваем —
+            // повторяем ту, о которой договорились при установлении.
+            if let timer = call.sessionTimer {
+                request.headers.append(SIPSessionTimerHeader.sessionExpires, timer.headerValue)
+                request.headers.append(
+                    SIPSessionTimerHeader.minSE,
+                    String(sessionTimerPolicy.minimumExpires)
+                )
+            }
             if let cached = cachedChallenge,
                let value = try? authorization(for: .invite, uri: request.uri, challenge: cached) {
                 request.headers.append(cached.responseHeader, value)
@@ -936,6 +1094,10 @@ public actor SIPUserAgent {
                         local: local,
                         offer: offer
                     )
+                    // Любой удавшийся повторный INVITE обновляет сессию, а не
+                    // только тот, который затевался ради неё: для RFC 4028
+                    // удержание и обновление — один и тот же запрос.
+                    restartSessionTimer(callID: callID)
                     log(.info, "<- 200 OK на повторный INVITE")
                     return response.body
 
@@ -1321,7 +1483,8 @@ public actor SIPUserAgent {
         sequence: Int,
         offer: Data,
         contentType: String,
-        local: SIPEndpoint
+        local: SIPEndpoint,
+        minimumExpires: Int? = nil
     ) -> SIPRequest {
         let targetURI = SIPURI(user: target, host: account.domain)
         var request = SIPRequest(method: .invite, uri: targetURI, body: offer)
@@ -1343,9 +1506,10 @@ public actor SIPUserAgent {
         request.headers.append(SIPHeaderName.cseq, "\(sequence) \(SIPMethod.invite.rawValue)")
         request.headers.append(SIPHeaderName.contact, localContact(local).description)
         request.headers.append(SIPHeaderName.allow, Self.allowedMethods)
-        request.headers.append(SIPHeaderName.supported, "replaces")
+        request.headers.append(SIPHeaderName.supported, Self.supportedOptionTags)
         request.headers.append(SIPHeaderName.userAgent, userAgentName)
         request.headers.append(SIPHeaderName.contentType, contentType)
+        appendSessionTimerOffer(to: &request, minimumExpires: minimumExpires)
 
         if let cached = cachedChallenge,
            let value = try? authorization(for: .invite, uri: targetURI, challenge: cached) {
@@ -1353,6 +1517,27 @@ public actor SIPUserAgent {
         }
 
         return request
+    }
+
+    /// Дописывает предложение таймера сессии в исходящий INVITE.
+    ///
+    /// `minimumExpires` отличается от значения политики после ответа 422: сервер
+    /// сообщает в нём свой порог, и повторять запрос с прежним, заведомо
+    /// отклонённым значением бессмысленно.
+    private func appendSessionTimerOffer(to request: inout SIPRequest, minimumExpires: Int?) {
+        guard sessionTimerPolicy.isEnabled else { return }
+
+        let floor = max(minimumExpires ?? sessionTimerPolicy.minimumExpires, 1)
+        let expires = max(sessionTimerPolicy.expires, floor)
+
+        // Роль указываем сразу: без параметра выбор остаётся за сервером, а нам
+        // нужен предсказуемый — обновляет он.
+        let offer = SIPSessionTimer(
+            expires: expires,
+            refresher: SIPSessionTimerPolicy.preferredPeerRefresher
+        )
+        request.headers.append(SIPSessionTimerHeader.sessionExpires, offer.headerValue)
+        request.headers.append(SIPSessionTimerHeader.minSE, String(floor))
     }
 
     private func localContact(_ local: SIPEndpoint) -> NameAddress {
@@ -1504,7 +1689,7 @@ public actor SIPUserAgent {
 
         var ringing = SIPResponse(statusCode: 180, headers: responseHeaders(for: request, localTag: callTag))
         ringing.headers.append(SIPHeaderName.allow, Self.allowedMethods)
-        ringing.headers.append(SIPHeaderName.supported, "replaces")
+        ringing.headers.append(SIPHeaderName.supported, Self.supportedOptionTags)
         ringing.headers.append(SIPHeaderName.userAgent, userAgentName)
         try? await transactions.respondToInvite(to: request, with: ringing)
 
@@ -1600,14 +1785,26 @@ public actor SIPUserAgent {
         )
         response.headers.append(SIPHeaderName.contentType, "application/sdp")
         response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
-        response.headers.append(SIPHeaderName.supported, "replaces")
+        response.headers.append(SIPHeaderName.supported, Self.supportedOptionTags)
         response.headers.append(SIPHeaderName.userAgent, userAgentName)
+
+        // Подтверждаем прежнюю договорённость, а не пересматриваем её: роль
+        // обновляющего закреплена за стороной на весь диалог (RFC 4028 §7.4), и
+        // менять её посреди разговора значит развести стороны в разные стороны.
+        if let timer = current.sessionTimer {
+            response.headers.append(SIPSessionTimerHeader.sessionExpires, timer.headerValue)
+        }
 
         var updated = current
         updated.localSDP = answer
         calls[updated.callID] = updated
 
         try? await transactions.respondToInvite(to: request, with: response)
+
+        // Чужой повторный INVITE обновил сессию — отсчёт начинается заново.
+        // Делаем это после ответа: до него обновление ещё не состоялось.
+        restartSessionTimer(callID: current.callID)
+
         log(.info, "<- повторный INVITE пересогласован")
     }
 
@@ -1641,8 +1838,20 @@ public actor SIPUserAgent {
         )
         response.headers.append(SIPHeaderName.contentType, contentType)
         response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
-        response.headers.append(SIPHeaderName.supported, "replaces")
+        response.headers.append(SIPHeaderName.supported, Self.supportedOptionTags)
         response.headers.append(SIPHeaderName.userAgent, userAgentName)
+
+        // Про таймер сессии отвечаем только тому, кто о нём заговорил: наш
+        // `Session-Expires` в ответ на INVITE без него звонящий вправе не
+        // понять, а следить за сроком в одиночку — способ положить трубку
+        // самому себе.
+        let negotiated = sessionTimerPolicy.negotiated(forIncoming: invite.headers)
+        if let negotiated {
+            response.headers.append(SIPSessionTimerHeader.sessionExpires, negotiated.headerValue)
+            // Require, а не Supported: сторона, назначенная обновлять, обязана
+            // понимать RFC 4028, иначе договорённость односторонняя.
+            response.headers.append(SIPHeaderName.requireHeader, SIPSessionTimerHeader.optionTag)
+        }
 
         call.dialog = dialog
         call.state = .answered
@@ -1660,6 +1869,8 @@ public actor SIPUserAgent {
             )
             return false
         }
+
+        armSessionTimer(callID: call.callID, negotiated: negotiated)
 
         log(.info, "-> 200 OK, звонок принят")
         call.continuation.yield(.state(.answered))
@@ -1714,7 +1925,7 @@ public actor SIPUserAgent {
             // Ответ на OPTIONS — это то, что держит пир в состоянии OK.
             var response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
             response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
-            response.headers.append(SIPHeaderName.supported, "replaces")
+            response.headers.append(SIPHeaderName.supported, Self.supportedOptionTags)
             response.headers.append(SIPHeaderName.userAgent, userAgentName)
             try? await transactions.respond(to: request, with: response)
             log(.debug, "<- OPTIONS, ответили 200")
@@ -1922,6 +2133,14 @@ public actor SIPUserAgent {
     /// значило бы разрешить серверу присылать нам DTMF тем путём, которого мы
     /// не обрабатываем.
     static let allowedMethods = "INVITE, ACK, CANCEL, BYE, OPTIONS, NOTIFY"
+
+    /// Что мы умеем сверх ядра RFC 3261.
+    ///
+    /// `timer` здесь не украшение: `chan_sip` обновляет сессию повторным INVITE
+    /// ровно потому, что UPDATE в нашем `Allow` нет. Появится UPDATE в списке
+    /// разрешённых методов — Asterisk начнёт слать обновления им, и обработать
+    /// их будет нечем. Эти две строки связаны, хотя стоят рядом случайно.
+    static let supportedOptionTags = "replaces, \(SIPSessionTimerHeader.optionTag)"
 
     /// Когда обновлять регистрацию.
     ///
