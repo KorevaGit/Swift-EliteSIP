@@ -108,7 +108,7 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
             receiveNext()
 
         case .failed(let error):
-            continuation.yield(.failed(reason: error.localizedDescription))
+            continuation.yield(.failed(reason: explain(error)))
             continuation.finish()
 
         case .cancelled:
@@ -116,15 +116,66 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
             continuation.finish()
 
         case .waiting(let error):
-            // waiting — это «сети сейчас нет», не окончательный отказ.
-            // Network.framework сам повторит попытку, поэтому канал не рвём.
-            continuation.yield(.failed(reason: "ожидание сети: \(error.localizedDescription)"))
+            // waiting — это «повторю сам», а не окончательный отказ, поэтому
+            // канал не рвём: Network.framework действительно повторит попытку.
+            //
+            // Но «повторю» не значит «поможет». Сюда же приходит отказ TLS —
+            // и вот его ожидание не лечит никогда: если на порту незашифрованный
+            // SIP, он им и останется. Поэтому текст берём у `explain`, а не
+            // подписываем всё подряд «ожиданием сети».
+            continuation.yield(.failed(reason: explain(error)))
 
         case .setup, .preparing:
             break
 
         @unknown default:
             break
+        }
+    }
+
+    /// Человеческая причина отказа вместо кода ошибки.
+    ///
+    /// `NWError.localizedDescription` для сетевого кода — это строка вида
+    /// «The operation couldn’t be completed. (Network.NWError error -9816 —
+    /// server closed session with no notification)». Оператору она не говорит
+    /// ничего, а главное — уводит не туда: −9816 это `errSSLClosedNoNotify`, то
+    /// есть «сервер оборвал TLS-рукопожатие», и чаще всего он оборвал его
+    /// потому, что на этом порту вообще не TLS, а обычный SIP. Человек в это
+    /// время идёт проверять сеть, хотя чинить надо одну строку в настройках.
+    func explain(_ error: NWError) -> String {
+        switch error {
+        case .tls(let status):
+            let base = "сервер не принял TLS (код \(status))"
+            guard transport == .tls else { return base }
+            // Порт TLS у SIP — 5061. Всё остальное почти всегда означает, что
+            // выбран порт незашифрованного SIP, а транспорт остался TLS.
+            let hint = remote.port == SIPTransport.tls.defaultPort
+                ? "проверьте, включён ли TLS на сервере и подходит ли сертификат"
+                : "порт \(remote.port) — обычно это незашифрованный SIP; для TLS нужен \(SIPTransport.tls.defaultPort)"
+            return "\(base): \(hint)"
+
+        case .posix(let code):
+            switch code {
+            case .ECONNREFUSED:
+                return "порт \(remote.port) закрыт: на нём никто не слушает"
+            case .ETIMEDOUT:
+                return "\(remote.host) не отвечает"
+            case .EHOSTUNREACH, .ENETUNREACH:
+                return "нет маршрута до \(remote.host)"
+            case .ENETDOWN:
+                return "сеть выключена"
+            default:
+                return "сеть: \(code)"
+            }
+
+        case .dns:
+            return "имя \(remote.host) не разрешается"
+
+        // Обычный `default`, а не `@unknown default`: в SDK есть случаи вроде
+        // `.wifiAware`, к SIP отношения не имеющие, и они не должны ломать
+        // сборку под старую цель, где их ещё нет.
+        default:
+            return error.localizedDescription
         }
     }
 
