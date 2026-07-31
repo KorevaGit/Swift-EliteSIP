@@ -106,7 +106,7 @@ ACK, отмену, вторую линию и оба варианта отбоя
 В другом, пока идёт ожидание:
 
 ```bash
-docker exec elitesip-lab13 asterisk -rx 'channel originate SIP/100 extension 600@internal'
+docker exec elitesip-freepbx asterisk -rx 'channel originate SIP/100 extension 650@from-internal'
 ```
 
 Проверено на Asterisk 13.38.3: INVITE → 180 → 200 OK → ACK → встречный поток

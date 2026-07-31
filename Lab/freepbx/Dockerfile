@@ -111,6 +111,15 @@ RUN sed -i 's/^# *\(ru_RU.UTF-8 UTF-8\)/\1/' /etc/locale.gen \
 #     состоянии «отключён, ожидает обновления», а res_odbc_additional.conf с
 #     описанием подключения к базе пишет именно этот модуль. Без него соединения
 #     asteriskcdrdb в Asterisk нет, и CDR с CEL молча никуда не пишутся.
+#   * `fwconsole ma downloadinstall queues` нужен отдельно по той же причине,
+#     что и bulkhandler: installall модуль queues не ставит вообще, хотя в
+#     списке доступных он есть. Без этого шага таблиц `queues_config` и
+#     `queues_details` в базе нет, и `freepbx-queue-init.sh` при первом запуске
+#     контейнера с пустым томом `freepbx-mysql` падает на "Table ... doesn't
+#     exist" — контейнер уходит в цикл перезапусков, пока кто-то однажды не
+#     поставит модуль руками через интерфейс. Раньше так и было: модуль жил
+#     только в томе `freepbx-www`, и `down -v` эту установку стирал вместе с
+#     остальным состоянием.
 #   * cel.conf и cel_odbc.conf копируются нами: FreePBX их не создаёт, а без
 #     enable=yes в cel.conf журнал событий не ведётся вообще.
 COPY patch-php74.sh /usr/local/bin/patch-php74.sh
@@ -144,6 +153,7 @@ RUN set -eux; \
     /usr/local/bin/patch-php74.sh /var/www/html/admin; \
     fwconsole ma install cdr; \
     fwconsole ma downloadinstall bulkhandler; \
+    fwconsole ma downloadinstall queues; \
     /usr/local/bin/patch-php74.sh /var/www/html/admin; \
     fwconsole bulkimport /usr/local/share/elitesip/extensions.csv --type=extensions --replace; \
     fwconsole setting UIDEFAULTLANG ru_RU; \
@@ -167,11 +177,13 @@ RUN set -eux; \
 COPY extensions_m1_6.conf /usr/local/share/elitesip/extensions_m1_6.conf
 COPY queue-init.sh /usr/local/bin/freepbx-queue-init.sh
 COPY m1-6-init.sh /usr/local/bin/freepbx-m1-6-init.sh
+COPY dev-tools-init.sh /usr/local/bin/freepbx-dev-tools-init.sh
 COPY entrypoint.sh /usr/local/bin/freepbx-entrypoint.sh
 RUN chmod +x \
       /usr/local/bin/freepbx-entrypoint.sh \
       /usr/local/bin/freepbx-queue-init.sh \
-      /usr/local/bin/freepbx-m1-6-init.sh
+      /usr/local/bin/freepbx-m1-6-init.sh \
+      /usr/local/bin/freepbx-dev-tools-init.sh
 
 EXPOSE 80 5060/udp 5160/udp 5061/tcp
 

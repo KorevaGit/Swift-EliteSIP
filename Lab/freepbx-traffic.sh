@@ -80,7 +80,7 @@ generate)
       cd "$SIPCHECK_DIR"
       swift run sipcheck \
         --user 100 --password elite100 \
-        --host 127.0.0.1 --transport udp --port 5080 \
+        --host 127.0.0.1 --transport udp --port 5060 \
         --call 600 --duration 2
     )
   done

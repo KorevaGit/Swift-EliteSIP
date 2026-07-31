@@ -212,17 +212,17 @@ EliteDash. Кнопка перевода, уехавшая на другое м�
 Что принял Asterisk, видно в его журнале:
 
 ```bash
-docker logs --since 60s elitesip-lab13 | grep -a SayDigits
+docker logs --since 60s elitesip-freepbx | grep -a SayDigits
 ```
 
-Быстрая проверка без журнала — эхо-тест 600: он завершает разговор по решётке.
+Быстрая проверка без журнала — эхо-тест 650: он завершает разговор по решётке.
 Звонок, оборвавшийся сразу после `--dtmf "#"`, и звонок, доживший до конца после
 `--dtmf "1"`, вместе доказывают, что тоны доходят и разбираются.
 
 Удержание и возврат:
 
 ```bash
-(cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --call 600 --duration 14 --hold 5)
+(cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --call 650 --duration 14 --hold 5)
 ```
 
 ## Что осталось непроверенным на стенде

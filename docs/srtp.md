@@ -50,8 +50,8 @@ rollover counter, поэтому переход 16-битного sequence numbe
 cd Tools/sipcheck
 swift run sipcheck \
   --user 200 --password elite200 \
-  --transport tls --port 5071 --insecure-tls \
-  --call 600 --duration 6
+  --transport tls --port 5061 --insecure-tls \
+  --call 650 --duration 6
 ```
 
 Ожидаемый итог: `согласовано: SRTP ...` и ненулевое число пакетов встречного

@@ -201,7 +201,7 @@ struct SIPCheck {
     /// приёма, а придирчивость chan_sip к нашему 200 OK — только живой сервер.
     /// Кто именно позвонит, инструмент не решает; на лабе проще всего так:
     ///
-    ///   docker exec elitesip-lab13 asterisk -rx 'channel originate SIP/100 extension 600@internal'
+    ///   docker exec elitesip-freepbx asterisk -rx 'channel originate SIP/100 extension 650@from-internal'
     private static func waitForIncomingCall(
         agent: SIPUserAgent,
         incoming: IncomingSlot,
