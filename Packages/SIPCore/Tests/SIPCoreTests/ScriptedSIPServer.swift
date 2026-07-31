@@ -24,6 +24,7 @@ final class ScriptedSIPServer: SIPTransportChannel, @unchecked Sendable {
 
     private var receivedRequestsStorage: [SIPRequest] = []
     private var sentResponsesStorage: [SIPResponse] = []
+    private var keepAliveCountStorage = 0
 
     init(
         transport: SIPTransport = .udp,
@@ -51,11 +52,24 @@ final class ScriptedSIPServer: SIPTransportChannel, @unchecked Sendable {
         lock.withLock { sentResponsesStorage }
     }
 
+    /// Сколько пустых пакетов удержания NAT прислал клиент.
+    var keepAliveCount: Int {
+        lock.withLock { keepAliveCountStorage }
+    }
+
     func start() async {
         continuation.yield(.ready(local: local))
     }
 
     func send(_ data: Data) async throws {
+        // Пакет удержания NAT — не сообщение: ни метода, ни заголовков, только
+        // CRLFCRLF. Разбирать его парсером нечем, поэтому отделяем до разбора,
+        // как это делает и настоящий сервер.
+        if data.allSatisfy({ $0 == 0x0D || $0 == 0x0A }) {
+            lock.withLock { keepAliveCountStorage += 1 }
+            return
+        }
+
         let message = try SIPParser.parse(data)
 
         switch message {

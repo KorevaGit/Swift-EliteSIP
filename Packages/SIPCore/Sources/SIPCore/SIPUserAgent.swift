@@ -190,8 +190,12 @@ public actor SIPUserAgent {
     private var registrationTask: Task<Void, Never>?
     private var requestPumpTask: Task<Void, Never>?
     private var serverInvitePumpTask: Task<Void, Never>?
+    private var keepAliveTask: Task<Void, Never>?
     private var isStopping = false
     private var consecutiveFailures = 0
+
+    /// Как часто удерживать привязку NAT пустым пакетом.
+    private let keepAliveInterval: Interval
 
     public init(
         account: SIPAccount,
@@ -199,13 +203,16 @@ public actor SIPUserAgent {
         channel: SIPTransportChannel,
         timers: SIPTransactionLayer.Timers = .init(),
         userAgentName: String = SIPUserAgent.defaultUserAgentName,
-        transferResultTimeout: Interval = .seconds(60)
+        transferResultTimeout: Interval = .seconds(60),
+        keepAliveInterval: Interval? = nil
     ) {
         self.account = account
         self.credentials = credentials
         self.transactions = SIPTransactionLayer(channel: channel, timers: timers)
         self.userAgentName = userAgentName
         self.transferResultTimeout = transferResultTimeout
+        self.keepAliveInterval =
+            keepAliveInterval ?? Self.defaultKeepAliveInterval(for: account.transport)
 
         let (stream, continuation) = AsyncStream<Event>.makeStream(bufferingPolicy: .bufferingNewest(256))
         events = stream
@@ -239,6 +246,10 @@ public actor SIPUserAgent {
         registrationTask = Task { [weak self] in
             await self?.runRegistrationLoop()
         }
+
+        keepAliveTask = Task { [weak self] in
+            await self?.runKeepAliveLoop()
+        }
     }
 
     /// Немедленно перерегистрироваться, не дожидаясь планового обновления.
@@ -263,6 +274,8 @@ public actor SIPUserAgent {
         isStopping = true
         registrationTask?.cancel()
         registrationTask = nil
+        keepAliveTask?.cancel()
+        keepAliveTask = nil
 
         // Сначала закрываем текущий диалог, пока транспорт ещё доступен. Иначе
         // приложение уже отключено, а сервер продолжает держать канал; поток
@@ -325,6 +338,64 @@ public actor SIPUserAgent {
                 }
             }
         }
+    }
+
+    // MARK: - Удержание привязки NAT
+
+    /// Держит открытой дорогу от сервера к нам.
+    ///
+    /// Без этого цикла единственный исходящий трафик между звонками — обновление
+    /// регистрации, а оно редкое: `refreshInterval` считает от выданного сервером
+    /// срока, и при боевых `Reg. default duration: 3600` пауза между пакетами
+    /// доходит до часа. NAT и межсетевые экраны закрывают привязку UDP заметно
+    /// раньше — типичные таймауты 30–120 секунд. Дальше выглядит это так:
+    /// клиент показывает «зарегистрирован», сервер считает пир живым, а INVITE
+    /// из очереди раздачи до рабочего места не доходит вовсе, потому что обратной
+    /// дороги через NAT уже нет. Для колл-центра, где входящий звонок и есть
+    /// работа, это отказ, который ничем себя не обнаруживает.
+    ///
+    /// Пакет уходит независимо от состояния регистрации: пока идёт повтор после
+    /// отказа (backoff доходит до 300 секунд), привязка нужна ровно затем, чтобы
+    /// до нас дошёл ответ на следующий REGISTER.
+    private func runKeepAliveLoop() async {
+        while !isStopping, !Task.isCancelled {
+            do {
+                try await Task.sleep(Self.jittered(keepAliveInterval))
+            } catch {
+                return
+            }
+            guard !isStopping, !Task.isCancelled else { return }
+
+            do {
+                try await transactions.sendKeepAlive()
+            } catch {
+                // Молча: транспорт сообщает о своих отказах сам, через события
+                // канала. Дублировать их предупреждением на каждый тик значит
+                // залить журнал одним и тем же, пока сеть лежит.
+                log(.debug, "keep-alive не ушёл: \(error)")
+            }
+        }
+    }
+
+    /// Интервал по умолчанию для транспорта.
+    ///
+    /// UDP — 25 секунд: меньше самого короткого распространённого таймаута NAT
+    /// (30 секунд) с запасом на дрожание. Для TCP и TLS привязка живёт кратно
+    /// дольше, и там хватает 120 секунд из RFC 5626 §4.4.1.
+    static func defaultKeepAliveInterval(for transport: SIPTransport) -> Interval {
+        transport.isReliable ? .seconds(120) : .seconds(25)
+    }
+
+    /// Разброс ±10 %, чтобы рабочие места не били в сервер в такт.
+    ///
+    /// Смена в колл-центре начинается одновременно, и без разброса полсотни
+    /// клиентов синхронно шлют keep-alive в одну и ту же секунду — ровно то, от
+    /// чего RFC 5626 §4.4.1 и предостерегает. Пакет крошечный, но и повод
+    /// синхронизировать его отсутствует.
+    static func jittered(_ interval: Interval) -> Interval {
+        let spread = interval.nanoseconds / 10
+        guard spread > 0 else { return interval }
+        return Interval(nanoseconds: interval.nanoseconds + Int64.random(in: -spread...spread))
     }
 
     /// Одна попытка регистрации. Возвращает выданный сервером срок в секундах.

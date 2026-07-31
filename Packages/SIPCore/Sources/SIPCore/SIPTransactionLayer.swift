@@ -446,6 +446,24 @@ public actor SIPTransactionLayer {
         try await channel.send(request.encoded())
     }
 
+    /// Пустой пакет, удерживающий привязку NAT (RFC 5626 §4.4.1).
+    ///
+    /// Это не запрос: двойной CRLF не имеет ни метода, ни заголовков, и по
+    /// RFC 5626 сервер на него либо отвечает одиночным CRLF, либо, как
+    /// `chan_sip`, молча отбрасывает. Ответа мы не ждём ни в каком случае —
+    /// смысл в самом факте исходящего пакета, который обновляет запись в
+    /// таблице трансляции по дороге.
+    ///
+    /// Отдельным методом, а не `sendWithoutTransaction`: тот принимает
+    /// `SIPRequest`, а здесь отправлять нечего — именно отсутствие сообщения и
+    /// делает пакет безопасным для любого сервера.
+    public func sendKeepAlive() async throws {
+        try await channel.send(Self.keepAlivePing)
+    }
+
+    /// CRLFCRLF. Константой, чтобы не собирать четыре байта на каждый тик.
+    static let keepAlivePing = Data([0x0D, 0x0A, 0x0D, 0x0A])
+
     // MARK: - Передача
 
     private func transmit(key: String, data: Data) async {
