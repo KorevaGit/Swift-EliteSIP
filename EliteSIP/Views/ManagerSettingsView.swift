@@ -444,13 +444,20 @@ private struct AdministrationSection: View {
 /// Отсюда порядок слева направо: сначала то, по чему выбирают, потом то, по
 /// чему опознают.
 ///
-/// **Название правит сам менеджер.** Поле без рамки: до нажатия строка выглядит
-/// текстом, по нажатию становится полем. Рамка у каждой строки превратила бы
-/// список в форму — а список читают, а не заполняют.
+/// **Нажатие в любое место строки переключает профиль.** Это главное действие
+/// списка, и требовать попасть в галочку размером 15 pt значило бы сделать его
+/// самым трудным. Переименование поэтому спрятано за карандашом: строка,
+/// которая одновременно и кнопка, и поле ввода, на одно из двух не годится, а
+/// править название нужно куда реже, чем переключаться.
 private struct ManagerProfileRow: View {
 
     @EnvironmentObject private var model: AppModel
     let profile: SIPProfile
+
+    /// Правится ли название прямо сейчас. Своё у каждой строки: два поля
+    /// одновременно не нужны, а гасить чужое пришлось бы отдельным состоянием
+    /// на весь список.
+    @State private var isEditingLabel = false
 
     private var isActive: Bool { profile.id == model.activeProfileID }
 
@@ -463,59 +470,64 @@ private struct ManagerProfileRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            selectButton {
-                // Отметка занимает место и когда её нет: иначе строки
-                // разъезжаются при смене активного профиля.
-                if isActive {
-                    CompatSymbol(name: "checkmark.circle", size: 15)
-                        .compatForeground(Theme.Palette.registered)
-                } else {
-                    Color.clear.frame(width: 15, height: 15)
-                }
+            // Отметка занимает место и когда её нет: иначе строки разъезжаются
+            // при смене активного профиля.
+            if isActive {
+                CompatSymbol(name: "checkmark.circle", size: 15)
+                    .compatForeground(Theme.Palette.registered)
+            } else {
+                Color.clear.frame(width: 15, height: 15)
             }
 
-            // `labelsHidden` обязателен: в `Form` первый строковый аргумент
-            // `TextField` становится подписью в левой колонке, и placeholder
-            // уезжает от собственного поля через всю строку.
-            TextField("Без названия", text: Binding(
-                get: { profile.label },
-                set: { model.renameProfile(profile.id, to: $0) }
-            ))
-            .textFieldStyle(.plain)
-            .labelsHidden()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .compatHelp("Название видно только на этой машине — назовите профиль как вам удобно")
-
-            selectButton {
-                Text(number)
-                    .compatForeground(.secondary)
-                    .frame(width: 90, alignment: .trailing)
+            if isEditingLabel {
+                // `labelsHidden` обязателен: в `Form` первый строковый аргумент
+                // `TextField` становится подписью в левой колонке, и placeholder
+                // уезжает от собственного поля через всю строку.
+                TextField("Без названия", text: Binding(
+                    get: { profile.label },
+                    set: { model.renameProfile(profile.id, to: $0) }
+                ))
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(profile.label.isEmpty ? "Без названия" : profile.label)
+                    .compatForeground(profile.label.isEmpty ? .secondary : .primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            selectButton {
-                Text(site == .remote ? "удалённо" : "офис")
-                    .compatForeground(.secondary)
-                    .frame(width: 80, alignment: .leading)
+            Button {
+                isEditingLabel.toggle()
+            } label: {
+                CompatSymbol(name: isEditingLabel ? "checkmark.circle" : "pencil")
             }
+            .buttonStyle(.borderless)
+            .compatForeground(.secondary)
+            .compatHelp(
+                isEditingLabel
+                    ? "Готово"
+                    : "Переименовать — название видно только на этой машине"
+            )
+
+            Text(number)
+                .compatForeground(.secondary)
+                .frame(width: 90, alignment: .trailing)
+
+            Text(site == .remote ? "удалённо" : "офис")
+                .compatForeground(.secondary)
+                .frame(width: 80, alignment: .leading)
         }
-    }
-
-    /// Всё, кроме поля названия, делает профиль активным.
-    ///
-    /// Иначе попасть по строке было бы можно только в галочку слева: поле
-    /// названия занимает середину и нажатие забирает себе.
-    @ViewBuilder
-    private func selectButton<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        Button {
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // Нажатие по строке переключает профиль. Поле ввода и карандаш
+            // забирают нажатие себе, поэтому переименование ему не мешает.
+            guard !isEditingLabel, !isActive, model.canSwitchProfile else { return }
             Task { await model.selectProfile(profile.id) }
-        } label: {
-            content()
         }
-        .buttonStyle(.borderless)
-        // Активная строка не гасится: серый текст читается как «профиль
-        // недоступен», а это ровно тот, на котором работают.
-        .disabled(!isActive && !model.canSwitchProfile)
-        .compatHelp(isActive ? "Активный профиль" : "Сделать активным")
+        .compatHelp(
+            isActive
+                ? "Активный профиль"
+                : (model.canSwitchProfile ? "Нажмите, чтобы сделать активным" : "Недоступно в разговоре")
+        )
     }
 
     private var number: String {
