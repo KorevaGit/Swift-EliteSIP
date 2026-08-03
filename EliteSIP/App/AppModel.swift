@@ -271,11 +271,13 @@ final class AppModel: ObservableObject {
             serverName: account.domain
         )
 
-        // Стук нужен только удалённому рабочему месту, и решает это адрес
-        // сервера: в офисе в профиле стоит внутренний адрес, снаружи — внешний
-        // домен. Подробности и почему это не защита — docs/remote-access.md.
+        // Стук нужен только удалённому рабочему месту, и решает это профиль:
+        // поле «Рабочее место», а если оно оставлено на «по адресу сервера» —
+        // сам адрес. Подробности и почему это не защита — docs/remote-access.md.
+        let site = settings.profiles.active.site
         let knocker = PortKnocker.forServer(
             account.signalingEndpoint.host,
+            site: site,
             sequence: settings.portKnock
         ) { [weak self] level, message in
             Task { @MainActor in self?.append(level: level, message: message) }
@@ -296,15 +298,29 @@ final class AppModel: ObservableObject {
             level: .info,
             message: "подключение к \(account.signalingEndpoint) по \(account.transport.protocolName)"
         )
+        // Одна строка в журнале, не в интерфейсе: сотруднику про стук знать не
+        // надо, а тому, кто разбирает жалобу «не регистрируется», надо в первую
+        // очередь. Пишется и отсутствие стука тоже: «почему не стучим» —
+        // ровно тот же вопрос, и раньше ответом на него было молчание.
+        let because = PortKnockPolicy.explanation(
+            serverHost: account.signalingEndpoint.host,
+            site: site
+        )
         if knocker != nil {
-            // Одна строка в журнале, не в интерфейсе: сотруднику про стук знать
-            // не надо, а тому, кто разбирает жалобу «не регистрируется», надо в
-            // первую очередь.
             append(
                 level: .info,
-                message: "удалённый профиль: стук перед регистрацией, "
+                message: "стук перед регистрацией (\(because)), "
                     + "первая попытка через \(Int(settings.portKnock.estimatedDuration.seconds)) с"
             )
+        } else if PortKnockPolicy.needsKnocking(
+            serverHost: account.signalingEndpoint.host, site: site
+        ) {
+            // Стучать надо, а нечем: последовательность пуста. Это осознанное
+            // выключение из файла настроек, и выглядеть оно должно именно так,
+            // а не как «профиль офисный».
+            append(level: .warning, message: "стук выключен настройкой, хотя \(because)")
+        } else {
+            append(level: .debug, message: "стука нет (\(because))")
         }
 
         // Разрешение на микрофон спрашиваем заранее, при выходе на линию.
@@ -1799,7 +1815,7 @@ final class AppModel: ObservableObject {
         // Признак «пароль задан» пересчитает наблюдатель `settings`: пресет
         // меняет и номер, и домен, то есть ключ записи в связке ключей.
         passwordDraft = ""
-        settings.profiles.upsert(preset.account, label: preset.label)
+        settings.profiles.upsert(preset.account, label: preset.label, site: preset.site)
         settings.acceptsAnyTLSCertificate = preset.acceptsAnyTLSCertificate
         settings.minimumLogLevel = preset.minimumLogLevel
         append(level: .info, message: "применены настройки лаборатории: \(preset.account.username)")
@@ -1902,6 +1918,22 @@ final class AppModel: ObservableObject {
     /// нажатии — значит не дать набрать метку из двух слов.
     func renameProfile(_ id: UUID, to label: String) {
         settings.profiles.rename(id, to: label)
+    }
+
+    /// Офисное это рабочее место или удалённое.
+    ///
+    /// Перезарегистрироваться от этого не надо: поле читается при подключении и
+    /// решает только, стучать ли по портам. Менять его в разговоре можно —
+    /// текущий разговор оно не трогает, а следующее подключение уже учтёт.
+    /// Именно поэтому запрета `canSwitchProfile` здесь нет.
+    func setProfileSite(_ site: SIPProfileSite, for id: UUID) {
+        guard settings.profiles[id]?.site != site else { return }
+        guard settings.profiles.setSite(site, for: id) else { return }
+        append(
+            level: .info,
+            message: "рабочее место профиля \(profileTitle(id)): \(site.title)"
+                + (agent == nil ? "" : " — учтётся при следующем подключении")
+        )
     }
 
     /// Подпись профиля для списка и журнала.

@@ -449,6 +449,11 @@ struct AppSettings: Codable, Sendable, Equatable {
         var account: SIPAccount
         var acceptsAnyTLSCertificate: Bool
         var minimumLogLevel: SIPLogLevel = .debug
+
+        /// Стенд — заведомо не удалённое рабочее место, и пресет это
+        /// проставляет явно: профиль до него мог быть помечен удалённым, а
+        /// стучать в `127.0.0.1` бессмысленно и стоит семь секунд на запуск.
+        var site: SIPProfileSite = .office
     }
 }
 

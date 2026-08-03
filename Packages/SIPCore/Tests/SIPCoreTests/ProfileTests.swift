@@ -177,6 +177,53 @@ final class ProfileTests: XCTestCase {
         XCTAssertEqual(blank.account.registrationExpires, 120)
     }
 
+    // MARK: - Рабочее место
+
+    /// Умолчание — прежнее поведение M2d: решает адрес сервера.
+    func testSiteDefaultsToAutomatic() {
+        XCTAssertEqual(SIPProfile(account: account("100")).site, .automatic)
+        XCTAssertEqual(SIPProfile.blank().site, .automatic)
+    }
+
+    func testSetSiteChangesOnlyTheAddressedProfile() {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(label: "офис", account: account("100")),
+            SIPProfile(label: "дом", account: account("200")),
+        ])
+        let remote = list.profiles[1].id
+
+        XCTAssertTrue(list.setSite(.remote, for: remote))
+        XCTAssertEqual(list.profiles[0].site, .automatic)
+        XCTAssertEqual(list.profiles[1].site, .remote)
+        XCTAssertFalse(list.setSite(.office, for: UUID()))
+    }
+
+    /// Второй добавочный заводят с того же рабочего места, что и первый.
+    func testBlankProfileInheritsSite() {
+        XCTAssertEqual(SIPProfile.blank(basedOn: account("100"), site: .remote).site, .remote)
+    }
+
+    /// Пресет лаборатории проставляет рабочее место сам: стенд на `127.0.0.1`
+    /// офисный, и профиль, помеченный до этого удалённым, стучать не должен.
+    func testUpsertOverwritesSiteWhenAsked() {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(label: "дом", account: account("100"), site: .remote)
+        ])
+        list.upsert(account("100"), label: "Лаборатория", site: .office)
+        XCTAssertEqual(list.profiles.count, 1)
+        XCTAssertEqual(list.active.site, .office)
+    }
+
+    /// Без явного значения рабочее место существующего профиля не трогается:
+    /// провижининг учётки не должен переносить место работы сотрудника.
+    func testUpsertKeepsSiteByDefault() {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(label: "дом", account: account("100"), site: .remote)
+        ])
+        list.upsert(account("100"), label: "дом")
+        XCTAssertEqual(list.active.site, .remote)
+    }
+
     // MARK: - Схема файла
 
     func testMigrationKeepsAccountAndMakesItActive() {
@@ -230,5 +277,42 @@ final class ProfileTests: XCTestCase {
         let list = try JSONDecoder().decode(SIPProfileList.self, from: Data("{}".utf8))
         XCTAssertEqual(list.profiles.count, 1)
         XCTAssertFalse(list.active.account.isUsable)
+    }
+
+    /// Профиль, записанный до появления поля, читается как «по адресу
+    /// сервера» — то есть работает ровно так же, как работал вчера.
+    func testDecodingProfileWithoutSiteIsAutomatic() throws {
+        let json = """
+        {"profiles":[{"account":{"username":"100","displayName":"","domain":"pbx.example",
+        "transport":"udp","registrationExpires":120}}]}
+        """
+        let list = try JSONDecoder().decode(SIPProfileList.self, from: Data(json.utf8))
+        XCTAssertEqual(list.active.site, .automatic)
+    }
+
+    /// Файл настроек правят руками, и опечатка в этом поле не должна ронять
+    /// чтение целиком: профиль без пригодного значения работает как раньше.
+    func testDecodingUnknownSiteFallsBackToAutomatic() throws {
+        let json = """
+        {"profiles":[{"site":"vpn","account":{"username":"100","displayName":"",
+        "domain":"pbx.example","transport":"udp","registrationExpires":120}}]}
+        """
+        let list = try JSONDecoder().decode(SIPProfileList.self, from: Data(json.utf8))
+        XCTAssertEqual(list.active.site, .automatic)
+    }
+
+    func testSiteSurvivesRoundTrip() throws {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(label: "офис", account: account("100"), site: .office),
+            SIPProfile(label: "дом", account: account("200", "sip.example"), site: .remote),
+        ])
+        list.activate(list.profiles[1].id)
+
+        let data = try JSONEncoder().encode(list)
+        let restored = try JSONDecoder().decode(SIPProfileList.self, from: data)
+
+        XCTAssertEqual(restored, list)
+        XCTAssertEqual(restored.profiles[0].site, .office)
+        XCTAssertEqual(restored.active.site, .remote)
     }
 }

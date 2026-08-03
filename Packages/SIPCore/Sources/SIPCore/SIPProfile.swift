@@ -1,5 +1,42 @@
 import Foundation
 
+/// Откуда работают с этим профилем.
+///
+/// До 3 августа 2026 признак был только выводимым: стучать по портам или нет,
+/// решал адрес сервера — приватный значит офис, внешний значит удалёнка
+/// ([remote-access.md](../../../../docs/remote-access.md)). Правило рабочее, но
+/// это догадка по косвенному признаку, и ошибается оно молча в обе стороны:
+/// офис за внешним доменом получает семь секунд лишней задержки на каждом
+/// подключении, а удалённое место, которому вписали внутренний адрес через
+/// чужой туннель, не стучит вовсе и не регистрируется без объяснения причины.
+///
+/// Поэтому признак стал полем профиля, а догадка осталась значением по
+/// умолчанию: `.automatic` — это ровно прежнее поведение, и файл настроек без
+/// этого ключа читается именно так.
+public enum SIPProfileSite: String, Sendable, Hashable, Codable, CaseIterable {
+
+    /// Решает адрес сервера — поведение M2d.
+    case automatic
+
+    /// Офис: стука нет никогда, даже если сервер записан внешним доменом.
+    case office
+
+    /// Удалённое рабочее место: стук перед регистрацией всегда, даже если
+    /// адрес сервера выглядит внутренним. Так работает место за чужим
+    /// туннелем, где до АТС видно приватный адрес, а шлюз всё равно фильтрует.
+    case remote
+
+    /// Подпись для интерфейса и журнала. Здесь, а не во вью: та же строка
+    /// нужна журналу, а разъезжаться им нельзя.
+    public var title: String {
+        switch self {
+        case .automatic: return "по адресу сервера"
+        case .office: return "офис"
+        case .remote: return "удалённо"
+        }
+    }
+}
+
 /// Сохранённая учётная запись со своей меткой.
 ///
 /// Профилей может быть несколько, зарегистрирован одновременно ровно один —
@@ -21,10 +58,20 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
 
     public var account: SIPAccount
 
-    public init(id: UUID = UUID(), label: String = "", account: SIPAccount) {
+    /// Офисное это рабочее место или удалённое. Решает, стучать ли по портам
+    /// перед регистрацией; `.automatic` оставляет решение адресу сервера.
+    public var site: SIPProfileSite
+
+    public init(
+        id: UUID = UUID(),
+        label: String = "",
+        account: SIPAccount,
+        site: SIPProfileSite = .automatic
+    ) {
         self.id = id
         self.label = label
         self.account = account
+        self.site = site
     }
 
     public init(from decoder: Decoder) throws {
@@ -32,6 +79,13 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         label = try container.decodeIfPresent(String.self, forKey: .label) ?? ""
         account = try container.decode(SIPAccount.self, forKey: .account)
+        // Отсутствие ключа — это профиль, записанный до появления поля, и
+        // менять ему поведение молча нельзя: `.automatic` и есть то, как он
+        // работал вчера. Незнакомое значение читается так же — файл настроек
+        // правят руками, и опечатка в нём не должна выключать регистрацию.
+        site =
+            (try? container.decodeIfPresent(SIPProfileSite.self, forKey: .site))
+            .flatMap { $0 } ?? .automatic
     }
 
     /// Чем профиль подписан в списке. Пустая строка означает, что подписывать
@@ -41,10 +95,14 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
         label.isEmpty ? account.username : label
     }
 
-    /// Пустой профиль для «Добавить»: транспорт и сервер наследуются от
-    /// образца, номер — нет. Обычный случай — второй добавочный на той же АТС,
-    /// и переписывать домен с портом заново незачем.
-    public static func blank(basedOn sample: SIPAccount? = nil) -> SIPProfile {
+    /// Пустой профиль для «Добавить»: транспорт, сервер и рабочее место
+    /// наследуются от образца, номер — нет. Обычный случай — второй добавочный
+    /// на той же АТС с того же места, и переписывать домен с портом заново
+    /// незачем.
+    public static func blank(
+        basedOn sample: SIPAccount? = nil,
+        site: SIPProfileSite = .automatic
+    ) -> SIPProfile {
         SIPProfile(
             account: SIPAccount(
                 username: "",
@@ -54,7 +112,8 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
                 serverPort: sample?.serverPort,
                 transport: sample?.transport ?? .tls,
                 registrationExpires: sample?.registrationExpires ?? 300
-            )
+            ),
+            site: site
         )
     }
 }
@@ -153,22 +212,39 @@ public struct SIPProfileList: Sendable, Equatable, Codable {
         return true
     }
 
+    /// Меняет рабочее место профиля. `false` — такого профиля нет.
+    @discardableResult
+    public mutating func setSite(_ site: SIPProfileSite, for id: UUID) -> Bool {
+        guard let index = profiles.firstIndex(where: { $0.id == id }) else { return false }
+        profiles[index].site = site
+        return true
+    }
+
     /// Ставит учётную запись на место совпадающей по «номер@домен» либо
     /// добавляет новую, и в обоих случаях делает её активной.
     ///
     /// Нужно пресетам лаборатории: нажимать «Пир 100» можно сколько угодно раз,
     /// и плодить одинаковые профили от этого не должно.
+    /// `site` — `nil` означает «не трогать»: у существующего профиля рабочее
+    /// место остаётся своим. Пресет лаборатории его, наоборот, задаёт: стенд на
+    /// `127.0.0.1` заведомо офисный, а профиль до этого мог быть помечен
+    /// удалённым, и тогда клиент стучал бы в петлю.
     @discardableResult
-    public mutating func upsert(_ account: SIPAccount, label: String = "") -> UUID {
+    public mutating func upsert(
+        _ account: SIPAccount,
+        label: String = "",
+        site: SIPProfileSite? = nil
+    ) -> UUID {
         if let index = profiles.firstIndex(where: {
             $0.account.username == account.username && $0.account.domain == account.domain
         }) {
             profiles[index].account = account
             if !label.isEmpty { profiles[index].label = label }
+            if let site { profiles[index].site = site }
             activeID = profiles[index].id
             return profiles[index].id
         }
-        return add(SIPProfile(label: label, account: account))
+        return add(SIPProfile(label: label, account: account, site: site ?? .automatic))
     }
 
     /// Делят ли другие профили ту же запись в связке ключей.

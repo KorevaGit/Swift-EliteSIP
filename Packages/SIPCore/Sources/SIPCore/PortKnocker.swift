@@ -56,15 +56,17 @@ public actor PortKnocker: SIPPathOpener {
 
     /// Создаёт стучащего, только если стучать надо.
     ///
-    /// `nil` для внутреннего сервера — это и есть требование «реализовать, если
-    /// сотрудник работает не во внутренней сети». Ветка живёт в одном месте, а
-    /// не расползается проверками по коду регистрации.
+    /// `nil` для офисного рабочего места — это и есть требование «стучать,
+    /// если сотрудник работает не во внутренней сети». Ветка живёт в одном
+    /// месте, а не расползается проверками по коду регистрации. Откуда
+    /// работают, берётся из профиля; `.automatic` оставляет решение адресу.
     public static func forServer(
         _ serverHost: String,
+        site: SIPProfileSite = .automatic,
         sequence: PortKnockSequence = .production,
         log: @escaping Log
     ) -> PortKnocker? {
-        guard PortKnockPolicy.needsKnocking(serverHost: serverHost) else { return nil }
+        guard PortKnockPolicy.needsKnocking(serverHost: serverHost, site: site) else { return nil }
         guard !sequence.isEmpty else { return nil }
         return PortKnocker(serverHost: serverHost, sequence: sequence, log: log)
     }

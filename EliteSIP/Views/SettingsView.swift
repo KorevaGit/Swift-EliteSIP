@@ -56,6 +56,20 @@ private struct AccountSettingsTab: View {
                     set: { model.renameProfile(model.activeProfileID, to: $0) }
                 ))
 
+                Picker("Рабочее место", selection: Binding(
+                    get: { model.settings.profiles.active.site },
+                    set: { model.setProfileSite($0, for: model.activeProfileID) }
+                )) {
+                    Text("Определять по адресу сервера").tag(SIPProfileSite.automatic)
+                    Text("Офис").tag(SIPProfileSite.office)
+                    Text("Удалённое").tag(SIPProfileSite.remote)
+                }
+                .pickerStyle(.radioGroup)
+
+                Text("Удалённому месту приложение открывает дорогу до АТС перед подключением, офисному — нет. «По адресу сервера» решает по тому, внутренний он или внешний: так работали все профили раньше.")
+                    .font(.footnote)
+                    .compatForeground(.secondary)
+
                 Text("Зарегистрирован всегда ровно один профиль — отмеченный. У каждого свой пароль в Keychain; удаление профиля стирает и его.")
                     .font(.footnote)
                     .compatForeground(.secondary)
@@ -267,7 +281,15 @@ private struct ProfileRow: View {
         let account = profile.account
         let address = account.domain.isEmpty ? "домен не задан" : account.domain
         let number = account.username.isEmpty ? "номер не задан" : account.username
-        return "\(number) · \(address) · \(account.transport.protocolName)"
+        var line = "\(number) · \(address) · \(account.transport.protocolName)"
+        // Заданное руками рабочее место дописывается, автоматическое — нет:
+        // подпись «по адресу сервера» у каждой строки не сообщает ничего, а
+        // «офис» и «удалённое» отличают профили, у которых всё остальное
+        // совпадает.
+        if profile.site != .automatic {
+            line += " · \(profile.site.title)"
+        }
+        return line
     }
 }
 

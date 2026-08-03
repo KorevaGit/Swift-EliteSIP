@@ -47,6 +47,65 @@ final class PortKnockTests: XCTestCase {
         XCTAssertFalse(PortKnockPolicy.isInternal(host: "172.32.0.0"))
     }
 
+    // MARK: - Явное рабочее место профиля
+
+    /// Явная пометка сильнее адреса, и в этом весь смысл поля: офис за внешним
+    /// доменом не платит семью секундами за подключение.
+    func testOfficeProfileNeverKnocks() {
+        for host in ["crm.elitesochi.com", "45.10.53.84", "192.168.1.2"] {
+            XCTAssertFalse(PortKnockPolicy.needsKnocking(serverHost: host, site: .office), host)
+        }
+        XCTAssertNil(PortKnocker.forServer("crm.elitesochi.com", site: .office) { _, _ in })
+    }
+
+    /// Обратный случай: удалённое место, которому сервер виден по внутреннему
+    /// адресу — чужой туннель или проброс. Догадка по адресу здесь ошибается,
+    /// пометка нет.
+    func testRemoteProfileKnocksEvenForInternalAddress() {
+        for host in ["192.168.1.2", "10.0.0.1", "127.0.0.1"] {
+            XCTAssertTrue(PortKnockPolicy.needsKnocking(serverHost: host, site: .remote), host)
+        }
+        XCTAssertNotNil(PortKnocker.forServer("192.168.1.2", site: .remote) { _, _ in })
+    }
+
+    /// `.automatic` — это прежнее правило M2d, байт в байт.
+    func testAutomaticSiteKeepsAddressRule() {
+        XCTAssertFalse(PortKnockPolicy.needsKnocking(serverHost: "192.168.1.2", site: .automatic))
+        XCTAssertTrue(
+            PortKnockPolicy.needsKnocking(serverHost: "crm.elitesochi.com", site: .automatic)
+        )
+    }
+
+    /// Пометка выключает стук даже там, где адрес внешний, — и наоборот.
+    /// Пустая последовательность при этом сильнее любой пометки: стучать нечем.
+    func testEmptySequenceBeatsRemoteMark() {
+        let disabled = PortKnockSequence(steps: [])
+        XCTAssertNil(
+            PortKnocker.forServer("192.168.1.2", site: .remote, sequence: disabled) { _, _ in }
+        )
+    }
+
+    /// Журнал должен различать догадку и настройку: иначе «почему семь секунд»
+    /// разбирается чтением кода, а не строки.
+    func testExplanationNamesTheReason() {
+        XCTAssertEqual(
+            PortKnockPolicy.explanation(serverHost: "192.168.1.2", site: .remote),
+            "профиль помечен как удалённый"
+        )
+        XCTAssertEqual(
+            PortKnockPolicy.explanation(serverHost: "crm.elitesochi.com", site: .office),
+            "профиль помечен как офисный"
+        )
+        XCTAssertEqual(
+            PortKnockPolicy.explanation(serverHost: "192.168.1.2", site: .automatic),
+            "адрес сервера внутренний"
+        )
+        XCTAssertEqual(
+            PortKnockPolicy.explanation(serverHost: "crm.elitesochi.com", site: .automatic),
+            "адрес сервера внешний"
+        )
+    }
+
     func testKnockerIsNotCreatedForInternalServer() {
         XCTAssertNil(PortKnocker.forServer("192.168.1.2") { _, _ in })
         XCTAssertNotNil(PortKnocker.forServer("crm.elitesochi.com") { _, _ in })
