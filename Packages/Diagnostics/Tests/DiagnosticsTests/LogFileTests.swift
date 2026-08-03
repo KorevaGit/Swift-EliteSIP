@@ -54,6 +54,30 @@ struct LogFileTests {
         #expect(text.contains("вторая сессия"))
     }
 
+    /// Смена настроек журнала пересоздаёт `LogFile`, и короткое время два
+    /// экземпляра держат один файл: у старого может остаться строка в очереди.
+    /// Со своими смещениями они затирали бы записи друг друга — отсюда
+    /// `O_APPEND`. Проверяется буквально это: ни одна строка не пропала.
+    @Test("Два экземпляра на одном файле не затирают друг друга")
+    func concurrentInstancesKeepEveryLine() throws {
+        let directory = makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let old = LogFile(settings: .init(directory: directory))
+        let new = LogFile(settings: .init(directory: directory))
+        for index in 0..<50 {
+            old.write("старый \(index)", level: "info")
+            new.write("новый \(index)", level: "info")
+        }
+        old.flush()
+        new.flush()
+
+        let lines = read(new.currentFileURL).split(separator: "\n")
+        #expect(lines.count == 100)
+        #expect(lines.filter { $0.contains("старый ") }.count == 50)
+        #expect(lines.filter { $0.contains("новый ") }.count == 50)
+    }
+
     @Test("Файл не растёт бесконечно")
     func rotatesBySize() throws {
         let directory = makeDirectory()

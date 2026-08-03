@@ -224,6 +224,41 @@ final class ProfileTests: XCTestCase {
         XCTAssertEqual(list.active.site, .remote)
     }
 
+    // MARK: - Доверие к сертификату TLS
+
+    /// Свойство сервера, а не приложения: включённое ради лаборатории, оно не
+    /// должно оказаться у боевого профиля, на который переключились следом.
+    func testCertificateTrustIsPerProfile() {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(label: "лаба", account: account("200"), acceptsAnyTLSCertificate: true),
+            SIPProfile(label: "бой", account: account("711", "pbx.prod")),
+        ])
+        list.activate(list.profiles[1].id)
+        XCTAssertFalse(list.active.acceptsAnyTLSCertificate)
+        XCTAssertTrue(list.profiles[0].acceptsAnyTLSCertificate)
+    }
+
+    /// Умолчание безопасное: профиль без поля сертификат проверяет.
+    func testCertificateTrustDefaultsToChecking() throws {
+        let json = """
+        {"profiles":[{"account":{"username":"100","displayName":"","domain":"pbx.example",
+        "transport":"tls","registrationExpires":120}}]}
+        """
+        let list = try JSONDecoder().decode(SIPProfileList.self, from: Data(json.utf8))
+        XCTAssertFalse(list.active.acceptsAnyTLSCertificate)
+        XCTAssertFalse(SIPProfile.blank().acceptsAnyTLSCertificate)
+    }
+
+    /// Пресет лаборатории включает доверие своему профилю и только ему.
+    func testUpsertCarriesCertificateTrust() {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(label: "бой", account: account("711", "pbx.prod"))
+        ])
+        list.upsert(account("200"), label: "Лаборатория", acceptsAnyTLSCertificate: true)
+        XCTAssertTrue(list.active.acceptsAnyTLSCertificate)
+        XCTAssertFalse(list.profiles[0].acceptsAnyTLSCertificate)
+    }
+
     // MARK: - Схема файла
 
     func testMigrationKeepsAccountAndMakesItActive() {

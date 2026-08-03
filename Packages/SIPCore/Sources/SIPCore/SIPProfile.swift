@@ -62,16 +62,27 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
     /// перед регистрацией; `.automatic` оставляет решение адресу сервера.
     public var site: SIPProfileSite
 
+    /// Доверять любому сертификату TLS этого сервера.
+    ///
+    /// Свойство сервера, а не приложения, и потому лежит в профиле: включают
+    /// его ради самоподписанного сертификата лаборатории, а забытым оно
+    /// оставалось бы на боевом профиле, куда переключились следом. Отключает
+    /// защиту от подмены сервера целиком — перехватчик увидит и digest-ответ,
+    /// и разговор.
+    public var acceptsAnyTLSCertificate: Bool
+
     public init(
         id: UUID = UUID(),
         label: String = "",
         account: SIPAccount,
-        site: SIPProfileSite = .automatic
+        site: SIPProfileSite = .automatic,
+        acceptsAnyTLSCertificate: Bool = false
     ) {
         self.id = id
         self.label = label
         self.account = account
         self.site = site
+        self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
 
     public init(from decoder: Decoder) throws {
@@ -86,6 +97,11 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
         site =
             (try? container.decodeIfPresent(SIPProfileSite.self, forKey: .site))
             .flatMap { $0 } ?? .automatic
+        // Умолчание — проверять сертификат. Профиль, записанный до появления
+        // поля, получает безопасное поведение, а не прежнее: прежнее здесь
+        // общее на приложение, и переносит его миграция, а не этот декодер.
+        acceptsAnyTLSCertificate =
+            try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
     }
 
     /// Чем профиль подписан в списке. Пустая строка означает, что подписывать
@@ -197,7 +213,11 @@ public struct SIPProfileList: Sendable, Equatable, Codable {
         guard let index = profiles.firstIndex(where: { $0.id == id }) else { return nil }
         let removed = profiles.remove(at: index)
         if profiles.isEmpty {
-            profiles = [SIPProfile.blank(basedOn: removed.account)]
+            // Рабочее место наследуется: удаляют профиль обычно затем, чтобы
+            // завести на его месте другой, и переезжать при этом никто не
+            // собирался. Доверие к сертификату, наоборот, не наследуется —
+            // умолчание у него безопасное.
+            profiles = [SIPProfile.blank(basedOn: removed.account, site: removed.site)]
         }
         if activeID == id {
             activeID = profiles[min(index, profiles.count - 1)].id
@@ -233,7 +253,8 @@ public struct SIPProfileList: Sendable, Equatable, Codable {
     public mutating func upsert(
         _ account: SIPAccount,
         label: String = "",
-        site: SIPProfileSite? = nil
+        site: SIPProfileSite? = nil,
+        acceptsAnyTLSCertificate: Bool? = nil
     ) -> UUID {
         if let index = profiles.firstIndex(where: {
             $0.account.username == account.username && $0.account.domain == account.domain
@@ -241,10 +262,20 @@ public struct SIPProfileList: Sendable, Equatable, Codable {
             profiles[index].account = account
             if !label.isEmpty { profiles[index].label = label }
             if let site { profiles[index].site = site }
+            if let acceptsAnyTLSCertificate {
+                profiles[index].acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
+            }
             activeID = profiles[index].id
             return profiles[index].id
         }
-        return add(SIPProfile(label: label, account: account, site: site ?? .automatic))
+        return add(
+            SIPProfile(
+                label: label,
+                account: account,
+                site: site ?? .automatic,
+                acceptsAnyTLSCertificate: acceptsAnyTLSCertificate ?? false
+            )
+        )
     }
 
     /// Делят ли другие профили ту же запись в связке ключей.

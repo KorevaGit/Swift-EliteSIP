@@ -38,12 +38,20 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// в файле — подробный.
     var logFile: LogFileSettings = LogFileSettings()
 
-    /// Доверять любому сертификату TLS.
+    /// Доверять любому сертификату TLS активного профиля.
     ///
     /// Отключает защиту от подмены сервера: перехватчик увидит и пароль, и
     /// разговор. Существует ровно ради самоподписанного сертификата
     /// лаборатории на localhost. В бою должно быть выключено.
-    var acceptsAnyTLSCertificate: Bool
+    ///
+    /// Хранится в профиле, а не здесь: это свойство сервера. Общим на
+    /// приложение оно оставалось включённым после переключения с лабораторного
+    /// профиля на боевой — молча и ровно в том случае, ради которого его
+    /// включали один раз.
+    var acceptsAnyTLSCertificate: Bool {
+        get { profiles.active.acceptsAnyTLSCertificate }
+        set { profiles.active.acceptsAnyTLSCertificate = newValue }
+    }
 
     /// Стук по портам для удалённого рабочего места.
     ///
@@ -88,8 +96,9 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.conference = conference
         self.minimumLogLevel = minimumLogLevel
         self.logFile = logFile
-        self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
         self.portKnock = portKnock
+        // После `profiles`: свойство живёт в активном профиле.
+        self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
 
     /// Разбор терпим к отсутствующим полям.
@@ -120,19 +129,30 @@ struct AppSettings: Codable, Sendable, Equatable {
         // умолчание включено. Диагностика, которую надо сперва включить, не
         // помогает там, где нужна, — жалоба всегда про то, что уже случилось.
         logFile = try container.decodeIfPresent(LogFileSettings.self, forKey: .logFile) ?? LogFileSettings()
-        acceptsAnyTLSCertificate =
-            try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
         portKnock =
             try container.decodeIfPresent(PortKnockSequence.self, forKey: .portKnock) ?? .production
+
+        // Доверие к сертификату переехало в профиль. Общий ключ старого файла
+        // достаётся активному профилю, а не всем: включали его ради одного
+        // сервера, и раздать его остальным значило бы размножить ровно ту
+        // ошибку, из-за которой поле и переехало.
+        let legacyTrust = try decoder.container(keyedBy: LegacyKeys.self)
+        if let trusted = try legacyTrust.decodeIfPresent(
+            Bool.self, forKey: .acceptsAnyTLSCertificate
+        ), trusted, !profiles.active.acceptsAnyTLSCertificate {
+            profiles.active.acceptsAnyTLSCertificate = true
+        }
     }
 
-    /// Ключи схемы 1, которых в модели больше нет.
+    /// Ключи, которых в модели больше нет: схема 1 целиком и поля, переехавшие
+    /// в профиль.
     ///
-    /// Отдельным типом, а не лишним случаем в `CodingKeys`: синтезированный
+    /// Отдельным типом, а не лишними случаями в `CodingKeys`: синтезированный
     /// `encode(to:)` перебирает именно `CodingKeys`, и случай без хранимого
     /// свойства сломал бы синтез. Заодно видно, что ключ читается и не пишется.
     private enum LegacyKeys: String, CodingKey {
         case account
+        case acceptsAnyTLSCertificate
     }
 
     /// Список профилей из файла любой из двух схем.

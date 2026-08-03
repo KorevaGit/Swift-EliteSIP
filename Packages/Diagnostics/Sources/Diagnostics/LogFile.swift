@@ -50,7 +50,20 @@ public final class LogFile: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.elite.EliteSIP.log", qos: .utility)
 
     /// Открытый файл и его размер. Трогаются только на `queue`.
-    private var handle: FileHandle?
+    ///
+    /// Дескриптор POSIX, а не `FileHandle`, по одной причине: `FileHandle.write`
+    /// и `seekToEndOfFile` на ошибке возбуждают `NSException`, которую Swift не
+    /// ловит. Полный диск или отвалившийся сетевой том означали бы падение
+    /// софтфона из-за собственного журнала — ровно тот исход, который здесь
+    /// объявлен худшим. `write(2)` в этом случае возвращает −1, и его можно
+    /// проглотить.
+    ///
+    /// Второе следствие: файл открыт с `O_APPEND`, то есть каждая запись
+    /// садится в конец файла атомарно. Это важно в один короткий момент —
+    /// когда настройки журнала сменились, новый `LogFile` уже открыл файл, а у
+    /// старого ещё осталась запись в очереди: со своими смещениями два
+    /// экземпляра затирали бы строки друг друга.
+    private var descriptor: Int32 = -1
     private var writtenBytes = 0
 
     public init(settings: Settings) {
@@ -62,7 +75,7 @@ public final class LogFile: @unchecked Sendable {
     }
 
     deinit {
-        try? handle?.close()
+        if descriptor >= 0 { close(descriptor) }
     }
 
     public var currentFileURL: URL {
@@ -100,15 +113,14 @@ public final class LogFile: @unchecked Sendable {
     /// В обычной работе ждать журнал незачем.
     public func flush() {
         queue.sync {
-            try? handle?.synchronizeFile()
+            if descriptor >= 0 { fsync(descriptor) }
         }
     }
 
     /// Стирает журнал целиком, включая отложенные файлы.
     public func removeAll() {
         queue.sync {
-            try? handle?.close()
-            handle = nil
+            closeDescriptor()
             writtenBytes = 0
             for url in files() {
                 try? FileManager.default.removeItem(at: url)
@@ -124,23 +136,38 @@ public final class LogFile: @unchecked Sendable {
         try? manager.createDirectory(at: settings.directory, withIntermediateDirectories: true)
 
         let url = currentFileURL
-        if !manager.fileExists(atPath: url.path) {
-            manager.createFile(atPath: url.path, contents: nil)
-        }
-
-        handle = try? FileHandle(forWritingTo: url)
+        // `O_APPEND` — см. описание `descriptor`. Права 0644: журнал читает тот,
+        // кто его прислал, а не весь компьютер.
+        descriptor = Darwin.open(url.path, O_WRONLY | O_CREAT | O_APPEND, 0o644)
         // Дописываем, а не начинаем сначала: перезапуск приложения не повод
         // терять то, ради чего журнал и заводился.
-        writtenBytes = Int(handle?.seekToEndOfFile() ?? 0)
+        writtenBytes = descriptor >= 0 ? Int(lseek(descriptor, 0, SEEK_END)) : 0
+    }
+
+    private func closeDescriptor() {
+        if descriptor >= 0 { close(descriptor) }
+        descriptor = -1
     }
 
     private func append(_ line: String) {
         guard let data = (line + "\n").data(using: .utf8) else { return }
-        if handle == nil { open() }
-        guard let handle else { return }
+        if descriptor < 0 { open() }
+        guard descriptor >= 0 else { return }
 
-        handle.write(data)
-        writtenBytes += data.count
+        // Ошибка записи проглатывается намеренно и полным диском не считается
+        // поводом упасть. Короткая запись дописывается: `write(2)` вправе
+        // записать меньше запрошенного, и остаток в этом случае — не мусор, а
+        // хвост строки.
+        var written = 0
+        data.withUnsafeBytes { buffer in
+            guard let base = buffer.baseAddress else { return }
+            while written < buffer.count {
+                let count = Darwin.write(descriptor, base + written, buffer.count - written)
+                guard count > 0 else { return }
+                written += count
+            }
+        }
+        writtenBytes += written
 
         if writtenBytes >= settings.maximumFileBytes {
             rotate()
@@ -148,8 +175,7 @@ public final class LogFile: @unchecked Sendable {
     }
 
     private func rotate() {
-        try? handle?.close()
-        handle = nil
+        closeDescriptor()
 
         let stamp = Self.stampFormatter.string(from: Date())
         let destination = settings.directory.appendingPathComponent(

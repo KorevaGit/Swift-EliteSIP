@@ -77,9 +77,15 @@ final class AppModel: ObservableObject {
         // идентификатор — и «активный профиль» указывал бы каждый раз на другой.
         if let storedVersion, storedVersion < AppSettings.currentSchemaVersion {
             persistSettings()
+            // Что именно произошло, зависит от файла: старая единственная
+            // учётка становится профилем, а файл, у которого профили уже были,
+            // просто получает новый номер схемы. Обещать первое в обоих случаях
+            // нельзя — журнал читают как свидетельство, а не как приветствие.
             append(
                 level: .info,
-                message: "настройки переведены в схему \(AppSettings.currentSchemaVersion): учётка стала профилем"
+                message: settings.profiles.profiles.count == 1
+                    ? "настройки переведены в схему \(AppSettings.currentSchemaVersion): учётка стала профилем"
+                    : "настройки переведены в схему \(AppSettings.currentSchemaVersion): профилей \(settings.profiles.profiles.count)"
             )
         }
     }
@@ -1815,8 +1821,12 @@ final class AppModel: ObservableObject {
         // Признак «пароль задан» пересчитает наблюдатель `settings`: пресет
         // меняет и номер, и домен, то есть ключ записи в связке ключей.
         passwordDraft = ""
-        settings.profiles.upsert(preset.account, label: preset.label, site: preset.site)
-        settings.acceptsAnyTLSCertificate = preset.acceptsAnyTLSCertificate
+        settings.profiles.upsert(
+            preset.account,
+            label: preset.label,
+            site: preset.site,
+            acceptsAnyTLSCertificate: preset.acceptsAnyTLSCertificate
+        )
         settings.minimumLogLevel = preset.minimumLogLevel
         append(level: .info, message: "применены настройки лаборатории: \(preset.account.username)")
     }
@@ -1876,7 +1886,12 @@ final class AppModel: ObservableObject {
             return
         }
         passwordDraft = ""
-        settings.profiles.add(SIPProfile.blank(basedOn: settings.account))
+        // Рабочее место наследуется от текущего профиля: второй добавочный
+        // заводят с того же места, что и первый. Доверие к сертификату — нет,
+        // у него безопасное умолчание.
+        settings.profiles.add(
+            SIPProfile.blank(basedOn: settings.account, site: settings.profiles.active.site)
+        )
         append(level: .info, message: "добавлен профиль")
     }
 
