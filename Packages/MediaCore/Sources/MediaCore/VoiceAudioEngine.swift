@@ -65,6 +65,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         /// хорошей гарнитуре — «дышит»: подтягивает шум в паузах и приседает на
         /// громком слоге. Эхоподавление и шумодав от неё не зависят.
         public var automaticGainControl: Bool
+        /// Сколько терпеть, если тракт не пересобирается. См.
+        /// `AudioRestartPolicy`: временная пропажа устройства при переходе
+        /// Bluetooth-гарнитуры на другое устройство и обратно не должна
+        /// заканчиваться обрывом разговора.
+        public var restartPolicy: AudioRestartPolicy
 
         public init(
             codec: AudioCodec = .pcmu,
@@ -74,8 +79,10 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             inputDeviceUID: String? = nil,
             outputDeviceUID: String? = nil,
             releasesDeviceWhenIdle: Bool = true,
-            automaticGainControl: Bool = false
+            automaticGainControl: Bool = false,
+            restartPolicy: AudioRestartPolicy = AudioRestartPolicy()
         ) {
+            self.restartPolicy = restartPolicy
             self.codec = codec
             self.packetTimeMilliseconds = packetTimeMilliseconds
             self.maximumPlaybackFrames = maximumPlaybackFrames
@@ -122,7 +129,16 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     public enum Event: Sendable {
         /// Граф пересобран после смены конфигурации звука.
         case restarted(reason: String)
-        /// Пересобрать не удалось — звука больше нет.
+        /// Пересобрать не вышло, но попытки продолжаются: звука сейчас нет, а
+        /// разговор ещё жив.
+        ///
+        /// Отдельно от `broken` потому, что реакция обязана быть разной. Перевод
+        /// AirPods на телефон и обратно снимает устройство на несколько секунд,
+        /// и вешать из-за этого трубку — то же самое, что бросать разговор из-за
+        /// одного потерянного пакета. Оператору надо сказать, что звук
+        /// восстанавливается, и дать ему восстановиться.
+        case restarting(reason: String, attempt: Int)
+        /// Пересобрать не удалось и попытки исчерпаны — звука больше не будет.
         case broken(reason: String)
         /// Маршрут изменился: другое устройство или другой режим.
         case routeChanged(AudioRoute)
@@ -299,9 +315,12 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// их несколько подряд, и перестраивать граф на каждое — верный способ
     /// получить гонку с самим собой.
     private var pendingRebuild: DispatchWorkItem?
+    /// Что делать после неудачной пересборки. Трогается только на `control`.
+    private var restartPolicy: AudioRestartPolicy
 
     public init(configuration: Configuration = Configuration()) throws {
         self.configuration = configuration
+        restartPolicy = configuration.restartPolicy
         decoder = AudioFrameDecoder(codec: configuration.codec)
         encoder = AudioFrameEncoder(codec: configuration.codec)
         concealer = PacketLossConcealer(codec: configuration.codec)
@@ -614,6 +633,17 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         captureConversionFormats = nil
         captureRemainder.removeAll()
 
+        // Кольцо захвата чистится вместе с конвертером, и это не уборка ради
+        // порядка. В нём лежат отсчёты, записанные на ПРЕЖНЕЙ частоте
+        // устройства, а пересчитывать их будет уже новый конвертер — по новой.
+        // Переход AirPods в режим гарнитуры и обратно меняет частоту вдвое
+        // (48 ↔ 24 кГц), то есть остаток уехал бы в линию ускоренным или
+        // замедленным вдвое. Слышно это как короткий писк на смене устройства и
+        // списывается на Bluetooth, хотя это мы.
+        captureLock.withLock { state in
+            state.ring.removeAll()
+        }
+
         // Агрегат разбирается вместе с графом: он держит открытыми оба
         // подчинённых устройства, и оставить его — то же самое, что не отпустить
         // гарнитуру.
@@ -651,6 +681,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
 
             pendingRebuild?.cancel()
             pendingRebuild = nil
+            restartPolicy.recordSuccess()
 
             if let configurationObserver {
                 NotificationCenter.default.removeObserver(configurationObserver)
@@ -729,7 +760,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// уведомлений подряд (появляется агрегатное устройство обработки голоса,
     /// потом меняется частота), и перестройка на каждом успевает столкнуться со
     /// следующим.
-    private func scheduleRebuild(reason: String) {
+    private func scheduleRebuild(reason: String, after delay: TimeInterval = 0.3) {
         control.async { [weak self] in
             guard let self, self.isRunning else { return }
 
@@ -738,7 +769,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
                 self?.rebuild(reason: reason)
             }
             self.pendingRebuild = work
-            self.control.asyncAfter(deadline: .now() + .milliseconds(300), execute: work)
+            self.control.asyncAfter(deadline: .now() + delay, execute: work)
         }
     }
 
@@ -755,17 +786,54 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // слышимую дыру там, где её могло не быть.
         do {
             try buildAndStart()
+            if restartPolicy.isRecovering {
+                onDiagnostic?("тракт восстановлен с \(restartPolicy.attemptCount)-й попытки")
+            }
+            restartPolicy.recordSuccess()
             onEvent?(.restarted(reason: reason))
             onDiagnostic?("тракт пересобран")
             reportRoute()
         } catch {
+            handleRebuildFailure(reason: reason, error: error)
+        }
+    }
+
+    /// Разбирает неудачную пересборку.
+    ///
+    /// Раньше здесь безусловно объявлялся `.broken`, а приложение вешало трубку.
+    /// Это верно для настоящей потери устройства и неверно для временной, а
+    /// временная — обычный случай: перевод AirPods на телефон и обратно снимает
+    /// устройство с Mac на несколько секунд, и в этом окне CoreAudio законно
+    /// отказывает. Решение о том, добивать разговор или ждать, вынесено в
+    /// `AudioRestartPolicy` — там его можно проверить тестом.
+    ///
+    /// Пока идёт серия попыток, `runningFlag` НЕ сбрасывается, и это существенно:
+    /// `scheduleRebuild` выходит по нему же, и сброшенный флаг означал бы, что
+    /// повторить уже некому — ровно та ловушка, из-за которой прежний движок не
+    /// воскресал даже после возвращения наушников.
+    private func handleRebuildFailure(reason: String, error: Error) {
+        teardownGraph()
+
+        switch restartPolicy.recordFailure() {
+        case .retry(let delay, let attempt):
+            onDiagnostic?(
+                "тракт не собрался (\(error.localizedDescription));"
+                    + " попытка \(attempt) через \(Int(delay * 1000)) мс"
+            )
+            onEvent?(.restarting(reason: error.localizedDescription, attempt: attempt))
+            scheduleRebuild(reason: reason, after: delay)
+
+        case .giveUp(let attempts, let elapsed):
             runningFlag.withLock { $0 = false }
             stopFeeding()
             stopEncoding()
-            teardownGraph()
             releaseDeviceIfNeeded()
+            restartPolicy.recordSuccess()
             onEvent?(.broken(reason: error.localizedDescription))
-            onDiagnostic?("пересобрать тракт не удалось: \(error.localizedDescription)")
+            onDiagnostic?(
+                "пересобрать тракт не удалось за \(attempts) попыток"
+                    + " и \(String(format: "%.1f", elapsed)) с: \(error.localizedDescription)"
+            )
         }
     }
 

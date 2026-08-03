@@ -1571,6 +1571,11 @@ final class AppModel: ObservableObject {
     /// пользователю стоит про это сказать, пока он не решил, что сломались мы.
     var isHeadsetModeActive: Bool { audioRoute?.isHeadsetMode ?? false }
 
+    /// Подпись линии, пока тракт пересобирается после неудачи. Вынесена в
+    /// константу, потому что её ставит один обработчик, а снимает другой:
+    /// разъехавшиеся строки означали бы надпись, которая никогда не гаснет.
+    static let audioRecoveringStatus = "Восстанавливаю звук…"
+
     private func handle(audio event: VoiceAudioEngine.Event, on lineID: String) {
         switch event {
         case .routeChanged(let route):
@@ -1582,10 +1587,27 @@ final class AppModel: ObservableObject {
             // короткий провал. Сообщение нужно затем, чтобы жалобу «звук
             // дёрнулся» можно было связать с подключением наушников.
             append(level: .info, message: "звук: тракт пересобран (\(reason))")
+            // Если до этого была серия попыток, на линии висит «Восстанавливаю
+            // звук…». Снять её обязательно: надпись, которая осталась после
+            // того, как всё починилось, врёт ровно так же, как её отсутствие
+            // во время поломки.
+            if let line = line(lineID), line.status == Self.audioRecoveringStatus {
+                setStatus(line.isOnHold ? "На удержании" : "Разговор", on: lineID)
+            }
+
+        case .restarting(let reason, let attempt):
+            // Трубку НЕ вешаем. Перевод AirPods на телефон и обратно снимает
+            // устройство на несколько секунд, и разговор это переживает — а
+            // раньше не переживал: любая неудачная пересборка означала обрыв.
+            // Оператору надо сказать, что происходит, иначе несколько секунд
+            // тишины он прочтёт как «связь пропала» и положит трубку сам.
+            append(level: .warning, message: "звук восстанавливается (попытка \(attempt)): \(reason)")
+            setStatus(Self.audioRecoveringStatus, on: lineID)
 
         case .broken(let reason):
-            // Звука больше нет, и молчащий разговор хуже, чем завершённый:
-            // оператор будет говорить в пустоту, а лид — слушать тишину.
+            // Попытки исчерпаны. Звука больше не будет, а молчащий разговор
+            // хуже, чем завершённый: оператор будет говорить в пустоту, а лид —
+            // слушать тишину.
             append(level: .error, message: "звук пропал: \(reason)")
             setStatus("Звук пропал", on: lineID)
             Task { [weak self] in await self?.hangUp(lineID: lineID) }
