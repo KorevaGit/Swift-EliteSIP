@@ -214,6 +214,13 @@ public actor SIPUserAgent {
     /// Что предлагать по RFC 4028.
     private let sessionTimerPolicy: SIPSessionTimerPolicy
 
+    /// Открыть дорогу до сервера перед тем, как по ней пойдёт SIP.
+    ///
+    /// Обычно `nil`: сервер во внутренней сети никаким стуком не закрыт. Для
+    /// удалённого профиля сюда встаёт `PortKnocker` — см. его же описание и
+    /// [docs/remote-access.md](../../../../docs/remote-access.md).
+    private let pathOpener: SIPPathOpener?
+
     public init(
         account: SIPAccount,
         credentials: DigestAuthentication.Credentials,
@@ -222,7 +229,8 @@ public actor SIPUserAgent {
         userAgentName: String = SIPUserAgent.defaultUserAgentName,
         transferResultTimeout: Interval = .seconds(60),
         keepAliveInterval: Interval? = nil,
-        sessionTimerPolicy: SIPSessionTimerPolicy = SIPSessionTimerPolicy()
+        sessionTimerPolicy: SIPSessionTimerPolicy = SIPSessionTimerPolicy(),
+        pathOpener: SIPPathOpener? = nil
     ) {
         self.account = account
         self.credentials = credentials
@@ -232,6 +240,7 @@ public actor SIPUserAgent {
         self.keepAliveInterval =
             keepAliveInterval ?? Self.defaultKeepAliveInterval(for: account.transport)
         self.sessionTimerPolicy = sessionTimerPolicy
+        self.pathOpener = pathOpener
 
         let (stream, continuation) = AsyncStream<Event>.makeStream(bufferingPolicy: .bufferingNewest(256))
         events = stream
@@ -329,6 +338,16 @@ public actor SIPUserAgent {
     private func runRegistrationLoop() async {
         while !isStopping, !Task.isCancelled {
             do {
+                // Перед REGISTER, а не параллельно с ним: пока дорога закрыта,
+                // запрос уходит в никуда и стоит нам полного цикла ожидания
+                // ответа плюс шага backoff. Повод `.retry` не пропускается
+                // никогда — самая правдоподобная причина отказа в том, что
+                // публичный адрес сменился и в списке шлюза его больше нет.
+                await pathOpener?.openPath(
+                    reason: consecutiveFailures > 0 ? .retry : .registration
+                )
+                guard !isStopping, !Task.isCancelled else { return }
+
                 set(state: .registering)
                 let granted = try await register(expires: account.registrationExpires)
                 consecutiveFailures = 0
@@ -383,6 +402,14 @@ public actor SIPUserAgent {
             } catch {
                 return
             }
+            guard !isStopping, !Task.isCancelled else { return }
+
+            // Стук едет на этом же цикле, а не на своём таймере: своя задача
+            // означала бы третий жизненный цикл со своими start/stop, а нужен
+            // ровно тот же — «пока мы подключены». Тик здесь частый, редким его
+            // делает `PortKnockThrottle`, и при внутреннем сервере вызова нет
+            // вовсе, потому что нет и `pathOpener`.
+            await pathOpener?.openPath(reason: .periodic)
             guard !isStopping, !Task.isCancelled else { return }
 
             do {

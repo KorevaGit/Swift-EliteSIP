@@ -45,6 +45,14 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// лаборатории на localhost. В бою должно быть выключено.
     var acceptsAnyTLSCertificate: Bool
 
+    /// Стук по портам для удалённого рабочего места.
+    ///
+    /// В интерфейс не выведено намеренно: сотруднику эту последовательность не
+    /// объяснить и незачем — для него подключение должно просто работать, как
+    /// оно «просто работало» со скриптом. Но в файле настроек она лежит и
+    /// правится, потому что живёт на чужом шлюзе и может измениться без нас.
+    var portKnock: PortKnockSequence = .production
+
     /// Учётная запись активного профиля.
     ///
     /// Остальное приложение работает ровно с одной учёткой — той, которой
@@ -68,7 +76,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         conference: ConferenceSettings = ConferenceSettings(),
         minimumLogLevel: SIPLogLevel = .info,
         logFile: LogFileSettings = LogFileSettings(),
-        acceptsAnyTLSCertificate: Bool = false
+        acceptsAnyTLSCertificate: Bool = false,
+        portKnock: PortKnockSequence = .production
     ) {
         self.schemaVersion = schemaVersion
         self.profiles = profiles
@@ -80,6 +89,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.minimumLogLevel = minimumLogLevel
         self.logFile = logFile
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
+        self.portKnock = portKnock
     }
 
     /// Разбор терпим к отсутствующим полям.
@@ -112,6 +122,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         logFile = try container.decodeIfPresent(LogFileSettings.self, forKey: .logFile) ?? LogFileSettings()
         acceptsAnyTLSCertificate =
             try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
+        portKnock =
+            try container.decodeIfPresent(PortKnockSequence.self, forKey: .portKnock) ?? .production
     }
 
     /// Ключи схемы 1, которых в модели больше нет.

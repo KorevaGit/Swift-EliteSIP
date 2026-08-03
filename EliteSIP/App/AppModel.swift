@@ -271,13 +271,24 @@ final class AppModel: ObservableObject {
             serverName: account.domain
         )
 
+        // Стук нужен только удалённому рабочему месту, и решает это адрес
+        // сервера: в офисе в профиле стоит внутренний адрес, снаружи — внешний
+        // домен. Подробности и почему это не защита — docs/remote-access.md.
+        let knocker = PortKnocker.forServer(
+            account.signalingEndpoint.host,
+            sequence: settings.portKnock
+        ) { [weak self] level, message in
+            Task { @MainActor in self?.append(level: level, message: message) }
+        }
+
         let agent = SIPUserAgent(
             account: account,
             credentials: DigestAuthentication.Credentials(
                 username: account.effectiveAuthUsername,
                 password: password
             ),
-            channel: channel
+            channel: channel,
+            pathOpener: knocker
         )
         self.agent = agent
 
@@ -285,6 +296,16 @@ final class AppModel: ObservableObject {
             level: .info,
             message: "подключение к \(account.signalingEndpoint) по \(account.transport.protocolName)"
         )
+        if knocker != nil {
+            // Одна строка в журнале, не в интерфейсе: сотруднику про стук знать
+            // не надо, а тому, кто разбирает жалобу «не регистрируется», надо в
+            // первую очередь.
+            append(
+                level: .info,
+                message: "удалённый профиль: стук перед регистрацией, "
+                    + "первая попытка через \(Int(settings.portKnock.estimatedDuration.seconds)) с"
+            )
+        }
 
         // Разрешение на микрофон спрашиваем заранее, при выходе на линию.
         //
