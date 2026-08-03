@@ -1969,8 +1969,13 @@ final class AppModel: ObservableObject {
             !addresses.isEmpty && addresses.recognizes(currentHost) && newHost != nil
             && newHost != currentHost
 
+        // Перерегистрация нужна ровно из-за адреса: пометка сама по себе решает
+        // только, стучать ли перед следующим подключением, и рвать ради неё
+        // живую регистрацию незачем. Профилю, которому адрес не переписывают
+        // (лаборатория, чужая АТС), достаётся стук на следующем подключении —
+        // или кнопка «Исправить сеть», если ждать нельзя.
         let wasConnected = agent != nil
-        if (movesAddress || site == .remote) && wasConnected { await disconnect() }
+        if movesAddress && wasConnected { await disconnect() }
 
         settings.profiles.setSite(site, for: id)
 
@@ -1997,7 +2002,7 @@ final class AppModel: ObservableObject {
 
         refreshStoredPasswordFlag()
 
-        guard wasConnected, movesAddress || site == .remote else { return }
+        guard wasConnected, movesAddress else { return }
         if hasStoredPassword || !passwordDraft.isEmpty {
             await connect()
         } else {

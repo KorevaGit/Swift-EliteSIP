@@ -121,6 +121,18 @@ extension View {
             self.buttonStyle(DefaultButtonStyle())
         }
     }
+
+    /// То же самое по условию — для выбора из нескольких кнопок, где акцент
+    /// достаётся выбранной. На macOS ниже 12 разницы в стиле нет вовсе,
+    /// поэтому выбранное состояние обязано быть видно и без неё.
+    @ViewBuilder
+    func compatProminentButtonStyle(_ isProminent: Bool) -> some View {
+        if isProminent {
+            self.compatProminentButtonStyle()
+        } else {
+            self.buttonStyle(DefaultButtonStyle())
+        }
+    }
 }
 
 extension View {

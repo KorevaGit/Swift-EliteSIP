@@ -128,6 +128,31 @@ final class PortKnockTests: XCTestCase {
         XCTAssertTrue(PortKnockPolicy.needsKnocking(serverHost: addresses.remote, site: .automatic))
     }
 
+    /// Интерфейс показывает две кнопки, и выбранной должна быть та, по которой
+    /// профиль работает на самом деле — даже если место ему ещё не задавали.
+    func testResolvedSiteAnswersForAutomatic() {
+        XCTAssertEqual(
+            PortKnockPolicy.resolvedSite(serverHost: "192.168.1.2", site: .automatic), .office
+        )
+        XCTAssertEqual(
+            PortKnockPolicy.resolvedSite(serverHost: "crm.elitesochi.com", site: .automatic), .remote
+        )
+        // Ненастроенный профиль показывается офисным: стучать в пустой адрес
+        // незачем, и «удалённо» у него было бы обещанием, а не фактом.
+        XCTAssertEqual(PortKnockPolicy.resolvedSite(serverHost: "", site: .automatic), .office)
+    }
+
+    /// Заданное руками не пересчитывается по адресу — иначе выбор было бы
+    /// нечем закрепить.
+    func testResolvedSiteKeepsExplicitChoice() {
+        XCTAssertEqual(
+            PortKnockPolicy.resolvedSite(serverHost: "192.168.1.2", site: .remote), .remote
+        )
+        XCTAssertEqual(
+            PortKnockPolicy.resolvedSite(serverHost: "crm.elitesochi.com", site: .office), .office
+        )
+    }
+
     /// Журнал должен различать догадку и настройку: иначе «почему семь секунд»
     /// разбирается чтением кода, а не строки.
     func testExplanationNamesTheReason() {

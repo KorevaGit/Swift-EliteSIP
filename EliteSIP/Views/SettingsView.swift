@@ -56,20 +56,9 @@ private struct AccountSettingsTab: View {
                     set: { model.renameProfile(model.activeProfileID, to: $0) }
                 ))
 
-                Picker("Рабочее место", selection: Binding(
-                    get: { model.settings.profiles.active.site },
-                    set: { site in
-                        Task { await model.setProfileSite(site, for: model.activeProfileID) }
-                    }
-                )) {
-                    Text("Определять по адресу сервера").tag(SIPProfileSite.automatic)
-                    Text("Офис · \(model.settings.siteAddresses.office)").tag(SIPProfileSite.office)
-                    Text("Удалённо · \(model.settings.siteAddresses.remote)").tag(SIPProfileSite.remote)
-                }
-                .pickerStyle(.radioGroup)
-                .disabled(!model.canSwitchProfile)
+                WorkplacePicker()
 
-                Text("Переключение меняет и адрес АТС: изнутри и снаружи это один и тот же сервер, но разные адреса. Удалённому месту приложение перед подключением открывает дорогу до АТС. «По адресу сервера» ничего не переписывает и решает по тому, внутренний адрес или внешний.")
+                Text("Переключение меняет и адрес АТС: изнутри и снаружи это один и тот же сервер, но разные адреса. Удалённому месту приложение перед подключением открывает дорогу до АТС.")
                     .font(.footnote)
                     .compatForeground(.secondary)
 
@@ -242,6 +231,76 @@ private struct AccountSettingsTab: View {
 ///
 /// Отдельная вью, а не кусок формы: `ForEach` по профилям иначе тянет за собой
 /// всё состояние вкладки, а строке нужен ровно один профиль.
+/// Выбор рабочего места — двумя кнопками.
+///
+/// Третьего варианта «определять по адресу» на экране нет: человек выбирает
+/// руками, и предлагать ему «не выбирать» бессмысленно. Система решает сама и
+/// показывает решение выбранным, а нажатие закрепляет его явно — и заодно
+/// переносит профиль на нужный адрес АТС.
+///
+/// Кнопки, а не переключатель, потому что это действие с последствиями:
+/// перерегистрация сейчас, запрос пароля администратора потом (M7c).
+private struct WorkplacePicker: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    private var profile: SIPProfile { model.settings.profiles.active }
+
+    /// Что выбрано на самом деле: у профиля, которому место ещё не задавали,
+    /// это решение по адресу сервера.
+    private var resolved: SIPProfileSite {
+        PortKnockPolicy.resolvedSite(serverHost: profile.account.domain, site: profile.site)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                button(.office, title: "Офис", subtitle: model.settings.siteAddresses.office)
+                button(.remote, title: "Удалённо", subtitle: model.settings.siteAddresses.remote)
+                Spacer()
+            }
+
+            if profile.site == .automatic {
+                Text("Определено по адресу сервера. Нажмите, чтобы закрепить или сменить.")
+                    .font(.footnote)
+                    .compatForeground(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func button(_ site: SIPProfileSite, title: String, subtitle: String) -> some View {
+        let isSelected = resolved == site
+        Button {
+            Task { await model.setProfileSite(site, for: model.activeProfileID) }
+        } label: {
+            VStack(spacing: 1) {
+                HStack(spacing: 4) {
+                    // Отметка, а не только стиль кнопки: акцентный стиль
+                    // появился в macOS 12, и на Catalina обе кнопки выглядели
+                    // бы одинаково — то есть выбранного не было бы видно.
+                    if isSelected {
+                        CompatSymbol(name: "checkmark.circle")
+                            .compatForeground(Theme.Palette.registered)
+                    }
+                    Text(title)
+                }
+                Text(subtitle)
+                    .font(.footnote)
+                    .compatForeground(.secondary)
+            }
+            .frame(minWidth: 130)
+        }
+        .compatProminentButtonStyle(isSelected)
+        .disabled(!model.canSwitchProfile)
+        .compatHelp(
+            isSelected && profile.site != .automatic
+                ? "Уже выбрано"
+                : "Перевести профиль на адрес \(subtitle)"
+        )
+    }
+}
+
 private struct ProfileRow: View {
 
     @EnvironmentObject private var model: AppModel
