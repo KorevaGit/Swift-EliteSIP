@@ -36,7 +36,7 @@ ok() {
 #
 # `swift build --arch` подставляет нижнюю планку из Package.swift, поэтому
 # срез x86_64 собирается ровно под Catalina — это и проверяется.
-for package in Compat Diagnostics MediaCore SIPCore CallGuard; do
+for package in Compat Diagnostics MediaCore SIPCore CallGuard AdminAccess; do
     for arch in x86_64 arm64; do
         step "$package: сборка $arch"
         if (cd "Packages/$package" && swift build --arch "$arch" >/dev/null 2>&1); then
@@ -49,7 +49,7 @@ done
 
 # 2. Тесты на своей архитектуре. Кросс-запускать нечем: Rosetta есть не у всех,
 #    а тесты проверяют логику, а не машинный код.
-for package in Compat Diagnostics MediaCore SIPCore CallGuard; do
+for package in Compat Diagnostics MediaCore SIPCore CallGuard AdminAccess; do
     step "$package: тесты"
     if (cd "Packages/$package" && swift test >/dev/null 2>&1); then
         ok "прошли"

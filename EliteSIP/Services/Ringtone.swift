@@ -52,8 +52,18 @@ final class Ringtone {
             try? engine.outputNode.auAudioUnit.setDeviceID(device.id)
         }
 
-        let format = engine.outputNode.outputFormat(forBus: 0)
-        guard format.sampleRate > 0, let buffer = makeCycleBuffer(format: format) else { return }
+        // Свой файл, если он задан и на месте; иначе синтезированный цикл.
+        // Порядок именно такой: замена рингтона — настройка рабочего места, и
+        // молчаливый откат к стандартному звонку лучше, чем тишина из-за
+        // переименованного файла.
+        let buffer: AVAudioPCMBuffer
+        if let url = settings.customSoundURL, let fileBuffer = Ringtone.makeFileBuffer(url: url) {
+            buffer = fileBuffer
+        } else {
+            let format = engine.outputNode.outputFormat(forBus: 0)
+            guard format.sampleRate > 0, let cycle = makeCycleBuffer(format: format) else { return }
+            buffer = cycle
+        }
 
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: buffer.format)
@@ -77,6 +87,31 @@ final class Ringtone {
         engine?.stop()
         player = nil
         engine = nil
+    }
+
+    /// Файл рингтона целиком в буфер.
+    ///
+    /// Целиком, а не потоком с диска: буфер зацикливается одним планированием,
+    /// и никакое чтение файла не встаёт между «пришёл вызов» и «зазвонило».
+    /// Длинный файл этим и ограничен — и это ограничение по делу: рингтон на
+    /// минуту в оперативной памяти держать незачем, звонки принимают за секунды.
+    static func makeFileBuffer(url: URL) -> AVAudioPCMBuffer? {
+        guard let file = try? AVAudioFile(forReading: url) else { return nil }
+        let frames = AVAudioFrameCount(file.length)
+        guard frames > 0,
+              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frames)
+        else { return nil }
+        do {
+            try file.read(into: buffer)
+        } catch {
+            return nil
+        }
+        return buffer
+    }
+
+    /// Годится ли файл в рингтоны — до того, как его записали в настройки.
+    static func isPlayable(url: URL) -> Bool {
+        makeFileBuffer(url: url) != nil
     }
 
     /// Один полный цикл звонка одним буфером.

@@ -24,7 +24,7 @@ import SwiftUI
 /// а окна исчезают вместе с делегатом — приложение запускается и показывает
 /// пустой экран с рабочим меню.
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private let model = AppModel()
 
@@ -139,9 +139,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: withEnvironment(SettingsView()))
         window.center()
+        // Ради одного: закрытие окна гасит административный режим (M7c).
+        window.delegate = self
 
         settingsWindow = window
         window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Закрытие окна настроек закрывает административный режим.
+    ///
+    /// Срок жизни сессии выбран именно таким: администратор настроил чужое
+    /// рабочее место, закрыл окно и ушёл — и после этого закрытая часть снова
+    /// закрыта, без таймеров и без надежды на то, что он нажмёт «Выйти».
+    /// Окно живёт дальше (`isReleasedWhenClosed = false`), поэтому следующее
+    /// открытие снова спросит пароль, а не покажет прошлую сессию.
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === settingsWindow else { return }
+        model.lockAdministration()
     }
 
     /// Общая для всех окон обвязка: модель и владелец окна входящего.

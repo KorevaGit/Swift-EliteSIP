@@ -1,3 +1,4 @@
+import AdminAccess
 import CallGuard
 import Diagnostics
 import Foundation
@@ -37,6 +38,14 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// Журнал в файле. Отдельно от `minimumLogLevel`: на экране нужен короткий,
     /// в файле — подробный.
     var logFile: LogFileSettings = LogFileSettings()
+
+    /// Административный доступ: пароль и то, кто управляет настройками.
+    ///
+    /// Схема не выросла до 3, хотя поле новое: старый файл читается терпимым
+    /// декодером и получает `AdminSettings()` — «пароль не задан, управляет
+    /// администратор этой машины». Это ровно прежнее поведение, а версия схемы
+    /// растёт от несовместимости, а не от прибавления.
+    var admin: AdminSettings = AdminSettings()
 
     /// Доверять любому сертификату TLS активного профиля.
     ///
@@ -89,6 +98,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         conference: ConferenceSettings = ConferenceSettings(),
         minimumLogLevel: SIPLogLevel = .info,
         logFile: LogFileSettings = LogFileSettings(),
+        admin: AdminSettings = AdminSettings(),
         acceptsAnyTLSCertificate: Bool = false,
         portKnock: PortKnockSequence = .production,
         siteAddresses: SIPSiteAddresses = .production
@@ -102,6 +112,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.conference = conference
         self.minimumLogLevel = minimumLogLevel
         self.logFile = logFile
+        self.admin = admin
         self.portKnock = portKnock
         self.siteAddresses = siteAddresses
         // После `profiles`: свойство живёт в активном профиле.
@@ -136,6 +147,11 @@ struct AppSettings: Codable, Sendable, Equatable {
         // умолчание включено. Диагностика, которую надо сперва включить, не
         // помогает там, где нужна, — жалоба всегда про то, что уже случилось.
         logFile = try container.decodeIfPresent(LogFileSettings.self, forKey: .logFile) ?? LogFileSettings()
+        // Испорченный блок доступа читается как «пароля нет», а не роняет весь
+        // файл: иначе одна битая строка стоила бы учётной записи. Открытые
+        // настройки на машине, где пароль был, заметят сразу — в отличие от
+        // потерянного профиля.
+        admin = (try? container.decodeIfPresent(AdminSettings.self, forKey: .admin)) ?? AdminSettings()
         portKnock =
             try container.decodeIfPresent(PortKnockSequence.self, forKey: .portKnock) ?? .production
         siteAddresses =
@@ -252,6 +268,31 @@ struct AppSettings: Codable, Sendable, Equatable {
         }
     }
 
+    /// Административный доступ, как он лежит в файле.
+    ///
+    /// Самого пароля здесь нет — только проверочное значение и запечатанная
+    /// копия, которую открывает код восстановления. Устройство и цена решения —
+    /// в пакете `AdminAccess`.
+    struct AdminSettings: Codable, Sendable, Equatable {
+
+        /// nil — пароль не задан, закрытая часть открыта всем.
+        var credential: AdminCredential?
+
+        /// Кто управляет закрытыми настройками. Пока всегда локально.
+        var management: AdminManagement = .local
+
+        init(credential: AdminCredential? = nil, management: AdminManagement = .local) {
+            self.credential = credential
+            self.management = management
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            credential = try container.decodeIfPresent(AdminCredential.self, forKey: .credential)
+            management = try container.decodeIfPresent(AdminManagement.self, forKey: .management) ?? .local
+        }
+    }
+
     struct AudioSettings: Codable, Sendable, Equatable {
 
         /// Микрофон (`AudioDevice.uid`). nil — системный по умолчанию.
@@ -337,10 +378,24 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// на голове, — поэтому это выбор, а не решение за пользователя.
         var usesSystemOutput: Bool = true
 
-        init(isEnabled: Bool = true, volume: Double = 0.5, usesSystemOutput: Bool = true) {
+        /// Свой звук вместо синтезированного. nil — стандартный.
+        ///
+        /// Путь, а не закладка безопасности: App Sandbox выключен осознанно
+        /// (см. `EliteSIP.entitlements`), и закладка здесь была бы обвязкой без
+        /// причины. Пропавший файл не ломает звонок — рингтон молча возвращается
+        /// к стандартному, потому что беззвучный входящий хуже неожиданного.
+        var customSoundPath: String?
+
+        init(
+            isEnabled: Bool = true,
+            volume: Double = 0.5,
+            usesSystemOutput: Bool = true,
+            customSoundPath: String? = nil
+        ) {
             self.isEnabled = isEnabled
             self.volume = volume
             self.usesSystemOutput = usesSystemOutput
+            self.customSoundPath = customSoundPath
         }
 
         init(from decoder: Decoder) throws {
@@ -348,6 +403,14 @@ struct AppSettings: Codable, Sendable, Equatable {
             isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
             volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? 0.5
             usesSystemOutput = try container.decodeIfPresent(Bool.self, forKey: .usesSystemOutput) ?? true
+            customSoundPath = try container.decodeIfPresent(String.self, forKey: .customSoundPath)
+        }
+
+        /// Файл рингтона, если он задан и на месте.
+        var customSoundURL: URL? {
+            guard let customSoundPath, !customSoundPath.isEmpty else { return nil }
+            let url = URL(fileURLWithPath: customSoundPath)
+            return FileManager.default.fileExists(atPath: url.path) ? url : nil
         }
     }
 

@@ -1,3 +1,4 @@
+import AdminAccess
 import Compat
 import CallGuard
 import Diagnostics
@@ -61,6 +62,26 @@ final class AppModel: ObservableObject {
     /// нужен на экране, а не в журнале.
     @Published var networkRepairStatus: String?
 
+    /// Административный режим.
+    ///
+    /// Проверочное значение пароля живёт в настройках и переживает перезапуск,
+    /// а открытость режима — только здесь и только до закрытия окна настроек.
+    /// Поэтому состояние целиком в модели, а не половина в файле: единственное
+    /// место, где можно спросить «закрытая часть видна?», — это оно.
+    ///
+    /// Сеттер открыт ради `AppModel+Admin`, и это ничего не ослабляет:
+    /// `AdminAccessState` не даёт создать себя открытым, а `isUnlocked` внутри
+    /// него закрыт на запись. Открыть режим можно только предъявив пароль.
+    @Published var adminAccess = AdminAccessState()
+
+    /// Этап самопроверки звука. Крутит менеджерскую страницу настроек.
+    @Published var selfTestPhase: VoiceSelfTest.Phase = .idle
+
+    /// Живая проверка. Держится здесь, потому что её нельзя терять на
+    /// перерисовке формы: `deinit` останавливает движок, и запись оборвалась бы
+    /// от любого движения интерфейса.
+    var selfTest: VoiceSelfTest?
+
     @Published private(set) var registration: SIPRegistrationState = .idle
     @Published private(set) var hasStoredPassword = false
     @Published private(set) var log: [LogEntry] = []
@@ -75,6 +96,14 @@ final class AppModel: ObservableObject {
         settings = SettingsStore.load()
         refreshStoredPasswordFlag()
         openLogFileIfNeeded()
+
+        // Запуск всегда начинается с закрытого режима, чем бы ни закончился
+        // предыдущий: открытость нигде не сохраняется, и это решение, а не
+        // упущение.
+        adminAccess.restore(
+            credential: settings.admin.credential,
+            management: settings.admin.management
+        )
 
         // Наблюдатель `settings` в `init` не срабатывает, поэтому мигрированный
         // файл сам собой не перезапишется. Записываем сразу: иначе профиль,
@@ -549,6 +578,32 @@ final class AppModel: ObservableObject {
     /// показывает его приезд INVITE, а не действие пользователя.
     let incomingCallPanel = IncomingCallPanel()
     private let ringtone = Ringtone()
+
+    /// Играет ли рингтон по кнопке «Прослушать» в настройках.
+    ///
+    /// Отдельно от `ringtone.isPlaying`: тот не публикуется, а кнопке нужно
+    /// перерисоваться в «Остановить» сразу.
+    @Published private(set) var isRingtonePreviewPlaying = false
+
+    /// Проиграть рингтон в настройках — тем же кодом и в то же устройство, что
+    /// и на настоящем входящем.
+    ///
+    /// В разговоре и на живом входящем не работает: рингтон там занят делом,
+    /// и предпрослушивание либо оборвало бы его, либо наложилось поверх.
+    func startRingtonePreview() {
+        guard !isInCall, incomingCall == nil else { return }
+        ringtone.start(
+            settings: settings.ringtone,
+            outputDeviceUID: settings.audio.outputDeviceUID
+        )
+        isRingtonePreviewPlaying = ringtone.isPlaying
+    }
+
+    func stopRingtonePreview() {
+        guard isRingtonePreviewPlaying else { return }
+        ringtone.stop()
+        isRingtonePreviewPlaying = false
+    }
 
     var canTransfer: Bool {
         callPhase == .active && !isRenegotiating && !isTransferring
@@ -1428,6 +1483,13 @@ final class AppModel: ObservableObject {
             append(level: .warning, message: "защита от автокликеров выключена на этом вызове")
         }
 
+        // Предпрослушивание держит тот же движок, и `Ringtone.start` на занятом
+        // движке молча ничего не делает — то есть настоящий входящий пришёл бы
+        // беззвучно. Настройки в этот момент вполне могут быть открыты.
+        stopRingtonePreview()
+        // Самопроверка держит микрофон и наушники; входящий важнее.
+        cancelVoiceSelfTest()
+
         ringtone.start(
             settings: settings.ringtone,
             outputDeviceUID: settings.audio.outputDeviceUID
@@ -1774,7 +1836,11 @@ final class AppModel: ObservableObject {
 
     // MARK: - Лог
 
-    private func append(level: SIPLogLevel, message: String) {
+    /// Не `private`: административный режим и самопроверка звука живут в
+    /// расширениях соседними файлами, и своего пути в журнал у них быть не
+    /// должно — иначе однажды появится вторая запись, которая не попадает в
+    /// файл и не маскируется.
+    func append(level: SIPLogLevel, message: String) {
         // В файл — до фильтра экрана и по своему уровню. Иначе «покажите
         // поменьше» на панели молча обрезало бы и то, ради чего журнал заводили.
         if let logFile, level >= settings.logFile.minimumLevel {

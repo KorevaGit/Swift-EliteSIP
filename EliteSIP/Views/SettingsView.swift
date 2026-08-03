@@ -4,10 +4,34 @@ import SIPCore
 import SwiftUI
 
 /// Отдельное полноценное окно настроек, а не панель `Settings`.
+///
+/// Две разные формы, а не одна с погашенными строками (M7c). Пока режим
+/// закрыт, окно — это менеджерская страница и кнопка «Управление»; закрытых
+/// вкладок в нём не существует вовсе. Погашенные вкладки читались бы как
+/// «сломалось», а не как «не ваше», и порождали бы звонок в поддержку ровно там,
+/// где его хотели избежать.
 struct SettingsView: View {
 
+    @EnvironmentObject private var model: AppModel
+
     var body: some View {
+        Group {
+            if model.allowsAdministration {
+                administrationTabs
+            } else {
+                ManagerSettingsView()
+            }
+        }
+        .frame(minWidth: 640, minHeight: 460)
+    }
+
+    /// Полный набор вкладок. Первой остаётся менеджерская: администратор
+    /// настраивает чужое рабочее место и должен видеть его глазами хозяина.
+    private var administrationTabs: some View {
         TabView {
+            ManagerSettingsView()
+                .tabItem { CompatLabel(title: "Рабочее место", symbol: "gearshape") }
+
             AccountSettingsTab()
                 .tabItem { CompatLabel(title: "Аккаунт", symbol: "person.crop.circle") }
 
@@ -22,9 +46,11 @@ struct SettingsView: View {
 
             DiagnosticsTab()
                 .tabItem { CompatLabel(title: "Диагностика", symbol: "stethoscope") }
+
+            AdministrationTab()
+                .tabItem { CompatLabel(title: "Доступ", symbol: "lock.shield.fill") }
         }
         .padding(20)
-        .frame(minWidth: 640, minHeight: 460)
     }
 }
 
@@ -239,8 +265,13 @@ private struct AccountSettingsTab: View {
 /// переносит профиль на нужный адрес АТС.
 ///
 /// Кнопки, а не переключатель, потому что это действие с последствиями:
-/// перерегистрация сейчас, запрос пароля администратора потом (M7c).
-private struct WorkplacePicker: View {
+/// перерегистрация сейчас.
+///
+/// Не `private`: те же две кнопки стоят на менеджерской странице (M7c). Смена
+/// офис ↔ удалёнка — единственное, что менеджер делает с профилем сам, приехав
+/// домой, и заводить для этого вторую пару кнопок значило бы однажды их
+/// разойтись.
+struct WorkplacePicker: View {
 
     @EnvironmentObject private var model: AppModel
 
@@ -908,7 +939,8 @@ private struct MacroRow: View {
     }
 }
 
-private struct SettingSlider: View {
+/// Не `private`: тот же ползунок стоит на менеджерской странице (M7c).
+struct SettingSlider: View {
 
     @Binding var value: Double
     let range: ClosedRange<Double>
