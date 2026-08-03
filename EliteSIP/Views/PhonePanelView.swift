@@ -432,7 +432,7 @@ struct CallControls: View {
 
                     controlButton(
                         title: "Отбой \(consultation.title)",
-                        systemImage: "phone.down",
+                        systemImage: "phone.down.fill",
                         isOn: false,
                         isEnabled: !model.isTransferring,
                         help: "Завершить консультацию и вернуться к клиенту"

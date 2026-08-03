@@ -1140,7 +1140,7 @@ private struct LogFileSection: View {
 
                 CompatLabel(
                     title: "Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. Номера и SIP-логины остаются — по ним и разбирают звонок.",
-                    symbol: "lock.shield"
+                    symbol: "lock.shield.fill"
                 )
                 .font(.footnote)
                 .compatForeground(.secondary)

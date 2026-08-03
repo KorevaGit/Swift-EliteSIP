@@ -58,7 +58,33 @@ for package in Compat Diagnostics MediaCore SIPCore CallGuard AdminAccess CallHi
     fi
 done
 
-# 3. Приложение целиком, оба среза сразу.
+# 3. Каждое имя символа есть в каталоге.
+#
+# Это проверка совместимости, а не аккуратности. Каталог `Symbols` существует
+# ровно потому, что SF Symbols нет до macOS 11: `CompatSymbol` рисует
+# `Image(name)` по имени из ассетов. Опечатка в имени не ломает ни сборку, ни
+# работу — иконка просто не рисуется, и заметить это можно только глазами на
+# том экране, куда редко заходят. Так в приложении одновременно жили четыре
+# невидимые иконки, три из них на кнопках управления звонком.
+step "Символы: имена сходятся с каталогом"
+missing=$(
+    ls -d EliteSIP/Assets.xcassets/Symbols/*.imageset 2>/dev/null |
+        sed 's|.*/||; s|\.imageset$||' | sort > /tmp/elitesip-symbols.$$
+    # Кандидат — строковый литерал вида `phone.arrow.right`: строчные слова
+    # через точку. Имена файлов той же формы (`settings.json`) отсеиваются
+    # расширением, а не догадкой.
+    grep -rhoE '"[a-z][a-z0-9]*(\.[a-z0-9]+)+"' EliteSIP --include='*.swift' |
+        tr -d '"' | grep -vE '\.(json|log|sqlite|swift|plist|txt|zip)$' | sort -u |
+        comm -23 - /tmp/elitesip-symbols.$$
+    rm -f /tmp/elitesip-symbols.$$
+)
+if [[ -z "$missing" ]]; then
+    ok "все имена символов есть в каталоге"
+else
+    fail "нет ассетов для символов: $(echo "$missing" | tr '\n' ' ')"
+fi
+
+# 4. Приложение целиком, оба среза сразу.
 step "Приложение: universal Release"
 if xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Release \
     -destination 'generic/platform=macOS' ONLY_ACTIVE_ARCH=NO ARCHS="x86_64 arm64" \
