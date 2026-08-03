@@ -1,6 +1,7 @@
 import AdminAccess
 import Compat
 import CallGuard
+import CallHistory
 import Diagnostics
 import MediaCore
 import SIPCore
@@ -49,6 +50,18 @@ final class AppModel: ObservableObject {
             if settings.logFile != oldValue.logFile {
                 openLogFileIfNeeded()
             }
+            // Срок хранения меняет администратор, и уменьшение срока обязано
+            // сработать сразу, а не при следующем запуске: это удаление
+            // персональных данных, а не настройка отображения.
+            //
+            // Но не в открытом черновике. Придержка в «Управлении» вообще-то
+            // держит только запись на диск, а правки в памяти живые — для
+            // громкости это и нужно. Здесь исключение, и оно единственное:
+            // «Отменить» не вернёт удалённые записи. Срок применяется по
+            // «Сохранить», см. `commitAdministration`.
+            if settings.history != oldValue.history, !isHoldingSettingsWrites {
+                openHistoryIfNeeded()
+            }
             persistSettings()
         }
     }
@@ -93,6 +106,35 @@ final class AppModel: ObservableObject {
     /// Этап самопроверки звука. Крутит менеджерскую страницу настроек.
     @Published var selfTestPhase: VoiceSelfTest.Phase = .idle
 
+    // MARK: - История звонков
+
+    /// Хранилище истории. nil — история выключена настройками или база не
+    /// открылась; в обоих случаях остальной код продолжает работать.
+    /// Устройство и решения — `AppModel+History`.
+    var historyStore: CallHistoryStore?
+
+    /// Какой записи истории соответствует живая линия.
+    ///
+    /// Отдельным словарём, а не полем в `CallLine`: линия — это состояние
+    /// разговора, а не бухгалтерия, и завязывать одно на другое пришлось бы во
+    /// всех местах, где линия заводится.
+    var historyRecordIDs: [String: UUID] = [:]
+
+    /// Ежесуточная уборка просроченного.
+    var historyPruneTask: Task<Void, Never>?
+
+    /// Что показывает окно истории.
+    @Published var historyFilter: CallHistoryStore.Filter = .all {
+        didSet {
+            guard historyFilter != oldValue else { return }
+            reloadHistory()
+        }
+    }
+
+    /// Показанная страница истории и общее число записей под фильтром.
+    @Published var historyRecords: [CallRecord] = []
+    @Published var historyTotalCount: Int = 0
+
     /// Живая проверка. Держится здесь, потому что её нельзя терять на
     /// перерисовке формы: `deinit` останавливает движок, и запись оборвалась бы
     /// от любого движения интерфейса.
@@ -112,6 +154,9 @@ final class AppModel: ObservableObject {
         settings = SettingsStore.load()
         refreshStoredPasswordFlag()
         openLogFileIfNeeded()
+        // После журнала: открытие истории пишет в него свой исход, включая
+        // «база была повреждена».
+        openHistoryIfNeeded()
 
         // Запуск всегда начинается с закрытого режима, чем бы ни закончился
         // предыдущий: открытость нигде не сохраняется, и это решение, а не
@@ -552,9 +597,17 @@ final class AppModel: ObservableObject {
         index(of: lineID).map { lines[$0] }
     }
 
+    /// Единственное место, где меняется линия.
+    ///
+    /// Отсюда же история узнаёт про ответ, перевод и конференцию — сравнением
+    /// состояния до и после. Тот же приём, что у маскирования секретов в
+    /// журнале: пока путь один, забыть отметить событие можно только вместе с
+    /// самим событием.
     private func mutate(_ lineID: String, _ body: (inout CallLine) -> Void) {
         guard let index = index(of: lineID) else { return }
+        let before = lines[index]
         body(&lines[index])
+        noteHistory(before: before, after: lines[index])
     }
 
     /// Строка состояния показывает активную линию.
@@ -746,6 +799,21 @@ final class AppModel: ObservableObject {
         callStatus = "Набор…"
         applyAudioOwnership()
         append(level: .info, message: "звоню на \(number), RTP-порт \(prepared.port)")
+
+        // Запись заводится на первом гудке, а не по факту разговора: звонок,
+        // на который не ответили, — тоже история, и именно её чаще всего
+        // ищут, когда вспоминают «я же ему набирал».
+        //
+        // SIP-логин исходящего остаётся пустым, и это не упущение. Мы набрали
+        // номер; как называется этот extension на стороне FreePBX, из нашей
+        // сигнализации не видно вовсе — 200 OK приходит без имени. Заполнит
+        // поле синхронизация с EliteDash в M9, а до тех пор пусто честнее.
+        beginHistory(
+            lineID: call.callID,
+            direction: .outgoing,
+            number: number,
+            role: origin == nil ? .primary : .consultation
+        )
 
         callTasks[call.callID] = Task { [weak self] in
             for await event in call.events {
@@ -1393,6 +1461,12 @@ final class AppModel: ObservableObject {
         callTasks.removeValue(forKey: lineID)?.cancel()
         line(lineID)?.media?.stop()
 
+        // История закрывается здесь, потому что здесь снимается линия, — и
+        // ровно той причиной, которую увидит оператор. Расхождение между
+        // подписью под кнопкой и строкой в истории означало бы, что верить
+        // будут памяти, а не записи.
+        finishHistory(lineID: lineID, reason: status)
+
         let wasActive = lineID == activeLineID
         lines.removeAll { $0.id == lineID }
 
@@ -1450,6 +1524,9 @@ final class AppModel: ObservableObject {
         for line in lines {
             callTasks.removeValue(forKey: line.id)?.cancel()
             line.media?.stop()
+            // Отключение от сервера рвёт разговор, и назвать это как-то иначе
+            // нельзя: линия снимается не потому, что собеседник положил трубку.
+            finishHistory(lineID: line.id, reason: "Отключение от сервера")
         }
         callTasks.values.forEach { $0.cancel() }
         callTasks.removeAll()
@@ -1492,6 +1569,23 @@ final class AppModel: ObservableObject {
         activeLineID = call.callID
         callStatus = "Входящий"
         didLogGuardReport = false
+
+        // Номер и SIP-логин пишутся как пришли, без нормализации — решение
+        // 30 июля 2026. Оба берутся из From, и сегодня они совпадают: FreePBX
+        // кладёт техническое имя extension в тот же user-part, что и номер.
+        // Хранятся всё равно порознь — в M9 CDR различает эти две вещи, и
+        // тогда колонка уже будет нужного вида, а не заведена задним числом.
+        //
+        // Имя из From идёт третьим полем, а не поверх номера: в M9 его
+        // переопределит EliteDash, и исходное обязано остаться — пересчитать
+        // псевдоним заново потом будет не из чего.
+        beginHistory(
+            lineID: call.callID,
+            direction: .incoming,
+            number: call.callerNumber,
+            sipLogin: call.callerNumber.isEmpty ? nil : call.callerNumber,
+            displayName: call.callerName
+        )
 
         if !settings.incomingCall.isEnabled {
             // Выключить защиту можно, скрыть факт — нет. В M8 эта же запись

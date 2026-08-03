@@ -47,9 +47,10 @@ extension AppModel {
     /// и только потом сохраняется файл: иначе `management` уехал бы на диск
     /// вторым заходом, а между ними успел бы случиться сбой записи.
     func commitAdministration() {
-        guard administrationSnapshot != nil else { return }
+        guard let snapshot = administrationSnapshot else { return }
 
         let wasManagedElsewhere = settings.admin.management != .local
+        let historyChanged = settings.history != snapshot.history
 
         isHoldingSettingsWrites = false
         administrationSnapshot = nil
@@ -74,6 +75,14 @@ extension AppModel {
         settings.admin.management = .local
         adminAccess.management = .local
         persistSettings()
+
+        // История применяется только здесь, а не по ходу правки: уменьшенный
+        // срок сразу удаляет записи, и «Отменить» их уже не вернёт. Это
+        // единственная закрытая настройка, у которой правка в черновике имела
+        // бы необратимые последствия.
+        if historyChanged {
+            openHistoryIfNeeded()
+        }
 
         append(
             level: wasManagedElsewhere ? .warning : .info,

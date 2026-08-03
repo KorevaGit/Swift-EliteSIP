@@ -23,7 +23,7 @@ struct AdministrationWindowView: View {
     /// администратор ищет «Доступ», не видит его и решает, что пароль задать
     /// негде.
     private enum Section: String, CaseIterable, Identifiable {
-        case account, audio, incoming, tones, diagnostics, access
+        case account, audio, incoming, tones, history, diagnostics, access
 
         var id: String { rawValue }
 
@@ -33,6 +33,7 @@ struct AdministrationWindowView: View {
             case .audio: "Звук"
             case .incoming: "Входящие"
             case .tones: "Тоны"
+            case .history: "История"
             case .diagnostics: "Диагностика"
             case .access: "Доступ"
             }
@@ -44,6 +45,7 @@ struct AdministrationWindowView: View {
             case .audio: "speaker.wave.2"
             case .incoming: "bell"
             case .tones: "square.grid.3x3"
+            case .history: "clock"
             case .diagnostics: "stethoscope"
             case .access: "lock.shield.fill"
             }
@@ -103,6 +105,7 @@ struct AdministrationWindowView: View {
         case .audio: AudioSettingsTab()
         case .incoming: IncomingCallSettingsTab()
         case .tones: DTMFSettingsTab()
+        case .history: CallHistorySettingsTab()
         case .diagnostics: DiagnosticsTab()
         case .access: AdministrationTab()
         }

@@ -1,5 +1,6 @@
 import AdminAccess
 import CallGuard
+import CallHistory
 import Diagnostics
 import Foundation
 import MediaCore
@@ -38,6 +39,13 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// Журнал в файле. Отдельно от `minimumLogLevel`: на экране нужен короткий,
     /// в файле — подробный.
     var logFile: LogFileSettings = LogFileSettings()
+
+    /// Локальная история звонков: вести ли её и сколько дней хранить.
+    ///
+    /// Схема не выросла: старый файл читается терпимым декодером и получает
+    /// умолчания — история включена, срок 30 дней. Версия растёт от
+    /// несовместимости, а не от прибавления.
+    var history: CallHistorySettings = CallHistorySettings()
 
     /// Административный доступ: пароль и то, кто управляет настройками.
     ///
@@ -98,6 +106,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         conference: ConferenceSettings = ConferenceSettings(),
         minimumLogLevel: SIPLogLevel = .info,
         logFile: LogFileSettings = LogFileSettings(),
+        history: CallHistorySettings = CallHistorySettings(),
         admin: AdminSettings = AdminSettings(),
         acceptsAnyTLSCertificate: Bool = false,
         portKnock: PortKnockSequence = .production,
@@ -112,6 +121,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.conference = conference
         self.minimumLogLevel = minimumLogLevel
         self.logFile = logFile
+        self.history = history
         self.admin = admin
         self.portKnock = portKnock
         self.siteAddresses = siteAddresses
@@ -147,6 +157,12 @@ struct AppSettings: Codable, Sendable, Equatable {
         // умолчание включено. Диагностика, которую надо сперва включить, не
         // помогает там, где нужна, — жалоба всегда про то, что уже случилось.
         logFile = try container.decodeIfPresent(LogFileSettings.self, forKey: .logFile) ?? LogFileSettings()
+        // Умолчание тоже включено, и по той же причине: историю открывают,
+        // чтобы вспомнить уже состоявшийся звонок, а «сперва включите» на этот
+        // вопрос не отвечает.
+        history =
+            try container.decodeIfPresent(CallHistorySettings.self, forKey: .history)
+                ?? CallHistorySettings()
         // Испорченный блок доступа читается как «пароля нет», а не роняет весь
         // файл: иначе одна битая строка стоила бы учётной записи. Открытые
         // настройки на машине, где пароль был, заметят сразу — в отличие от
@@ -265,6 +281,63 @@ struct AppSettings: Codable, Sendable, Equatable {
             return base
                 .appendingPathComponent("Logs", isDirectory: true)
                 .appendingPathComponent("EliteSIP", isDirectory: true)
+        }
+    }
+
+    /// Локальная история звонков.
+    ///
+    /// Настройка закрытая, административная, и это не про удобство. В записях
+    /// лежат номера лидов, то есть персональные данные, и «сколько мы их
+    /// храним» — политика заказчика, а не привычка менеджера. Умолчание в
+    /// 30 дней согласовано 3 августа 2026; в M8 то же значение приедет файлом
+    /// конфигурации и перестанет зависеть от того, кто сидит за машиной.
+    ///
+    /// Ручного удаления записей в интерфейсе нет намеренно (там же). История
+    /// нужна в том числе как свидетельство при разборе жалобы, а свидетельство,
+    /// которое может убрать заинтересованная сторона, свидетельством не
+    /// является. Уходят записи только по сроку.
+    struct CallHistorySettings: Codable, Sendable, Equatable {
+
+        /// Вести историю вообще.
+        ///
+        /// Выключатель существует ради машин, где хранить номера лидов нельзя
+        /// вовсе. Выключение не стирает уже накопленное — стирает срок.
+        var isEnabled: Bool = true
+
+        var maximumAgeInDays: Int = 30
+
+        init(isEnabled: Bool = true, maximumAgeInDays: Int = 30) {
+            self.isEnabled = isEnabled
+            self.maximumAgeInDays = maximumAgeInDays
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+            maximumAgeInDays = try container.decodeIfPresent(Int.self, forKey: .maximumAgeInDays) ?? 30
+        }
+
+        /// То же, что понимает `CallHistory`, и в тех же границах: значение
+        /// приезжает из файла, который правит человек.
+        var storage: CallHistoryStore.Settings {
+            CallHistoryStore.Settings(
+                fileURL: CallHistorySettings.fileURL,
+                maximumAgeInDays: min(max(maximumAgeInDays, 1), 3650)
+            )
+        }
+
+        /// Рядом с настройками, а не в `~/Library/Logs`.
+        ///
+        /// Журнал отдаёт в поддержку сам оператор, и туда его кладут именно
+        /// поэтому. Историю в поддержку не отправляют никогда: это накопленные
+        /// персональные данные со своим сроком жизни, и попадать в архив для
+        /// поддержки заодно с журналом она не должна.
+        static var fileURL: URL {
+            let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+                ?? FileManager.default.temporaryDirectory
+            return base
+                .appendingPathComponent("EliteSIP", isDirectory: true)
+                .appendingPathComponent("call-history.sqlite")
         }
     }
 

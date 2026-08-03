@@ -64,6 +64,10 @@ Packages/CallGuard/     защита приёма вызова: случайно
                         человека, отчёт. Чистая логика, время и ГПСЧ снаружи
 Packages/Diagnostics/   файловый журнал: маскирование секретов, ротация,
                         архив для поддержки
+Packages/AdminAccess/   административный доступ: проверочное значение пароля,
+                        код восстановления, режим управления
+Packages/CallHistory/   локальная история звонков: SQLite из системы, срок
+                        хранения, выборки. Без AppKit
 Config/                 entitlements
 docs/                   решения, которые нужно объяснять: аудиотракт, защита
                         от автокликеров, удержание и DTMF
@@ -99,7 +103,8 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
 ```bash
 (cd Packages/Compat && swift test) && (cd Packages/Diagnostics && swift test) \
   && (cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test) \
-  && (cd Packages/CallGuard && swift test)
+  && (cd Packages/CallGuard && swift test) && (cd Packages/AdminAccess && swift test) \
+  && (cd Packages/CallHistory && swift test)
 ```
 
 Разговор со звуком против живой АТС и замеры аудиотракта:
@@ -216,7 +221,8 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
       аккаунтов с явной пометкой офисного и удалённого рабочего места (сделано,
       [docs/profiles.md](docs/profiles.md)),
       **M7c** административный режим, **M7d** локальная история
-      звонков, **M7e** подпись, нотарификация и DMG, **M7f** приёмка на живом
+      звонков (сделано, [docs/history.md](docs/history.md)),
+      **M7e** подпись, нотарификация и DMG, **M7f** приёмка на живом
       Intel с Catalina, **M7g** отдельный аудио-DSP, **M7h** автообновление
       через Sparkle с раздачей с сайта EliteSIP. Цепочка зависимостей:
       M7e → M7f → M7g и M7e → M7h. Разбор подписи, нотарификации, Gatekeeper и

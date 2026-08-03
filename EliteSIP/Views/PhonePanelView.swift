@@ -34,7 +34,12 @@ struct PhonePanelView: View {
         // бейдже: в бейдже она отъедала ширину у строки состояния, и «Не
         // подключено» превращалось в «Не подключ…». Накладкой, а не элементом
         // стопки, — чтобы вёрстка панели осталась ровно прежней.
-        .compatOverlay(alignment: .topTrailing) { settingsButton }
+        //
+        // История встала рядом, слева от шестерёнки. Слева от светофора места
+        // нет, а в стопку её не поставить по той же причине, по которой там
+        // нет шестерёнки: панель фиксированной высоты, и каждая новая строка
+        // отнимается у клавиатуры.
+        .compatOverlay(alignment: .topTrailing) { titleBarButtons }
         .compatBackground {
             WindowAccessor { window in
                 // Заголовок скрыт, поэтому окно надо таскать за фон.
@@ -88,25 +93,39 @@ struct PhonePanelView: View {
         }
     }
 
-    /// Вход в настройки с панели.
+    /// Кнопки в полосе заголовка: история и настройки.
     ///
-    /// До этого дорога была одна — пункт меню, и на рабочем месте её не
-    /// находили: панель показывается сама, а в строку меню оператор не смотрит.
-    /// Действие то же самое, что у пункта «Настройки…»: оно уходит в цепочку
-    /// ответчиков, где его ловит делегат приложения. Второго кода, умеющего
-    /// открывать окно настроек, в приложении нет — иначе окон стало бы два.
-    private var settingsButton: some View {
-        Button {
-            NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
-        } label: {
-            CompatSymbol(name: "gearshape")
+    /// Оба действия уходят в цепочку ответчиков, где их ловит делегат
+    /// приложения. Второго кода, умеющего открывать эти окна, в приложении нет
+    /// — иначе окон стало бы по два.
+    ///
+    /// Кнопки вообще нужны потому, что дорога через строку меню на рабочем
+    /// месте не работает: панель показывается сама, а в меню оператор не
+    /// смотрит. Ровно так когда-то не находили настройки.
+    private var titleBarButtons: some View {
+        HStack(spacing: 10) {
+            Button {
+                NSApp.sendAction(#selector(AppDelegate.showCallHistoryWindow(_:)), to: nil, from: nil)
+            } label: {
+                CompatSymbol(name: "clock")
+            }
+            .buttonStyle(.borderless)
+            .compatForeground(.secondary)
+            .compatHelp("История звонков (⌘Y)")
+            .compatAccessibilityLabel("История звонков")
+
+            Button {
+                NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
+            } label: {
+                CompatSymbol(name: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .compatForeground(.secondary)
+            .compatHelp("Настройки EliteSIP (⌘,)")
+            .compatAccessibilityLabel("Настройки")
         }
-        .buttonStyle(.borderless)
-        .compatForeground(.secondary)
         .padding(.top, 5)
         .padding(.trailing, Theme.Metrics.contentPadding)
-        .compatHelp("Настройки EliteSIP (⌘,)")
-        .compatAccessibilityLabel("Настройки")
     }
 
     #if DEBUG

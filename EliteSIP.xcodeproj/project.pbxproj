@@ -12,6 +12,7 @@
 		E10000000000000000000023 /* CallGuard in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000022 /* CallGuard */; };
 		E10000000000000000000027 /* Diagnostics in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000026 /* Diagnostics */; };
 		E10000000000000000000029 /* AdminAccess in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000002A /* AdminAccess */; };
+		E1000000000000000000002C /* CallHistory in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000002D /* CallHistory */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +38,7 @@
 				E10000000000000000000023 /* CallGuard in Frameworks */,
 				E10000000000000000000027 /* Diagnostics in Frameworks */,
 				E10000000000000000000029 /* AdminAccess in Frameworks */,
+				E1000000000000000000002C /* CallHistory in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +94,7 @@
 				E1000000000000000000001E /* MediaCore */,
 				E10000000000000000000022 /* CallGuard */,
 				E1000000000000000000002A /* AdminAccess */,
+				E1000000000000000000002D /* CallHistory */,
 			);
 			productName = EliteSIP;
 			productReference = E1000000000000000000000F /* EliteSIP.app */;
@@ -129,6 +132,7 @@
 				E10000000000000000000024 /* XCLocalSwiftPackageReference "Packages/Compat" */,
 				E10000000000000000000028 /* XCLocalSwiftPackageReference "Packages/Diagnostics" */,
 				E1000000000000000000002B /* XCLocalSwiftPackageReference "Packages/AdminAccess" */,
+				E1000000000000000000002E /* XCLocalSwiftPackageReference "Packages/CallHistory" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E1000000000000000000000C /* Products */;
@@ -326,6 +330,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/AdminAccess;
 		};
+		E1000000000000000000002E /* XCLocalSwiftPackageReference "Packages/CallHistory" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CallHistory;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -352,6 +360,10 @@
 		E1000000000000000000002A /* AdminAccess */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AdminAccess;
+		};
+		E1000000000000000000002D /* CallHistory */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CallHistory;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

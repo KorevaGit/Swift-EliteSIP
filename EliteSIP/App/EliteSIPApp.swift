@@ -39,6 +39,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// настройками, которые применяются сразу, это читалось бы как неисправность.
     private var administrationWindow: NSWindow?
 
+    /// Окно «История звонков».
+    ///
+    /// Своё окно, а не вкладка панели: панель фиксированной ширины и высоты по
+    /// решению M0, и список с фильтром в неё влезает только ценой нечитаемых
+    /// строк. Менеджерское, без пароля — историю своих же звонков менеджер
+    /// смотрит сам, а закрыта в ней только настройка срока хранения.
+    private var callHistoryWindow: NSWindow?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = makeMainMenu()
         showPhoneWindow(nil)
@@ -151,6 +159,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.delegate = self
 
         settingsWindow = window
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Открывает историю звонков.
+    ///
+    /// Не `private` по той же причине, что и настройки: то же самое действие
+    /// шлёт кнопка на панели через цепочку ответчиков, и второго кода,
+    /// умеющего открывать это окно, в приложении нет.
+    @objc func showCallHistoryWindow(_ sender: Any?) {
+        if let callHistoryWindow {
+            // Окно живёт между показами, а срез истории в нём — нет: за время,
+            // пока оно было закрыто, звонки шли.
+            model.reloadHistory()
+            callHistoryWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: CGSize(width: 560, height: 420)),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "История звонков"
+        window.isReleasedWhenClosed = false
+        window.contentViewController = NSHostingController(
+            rootView: withEnvironment(CallHistoryWindowView())
+        )
+        window.center()
+
+        callHistoryWindow = window
         window.makeKeyAndOrderFront(nil)
     }
 
@@ -345,6 +384,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             withTitle: "Панель EliteSIP",
             action: #selector(showPhoneWindow(_:)),
             keyEquivalent: "0"
+        )
+        windowMenu.addItem(
+            withTitle: "История звонков",
+            action: #selector(showCallHistoryWindow(_:)),
+            keyEquivalent: "y"
         )
         windowItem.submenu = windowMenu
         mainMenu.addItem(windowItem)
