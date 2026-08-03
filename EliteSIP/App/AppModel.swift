@@ -2028,12 +2028,6 @@ final class AppModel: ObservableObject {
         settings.profiles.rename(id, to: label)
     }
 
-    /// Пометка менеджера. Доступна без пароля — это его собственная заметка о
-    /// том, который профиль ему нужен, а не настройка подключения.
-    func setProfileNote(_ note: String, for id: UUID) {
-        settings.profiles.setNote(note, for: id)
-    }
-
     /// Офисное это рабочее место или удалённое.
     ///
     /// Это не пометка, а переезд: вместе с рабочим местом меняется адрес АТС —

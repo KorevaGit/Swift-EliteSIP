@@ -14,44 +14,113 @@ struct AdministrationWindowView: View {
 
     @EnvironmentObject private var model: AppModel
 
+    /// Разделы окна.
+    ///
+    /// Свой набор кнопок, а не `TabView`, и это не вкусовщина. Системная
+    /// панель вкладок при нехватке ширины схлопывает лишние в шеврон «»» —
+    /// и на окне 700 pt с шестью разделами схлопывались почти все. Раздел,
+    /// спрятанный за раскрывашкой, на чужом рабочем месте просто не находят:
+    /// администратор ищет «Доступ», не видит его и решает, что пароль задать
+    /// негде.
+    private enum Section: String, CaseIterable, Identifiable {
+        case account, audio, incoming, tones, diagnostics, access
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .account: "Аккаунт"
+            case .audio: "Звук"
+            case .incoming: "Входящие"
+            case .tones: "Тоны"
+            case .diagnostics: "Диагностика"
+            case .access: "Доступ"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .account: "person.crop.circle"
+            case .audio: "speaker.wave.2"
+            case .incoming: "bell"
+            case .tones: "square.grid.3x3"
+            case .diagnostics: "stethoscope"
+            case .access: "lock.shield.fill"
+            }
+        }
+    }
+
+    @State private var section: Section = .account
     @State private var isConfirmingSave = false
 
     var body: some View {
         VStack(spacing: 0) {
-            TabView {
-                AccountSettingsTab()
-                    .tabItem { CompatLabel(title: "Аккаунт", symbol: "person.crop.circle") }
+            sectionBar
+            Divider()
 
-                AudioSettingsTab()
-                    .tabItem { CompatLabel(title: "Звук", symbol: "speaker.wave.2") }
-
-                IncomingCallSettingsTab()
-                    .tabItem { CompatLabel(title: "Входящие", symbol: "bell") }
-
-                DTMFSettingsTab()
-                    .tabItem { CompatLabel(title: "Тоны", symbol: "square.grid.3x3") }
-
-                DiagnosticsTab()
-                    .tabItem { CompatLabel(title: "Диагностика", symbol: "stethoscope") }
-
-                AdministrationTab()
-                    .tabItem { CompatLabel(title: "Доступ", symbol: "lock.shield.fill") }
-            }
-            .padding(20)
+            content
+                .padding(20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Divider()
             footer
         }
-        .frame(minWidth: 700, minHeight: 540)
+        .frame(minWidth: 720, minHeight: 560)
+    }
+
+    /// Кнопки разделов сверху. Все шесть видны всегда.
+    private var sectionBar: some View {
+        HStack(spacing: 6) {
+            ForEach(Section.allCases) { item in
+                Button {
+                    section = item
+                } label: {
+                    HStack(spacing: 5) {
+                        // Иконка выбранного меняется на галочку, а не только
+                        // стиль кнопки. На macOS ниже 12 акцентного стиля нет
+                        // вовсе — `compatProminentButtonStyle` там честно
+                        // говорит, что разницы не будет, — и на Catalina
+                        // выбранный раздел иначе ничем бы не отличался. Тот же
+                        // приём, что у кнопок рабочего места.
+                        CompatSymbol(name: section == item ? "checkmark.circle" : item.symbol)
+                        Text(item.title)
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                }
+                .compatProminentButtonStyle(section == item)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch section {
+        case .account: AccountSettingsTab()
+        case .audio: AudioSettingsTab()
+        case .incoming: IncomingCallSettingsTab()
+        case .tones: DTMFSettingsTab()
+        case .diagnostics: DiagnosticsTab()
+        case .access: AdministrationTab()
+        }
     }
 
     private var footer: some View {
         HStack(spacing: 10) {
-            CompatSymbol(name: model.hasUnsavedAdministrationChanges ? "exclamationmark.triangle" : "lock.shield.fill")
-                .compatForeground(model.hasUnsavedAdministrationChanges ? .orange : .secondary)
+            CompatSymbol(
+                name: model.hasUnsavedAdministrationChanges
+                    ? "exclamationmark.triangle" : "lock.shield.fill"
+            )
+            .compatForeground(model.hasUnsavedAdministrationChanges ? .orange : .secondary)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(model.hasUnsavedAdministrationChanges ? "Есть несохранённые изменения" : "Изменений нет")
+                Text(
+                    model.hasUnsavedAdministrationChanges
+                        ? "Есть несохранённые изменения" : "Изменений нет"
+                )
                 Text(
                     model.hasUnsavedAdministrationChanges
                         ? "Пока не нажато «Сохранить», на диск не записано ничего."

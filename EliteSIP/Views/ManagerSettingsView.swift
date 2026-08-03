@@ -33,19 +33,19 @@ struct ManagerSettingsView: View {
     @State private var isAskingForPassword = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            Form {
-                WorkplaceSection()
-                AudioSection()
-                SelfTestSection()
-                RingtoneSection()
-                SupportSection()
-            }
-            .compatGroupedForm()
-
-            Divider()
-            AdministrationFooter(isAskingForPassword: $isAskingForPassword)
+        // «Управление» — последней секцией внутри прокрутки, а не закреплённым
+        // подвалом. Закреплённый подвал стоял бы перед глазами менеджера всё
+        // время, а это дверь не для него: он должен её найти, если понадобится,
+        // а не спотыкаться о неё, меняя громкость.
+        Form {
+            WorkplaceSection()
+            AudioSection()
+            SelfTestSection()
+            RingtoneSection()
+            SupportSection()
+            AdministrationSection(isAskingForPassword: $isAskingForPassword)
         }
+        .compatGroupedForm()
         .sheet(isPresented: $isAskingForPassword) {
             AdminUnlockView(isPresented: $isAskingForPassword)
                 .environmentObject(model)
@@ -391,51 +391,60 @@ private struct SupportSection: View {
 /// (пункт 3 роадмапа): «локальный режим» должен быть видимым фактом, иначе в
 /// M8 разницу между «настройками управляет EliteDash» и «связь с ним
 /// потерялась» будет неоткуда узнать.
-private struct AdministrationFooter: View {
+private struct AdministrationSection: View {
 
     @EnvironmentObject private var model: AppModel
     @Binding var isAskingForPassword: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
-            CompatSymbol(name: "lock.shield.fill")
-                .compatForeground(.secondary)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(model.adminAccess.management.title)
-                Text(model.adminAccess.management.explanation)
-                    .font(.footnote)
+        Section(header: Text("Управление настройками")) {
+            HStack(spacing: 10) {
+                CompatSymbol(name: "lock.shield.fill")
                     .compatForeground(.secondary)
-            }
 
-            Spacer()
-
-            Button {
-                isAskingForPassword = true
-            } label: {
-                // Шеврон как у раскрывашки: кнопка не меняет эту страницу, а
-                // ведёт в другое окно, и выглядеть она должна именно так.
-                HStack(spacing: 6) {
-                    Text("Управление")
-                    Text("\u{203A}")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(model.adminAccess.management.title)
+                    Text(model.adminAccess.management.explanation)
+                        .font(.footnote)
+                        .compatForeground(.secondary)
                 }
+
+                Spacer()
+
+                Button {
+                    isAskingForPassword = true
+                } label: {
+                    // Шеврон как у раскрывашки: кнопка не меняет эту страницу,
+                    // а ведёт в другое окно, и выглядеть должна именно так.
+                    HStack(spacing: 6) {
+                        Text("Управление")
+                        Text("\u{203A}")
+                    }
+                }
+                // Обычная кнопка, а не акцентная: акцент на этой странице
+                // принадлежит самопроверке и «Исправить сеть» — тому, чем
+                // менеджер пользуется. Дорога к закрытым настройкам должна быть
+                // доступной, а не заметной.
+                .compatHelp("Аккаунты, макросы, защита от автокликеров и диагностика — в отдельном окне")
             }
-            .compatProminentButtonStyle()
-            .compatHelp("Аккаунты, макросы, защита от автокликеров и диагностика — в отдельном окне")
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
     }
 }
 
 // MARK: - Строка профиля
 
-/// Профиль глазами менеджера: номер, формат работы и его собственная пометка.
+/// Профиль глазами менеджера: метка, номер и формат работы.
 ///
 /// Три признака отвечают на три разных вопроса, и подменять один другим нельзя.
 /// Номер и офис/удалёнка говорят, куда профиль звонит, — по ним его опознают в
-/// поддержке. Пометка говорит, который из них «мой», и пишет её сам менеджер:
-/// администратору неоткуда знать, как человек называет свои профили про себя.
+/// поддержке. Метка («Лаба», «Боевой») говорит, который из них «мой», и правит
+/// её сам менеджер: администратору неоткуда знать, как человек называет свои
+/// профили про себя.
+///
+/// Метка стоит первой и обычным шрифтом, а не подписью под номером. Выбирают
+/// профиль именно по ней — номер в списке из двух добавочных на одной АТС не
+/// различает ничего, — и набирать её мелким серым значило бы спрятать то, ради
+/// чего в этот список смотрят.
 private struct ManagerProfileRow: View {
 
     @EnvironmentObject private var model: AppModel
@@ -451,51 +460,40 @@ private struct ManagerProfileRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Button {
                 Task { await model.selectProfile(profile.id) }
             } label: {
-                HStack(spacing: 8) {
-                    // Отметка занимает место и когда её нет: иначе строки
-                    // разъезжаются при смене активного профиля.
-                    if isActive {
-                        CompatSymbol(name: "checkmark.circle")
-                            .compatForeground(Theme.Palette.registered)
-                    } else {
-                        Color.clear.frame(width: 13, height: 13)
-                    }
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 6) {
-                            Text(number)
-                            Text("·")
-                                .compatForeground(.secondary)
-                            Text(site == .remote ? "удалённо" : "офис")
-                                .compatForeground(.secondary)
-                        }
-                        if !profile.label.isEmpty {
-                            Text(profile.label)
-                                .font(.footnote)
-                                .compatForeground(.secondary)
-                        }
-                    }
+                // Отметка занимает место и когда её нет: иначе строки
+                // разъезжаются при смене активного профиля.
+                if isActive {
+                    CompatSymbol(name: "checkmark.circle", size: 15)
+                        .compatForeground(Theme.Palette.registered)
+                } else {
+                    Color.clear.frame(width: 15, height: 15)
                 }
             }
             .buttonStyle(.borderless)
-            // Активная строка не гасится: серый текст читается как «профиль
-            // недоступен», а это ровно тот, на котором работают.
             .disabled(!isActive && !model.canSwitchProfile)
+            .compatHelp(isActive ? "Активный профиль" : "Сделать активным")
 
-            Spacer()
-
-            // Пометка правится прямо в строке: отдельное окно ради одной
-            // строки текста менеджер открывать не станет, и поле останется
-            // пустым у всех.
-            TextField("Пометка", text: Binding(
-                get: { profile.note },
-                set: { model.setProfileNote($0, for: profile.id) }
+            TextField("Без метки", text: Binding(
+                get: { profile.label },
+                set: { model.renameProfile(profile.id, to: $0) }
             ))
-            .frame(width: 160)
+            .frame(minWidth: 140)
+
+            Spacer(minLength: 8)
+
+            Button {
+                Task { await model.selectProfile(profile.id) }
+            } label: {
+                Text("\(number) · \(site == .remote ? "удалённо" : "офис")")
+                    .compatForeground(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .disabled(!isActive && !model.canSwitchProfile)
+            .compatHelp(isActive ? "Активный профиль" : "Сделать активным")
         }
     }
 

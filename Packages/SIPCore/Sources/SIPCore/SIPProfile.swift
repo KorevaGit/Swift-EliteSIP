@@ -53,7 +53,13 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
     /// Метка профиля. Пустая означает не «без имени», а «метка равна номеру» —
     /// то же правило, что у `displayName` в `SIPAccount`. Так согласованное
     /// решение «номер служит локальной меткой» остаётся умолчанием, а
-    /// «офисный»/«удалённый» можно вписать руками.
+    /// «Лаба»/«Боевой» можно вписать руками.
+    ///
+    /// Правит её и администратор, и сам менеджер: по метке профиль и выбирают,
+    /// а номер в списке из двух добавочных на одной АТС не различает ничего.
+    /// Отдельного «поля для заметки менеджера» рядом нет намеренно — два поля с
+    /// одинаковым смыслом расходятся, и в поддержке потом непонятно, по какому
+    /// из них человек опознаёт профиль.
     public var label: String
 
     public var account: SIPAccount
@@ -71,35 +77,18 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
     /// и разговор.
     public var acceptsAnyTLSCertificate: Bool
 
-    /// Пометка менеджера. Пустая — пометки нет.
-    ///
-    /// Отдельно от `label`, а не вместо него, и это решение, а не дублирование.
-    /// `label` — административная подпись: её задаёт тот, кто заводил профиль,
-    /// и она уедет в файл конфигурации (M8). Пометка — своя, и правит её сам
-    /// менеджер: «мой основной», «для отдела продаж», «не работает с четверга».
-    /// Слить их в одно поле значило бы, что либо администратор затирает заметку
-    /// менеджера при перенастройке, либо менеджер переписывает то, по чему
-    /// профиль опознают в поддержке.
-    ///
-    /// В списке она стоит рядом с номером и форматом работы, а не вместо них:
-    /// заметка отвечает на «который из них мой», а номер и офис/удалёнка — на
-    /// «куда он звонит», и подменять второе первым нельзя.
-    public var note: String
-
     public init(
         id: UUID = UUID(),
         label: String = "",
         account: SIPAccount,
         site: SIPProfileSite = .automatic,
-        acceptsAnyTLSCertificate: Bool = false,
-        note: String = ""
+        acceptsAnyTLSCertificate: Bool = false
     ) {
         self.id = id
         self.label = label
         self.account = account
         self.site = site
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
-        self.note = note
     }
 
     public init(from decoder: Decoder) throws {
@@ -119,7 +108,6 @@ public struct SIPProfile: Sendable, Hashable, Codable, Identifiable {
         // общее на приложение, и переносит его миграция, а не этот декодер.
         acceptsAnyTLSCertificate =
             try container.decodeIfPresent(Bool.self, forKey: .acceptsAnyTLSCertificate) ?? false
-        note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
     }
 
     /// Чем профиль подписан в списке. Пустая строка означает, что подписывать
@@ -247,17 +235,6 @@ public struct SIPProfileList: Sendable, Equatable, Codable {
     public mutating func rename(_ id: UUID, to label: String) -> Bool {
         guard let index = profiles.firstIndex(where: { $0.id == id }) else { return false }
         profiles[index].label = label
-        return true
-    }
-
-    /// Меняет пометку менеджера. `false` — такого профиля нет.
-    ///
-    /// Отдельно от `rename`: подпись правит администратор, пометку — менеджер,
-    /// и одна функция на двоих однажды дала бы менеджеру доступ не туда.
-    @discardableResult
-    public mutating func setNote(_ note: String, for id: UUID) -> Bool {
-        guard let index = profiles.firstIndex(where: { $0.id == id }) else { return false }
-        profiles[index].note = note
         return true
     }
 
