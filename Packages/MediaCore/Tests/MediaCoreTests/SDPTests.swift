@@ -253,8 +253,8 @@ struct SDPNegotiationTests {
         let audio = try #require(offer.audio)
 
         #expect(
-            audio.formats == [9, 0, 8, 101],
-            "G.722 первым — единственный широкополосный; дальше PCMU, как настроен боевой пир"
+            audio.formats == [0, 8, 9, 101],
+            "PCMU первым — на нём идёт боевой разговор; G.722 остаётся, но последним"
         )
         #expect(audio.rtpMaps[0]?.encodingName == "PCMU")
         #expect(audio.rtpMaps[9]?.encodingName == "G722")

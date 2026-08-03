@@ -22,6 +22,45 @@ struct G711Tests {
         #expect(abs(Int(G711.decodeALaw(0x55))) == 8)
     }
 
+    @Test("Таблицы совпадают с референсными формулами на всей шкале")
+    func tablesMatchTheReference() {
+        // Главный риск табличного кодека — не формула, а индекс: сдвиг не той
+        // арифметики или смещение мимо на единицу дают правильный звук на одной
+        // половине шкалы и хрип на другой. Поэтому сверяем не выборочно, а все
+        // 65 536 отсчётов и все 256 кодов.
+        for raw in Int(Int16.min)...Int(Int16.max) {
+            let sample = Int16(raw)
+            #expect(
+                G711.encodeMuLaw(sample) == G711.referenceEncodeMuLaw(sample),
+                "µ-law разошёлся на \(sample)"
+            )
+            #expect(
+                G711.encodeALaw(sample) == G711.referenceEncodeALaw(sample),
+                "A-law разошёлся на \(sample)"
+            )
+        }
+        for code in UInt8.min...UInt8.max {
+            #expect(G711.decodeMuLaw(code) == G711.referenceDecodeMuLaw(code))
+            #expect(G711.decodeALaw(code) == G711.referenceDecodeALaw(code))
+        }
+    }
+
+    @Test("Кадр кодируется сразу в Data и разбирается из неё же", arguments: g711Codecs)
+    func framesTravelAsData(codec: AudioCodec) {
+        // Тракт передаёт кадр как Data в обе стороны, и лишний переход через
+        // массив на каждом пакете — это выделение памяти на потоке подачи.
+        let samples: [Int16] = (0..<160).map { Int16(truncatingIfNeeded: $0 * 173 - 12_000) }
+        let encoded: Data = G711.encode(samples, as: codec)
+        #expect(encoded.count == 160)
+        #expect(G711.decode(encoded, as: codec) == G711.decode([UInt8](encoded), as: codec))
+
+        // Data из середины большего буфера начинается не с нуля: разбор обязан
+        // считать смещение, а не индексы исходного хранилища.
+        let padded = Data([0xAA, 0xBB]) + encoded + Data([0xCC])
+        let slice = padded[padded.startIndex + 2..<padded.endIndex - 1]
+        #expect(G711.decode(slice, as: codec) == G711.decode(encoded, as: codec))
+    }
+
     @Test("Кодирование устойчиво: повторный проход не смещает значение", arguments: g711Codecs)
     func encodingIsStable(codec: AudioCodec) {
         // Проверяем decode → encode → decode, а не побайтовое равенство:

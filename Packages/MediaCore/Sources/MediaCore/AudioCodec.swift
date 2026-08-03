@@ -111,7 +111,7 @@ public struct AudioFrameEncoder {
     public mutating func encode(_ samples: [Int16]) -> Data {
         switch codec {
         case .pcmu, .pcma:
-            Data(G711.encode(samples, as: codec))
+            G711.encode(samples, as: codec)
         case .g722:
             Data(g722.encode(samples))
         }
@@ -131,7 +131,7 @@ public struct AudioFrameDecoder {
     public mutating func decode(_ payload: Data) -> [Int16] {
         switch codec {
         case .pcmu, .pcma:
-            G711.decode([UInt8](payload), as: codec)
+            G711.decode(payload, as: codec)
         case .g722:
             g722.decode([UInt8](payload))
         }

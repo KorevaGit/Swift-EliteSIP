@@ -611,7 +611,7 @@ final class ToneSource: @unchecked Sendable {
                 phase += step
                 if phase > 2 * .pi { phase -= 2 * .pi }
             }
-            return Data(G711.encode(samples, as: codec))
+            return G711.encode(samples, as: codec)
         }
     }
 }

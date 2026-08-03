@@ -204,9 +204,8 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         var capturedSamples = 0
     }
 
-    /// Сколько кадров подряд уже спрятано. Живёт только на потоке подачи,
-    /// поэтому замок не нужен.
-    private var concealmentRun = 0
+    /// Сокрытие потерь. Живёт только на потоке подачи, поэтому замок не нужен.
+    private var concealer: PacketLossConcealer
 
     /// Пиковые уровни в обе стороны.
     ///
@@ -305,6 +304,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         self.configuration = configuration
         decoder = AudioFrameDecoder(codec: configuration.codec)
         encoder = AudioFrameEncoder(codec: configuration.codec)
+        concealer = PacketLossConcealer(codec: configuration.codec)
         guard let format = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: Double(configuration.codec.sampleRate),
@@ -630,6 +630,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     private func resetCoders() {
         decoder = AudioFrameDecoder(codec: configuration.codec)
         encoder = AudioFrameEncoder(codec: configuration.codec)
+        concealer.reset()
     }
 
     private static func describe(_ format: AVAudioFormat) -> String {
@@ -847,7 +848,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // висеть на семафоре.
         feedSignal.signal()
         feedThread = nil
-        concealmentRun = 0
+        concealer.reset()
     }
 
     /// Добирает кольцо до целевого запаса. Всё тяжёлое — декодирование и
@@ -863,31 +864,21 @@ public final class VoiceAudioEngine: @unchecked Sendable {
 
             guard let frame = onNeedsFrame?() else { return }
 
-            let samples = decoder.decode(frame.payload)
+            // Спрятанный кадр НЕ декодируется, хотя буфер и приложил к нему
+            // повтор последнего пришедшего. Синтез идёт по отсчётам, а не по
+            // байтам: продолжить голос его же периодом основного тона — совсем
+            // не то же самое, что повторить случайный двадцатимиллисекундный
+            // кусок, и разница слышна с первой же потери (см.
+            // `PacketLossConcealer`). Заодно у G.722 не сбивается предсказатель:
+            // декодер на выдуманных байтах не работает и остаётся там, где его
+            // застала дырка.
+            let samples = frame.isConcealment
+                ? concealer.conceal(count: samplesPerFrame)
+                : concealer.receive(decoder.decode(frame.payload))
+
             onDecodedSamples?(samples)
-            var floats = samples.map { Float($0) / 32768.0 }
 
-            // Спрятанный кадр — повтор предыдущего. Повторять его в полную
-            // громкость нельзя: два-три подряд начинают звучать как дребезг.
-            // Затухание по 0,6 за кадр уводит повтор в тишину примерно за
-            // 100 мс, ровно к тому моменту, когда буфер сдаётся и сам.
-            //
-            // Множитель меняется линейно ВНУТРИ кадра, а не скачком на границе:
-            // ступенька по громкости — это щелчок, который слышно лучше, чем
-            // саму потерю.
-            if frame.isConcealment {
-                concealmentRun += 1
-                let from = pow(0.6, Float(concealmentRun - 1))
-                let to = pow(0.6, Float(concealmentRun))
-                let count = Float(max(floats.count - 1, 1))
-                for index in floats.indices {
-                    floats[index] *= from + (to - from) * Float(index) / count
-                }
-            } else {
-                concealmentRun = 0
-            }
-
-            let ready = floats
+            let ready = samples.map { Float($0) / 32768.0 }
             let peak = ready.reduce(Float(0)) { max($0, abs($1)) }
             levelLock.withLock { $0.outputPeak = max($0.outputPeak, peak) }
 
