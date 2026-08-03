@@ -411,6 +411,8 @@ struct SIPCheck {
                         session.onAudioEvent = { event in
                             switch event {
                             case .restarted(let reason): print("   ⟳ тракт пересобран: \(reason)")
+                            case .restarting(let reason, let attempt):
+                                print("   … пересобираю тракт, попытка \(attempt): \(reason)")
                             case .broken(let reason): print("   ✖ звук пропал: \(reason)")
                             case .routeChanged(let route): print("   маршрут: \(route.summary)")
                             }

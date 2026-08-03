@@ -62,7 +62,10 @@ sync_address() {
   local address
   address="$(current_address)"
   if [ -z "$address" ]; then
-    echo "Адрес en0 не определён — оставляю как есть." >&2
+    # Не «оставляю как есть» молча: остаётся при этом 127.0.0.1, с которым
+    # телефон будет слать RTP себе в петлю (см. check_external_address).
+    echo "Адрес en0 не определён — в SDP останется прежний адрес." >&2
+    echo "Если это 127.0.0.1, с телефона звука не будет: ./lab.sh status покажет." >&2
     return
   fi
 
@@ -73,11 +76,51 @@ sync_address() {
   echo "externip: $address"
 }
 
+# Проверяет, годится ли адрес, который Asterisk кладёт в SDP, для телефона.
+#
+# Ловушка стоит дорого и молчит. Свежесозданный контейнер получает
+# externip=127.0.0.1 (см. FREEPBX_EXTERNAL_ADDRESS в compose), а localnet —
+# только 127.0.0.0/8. Значит всем, кто пришёл не с петли, Asterisk объявляет в
+# SDP «шлите медиа на 127.0.0.1».
+#
+# Для клиента на этом же Mac это случайно работает: 127.0.0.1:1020x — как раз
+# опубликованный порт контейнера. Для телефона 127.0.0.1 — это сам телефон, и
+# он шлёт RTP себе в петлю. Asterisk не получает от него ничего, и разговор
+# выходит односторонним: телефон нас слышит, мы его — нет.
+#
+# Отличить это по симптому почти невозможно: со стороны Mac всё выглядит
+# исправным. Поэтому проверка встроена в `status` — 3 августа 2026 на разбор
+# этого ушло два захода.
+check_external_address() {
+  local configured expected
+  configured="$(docker exec "$CONTAINER" \
+    sh -c "sed -nE 's/^externip=(.*)/\1/p' /etc/asterisk/sip_general_m1_6.conf" 2>/dev/null | tr -d '\r')"
+  expected="$(current_address)"
+
+  printf '  в конфиге: %s\n' "${configured:-—}"
+  printf '  адрес Mac: %s\n' "${expected:-— (en0 не определён)}"
+
+  if [ -z "$configured" ]; then
+    echo "  ⚠️  externip не прочитался — стенд поднят не через ./lab.sh up?"
+  elif [ "$configured" = "127.0.0.1" ] && [ -n "$expected" ]; then
+    echo "  ⚠️  ПЕТЛЯ: телефону в SDP уедет 127.0.0.1, он будет слать RTP сам себе."
+    echo "      Со стороны Mac всё выглядит исправным — звука не будет только с телефона."
+    echo "      Лечится: ./lab.sh sync"
+  elif [ -n "$expected" ] && [ "$configured" != "$expected" ]; then
+    echo "  ⚠️  адрес разъехался (сеть сменилась?). Лечится: ./lab.sh sync"
+  else
+    echo "  ок"
+  fi
+}
+
 status() {
   section "Контейнер"
   docker ps -a --format '  {{.Names}}\t{{.Status}}' | grep elitesip || echo "  (не запущен)"
 
   if running; then
+    section "Адрес в SDP (externip)"
+    check_external_address
+
     section "Пиры"
     docker exec "$CONTAINER" asterisk -rx 'sip show peers' 2>/dev/null | sed 's/^/  /' || true
 
