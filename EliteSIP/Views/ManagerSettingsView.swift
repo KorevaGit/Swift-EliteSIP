@@ -61,19 +61,17 @@ private struct WorkplaceSection: View {
 
     var body: some View {
         Section(header: Text("Рабочее место")) {
-            // Выбор из готовых профилей, но не правка: завести, переименовать
-            // или удалить профиль — административное действие. Менеджеру нужно
-            // ровно одно — переключиться на тот, что ему выдали.
-            Picker("Профиль", selection: Binding(
-                get: { model.activeProfileID },
-                set: { id in Task { await model.selectProfile(id) } }
-            )) {
-                ForEach(model.profiles) { profile in
-                    Text(profile.title.isEmpty ? profile.account.username : profile.title)
-                        .tag(profile.id)
-                }
+            // Список, а не выпадающий выбор: у профиля три разных признака —
+            // номер, формат работы и пометка менеджера, — и в одну строку
+            // `Picker` они помещаются только ценой того, что два из трёх
+            // придётся выбросить.
+            //
+            // Выбрать можно, править нельзя: завести, переименовать или удалить
+            // профиль — административное действие. Менеджеру нужно ровно одно:
+            // переключиться на тот, что ему выдали, и подписать его для себя.
+            ForEach(model.profiles) { profile in
+                ManagerProfileRow(profile: profile)
             }
-            .disabled(!model.canSwitchProfile)
 
             if !model.canSwitchProfile {
                 Text("Во время разговора профиль не переключается.")
@@ -412,28 +410,96 @@ private struct AdministrationFooter: View {
 
             Spacer()
 
-            if model.adminAccess.isUnlocked {
-                Button("Выйти из режима") { model.lockAdministration() }
-                    .compatHelp("Закрытые вкладки снова скроются")
-            } else {
-                Button("Управление") {
-                    if model.isAdministrationProtected {
-                        isAskingForPassword = true
-                    } else {
-                        // Пароль не задан — открывать нечего. Запись в журнал
-                        // всё равно появится: вход в режим фиксируется всегда.
-                        try? model.unlockAdministration(password: "")
-                    }
+            Button {
+                isAskingForPassword = true
+            } label: {
+                // Шеврон как у раскрывашки: кнопка не меняет эту страницу, а
+                // ведёт в другое окно, и выглядеть она должна именно так.
+                HStack(spacing: 6) {
+                    Text("Управление")
+                    Text("\u{203A}")
                 }
-                .compatProminentButtonStyle()
-                .compatHelp(
-                    model.isAdministrationProtected
-                        ? "Аккаунты, макросы, защита от автокликеров и диагностика"
-                        : "Пароль не задан — настройки открыты. Задать пароль можно внутри."
-                )
             }
+            .compatProminentButtonStyle()
+            .compatHelp("Аккаунты, макросы, защита от автокликеров и диагностика — в отдельном окне")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+    }
+}
+
+// MARK: - Строка профиля
+
+/// Профиль глазами менеджера: номер, формат работы и его собственная пометка.
+///
+/// Три признака отвечают на три разных вопроса, и подменять один другим нельзя.
+/// Номер и офис/удалёнка говорят, куда профиль звонит, — по ним его опознают в
+/// поддержке. Пометка говорит, который из них «мой», и пишет её сам менеджер:
+/// администратору неоткуда знать, как человек называет свои профили про себя.
+private struct ManagerProfileRow: View {
+
+    @EnvironmentObject private var model: AppModel
+    let profile: SIPProfile
+
+    private var isActive: Bool { profile.id == model.activeProfileID }
+
+    /// Формат работы как он решится на самом деле: у профиля с `.automatic`
+    /// это решение по адресу сервера, и показывать «по адресу сервера» вместо
+    /// ответа значило бы оставить вопрос открытым.
+    private var site: SIPProfileSite {
+        PortKnockPolicy.resolvedSite(serverHost: profile.account.domain, site: profile.site)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                Task { await model.selectProfile(profile.id) }
+            } label: {
+                HStack(spacing: 8) {
+                    // Отметка занимает место и когда её нет: иначе строки
+                    // разъезжаются при смене активного профиля.
+                    if isActive {
+                        CompatSymbol(name: "checkmark.circle")
+                            .compatForeground(Theme.Palette.registered)
+                    } else {
+                        Color.clear.frame(width: 13, height: 13)
+                    }
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            Text(number)
+                            Text("·")
+                                .compatForeground(.secondary)
+                            Text(site == .remote ? "удалённо" : "офис")
+                                .compatForeground(.secondary)
+                        }
+                        if !profile.label.isEmpty {
+                            Text(profile.label)
+                                .font(.footnote)
+                                .compatForeground(.secondary)
+                        }
+                    }
+                }
+            }
+            .buttonStyle(.borderless)
+            // Активная строка не гасится: серый текст читается как «профиль
+            // недоступен», а это ровно тот, на котором работают.
+            .disabled(!isActive && !model.canSwitchProfile)
+
+            Spacer()
+
+            // Пометка правится прямо в строке: отдельное окно ради одной
+            // строки текста менеджер открывать не станет, и поле останется
+            // пустым у всех.
+            TextField("Пометка", text: Binding(
+                get: { profile.note },
+                set: { model.setProfileNote($0, for: profile.id) }
+            ))
+            .frame(width: 160)
+        }
+    }
+
+    private var number: String {
+        profile.account.username.isEmpty ? "номер не задан" : profile.account.username
     }
 }

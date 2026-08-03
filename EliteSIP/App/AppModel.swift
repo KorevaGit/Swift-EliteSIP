@@ -74,6 +74,22 @@ final class AppModel: ObservableObject {
     /// него закрыт на запись. Открыть режим можно только предъявив пароль.
     @Published var adminAccess = AdminAccessState()
 
+    /// Настройки, какими они были при входе в «Управление». nil — черновика нет.
+    /// Живёт здесь, а логика — в `AppModel+Administration`.
+    var administrationSnapshot: AppSettings?
+
+    /// Придержка записи на диск, пока открыт черновик.
+    @Published var isHoldingSettingsWrites = false
+
+    /// Пароль SIP, введённый в черновике и ещё не уехавший в связку ключей.
+    @Published var pendingSIPPassword: String?
+
+    /// Административный пароль в черновике.
+    @Published var pendingAdminPassword: String?
+
+    /// В черновике нажато «Снять пароль».
+    @Published var pendingAdminPasswordRemoval = false
+
     /// Этап самопроверки звука. Крутит менеджерскую страницу настроек.
     @Published var selfTestPhase: VoiceSelfTest.Phase = .idle
 
@@ -1876,7 +1892,13 @@ final class AppModel: ObservableObject {
 
     // MARK: - Настройки
 
-    private func persistSettings() {
+    /// Пока открыто окно «Управление», на диск не пишется ничего.
+    ///
+    /// Правки живут в памяти и откатываются по «Отменить». Иначе «сохранения на
+    /// горячую нет» было бы неправдой: наблюдатель `settings` пишет файл на
+    /// каждое движение ползунка, и передумать после этого было бы уже нечем.
+    func persistSettings() {
+        guard !isHoldingSettingsWrites else { return }
         do {
             try SettingsStore.save(settings)
         } catch {
@@ -2004,6 +2026,12 @@ final class AppModel: ObservableObject {
     /// нажатии — значит не дать набрать метку из двух слов.
     func renameProfile(_ id: UUID, to label: String) {
         settings.profiles.rename(id, to: label)
+    }
+
+    /// Пометка менеджера. Доступна без пароля — это его собственная заметка о
+    /// том, который профиль ему нужен, а не настройка подключения.
+    func setProfileNote(_ note: String, for id: UUID) {
+        settings.profiles.setNote(note, for: id)
     }
 
     /// Офисное это рабочее место или удалённое.

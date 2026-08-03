@@ -109,6 +109,9 @@ struct AdminAccessStateTests {
     func managementIsExplicit() {
         let state = AdminAccessState()
         #expect(state.management == .local)
-        #expect(AdminManagement.allCases.count == 2)
+        // Второе значение — заготовка под конфиг-файл (M8). Проверяется, чтобы
+        // переход «конфиг → локально» не остался без состояния, из которого
+        // переходить.
+        #expect(AdminManagement.allCases == [.local, .configFile])
     }
 }

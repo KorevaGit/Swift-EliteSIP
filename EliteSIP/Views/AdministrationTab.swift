@@ -23,14 +23,16 @@ struct AdministrationTab: View {
                     .font(.footnote)
                     .compatForeground(.secondary)
                 MilestoneNote("""
-                    Пока значение одно. В M8 здесь появится второе — «управляется \
-                    EliteDash», — и разница между «настройки приезжают сверху» и \
-                    «связь потерялась» станет видимым фактом, а не догадкой.
+                    Значение меняется само: любое сохранение в этом окне объявляет \
+                    настройки локальными. Второе значение — «настройки из файла \
+                    конфигурации» — заработает в M8, когда появится сама загрузка \
+                    конфига. Вернуть машину под конфиг после локальной правки можно \
+                    будет только повторной загрузкой файла.
                     """)
             }
 
             Section(header: Text("Пароль администратора")) {
-                if model.isAdministrationProtected {
+                if model.isAdministrationProtectedIncludingDraft {
                     CompatLabel(title: "Пароль задан, закрытая часть закрыта", symbol: "lock.shield.fill")
                         .compatForeground(Theme.Palette.registered)
                 } else {
@@ -45,17 +47,26 @@ struct AdministrationTab: View {
                 SecureField("Ещё раз", text: $repeatedPassword)
 
                 HStack {
-                    Button(model.isAdministrationProtected ? "Сменить пароль" : "Задать пароль") {
+                    Button(model.isAdministrationProtectedIncludingDraft ? "Сменить пароль" : "Задать пароль") {
                         applyPassword()
                     }
                     .compatProminentButtonStyle()
                     .disabled(newPassword.isEmpty || newPassword != repeatedPassword)
 
                     Button("Снять пароль") { removePassword() }
-                        .disabled(!model.isAdministrationProtected)
+                        .disabled(!model.isAdministrationProtectedIncludingDraft)
                         .compatHelp("Настройки станут доступны всем без вопросов")
 
                     Spacer()
+                }
+
+                if model.pendingAdminPassword != nil || model.pendingAdminPasswordRemoval {
+                    CompatLabel(
+                        title: "Применится при сохранении настроек",
+                        symbol: "exclamationmark.triangle"
+                    )
+                    .font(.footnote)
+                    .compatForeground(.orange)
                 }
 
                 if !newPassword.isEmpty && newPassword != repeatedPassword {
@@ -82,12 +93,12 @@ struct AdministrationTab: View {
                     Пароль восстанавливается кодом из \(RecoveryCode.length) цифр: в окне \
                     входа — «Ввести код восстановления». Код показывает действующий \
                     пароль, а не сбрасывает его, потому что пароль совпадает с тем, что \
-                    в EliteDash.
+                    придёт в файле конфигурации.
 
                     Сейчас код один на все машины и зашит в сборку — то есть от того, \
                     кто откроет бинарник строками, он не защищает. Настоящей защитой он \
-                    станет в M8, когда EliteDash начнёт выдавать свой код каждому \
-                    рабочему месту.
+                    станет в M8, когда код начнёт приезжать файлом конфигурации — своим \
+                    у каждого рабочего места.
                     """)
             }
 
@@ -107,29 +118,21 @@ struct AdministrationTab: View {
         .compatGroupedForm()
     }
 
+    /// Пароль уходит в черновик, а не в настройки: применит его кнопка
+    /// «Сохранить» внизу окна вместе со всем остальным.
     private func applyPassword() {
-        do {
-            try model.setAdminPassword(newPassword)
-            newPassword = ""
-            repeatedPassword = ""
-            problem = nil
-            confirmation = "Пароль сохранён. Он спросится при следующем открытии настроек."
-        } catch {
-            confirmation = nil
-            problem = error.localizedDescription
-        }
+        model.stageAdminPassword(newPassword)
+        newPassword = ""
+        repeatedPassword = ""
+        problem = nil
+        confirmation = "Принято. Пароль начнёт действовать после сохранения настроек."
     }
 
     private func removePassword() {
-        do {
-            try model.removeAdminPassword()
-            newPassword = ""
-            repeatedPassword = ""
-            problem = nil
-            confirmation = "Пароль снят. Закрытые вкладки теперь видит любой."
-        } catch {
-            confirmation = nil
-            problem = error.localizedDescription
-        }
+        model.stageAdminPasswordRemoval()
+        newPassword = ""
+        repeatedPassword = ""
+        problem = nil
+        confirmation = "Принято. После сохранения «Управление» откроется без пароля."
     }
 }

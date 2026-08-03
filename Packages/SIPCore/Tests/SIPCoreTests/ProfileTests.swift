@@ -368,4 +368,53 @@ final class ProfileTests: XCTestCase {
         XCTAssertEqual(restored.profiles[0].site, .office)
         XCTAssertEqual(restored.active.site, .remote)
     }
+
+    // MARK: - Пометка менеджера
+
+    func testNoteIsSeparateFromLabel() {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(label: "офис", account: account("100", "sip.example"))
+        ])
+        let id = list.profiles[0].id
+
+        XCTAssertTrue(list.setNote("мой основной", for: id))
+        // Подпись администратора и пометка менеджера не затирают друг друга:
+        // ради этого пометка и заведена отдельным полем.
+        XCTAssertEqual(list.profiles[0].note, "мой основной")
+        XCTAssertEqual(list.profiles[0].label, "офис")
+
+        list.rename(id, to: "продажи")
+        XCTAssertEqual(list.profiles[0].note, "мой основной")
+        XCTAssertEqual(list.profiles[0].label, "продажи")
+    }
+
+    func testNoteOfMissingProfileIsRefused() {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(account: account("100", "sip.example"))
+        ])
+        XCTAssertFalse(list.setNote("чужая", for: UUID()))
+    }
+
+    func testNoteSurvivesFile() throws {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(account: account("100", "sip.example"))
+        ])
+        list.setNote("для отдела продаж", for: list.profiles[0].id)
+
+        let data = try JSONEncoder().encode(list)
+        let restored = try JSONDecoder().decode(SIPProfileList.self, from: data)
+        XCTAssertEqual(restored.profiles[0].note, "для отдела продаж")
+    }
+
+    func testProfileWithoutNoteKeyReadsAsEmpty() throws {
+        // Файл, записанный до появления поля: пометки нет, и это не ошибка.
+        let json = """
+            {"activeID":"00000000-0000-0000-0000-000000000001","profiles":[{\
+            "id":"00000000-0000-0000-0000-000000000001","label":"офис",\
+            "account":{"username":"100","displayName":"","domain":"sip.example",\
+            "transport":"tls","registrationExpires":300}}]}
+            """
+        let restored = try JSONDecoder().decode(SIPProfileList.self, from: Data(json.utf8))
+        XCTAssertEqual(restored.profiles[0].note, "")
+    }
 }

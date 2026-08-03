@@ -5,56 +5,23 @@ import SwiftUI
 
 /// Отдельное полноценное окно настроек, а не панель `Settings`.
 ///
-/// Две разные формы, а не одна с погашенными строками (M7c). Пока режим
-/// закрыт, окно — это менеджерская страница и кнопка «Управление»; закрытых
-/// вкладок в нём не существует вовсе. Погашенные вкладки читались бы как
-/// «сломалось», а не как «не ваше», и порождали бы звонок в поддержку ровно там,
-/// где его хотели избежать.
+/// С 3 августа 2026 это окно — целиком менеджерское. Закрытые вкладки уехали в
+/// отдельное окно «Управление» (`AdministrationWindowView`), и дело не в
+/// раскладке: у них другой порядок работы — правки копятся и применяются
+/// кнопкой, — а рядом с настройками, которые применяются сразу, такое
+/// поведение читается как неисправность.
+///
+/// Погашенных вкладок здесь нет и не было: закрытое не показывается серым, его
+/// просто нет. Серая вкладка читается как «сломалось», а не как «не ваше».
 struct SettingsView: View {
 
-    @EnvironmentObject private var model: AppModel
-
     var body: some View {
-        Group {
-            if model.allowsAdministration {
-                administrationTabs
-            } else {
-                ManagerSettingsView()
-            }
-        }
-        .frame(minWidth: 640, minHeight: 460)
-    }
-
-    /// Полный набор вкладок. Первой остаётся менеджерская: администратор
-    /// настраивает чужое рабочее место и должен видеть его глазами хозяина.
-    private var administrationTabs: some View {
-        TabView {
-            ManagerSettingsView()
-                .tabItem { CompatLabel(title: "Рабочее место", symbol: "gearshape") }
-
-            AccountSettingsTab()
-                .tabItem { CompatLabel(title: "Аккаунт", symbol: "person.crop.circle") }
-
-            AudioSettingsTab()
-                .tabItem { CompatLabel(title: "Звук", symbol: "speaker.wave.2") }
-
-            IncomingCallSettingsTab()
-                .tabItem { CompatLabel(title: "Входящие", symbol: "bell") }
-
-            DTMFSettingsTab()
-                .tabItem { CompatLabel(title: "Тоны", symbol: "square.grid.3x3") }
-
-            DiagnosticsTab()
-                .tabItem { CompatLabel(title: "Диагностика", symbol: "stethoscope") }
-
-            AdministrationTab()
-                .tabItem { CompatLabel(title: "Доступ", symbol: "lock.shield.fill") }
-        }
-        .padding(20)
+        ManagerSettingsView()
+            .frame(minWidth: 640, minHeight: 460)
     }
 }
 
-private struct AccountSettingsTab: View {
+struct AccountSettingsTab: View {
 
     @EnvironmentObject private var model: AppModel
     @State private var isPasswordRevealed = false
@@ -148,22 +115,40 @@ private struct AccountSettingsTab: View {
                 }
 
                 HStack {
-                    Button("Сохранить в Keychain") {
-                        model.savePassword()
+                    // Не «сохранить в Keychain», а «принять»: запись в связку
+                    // ключей происходит по кнопке «Сохранить» внизу окна, вместе
+                    // со всем остальным. Согласовано: в черновике всё, включая
+                    // пароли, — иначе «Отменить» отменяло бы не всё.
+                    Button("Принять пароль") {
+                        model.stageSIPPassword(model.passwordDraft)
+                        model.passwordDraft = ""
                     }
                     .disabled(model.passwordDraft.isEmpty)
 
-                    if model.hasStoredPassword {
+                    if model.hasSIPPasswordIncludingDraft {
                         Button("Удалить сохранённый") {
-                            model.forgetPassword()
+                            model.stageSIPPassword("")
+                            model.passwordDraft = ""
                         }
                     }
 
                     Spacer()
 
-                    CompatLabel(title: model.hasStoredPassword ? "Пароль сохранён" : "Пароль не задан", symbol: model.hasStoredPassword ? "checkmark.circle" : "exclamationmark.circle")
+                    CompatLabel(
+                        title: model.hasSIPPasswordIncludingDraft ? "Пароль задан" : "Пароль не задан",
+                        symbol: model.hasSIPPasswordIncludingDraft ? "checkmark.circle" : "exclamationmark.circle"
+                    )
                     .font(.footnote)
                     .compatForeground(.secondary)
+                }
+
+                if model.pendingSIPPassword != nil {
+                    CompatLabel(
+                        title: "Пароль применится при сохранении настроек",
+                        symbol: "exclamationmark.triangle"
+                    )
+                    .font(.footnote)
+                    .compatForeground(.orange)
                 }
 
                 Text("Пароль хранится в Keychain и не попадает ни в файл настроек, ни в выгрузку диагностики.")
@@ -404,7 +389,7 @@ private struct ProfileRow: View {
     }
 }
 
-private struct AudioSettingsTab: View {
+struct AudioSettingsTab: View {
 
     @EnvironmentObject private var model: AppModel
     /// Список держится в состоянии, а не читается на каждой перерисовке:
@@ -613,7 +598,7 @@ private struct LevelMeter: View {
 /// Раздел не про внешний вид окна, а про то, ради чего написано приложение,
 /// поэтому у каждой настройки в подписи стоит не «что», а «зачем»: оператор,
 /// который понимает, от чего защищается, не выключает это первым делом.
-private struct IncomingCallSettingsTab: View {
+struct IncomingCallSettingsTab: View {
 
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var incomingCall: IncomingCallPanel
@@ -762,7 +747,7 @@ private struct IncomingCallSettingsTab: View {
 }
 
 /// Макросы DTMF и длительность тонов.
-private struct DTMFSettingsTab: View {
+struct DTMFSettingsTab: View {
 
     @EnvironmentObject private var model: AppModel
 
@@ -976,7 +961,7 @@ private struct DelayField: View {
     }
 }
 
-private struct DiagnosticsTab: View {
+struct DiagnosticsTab: View {
 
     @EnvironmentObject private var model: AppModel
 

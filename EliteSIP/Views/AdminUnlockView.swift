@@ -1,4 +1,5 @@
 import AdminAccess
+import AppKit
 import SwiftUI
 
 /// Вход в административный режим: пароль или код восстановления.
@@ -18,6 +19,8 @@ struct AdminUnlockView: View {
         case recovery
         /// Код подошёл: показываем действующий пароль и предлагаем сменить.
         case revealed(String)
+        /// Пароль принят: предупреждение до того, как окно откроется.
+        case warning
     }
 
     @State private var step: Step = .password
@@ -32,6 +35,7 @@ struct AdminUnlockView: View {
             case .password: passwordStep
             case .recovery: recoveryStep
             case .revealed(let password): revealedStep(password)
+            case .warning: warningStep
             }
 
             if let problem {
@@ -42,6 +46,13 @@ struct AdminUnlockView: View {
         }
         .padding(20)
         .frame(width: 380)
+        // Пароль не задан — спрашивать нечего, но предупреждение показать надо:
+        // открытые настройки не делают правку менее последствийной.
+        .onAppear {
+            guard !model.isAdministrationProtected else { return }
+            try? model.unlockAdministration(password: "")
+            step = .warning
+        }
     }
 
     // MARK: - Пароль
@@ -81,10 +92,51 @@ struct AdminUnlockView: View {
         do {
             try model.unlockAdministration(password: passwordDraft)
             passwordDraft = ""
-            isPresented = false
+            problem = nil
+            step = .warning
         } catch {
             problem = error.localizedDescription
             passwordDraft = ""
+        }
+    }
+
+    // MARK: - Предупреждение до входа
+
+    /// То же, что скажет подтверждение при сохранении.
+    ///
+    /// Дублирование намеренное. На входе человек ещё не знает, что будет
+    /// менять, и предупреждение читается как формальность; на сохранении он уже
+    /// час как забыл, что читал на входе. Один раз мало в обоих случаях.
+    private var warningStep: some View {
+        Group {
+            CompatLabel(title: "Прежде чем открыть «Управление»", symbol: "exclamationmark.triangle")
+                .font(.headline)
+                .compatForeground(.orange)
+
+            Text("""
+                Здесь правки не применяются на ходу: они копятся, пока вы не нажмёте \
+                «Сохранить». Закрыть окно без сохранения можно в любой момент.
+
+                Сохранение объявит настройки этой машины локальными — их задаёт \
+                администратор, а не файл конфигурации, — и запишет это в журнал.
+                """)
+            .font(.footnote)
+            .compatForeground(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Отмена") {
+                    model.lockAdministration()
+                    isPresented = false
+                }
+                Button("Открыть «Управление»") {
+                    isPresented = false
+                    NSApp.sendAction(
+                        #selector(AppDelegate.showAdministrationWindow(_:)), to: nil, from: nil
+                    )
+                }
+                .compatProminentButtonStyle()
+            }
         }
     }
 
@@ -102,7 +154,7 @@ struct AdminUnlockView: View {
                 .font(.headline)
             Text("""
                 \(RecoveryCode.length) цифр. Код покажет действующий пароль этой машины — \
-                он не сбрасывается, потому что совпадает с паролем в EliteDash.
+                он не сбрасывается, потому что совпадает с паролем в конфигурации.
                 """)
             .font(.footnote)
             .compatForeground(.secondary)
@@ -171,6 +223,7 @@ struct AdminUnlockView: View {
             let password = try model.unlockAdministration(recoveryCode: recoveryDraft)
             recoveryDraft = ""
             newPasswordDraft = ""
+            problem = nil
             step = .revealed(password)
         } catch {
             problem = error.localizedDescription
@@ -195,9 +248,9 @@ struct AdminUnlockView: View {
                 .font(.system(size: 18, weight: .regular, design: .monospaced))
 
             Text("""
-                Обычно он совпадает с паролем в EliteDash. Меняйте его здесь только \
-                если знаете, что делаете: до появления синхронизации (M8) смена \
-                разведёт эту машину с системой.
+                Обычно он совпадает с паролем в конфигурации. Меняйте его здесь только \
+                если знаете, что делаете: до появления файла конфигурации (M8) смена \
+                разведёт эту машину с остальными.
                 """)
             .font(.footnote)
             .compatForeground(.secondary)
@@ -206,7 +259,7 @@ struct AdminUnlockView: View {
 
             HStack {
                 Spacer()
-                Button("Оставить как есть") { isPresented = false }
+                Button("Оставить как есть") { step = .warning }
                 Button("Сменить пароль") { changePassword() }
                     .compatProminentButtonStyle()
                     .disabled(newPasswordDraft.isEmpty)
@@ -214,11 +267,17 @@ struct AdminUnlockView: View {
         }
     }
 
+    /// Смена пароля по коду восстановления применяется сразу, а не черновиком.
+    ///
+    /// Черновик живёт в окне «Управление», а сюда человек попал потому, что
+    /// пароль забыт: отложить смену до сохранения настроек значило бы, что
+    /// закрытие окна без сохранения возвращает забытый пароль обратно.
     private func changePassword() {
         do {
             try model.setAdminPassword(newPasswordDraft)
             newPasswordDraft = ""
-            isPresented = false
+            problem = nil
+            step = .warning
         } catch {
             problem = error.localizedDescription
         }

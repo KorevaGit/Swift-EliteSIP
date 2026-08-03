@@ -31,6 +31,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var phoneWindow: NSWindow?
     private var settingsWindow: NSWindow?
 
+    /// Окно «Управление» — закрытые настройки.
+    ///
+    /// Отдельное окно, а не вкладки в настройках (решение M7c от 3 августа
+    /// 2026). Причина не в раскладке: у закрытой части свой порядок работы —
+    /// правки копятся и применяются кнопкой, — и в одном окне с менеджерскими
+    /// настройками, которые применяются сразу, это читалось бы как неисправность.
+    private var administrationWindow: NSWindow?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = makeMainMenu()
         showPhoneWindow(nil)
@@ -146,6 +154,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+    /// Открывает «Управление». Вызывается кнопкой уже после проверки пароля.
+    @objc func showAdministrationWindow(_ sender: Any?) {
+        if let administrationWindow {
+            administrationWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        model.beginAdministration()
+
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: CGSize(width: 700, height: 540)),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Управление EliteSIP"
+        window.isReleasedWhenClosed = false
+        window.contentViewController = NSHostingController(
+            rootView: withEnvironment(AdministrationWindowView())
+        )
+        window.center()
+        window.delegate = self
+
+        administrationWindow = window
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Закрывает «Управление» изнутри — по «Сохранить» или «Отменить».
+    ///
+    /// Не `private`: вызывается из SwiftUI через цепочку ответчиков, как и
+    /// открытие. Решение уже принято к этому моменту, поэтому вопрос о
+    /// несохранённом не задаётся — его задаёт `windowShouldClose`.
+    @objc func closeAdministrationWindow(_ sender: Any?) {
+        guard let administrationWindow else { return }
+        self.administrationWindow = nil
+        administrationWindow.delegate = nil
+        administrationWindow.close()
+    }
+
+    /// Крестик окна «Управление» с несохранёнными правками спрашивает.
+    ///
+    /// Три ответа, как принято в macOS. Молчаливый выброс правок отвергнут:
+    /// цена случайного ⌘W — вся настройка чужого рабочего места, а запрет
+    /// закрывать окно, пока не решишь, ломает привычку сильнее, чем помогает.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard sender === administrationWindow, model.hasUnsavedAdministrationChanges else {
+            return true
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Настройки изменены"
+        alert.informativeText = """
+            Сохранение объявит настройки этой машины локальными: их задаёт \
+            администратор, а не файл конфигурации. Это будет записано в журнал.
+            """
+        alert.addButton(withTitle: "Сохранить")
+        alert.addButton(withTitle: "Не сохранять")
+        alert.addButton(withTitle: "Отмена")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            model.commitAdministration()
+            administrationWindow = nil
+            return true
+        case .alertSecondButtonReturn:
+            model.cancelAdministration()
+            administrationWindow = nil
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Закрытие окна настроек закрывает административный режим.
     ///
     /// Срок жизни сессии выбран именно таким: администратор настроил чужое
@@ -154,8 +235,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Окно живёт дальше (`isReleasedWhenClosed = false`), поэтому следующее
     /// открытие снова спросит пароль, а не покажет прошлую сессию.
     func windowWillClose(_ notification: Notification) {
-        guard (notification.object as? NSWindow) === settingsWindow else { return }
-        model.lockAdministration()
+        guard let closing = notification.object as? NSWindow else { return }
+
+        if closing === settingsWindow {
+            // «Управление» закрывается вместе с настройками: держать открытым
+            // окно с черновиком, к которому нет дороги, незачем.
+            if administrationWindow != nil {
+                _ = windowShouldClose(administrationWindow!)
+                closeAdministrationWindow(nil)
+            }
+            model.lockAdministration()
+            return
+        }
+
+        if closing === administrationWindow {
+            administrationWindow = nil
+            // Черновик мог остаться открытым, если окно закрыли не через
+            // `windowShouldClose` — например, вместе с приложением. Правки в
+            // этом случае не применяются: несохранённое остаётся несохранённым.
+            model.cancelAdministration()
+        }
     }
 
     /// Общая для всех окон обвязка: модель и владелец окна входящего.
