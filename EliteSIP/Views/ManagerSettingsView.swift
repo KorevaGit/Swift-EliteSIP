@@ -433,18 +433,20 @@ private struct AdministrationSection: View {
 
 // MARK: - Строка профиля
 
-/// Профиль глазами менеджера: метка, номер и формат работы.
+/// Профиль глазами менеджера: название, номер, формат работы — в этом порядке.
 ///
 /// Три признака отвечают на три разных вопроса, и подменять один другим нельзя.
-/// Номер и офис/удалёнка говорят, куда профиль звонит, — по ним его опознают в
-/// поддержке. Метка («Лаба», «Боевой») говорит, который из них «мой», и правит
-/// её сам менеджер: администратору неоткуда знать, как человек называет свои
-/// профили про себя.
+/// Название («Лаба», «Боевой») говорит, который профиль «мой», — по нему и
+/// выбирают, потому что номер в списке из двух добавочных на одной АТС не
+/// различает ничего. Номер и офис/удалёнка говорят, куда профиль звонит: по ним
+/// его опознают в поддержке.
 ///
-/// Метка стоит первой и обычным шрифтом, а не подписью под номером. Выбирают
-/// профиль именно по ней — номер в списке из двух добавочных на одной АТС не
-/// различает ничего, — и набирать её мелким серым значило бы спрятать то, ради
-/// чего в этот список смотрят.
+/// Отсюда порядок слева направо: сначала то, по чему выбирают, потом то, по
+/// чему опознают.
+///
+/// **Название правит сам менеджер.** Поле без рамки: до нажатия строка выглядит
+/// текстом, по нажатию становится полем. Рамка у каждой строки превратила бы
+/// список в форму — а список читают, а не заполняют.
 private struct ManagerProfileRow: View {
 
     @EnvironmentObject private var model: AppModel
@@ -461,9 +463,7 @@ private struct ManagerProfileRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Button {
-                Task { await model.selectProfile(profile.id) }
-            } label: {
+            selectButton {
                 // Отметка занимает место и когда её нет: иначе строки
                 // разъезжаются при смене активного профиля.
                 if isActive {
@@ -473,28 +473,49 @@ private struct ManagerProfileRow: View {
                     Color.clear.frame(width: 15, height: 15)
                 }
             }
-            .buttonStyle(.borderless)
-            .disabled(!isActive && !model.canSwitchProfile)
-            .compatHelp(isActive ? "Активный профиль" : "Сделать активным")
 
-            TextField("Без метки", text: Binding(
+            // `labelsHidden` обязателен: в `Form` первый строковый аргумент
+            // `TextField` становится подписью в левой колонке, и placeholder
+            // уезжает от собственного поля через всю строку.
+            TextField("Без названия", text: Binding(
                 get: { profile.label },
                 set: { model.renameProfile(profile.id, to: $0) }
             ))
-            .frame(minWidth: 140)
+            .textFieldStyle(.plain)
+            .labelsHidden()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .compatHelp("Название видно только на этой машине — назовите профиль как вам удобно")
 
-            Spacer(minLength: 8)
-
-            Button {
-                Task { await model.selectProfile(profile.id) }
-            } label: {
-                Text("\(number) · \(site == .remote ? "удалённо" : "офис")")
+            selectButton {
+                Text(number)
                     .compatForeground(.secondary)
+                    .frame(width: 90, alignment: .trailing)
             }
-            .buttonStyle(.borderless)
-            .disabled(!isActive && !model.canSwitchProfile)
-            .compatHelp(isActive ? "Активный профиль" : "Сделать активным")
+
+            selectButton {
+                Text(site == .remote ? "удалённо" : "офис")
+                    .compatForeground(.secondary)
+                    .frame(width: 80, alignment: .leading)
+            }
         }
+    }
+
+    /// Всё, кроме поля названия, делает профиль активным.
+    ///
+    /// Иначе попасть по строке было бы можно только в галочку слева: поле
+    /// названия занимает середину и нажатие забирает себе.
+    @ViewBuilder
+    private func selectButton<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        Button {
+            Task { await model.selectProfile(profile.id) }
+        } label: {
+            content()
+        }
+        .buttonStyle(.borderless)
+        // Активная строка не гасится: серый текст читается как «профиль
+        // недоступен», а это ровно тот, на котором работают.
+        .disabled(!isActive && !model.canSwitchProfile)
+        .compatHelp(isActive ? "Активный профиль" : "Сделать активным")
     }
 
     private var number: String {
