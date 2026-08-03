@@ -1558,14 +1558,67 @@ final class AppModel: ObservableObject {
     /// обновлений, чем видно глазу, незачем.
     private func startLevelPolling() {
         levelTask?.cancel()
+        streamWatch = InboundStreamWatch()
+        lastStreamState = .flowing
         levelTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(.milliseconds(50))
                 guard let self, let media else { return }
                 audioLevels.update(input: media.inputLevel, output: media.outputLevel)
+                reportInboundStream(of: media)
             }
         }
     }
+
+    private var streamWatch = InboundStreamWatch()
+    private var lastStreamState = InboundStreamWatch.State.flowing
+
+    /// Говорит вслух, когда от собеседника не идёт поток.
+    ///
+    /// Разговор без единого принятого пакета снаружи неотличим от сломанного
+    /// звука: в трубке тишина. Разница при этом принципиальная — чинить надо
+    /// разные вещи, — и молчать о ней значит каждый раз начинать разбор с
+    /// неверных гипотез. Ровно это и случилось на стенде 3 августа: 29 секунд
+    /// разговора, принято ноль пакетов, и узнать об этом можно было только из
+    /// сводки после звонка.
+    ///
+    /// Сообщение выводится на смене состояния, а не на каждом опросе: опрос идёт
+    /// двадцать раз в секунду, и журнал был бы залит одинаковыми строками.
+    private func reportInboundStream(of media: MediaSession) {
+        guard let lineID = activeLineID else { return }
+        let state = streamWatch.update(received: media.statistics.received)
+        guard state != lastStreamState else { return }
+        let previous = lastStreamState
+        lastStreamState = state
+
+        switch state {
+        case .neverStarted(let seconds):
+            append(
+                level: .warning,
+                message: "от собеседника не пришло ни одного пакета за \(Int(seconds)) с"
+                    + " — звук в трубке будет молчать, и дело не в устройстве"
+            )
+            setStatus("Нет потока от собеседника", on: lineID)
+
+        case .stalled(let seconds):
+            append(level: .warning, message: "поток от собеседника прервался \(Int(seconds)) с назад")
+            setStatus("Поток прервался", on: lineID)
+
+        case .flowing:
+            guard previous != .flowing else { return }
+            append(level: .info, message: "поток от собеседника пошёл")
+            if let line = line(lineID), Self.streamWarningStatuses.contains(line.status) {
+                setStatus(line.isOnHold ? "На удержании" : "Разговор", on: lineID)
+            }
+        }
+    }
+
+    /// Подписи, которые ставит наблюдение за потоком. Снимает их оно же, и
+    /// список нужен затем, чтобы не затереть чужую подпись — например
+    /// «Восстанавливаю звук…» от пересборки тракта.
+    private static let streamWarningStatuses: Set<String> = [
+        "Нет потока от собеседника", "Поток прервался",
+    ]
 
     /// Гарнитура в двустороннем режиме: у всей системы приглушён звук, и
     /// пользователю стоит про это сказать, пока он не решил, что сломались мы.
