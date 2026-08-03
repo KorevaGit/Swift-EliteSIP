@@ -58,17 +58,34 @@ private struct AccountSettingsTab: View {
 
                 Picker("Рабочее место", selection: Binding(
                     get: { model.settings.profiles.active.site },
-                    set: { model.setProfileSite($0, for: model.activeProfileID) }
+                    set: { site in
+                        Task { await model.setProfileSite(site, for: model.activeProfileID) }
+                    }
                 )) {
                     Text("Определять по адресу сервера").tag(SIPProfileSite.automatic)
-                    Text("Офис").tag(SIPProfileSite.office)
-                    Text("Удалённое").tag(SIPProfileSite.remote)
+                    Text("Офис · \(model.settings.siteAddresses.office)").tag(SIPProfileSite.office)
+                    Text("Удалённо · \(model.settings.siteAddresses.remote)").tag(SIPProfileSite.remote)
                 }
                 .pickerStyle(.radioGroup)
+                .disabled(!model.canSwitchProfile)
 
-                Text("Удалённому месту приложение открывает дорогу до АТС перед подключением, офисному — нет. «По адресу сервера» решает по тому, внутренний он или внешний: так работали все профили раньше.")
+                Text("Переключение меняет и адрес АТС: изнутри и снаружи это один и тот же сервер, но разные адреса. Удалённому месту приложение перед подключением открывает дорогу до АТС. «По адресу сервера» ничего не переписывает и решает по тому, внутренний адрес или внешний.")
                     .font(.footnote)
                     .compatForeground(.secondary)
+
+                HStack {
+                    Button("Исправить сеть") {
+                        Task { await model.repairNetwork() }
+                    }
+                    .compatHelp("Открыть дорогу до АТС прямо сейчас — если снаружи перестало подключаться")
+                    if let status = model.networkRepairStatus {
+                        Text(status)
+                            .font(.footnote)
+                            .compatForeground(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                }
 
                 Text("Зарегистрирован всегда ровно один профиль — отмеченный. У каждого свой пароль в Keychain; удаление профиля стирает и его.")
                     .font(.footnote)
@@ -282,12 +299,16 @@ private struct ProfileRow: View {
         let address = account.domain.isEmpty ? "домен не задан" : account.domain
         let number = account.username.isEmpty ? "номер не задан" : account.username
         var line = "\(number) · \(address) · \(account.transport.protocolName)"
-        // Заданное руками рабочее место дописывается, автоматическое — нет:
-        // подпись «по адресу сервера» у каждой строки не сообщает ничего, а
-        // «офис» и «удалённое» отличают профили, у которых всё остальное
-        // совпадает.
-        if profile.site != .automatic {
-            line += " · \(profile.site.title)"
+        // «Удалённо» — у всех, кто работает снаружи, включая тех, чьё рабочее
+        // место определилось по адресу: для читающего список важно, что этот
+        // профиль ходит через шлюз, а не то, кто именно так решил. Офисные
+        // профили не подписываются вовсе — это обычный случай, и подпись у
+        // каждой строки не сообщала бы ничего.
+        // Проверяется настоящий домен, а не подпись `address`: у ненастроенного
+        // профиля там стоит «домен не задан», и на внутренний адрес это не
+        // похоже — такой профиль подписался бы удалённым.
+        if PortKnockPolicy.needsKnocking(serverHost: account.domain, site: profile.site) {
+            line += " · удалённо"
         }
         return line
     }

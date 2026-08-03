@@ -61,6 +61,11 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// правится, потому что живёт на чужом шлюзе и может измениться без нас.
     var portKnock: PortKnockSequence = .production
 
+    /// Пара адресов одной АТС: изнутри и снаружи. Смена рабочего места в
+    /// профиле переписывает адрес по этой паре, иначе пометка ничего не решает.
+    /// Пока зашита, потом приедет из EliteDash — как и `portKnock`.
+    var siteAddresses: SIPSiteAddresses = .production
+
     /// Учётная запись активного профиля.
     ///
     /// Остальное приложение работает ровно с одной учёткой — той, которой
@@ -85,7 +90,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         minimumLogLevel: SIPLogLevel = .info,
         logFile: LogFileSettings = LogFileSettings(),
         acceptsAnyTLSCertificate: Bool = false,
-        portKnock: PortKnockSequence = .production
+        portKnock: PortKnockSequence = .production,
+        siteAddresses: SIPSiteAddresses = .production
     ) {
         self.schemaVersion = schemaVersion
         self.profiles = profiles
@@ -97,6 +103,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.minimumLogLevel = minimumLogLevel
         self.logFile = logFile
         self.portKnock = portKnock
+        self.siteAddresses = siteAddresses
         // После `profiles`: свойство живёт в активном профиле.
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
@@ -131,6 +138,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         logFile = try container.decodeIfPresent(LogFileSettings.self, forKey: .logFile) ?? LogFileSettings()
         portKnock =
             try container.decodeIfPresent(PortKnockSequence.self, forKey: .portKnock) ?? .production
+        siteAddresses =
+            try container.decodeIfPresent(SIPSiteAddresses.self, forKey: .siteAddresses) ?? .production
 
         // Доверие к сертификату переехало в профиль. Общий ключ старого файла
         // достаётся активному профилю, а не всем: включали его ради одного

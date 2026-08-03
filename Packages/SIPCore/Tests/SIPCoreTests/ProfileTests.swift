@@ -224,6 +224,24 @@ final class ProfileTests: XCTestCase {
         XCTAssertEqual(list.active.site, .remote)
     }
 
+    /// Смена рабочего места переписывает адрес АТС, и профиль при этом может
+    /// быть не активным.
+    func testSetAccountReplacesAddressedProfile() {
+        var list = SIPProfileList(profiles: [
+            SIPProfile(label: "офис", account: account("100", "192.168.1.2")),
+            SIPProfile(label: "второй", account: account("200")),
+        ])
+        let office = list.profiles[0].id
+        list.activate(list.profiles[1].id)
+
+        var moved = list[office]!.account
+        moved.domain = "crm.elitesochi.com"
+        XCTAssertTrue(list.setAccount(moved, for: office))
+        XCTAssertEqual(list[office]?.account.domain, "crm.elitesochi.com")
+        XCTAssertEqual(list.activeID, list.profiles[1].id, "активность не переезжает от правки адреса")
+        XCTAssertFalse(list.setAccount(moved, for: UUID()))
+    }
+
     // MARK: - Доверие к сертификату TLS
 
     /// Свойство сервера, а не приложения: включённое ради лаборатории, оно не

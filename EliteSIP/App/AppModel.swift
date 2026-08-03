@@ -56,6 +56,11 @@ final class AppModel: ObservableObject {
     /// до нажатия «Сохранить» и обратно из Keychain не читается.
     @Published var passwordDraft: String = ""
 
+    /// Что показать под кнопкой «Исправить сеть». Живёт до следующего нажатия:
+    /// человек нажал её потому, что что-то не работает, и ответ «сделано» ему
+    /// нужен на экране, а не в журнале.
+    @Published var networkRepairStatus: String?
+
     @Published private(set) var registration: SIPRegistrationState = .idle
     @Published private(set) var hasStoredPassword = false
     @Published private(set) var log: [LogEntry] = []
@@ -1937,18 +1942,133 @@ final class AppModel: ObservableObject {
 
     /// Офисное это рабочее место или удалённое.
     ///
-    /// Перезарегистрироваться от этого не надо: поле читается при подключении и
-    /// решает только, стучать ли по портам. Менять его в разговоре можно —
-    /// текущий разговор оно не трогает, а следующее подключение уже учтёт.
-    /// Именно поэтому запрета `canSwitchProfile` здесь нет.
-    func setProfileSite(_ site: SIPProfileSite, for id: UUID) {
-        guard settings.profiles[id]?.site != site else { return }
-        guard settings.profiles.setSite(site, for: id) else { return }
-        append(
-            level: .info,
-            message: "рабочее место профиля \(profileTitle(id)): \(site.title)"
-                + (agent == nil ? "" : " — учтётся при следующем подключении")
-        )
+    /// Это не пометка, а переезд: вместе с рабочим местом меняется адрес АТС —
+    /// изнутри `192.168.1.2`, снаружи внешний домен. Одно без другого
+    /// бессмысленно, потому что из дома внутренний адрес недостижим, а из
+    /// офиса внешний ведёт на тот же сервер длинной дорогой. Отсюда всё
+    /// остальное: перерегистрация, перенос пароля на новый ключ связки ключей
+    /// и стук перед первой регистрацией снаружи.
+    ///
+    /// Адрес переписывается только у профиля, который смотрит на нашу пару
+    /// адресов: лабораторный `127.0.0.1` и чужую АТС трогать нельзя — пометка
+    /// не должна незаметно уводить профиль на другой сервер. Такой профиль
+    /// получает только пометку, и об этом сказано в журнале.
+    func setProfileSite(_ site: SIPProfileSite, for id: UUID) async {
+        guard let profile = settings.profiles[id], profile.site != site else { return }
+        // Переезд снимает регистрацию, значит запрет тот же, что у смены
+        // профиля и у отключения из M6b.
+        guard canSwitchProfile else {
+            refuseProfileChange()
+            return
+        }
+
+        let addresses = settings.siteAddresses
+        let currentHost = profile.account.domain
+        let newHost = addresses.host(for: site)
+        let movesAddress =
+            !addresses.isEmpty && addresses.recognizes(currentHost) && newHost != nil
+            && newHost != currentHost
+
+        let wasConnected = agent != nil
+        if (movesAddress || site == .remote) && wasConnected { await disconnect() }
+
+        settings.profiles.setSite(site, for: id)
+
+        if movesAddress, let newHost {
+            // Пароль лежит под ключом «номер@домен», и смена домена оставила бы
+            // профиль без пароля при живой записи в связке ключей. Переносим:
+            // сервер тот же самый, и учётные данные у него те же.
+            await carryPassword(of: profile, toDomain: newHost)
+            var moved = settings.profiles[id]?.account
+            moved?.domain = newHost
+            if let moved, settings.profiles.setAccount(moved, for: id) {
+                append(
+                    level: .info,
+                    message: "профиль \(profileTitle(id)): \(site.title), адрес АТС \(currentHost) → \(newHost)"
+                )
+            }
+        } else {
+            append(
+                level: .info,
+                message: "профиль \(profileTitle(id)): \(site.title)"
+                    + (addresses.recognizes(currentHost) ? "" : ", адрес \(currentHost) оставлен как есть")
+            )
+        }
+
+        refreshStoredPasswordFlag()
+
+        guard wasConnected, movesAddress || site == .remote else { return }
+        if hasStoredPassword || !passwordDraft.isEmpty {
+            await connect()
+        } else {
+            append(level: .warning, message: "у профиля нет сохранённого пароля — подключение не восстановлено")
+            callStatus = "Введите пароль профиля"
+        }
+    }
+
+    /// Переносит пароль профиля на новый домен.
+    ///
+    /// Чтение пароля способно вызвать диалог связки ключей, поэтому идёт с
+    /// отдельного потока и только в ответ на действие человека — то же правило,
+    /// что у `loadStoredPassword`. Молчаливая неудача здесь допустима: хуже
+    /// пустого поля пароля только зависший интерфейс.
+    private func carryPassword(of profile: SIPProfile, toDomain domain: String) async {
+        let oldKey = KeychainStore.key(for: profile.account)
+        let newKey = KeychainStore.key(for: profile.account.username, domain: domain)
+        guard oldKey != newKey else { return }
+        guard (try? KeychainStore.hasPassword(for: oldKey)) == true else { return }
+        guard (try? KeychainStore.hasPassword(for: newKey)) != true else { return }
+
+        let carried = await Task.detached(priority: .userInitiated) {
+            try? KeychainStore.password(for: oldKey)
+        }.value
+        guard let carried, !carried.isEmpty else {
+            append(level: .warning, message: "пароль не перенесён на новый адрес — введите его заново")
+            return
+        }
+        do {
+            try KeychainStore.save(password: carried, for: newKey)
+            append(level: .debug, message: "пароль профиля перенесён на новый адрес")
+        } catch {
+            append(level: .warning, message: "пароль не перенесён: \(error.localizedDescription)")
+        }
+    }
+
+    /// «Исправить сеть»: стук по портам один раз, прямо сейчас.
+    ///
+    /// Существует на случай, когда доступ потерян не по нашей логике: сменился
+    /// публичный адрес, шлюз забыл прежний, а приложение считает себя
+    /// подключённым. Пропуск по времени здесь не действует — повод тот же, что
+    /// у повтора после отказа, и пропускать его нельзя.
+    ///
+    /// Стучим независимо от пометки рабочего места: кнопку нажимают тогда, когда
+    /// что-то уже не работает, и спорить с человеком в этот момент неуместно.
+    func repairNetwork() async {
+        guard !settings.portKnock.isEmpty else {
+            networkRepairStatus = "Стук выключен в настройках"
+            return
+        }
+        let host = settings.account.signalingEndpoint.host
+        let log: PortKnocker.Log = { [weak self] level, message in
+            Task { @MainActor in self?.append(level: level, message: message) }
+        }
+        guard let knocker = PortKnocker.forServer(
+            host,
+            site: .remote,
+            sequence: settings.portKnock,
+            log: log
+        ) else {
+            networkRepairStatus = "Стучать некуда"
+            return
+        }
+
+        networkRepairStatus = "Открываем дорогу до \(host)…"
+        append(level: .info, message: "«Исправить сеть»: стук по требованию, адрес \(host)")
+        await knocker.openPath(reason: .retry)
+        // Успех здесь недоказуем: правило срабатывает на исходящий пакет, а
+        // ответа может не быть вовсе. Единственная настоящая проверка — это
+        // прошедшая следом регистрация, и её делает не эта кнопка.
+        networkRepairStatus = "Готово. Если не помогло — переподключитесь"
     }
 
     /// Подпись профиля для списка и журнала.

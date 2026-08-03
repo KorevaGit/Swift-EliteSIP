@@ -232,6 +232,17 @@ public struct SIPProfileList: Sendable, Equatable, Codable {
         return true
     }
 
+    /// Заменяет учётную запись профиля. `false` — такого профиля нет.
+    ///
+    /// Нужно смене рабочего места: она переписывает адрес АТС у профиля,
+    /// который может быть и не активным.
+    @discardableResult
+    public mutating func setAccount(_ account: SIPAccount, for id: UUID) -> Bool {
+        guard let index = profiles.firstIndex(where: { $0.id == id }) else { return false }
+        profiles[index].account = account
+        return true
+    }
+
     /// Меняет рабочее место профиля. `false` — такого профиля нет.
     @discardableResult
     public mutating func setSite(_ site: SIPProfileSite, for id: UUID) -> Bool {
