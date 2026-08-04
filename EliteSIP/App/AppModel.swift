@@ -533,7 +533,22 @@ final class AppModel: ObservableObject {
         let id: String
         let isOutgoing: Bool
         var peer: String
-        var phase: CallPhase
+
+        /// Имя собеседника, как его прислал сервер. В шапке панели оно идёт
+        /// крупным планом, а номер — мелким: оператор работает с человеком, а
+        /// не с цифрами.
+        var displayName: String?
+
+        /// Момент соединения. Ставится сам при переходе в разговор — иначе
+        /// пришлось бы помнить об этом в трёх местах, откуда фаза меняется.
+        var connectedAt: Date?
+
+        var phase: CallPhase {
+            didSet {
+                if phase == .active, connectedAt == nil { connectedAt = Date() }
+            }
+        }
+
         var status: String = ""
 
         /// Линия, ради которой заведена эта консультация. У обычной — nil.
@@ -1563,6 +1578,7 @@ final class AppModel: ObservableObject {
             id: call.callID,
             isOutgoing: false,
             peer: call.displayNumber,
+            displayName: call.callerName,
             phase: .incoming,
             status: "Входящий"
         ))

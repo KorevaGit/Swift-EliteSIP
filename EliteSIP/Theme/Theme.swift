@@ -7,19 +7,71 @@ import SwiftUI
 /// изолирована здесь, чтобы во вьюхах не было ни одного `#available`.
 enum Theme {
 
+    /// Вертикальные промежутки между ярусами панели.
+    ///
+    /// Заданы поимённо, а не общим шагом: расстояния здесь неравные по смыслу.
+    /// Поле набора и ряд управления — соседи одного действия, поэтому между ними
+    /// почти ничего; управление и макросы — разные классы, и разделяет их только
+    /// воздух, без линии.
+    enum Gap {
+        /// Строка состояния → поле ввода.
+        static let statusToHeader: CGFloat = 5
+        /// Поле ввода → ряд управления.
+        static let headerToControls: CGFloat = 5
+        /// Ряд управления → макросы.
+        static let controlsToMacros: CGFloat = 15
+        /// Макросы → кнопка завершения.
+        static let macrosToAction: CGFloat = 15
+    }
+
     enum Metrics {
         /// Панель узкая и фиксированной ширины — это софтфон, а не окно почты.
         ///
         /// Габариты сознательно поджаты: окно висит поверх CRM весь рабочий
         /// день, и каждая лишняя точка ширины отъедает место у того, с чем
-        /// оператор реально работает.
-        /// Панель фиксированного размера, а не «по содержимому».
+        /// оператор реально работает. 250, а не прежние 280: дайлпада, ради
+        /// которого держалась эта ширина, больше нет, а подпись макроса в три
+        /// колонки укладывается и здесь.
+        static let panelWidth: CGFloat = 250
+
+        /// Высота, с которой окно панели создаётся.
         ///
-        /// Высота задана явно, и свободную вертикаль забирает клавиатура: иначе
-        /// при заданных 500 точках окно оказалось бы наполовину пустым, а
-        /// растянутые клавиши — это ещё и удобнее для попадания мышью.
-        static let panelWidth: CGFloat = 280
-        static let panelHeight: CGFloat = 500
+        /// Настоящую высоту панель считает сама из числа макросов и того,
+        /// свёрнута ли она, и ставит окну через `PanelHeight`. Здесь нужно
+        /// какое-то значение до первого прохода раскладки — иначе окно
+        /// мигнёт размером содержимого `NSHostingController`.
+        static let panelInitialHeight: CGFloat = 340
+
+        /// Строка состояния наверху: номер, состояние клиента, настройки и
+        /// переключатель размера.
+        static let statusBarHeight: CGFloat = 20
+
+        /// Высота шапки — одна на все состояния панели.
+        ///
+        /// Поле набора в покое и карточка собеседника в разговоре занимают
+        /// ровно столько же: иначе при ответе на вызов шапка вырастала бы и
+        /// сдвигала вниз всё, что под ней. При двух линиях этот же слот делится
+        /// на два поля по 22 точки.
+        static let headerHeight: CGFloat = 48
+
+        /// Неподвижная нижняя зона: кнопка звонка и история.
+        static let actionHeight: CGFloat = 44
+        /// Ширина «Истории». Задана явно, чтобы кнопка звонка занимала всё
+        /// оставшееся место и не меняла ширину от длины подписи.
+        static let historyWidth: CGFloat = 64
+
+        /// Ряд управления: удержание, микрофон, перевод. Ниже клавиш макросов и
+        /// с подписью в строку, а не столбиком, — так ряд читается как другой
+        /// класс элементов, а не как первый ряд сетки.
+        static let controlHeight: CGFloat = 30
+
+        /// Ниже этого клавиша макроса не сжимается. Верхнего предела нет: сетка
+        /// забирает всю свободную вертикаль, иначе между ней и кнопкой
+        /// завершения оставался бы провал, который нечем занять.
+        static let macroMinHeight: CGFloat = 54
+        /// Три в ряд: подпись макроса задаёт оператор, предсказать её ширину
+        /// нельзя, но три коротких кнопки в 250 точек влезают всегда.
+        static let macroColumns = 3
 
         /// Ширина окна входящего. Высота не задаётся — окно подгоняется под
         /// содержимое.
@@ -32,23 +84,16 @@ enum Theme {
 
         static let contentPadding: CGFloat = 12
         static let sectionSpacing: CGFloat = 8
-        static let dialpadSpacing: CGFloat = 6
-
-        /// Ниже этого клавиша не сжимается, даже если контента станет больше.
-        static let dialpadButtonMinHeight: CGFloat = 36
-
-        /// Отступ сверху, чтобы контент не лез под кнопки окна при скрытом
-        /// заголовке.
-        static let titleBarInset: CGFloat = 24
-
-        /// Размер номера в поле набора. Цифра на клавише теперь берётся из
-        /// `Theme.Text.controlKey` — она же стоит на целях окна входящего.
-        static let dialedNumberFontSize: CGFloat = 22
+        static let elementSpacing: CGFloat = 6
     }
 
     enum Radius {
-        static let surface: CGFloat = 16
-        static let control: CGFloat = 10
+        /// Радиусы после редизайна: 12 и 8 вместо прежних 16 и 10.
+        ///
+        /// Панель стала уже и ниже, и прежние скругления на клавише в 54 точки
+        /// читались как капсула. Значения те же, что в макете.
+        static let surface: CGFloat = 12
+        static let control: CGFloat = 8
     }
 
     /// Начертания из макета.
@@ -74,6 +119,27 @@ enum Theme {
         static let panelStatus = Font.system(size: 13)
         /// Вторая строка бейджа — срок регистрации или время повтора.
         static let panelDetail = Font.system(size: 10)
+
+        /// Номер в поле набора: пока номер набирают, он и есть главное.
+        static let dialedNumber = Font.system(size: 18, weight: .light, design: .rounded)
+        /// Имя собеседника в разговоре — крупно. Оператор работает с человеком,
+        /// а не с цифрами: имя читается, номер только сверяется.
+        static let callerName = Font.system(size: 17, weight: .medium)
+        /// Номер собеседника под именем — мелко и вторым планом.
+        static let callerNumber = Font.system(size: 11, design: .rounded)
+        /// Длительность разговора.
+        static let callTimer = Font.system(size: 11, weight: .medium, design: .rounded)
+        /// Номер, под которым зарегистрирован менеджер.
+        static let statusNumber = Font.system(size: 11, weight: .semibold)
+        /// Мелкий текст строки состояния и подписей управления.
+        ///
+        /// 11, а не 10: на 10 пунктах состояние клиента в светлой теме
+        /// переставало читаться совсем — светло-серое по светлому.
+        static let statusDetail = Font.system(size: 11)
+        /// Собеседник в поле линии, когда линий две.
+        static let lineTitle = Font.system(size: 12, weight: .medium)
+        /// Подпись макроса — крупно, это главная цель для мыши в разговоре.
+        static let macro = Font.system(size: 15, weight: .medium)
     }
 
     enum Palette {
@@ -83,10 +149,17 @@ enum Theme {
         static let connecting = Color.orange
         static let offline = Color.secondary
         static let failure = Color.red
-        /// Третий уровень текста. Своя константа, потому что иерархический
-        /// стиль `.tertiary` — это macOS 12, а `Color.tertiary` не существует
-        /// вовсе ни на одной версии.
-        static let tertiary = Color.secondary.opacity(0.55)
+
+        /// Уровни текста заданы прозрачностью от `.primary`, а не системными
+        /// `.secondary` и `.tertiary`.
+        ///
+        /// Системные уровни рассчитаны на непрозрачный фон окна. На материале
+        /// они теряют ещё часть контраста, и в светлой теме первым исчезает
+        /// мелкий текст состояния. Здесь уровни заданы явно и одинаково
+        /// работают в обеих темах. Иерархический `.tertiary` вдобавок появился
+        /// только в macOS 12, а `Color.tertiary` не существует вовсе.
+        static let textSecondary = Color.primary.opacity(0.70)
+        static let tertiary = Color.primary.opacity(0.50)
     }
 }
 
@@ -133,6 +206,21 @@ extension View {
         }
     }
 
+    /// Поверхность окна панели: материал плюс собственная подкраска.
+    ///
+    /// Один материал не годится. Он пропускает то, что под окном, и поверх
+    /// пёстрой CRM даёт мутно-серый — одинаково грязный в обеих темах. Серый
+    /// текст по такому фону не спасают ни кегль, ни прозрачность: контраст
+    /// съеден самим фоном. Подкраска задаёт поверхности собственную светлоту —
+    /// в светлой теме почти белую, в тёмной почти чёрную, — а материал остаётся
+    /// ради живого просвечивания по краям.
+    ///
+    /// Нужна на всех трёх ступенях: и на стекле macOS 26, и на материале, и на
+    /// `NSVisualEffectView` под Catalina.
+    func themedPanelSurface(cornerRadius: CGFloat = Theme.Radius.surface) -> some View {
+        modifier(PanelSurface(cornerRadius: cornerRadius))
+    }
+
     /// Подсветка при наведении курсора.
     ///
     /// Нужна всем кнопкам со стилем `.plain`: он рисует только содержимое и
@@ -149,20 +237,50 @@ extension View {
         modifier(HoverHighlight(cornerRadius: cornerRadius, isEnabled: isEnabled))
     }
 
-    /// Поверхность управляющего элемента — то же самое, но радиусом поменьше.
-    @ViewBuilder
+    /// Поверхность управляющего элемента — слабый слой поверх фона панели.
+    ///
+    /// Несимметрична по темам намеренно: на тёмном фоне светлая плашка заметна
+    /// при 0.09, на светлом тёмная — только начиная с 0.06. Симметричное
+    /// значение в одной из тем всегда сливалось с панелью.
     func themedControlSurface(cornerRadius: CGFloat = Theme.Radius.control) -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
-        } else if #available(macOS 12.0, *) {
-            self.background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: cornerRadius))
-        } else {
-            // `.quaternary` — тоже macOS 12. Ниже берётся тот же по смыслу
-            // слабый слой поверх фона, но заданный явной прозрачностью.
-            self.background(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(Color.primary.opacity(0.08))
-            )
+        modifier(ControlSurface(cornerRadius: cornerRadius))
+    }
+}
+
+private struct PanelSurface: ViewModifier {
+
+    let cornerRadius: CGFloat
+
+    @Environment(\.colorScheme) private var scheme
+
+    func body(content: Content) -> some View {
+        content.compatBackground {
+            // Подкраска лежит поверх материала, но под содержимым: сам материал
+            // остаётся живым по краям, а светлоту поверхности задаём мы.
+            Color.clear
+                .themedSurface(cornerRadius: cornerRadius)
+                .compatOverlay {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(scheme == .dark
+                              ? Color.black.opacity(0.55)
+                              : Color.white.opacity(0.72))
+                }
+        }
+    }
+}
+
+private struct ControlSurface: ViewModifier {
+
+    let cornerRadius: CGFloat
+
+    @Environment(\.colorScheme) private var scheme
+
+    func body(content: Content) -> some View {
+        content.compatBackground {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(scheme == .dark
+                      ? Color.white.opacity(0.09)
+                      : Color.black.opacity(0.06))
         }
     }
 }

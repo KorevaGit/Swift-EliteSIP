@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let window = NSWindow(
             contentRect: CGRect(
                 origin: .zero,
-                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelHeight)
+                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
             ),
             // Без `.resizable`: это и есть `windowResizability(.contentSize)`.
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
@@ -125,7 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrame(
             CGRect(
                 origin: .zero,
-                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelHeight)
+                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
             ),
             display: false
         )

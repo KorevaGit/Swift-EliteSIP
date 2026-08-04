@@ -2,75 +2,84 @@ import Compat
 import SIPCore
 import SwiftUI
 
+/// Панель софтфона.
+///
+/// Главное правило, из которого выведено всё остальное: **нижняя полоса
+/// неподвижна**. Кнопка завершения обязана оказываться под курсором в одном и
+/// том же месте независимо от того, появилась ли вторая линия, потеряна ли
+/// регистрация, открыто ли поле перевода и сколько у сотрудника макросов.
+/// Поэтому панель собрана в три яруса:
+///
+///   строка состояния → изменчивая середина → неподвижный низ
+///
+/// Середина заперта в рамку, которая не может отдать свою высоту содержимому, —
+/// иначе стопка сообщала бы наверх идеальную высоту и утаскивала низ вниз.
+///
+/// Дайлпада здесь нет. Почти все звонки входящие и приходят в отдельное окно, а
+/// номер для исходящего вводится с клавиатуры; освободившееся место занимает
+/// сетка DTMF-макросов, ради которых панель и открывают в разговоре.
 struct PhonePanelView: View {
 
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var incomingCall: IncomingCallPanel
 
+    /// Тикает таймер разговора. Ровно раз в секунду и только пока панель на
+    /// экране.
+    private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    @State private var now = Date()
+    @State private var isCompact = false
+
     var body: some View {
-        VStack(spacing: Theme.Metrics.sectionSpacing) {
-            RegistrationBadge()
+        VStack(spacing: 0) {
+            statusBar
 
-            DialedNumberField()
+            // Середина занимает ровно то, что осталось, и ни точкой больше.
+            // Высоту задаёт пустой прямоугольник, а содержимое кладётся
+            // накладкой: накладка на размер родителя не влияет в принципе.
+            Color.clear
+                .frame(maxHeight: .infinity)
+                .compatOverlay(alignment: .top) {
+                    if isCompact {
+                        header.padding(.top, Theme.Gap.statusToHeader)
+                    } else {
+                        middle
+                    }
+                }
+                .clipped()
 
-            DialpadView()
-
-            if model.isInCall {
-                CallControls()
-            }
-
-            callButton
-
-            Divider()
-
-            debugSection
+            bottomBar
+                .padding(.top, Theme.Gap.macrosToAction)
         }
         .padding(.horizontal, Theme.Metrics.contentPadding)
         .padding(.bottom, Theme.Metrics.contentPadding)
-        .padding(.top, Theme.Metrics.titleBarInset)
         .frame(width: Theme.Metrics.panelWidth)
         .frame(maxHeight: .infinity)
-        // Шестерёнка живёт в полосе заголовка, справа от светофора, а не в
-        // бейдже: в бейдже она отъедала ширину у строки состояния, и «Не
-        // подключено» превращалось в «Не подключ…». Накладкой, а не элементом
-        // стопки, — чтобы вёрстка панели осталась ровно прежней.
-        //
-        // История встала рядом, слева от шестерёнки. Слева от светофора места
-        // нет, а в стопку её не поставить по той же причине, по которой там
-        // нет шестерёнки: панель фиксированной высоты, и каждая новая строка
-        // отнимается у клавиатуры.
-        .compatOverlay(alignment: .topTrailing) { titleBarButtons }
+        // Окно прямоугольное, поэтому и подкраска без скругления: своего
+        // скругления у содержимого быть не должно, иначе по углам проступят
+        // углы окна.
+        .themedPanelSurface(cornerRadius: 0)
+        .onReceive(clock) { now = $0 }
         .compatBackground {
             WindowAccessor { window in
                 // Заголовок скрыт, поэтому окно надо таскать за фон.
                 window.isMovableByWindowBackground = true
-
-                // Размер задаём рамке окна, а не контенту. При скрытом
-                // заголовке рамка получается на высоту полосы заголовка больше
-                // контента, и «высота 500» у контента давала окно в 532 точки.
-                // Свободную вертикаль внутри забирает клавиатура.
                 window.styleMask.remove(.resizable)
-                let size = CGSize(
-                    width: Theme.Metrics.panelWidth,
-                    height: Theme.Metrics.panelHeight
-                )
-                let topLeft = CGPoint(x: window.frame.minX, y: window.frame.maxY)
-                window.setFrame(
-                    CGRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height),
-                    display: true
-                )
             }
         }
+        // Размер задаётся рамке окна, а не контенту: при скрытом заголовке
+        // рамка получается на высоту полосы заголовка больше, и «высота 340» у
+        // контента давала бы окно в 372 точки.
+        .compatBackground { PanelHeight(height: panelHeight) }
         .onAppear {
             #if DEBUG
             // Позволяет проверить плавающую панель без ручного клика:
             // `EliteSIP.app/Contents/MacOS/EliteSIP --demo-incoming`.
-            // В M3 через этот же флаг гоняются регрессии по рандомизации.
             if ProcessInfo.processInfo.arguments.contains("--demo-incoming") {
                 showIncomingCallDemo()
             }
-            // Позволяет проверить регистрацию в собранном приложении без ручного
-            // клика — например снимком экрана из скрипта.
+            // Позволяет проверить регистрацию в собранном приложении без
+            // ручного клика — например снимком экрана из скрипта.
             if ProcessInfo.processInfo.arguments.contains("--connect-on-launch") {
                 Task { await model.connect() }
             }
@@ -93,39 +102,245 @@ struct PhonePanelView: View {
         }
     }
 
-    /// Кнопки в полосе заголовка: история и настройки.
+    /// Высота панели складывается из тех же промежутков, что и компоновка, а не
+    /// подбирается на глаз. Все слагаемые постоянны, поэтому и остаток, который
+    /// достаётся сетке макросов, постоянен: клавиши стоят на одном месте в любом
+    /// состоянии.
     ///
-    /// Оба действия уходят в цепочку ответчиков, где их ловит делегат
-    /// приложения. Второго кода, умеющего открывать эти окна, в приложении нет
-    /// — иначе окон стало бы по два.
+    /// Зависимость от числа макросов — это константа установки, а не состояния:
+    /// у сотрудника их шесть или девять, и меняются они в настройках, а не по
+    /// ходу разговора.
+    private var panelHeight: CGFloat {
+        let fixed = Theme.Metrics.elementSpacing          // поле над строкой состояния
+            + Theme.Metrics.statusBarHeight
+            + Theme.Gap.statusToHeader
+            + Theme.Metrics.headerHeight
+            + Theme.Gap.macrosToAction
+            + Theme.Metrics.actionHeight
+            + Theme.Metrics.contentPadding
+
+        guard !isCompact else { return fixed }
+
+        let count = max(model.usableMacros.count, 1)
+        let rows = (count + Theme.Metrics.macroColumns - 1) / Theme.Metrics.macroColumns
+        let grid = CGFloat(rows) * Theme.Metrics.macroMinHeight
+            + CGFloat(rows - 1) * Theme.Metrics.elementSpacing
+
+        return fixed
+            + Theme.Gap.headerToControls
+            + Theme.Metrics.controlHeight
+            + Theme.Gap.controlsToMacros
+            + grid
+    }
+
+    // MARK: - Ярус 1: строка состояния
+
+    /// Кто зарегистрирован, в каком состоянии клиент и вход в настройки.
     ///
-    /// Кнопки вообще нужны потому, что дорога через строку меню на рабочем
-    /// месте не работает: панель показывается сама, а в меню оператор не
-    /// смотрит. Ровно так когда-то не находили настройки.
-    private var titleBarButtons: some View {
-        HStack(spacing: 10) {
+    /// Постоянная, а не всплывающая по сбою. Всплывающая полоса показывала бы
+    /// аварию, но не отвечала на вопрос «под каким номером я сейчас работаю», а
+    /// на нескольких профилях это первое, что спрашивают. Заодно исчезает целый
+    /// класс сдвигов: строка есть всегда и место занимает всегда.
+    private var statusBar: some View {
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            indicator
+
+            Text(model.settings.account.username)
+                .font(Theme.Text.statusNumber)
+                .lineLimit(1)
+
+            Text(model.registrationTitle)
+                .font(Theme.Text.statusDetail)
+                .compatForeground(statusColor)
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+
+            iconButton("gearshape", help: "Настройки EliteSIP (⌘,)", label: "Настройки") {
+                NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
+            }
+
+            sizeToggle
+        }
+        .frame(height: Theme.Metrics.statusBarHeight)
+        .padding(.top, Theme.Metrics.elementSpacing)
+    }
+
+    @ViewBuilder
+    private var indicator: some View {
+        if model.isBusy {
+            CompatSpinner()
+                .frame(width: 10, height: 10)
+        } else {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 6, height: 6)
+        }
+    }
+
+    private var statusColor: Color {
+        switch model.registration {
+        case .idle: Theme.Palette.offline
+        case .registering, .unregistering: Theme.Palette.connecting
+        case .registered: Theme.Palette.registered
+        case .failed: Theme.Palette.failure
+        }
+    }
+
+    /// Переключатель размера. Своей иконки нет и не нужно: шеврон рисуется
+    /// формой и одинаков на всех версиях macOS, где растровому комплекту
+    /// пришлось бы держать отдельный файл.
+    private var sizeToggle: some View {
+        Button {
+            isCompact.toggle()
+        } label: {
+            Chevron(pointsUp: !isCompact)
+                .stroke(Theme.Palette.textSecondary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                .frame(width: 9, height: 5)
+                .frame(width: 20, height: Theme.Metrics.statusBarHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .hoverHighlight(cornerRadius: 5)
+        .compatHelp(isCompact ? "Развернуть панель" : "Свернуть панель")
+        .compatAccessibilityLabel(isCompact ? "Развернуть панель" : "Свернуть панель")
+    }
+
+    private func iconButton(
+        _ symbol: String,
+        help: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            CompatSymbol(name: symbol, size: 12)
+                .compatForeground(Theme.Palette.textSecondary)
+                .frame(width: 20, height: Theme.Metrics.statusBarHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .hoverHighlight(cornerRadius: 5)
+        .compatHelp(help)
+        .compatAccessibilityLabel(label)
+    }
+
+    // MARK: - Ярус 2: изменчивая середина
+
+    private var middle: some View {
+        // Промежутки заданы поштучно, поэтому у стопки собственного шага нет.
+        VStack(spacing: 0) {
+            header
+                .padding(.bottom, Theme.Gap.headerToControls)
+
+            // Ряд управления виден и в покое, только выключенным. Прятать его
+            // целиком значит менять геометрию панели ровно в момент ответа на
+            // вызов: макросы и всё под ними подскакивали бы на его высоту.
+            CallControls()
+
+            // Единственная граница между управлением и макросами — воздух.
+            Color.clear.frame(height: Theme.Gap.controlsToMacros)
+
+            // Поле перевода занимает место сетки макросов, а не встаёт под ней:
+            // пока оператор набирает номер перевода, макросы всё равно не
+            // нужны, а лишний ярус пришлось бы отнять у чего-то другого.
+            if model.isTransferEntryVisible {
+                TransferEntry()
+                Spacer(minLength: 0)
+            } else {
+                MacroGrid()
+            }
+        }
+        .padding(.top, Theme.Gap.statusToHeader)
+    }
+
+    /// Шапка: поле набора в покое, собеседник с таймером в разговоре, два поля
+    /// при двух линиях. Высота у всех трёх одна и та же.
+    @ViewBuilder
+    private var header: some View {
+        if model.lines.count > 1 {
+            // Две линии — два поля вместо одного, в том же слоте.
+            //
+            // Отдельной полосы линий нет: линия и есть собеседник, и показывать
+            // их порознь значит дважды писать одно и то же.
+            VStack(spacing: 4) {
+                ForEach(model.lines.prefix(2)) { line in
+                    LineField(line: line, now: now)
+                }
+            }
+            .frame(height: Theme.Metrics.headerHeight)
+        } else {
+            CallHeader(now: now)
+        }
+    }
+
+    // MARK: - Ярус 3: неподвижный низ
+
+    /// Две кнопки, обе всегда на своём месте и в обоих видах панели.
+    ///
+    /// «История» стоит здесь, а не в полосе заголовка, потому что нужна
+    /// постоянно: перезвонить по пропущенному — основной способ исходящего
+    /// звонка. Её ширина задана жёстко, чтобы кнопка звонка не меняла размер.
+    private var bottomBar: some View {
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            callButton
+
             Button {
                 NSApp.sendAction(#selector(AppDelegate.showCallHistoryWindow(_:)), to: nil, from: nil)
             } label: {
-                CompatSymbol(name: "clock")
+                VStack(spacing: 1) {
+                    CompatSymbol(name: "clock", size: 13)
+                    Text("История")
+                        .font(.system(size: 10))
+                }
+                .frame(width: Theme.Metrics.historyWidth, height: Theme.Metrics.actionHeight)
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
-            .compatForeground(.secondary)
+            .buttonStyle(.plain)
+            .themedControlSurface()
+            .hoverHighlight()
             .compatHelp("История звонков (⌘Y)")
             .compatAccessibilityLabel("История звонков")
-
-            Button {
-                NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
-            } label: {
-                CompatSymbol(name: "gearshape")
-            }
-            .buttonStyle(.borderless)
-            .compatForeground(.secondary)
-            .compatHelp("Настройки EliteSIP (⌘,)")
-            .compatAccessibilityLabel("Настройки")
         }
-        .padding(.top, 5)
-        .padding(.trailing, Theme.Metrics.contentPadding)
+    }
+
+    private var isCallButtonEnabled: Bool {
+        model.isInCall || (model.canPlaceCall && model.hasDialedNumber)
+    }
+
+    private var callButton: some View {
+        Button {
+            Task {
+                if model.isInCall {
+                    await model.hangUp()
+                } else {
+                    await model.placeCall()
+                }
+            }
+        } label: {
+            CompatLabel(
+                title: model.isInCall ? "Завершить" : "Позвонить",
+                symbol: model.isInCall ? "phone.down.fill" : "phone.fill"
+            )
+            .font(Theme.Text.controlLabel)
+            .compatForeground(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: Theme.Metrics.actionHeight)
+            .compatBackground(
+                model.isInCall ? Theme.Palette.decline : Theme.Palette.answer,
+                cornerRadius: Theme.Radius.control
+            )
+            .contentShape(Rectangle())
+        }
+        // Заливка задана явно, а не через .borderedProminent с tint: у того
+        // радиус меньше макетного, а в неактивном окне акцент выцветает в
+        // серый — панель висит поверх CRM и активной бывает редко.
+        .buttonStyle(.plain)
+        .hoverHighlight(isEnabled: isCallButtonEnabled)
+        .disabled(!isCallButtonEnabled)
+        // Системное затемнение выключенной кнопки на стеклянном фоне почти не
+        // видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
+        .opacity(isCallButtonEnabled ? 1 : 0.4)
+        .compatHelp(model.isInCall ? "Завершить разговор" : "Позвонить по набранному номеру")
     }
 
     #if DEBUG
@@ -150,565 +365,434 @@ struct PhonePanelView: View {
             onDecline: {}
         )
     }
+}
 
-    private var isCallButtonEnabled: Bool {
-        model.isInCall || (model.canPlaceCall && model.hasDialedNumber)
-    }
+/// Шеврон переключателя размера.
+///
+/// Рисуется формой, а не иконкой: комплекту для Catalina пришлось бы держать под
+/// него два файла ради двух отрезков.
+private struct Chevron: Shape {
 
-    private var callButton: some View {
-        VStack(spacing: 4) {
-            Button {
-                Task {
-                    if model.isInCall {
-                        await model.hangUp()
-                    } else {
-                        await model.placeCall()
-                    }
-                }
-            } label: {
-                CompatLabel(title: model.isInCall ? "Завершить" : "Позвонить", symbol: model.isInCall ? "phone.down.fill" : "phone.fill")
-                .font(Theme.Text.controlLabel)
-                .compatForeground(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .compatBackground(
-                    model.isInCall ? Theme.Palette.decline : Theme.Palette.answer,
-                    cornerRadius: Theme.Radius.control
-                )
-                .contentShape(.rect)
-            }
-            // Заливка задана явно, а не через .borderedProminent с tint: у того
-            // радиус меньше макетного, а в неактивном окне акцент выцветает в
-            // серый — панель висит поверх CRM и активной бывает редко.
-            .buttonStyle(.plain)
-            .hoverHighlight(isEnabled: isCallButtonEnabled)
-            .disabled(!isCallButtonEnabled)
-            // Системное затемнение выключенной кнопки на стеклянном фоне почти
-            // не видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
-            .opacity(isCallButtonEnabled ? 1 : 0.4)
-            .compatHelp(model.isInCall ? "Завершить разговор" : "Позвонить по набранному номеру")
+    let pointsUp: Bool
 
-            if !model.callStatus.isEmpty {
-                Text(model.callStatus)
-                    .font(.system(size: 10))
-                    .compatForeground(.secondary)
-                    .lineLimit(1)
-            }
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        if pointsUp {
+            path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        } else {
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
         }
-    }
-
-    private var debugSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            MilestoneNote("M6: три линии, консультация и ConfBridge готовы; живой прогон впереди.")
-
-            Button {
-                showIncomingCallDemo()
-            } label: {
-                CompatLabel(title: "Показать окно входящего", symbol: "bell.badge")
-                    .frame(maxWidth: .infinity)
-            }
-            .controlSize(.small)
-            .compatHelp("Проверка плавающей панели и рандомизации позиции")
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        return path
     }
 }
 
-struct RegistrationBadge: View {
+/// Шапка одной линии: поле набора в покое, собеседник и таймер в разговоре.
+///
+/// Высота одна на оба состояния — внутри меняется только содержимое. Иначе при
+/// ответе на вызов шапка вырастала бы и сдвигала вниз всё, что под ней.
+struct CallHeader: View {
 
     @EnvironmentObject private var model: AppModel
 
-    var body: some View {
-        HStack(spacing: 8) {
-            indicator
+    let now: Date
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(model.registrationTitle)
-                    .font(Theme.Text.panelStatus)
+    var body: some View {
+        content
+            .frame(height: Theme.Metrics.headerHeight)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Theme.Metrics.contentPadding)
+            .themedControlSurface()
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if model.isInCall {
+            // Две строки: имя крупно, а номер, таймер и состояние — одной мелкой
+            // строкой под ним.
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.Text.callerName)
                     .lineLimit(1)
-                if let detail = model.registrationDetail {
-                    Text(detail)
-                        .font(Theme.Text.panelDetail)
-                        .compatForeground(Theme.Palette.tertiary)
+                    .minimumScaleFactor(0.7)
+
+                HStack(spacing: 5) {
+                    // Номер показывается только когда крупным идёт имя, иначе
+                    // он повторил бы сам себя.
+                    if hasName {
+                        Text(model.activeLine?.peer ?? "")
+                            .font(Theme.Text.callerNumber)
+                            .compatForeground(Theme.Palette.textSecondary)
+                            .lineLimit(1)
+                            .layoutPriority(-1)
+
+                        Text("·")
+                            .font(Theme.Text.callerNumber)
+                            .compatForeground(Theme.Palette.tertiary)
+                    }
+
+                    if let duration {
+                        Text(duration)
+                            .font(Theme.Text.callTimer)
+                            .compatMonospacedDigit()
+                    }
+
+                    Text(model.callStatus)
+                        .font(Theme.Text.callerNumber)
+                        .compatForeground(
+                            model.isOnHold || model.isMicrophoneMuted
+                                ? Theme.Palette.connecting
+                                : Theme.Palette.textSecondary
+                        )
                         .lineLimit(1)
+
+                    Spacer(minLength: 0)
                 }
             }
-
-            Spacer(minLength: 4)
-
-            connectionButton
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .themedControlSurface()
-    }
-
-
-    @ViewBuilder
-    private var indicator: some View {
-        if model.isBusy {
-            CompatSpinner()
-                .frame(width: 10, height: 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
+            DialedNumberField()
         }
     }
 
-    @ViewBuilder
-    private var connectionButton: some View {
-        if model.isConnected || model.isBusy {
-            Button("Отключить") {
-                Task { await model.disconnect() }
-            }
-            .controlSize(.small)
-            // Кнопка в двух сантиметрах от «Завершить», а снимает регистрацию
-            // вместе со всеми диалогами. В разговоре она недоступна.
-            .disabled(!model.canDisconnect)
-            .compatHelp(
-                model.canDisconnect
-                    ? "Снять регистрацию на сервере"
-                    : "Недоступно в разговоре: сначала завершите звонок"
-            )
-        } else {
-            Button("Подключить") {
-                Task { await model.connect() }
-            }
-            .controlSize(.small)
-            .disabled(!model.canConnect)
-            .compatHelp(model.canConnect ? "Зарегистрироваться на сервере" : "Сначала заполните учётную запись в настройках")
-        }
+    private var hasName: Bool {
+        !(model.activeLine?.displayName ?? "").isEmpty
     }
 
-    private var color: Color {
-        switch model.registration {
-        case .idle: Theme.Palette.offline
-        case .registering, .unregistering: Theme.Palette.connecting
-        case .registered: Theme.Palette.registered
-        case .failed: Theme.Palette.failure
-        }
+    private var title: String {
+        let line = model.activeLine
+        let name = line?.displayName ?? ""
+        return name.isEmpty ? (line?.peer ?? "") : name
+    }
+
+    private var duration: String? {
+        guard let connectedAt = model.activeLine?.connectedAt else { return nil }
+        let seconds = max(Int(now.timeIntervalSince(connectedAt)), 0)
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
     }
 }
 
+/// Поле одной линии, когда линий две. Нажатие переводит звук на неё.
+struct LineField: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    let line: AppModel.CallLine
+    let now: Date
+
+    private var isActive: Bool { line.id == model.activeLineID }
+
+    private var isSwitchable: Bool {
+        !isActive && !model.isSwitchingLines && !model.isTransferring
+    }
+
+    var body: some View {
+        Button {
+            Task { await model.switchLine(to: line.id) }
+        } label: {
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                Circle()
+                    .fill(isActive ? Theme.Palette.registered : Theme.Palette.tertiary)
+                    .frame(width: 6, height: 6)
+
+                Text(line.displayName?.isEmpty == false ? line.displayName! : line.title)
+                    .font(Theme.Text.lineTitle)
+                    .lineLimit(1)
+
+                Spacer(minLength: 4)
+
+                Text(status)
+                    .font(Theme.Text.callerNumber)
+                    .compatMonospacedDigit()
+                    .compatForeground(isActive ? Theme.Palette.textSecondary : Theme.Palette.tertiary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, Theme.Metrics.contentPadding)
+            .frame(maxWidth: .infinity)
+            .frame(height: 22)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // Звучащая линия выделена заливкой, ждущая приглушена: перепутать их
+        // значит говорить в тишину.
+        .compatBackground {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.primary.opacity(isActive ? 0.10 : 0.05))
+        }
+        .hoverHighlight(cornerRadius: 6, isEnabled: isSwitchable)
+        .disabled(!isSwitchable)
+        .compatHelp(isActive ? "Звук идёт по этой линии" : "Переключить звук на \(line.title)")
+    }
+
+    private var status: String {
+        guard let connectedAt = line.connectedAt else { return line.status }
+        let seconds = max(Int(now.timeIntervalSince(connectedAt)), 0)
+        let timer = String(format: "%02d:%02d", seconds / 60, seconds % 60)
+        return line.isOnHold ? "\(timer) · удержание" : "\(timer) · разговор"
+    }
+}
+
+/// Поле набора номера.
+///
+/// Настоящее текстовое поле, а не текст: дайлпада больше нет, номер вводится с
+/// клавиатуры — значит поле обязано быть полем. Отсюда бесплатно берутся
+/// backspace, выделение, ⌘C и ⌘V, которых в панели не было.
 struct DialedNumberField: View {
 
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        HStack(spacing: 6) {
-            // В разговоре здесь видны отправленные тоны, а не набранный номер:
-            // без обратной связи оператор не отличит «цифра ушла» от «кнопка
-            // не нажалась», а голосовое меню молчит одинаково в обоих случаях.
-            Text(model.displayedNumber.isEmpty ? placeholder : model.displayedNumber)
-                .font(.system(size: Theme.Metrics.dialedNumberFontSize, weight: .light, design: .rounded))
-                .compatForeground(model.displayedNumber.isEmpty ? Theme.Palette.tertiary : .primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .truncationMode(.head)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            CompatTextField(
+                title: "Номер",
+                text: Binding(
+                    get: { model.dialedNumber },
+                    set: { model.dialedNumber = $0 }
+                ),
+                onSubmit: { Task { await model.placeCall() } }
+            )
+            .textFieldStyle(.plain)
+            .font(Theme.Text.dialedNumber)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            if !model.isInCall, model.hasDialedNumber {
-                Button {
-                    model.removeLastDigit()
-                } label: {
-                    CompatSymbol(name: "delete.left")
-                }
-                .buttonStyle(.borderless)
-                .compatHelp("Удалить последнюю цифру")
-
+            if model.hasDialedNumber {
                 Button {
                     model.clearDialedNumber()
                 } label: {
-                    CompatSymbol(name: "xmark.circle.fill")
+                    CompatSymbol(name: "xmark.circle.fill", size: 12)
+                        .compatForeground(Theme.Palette.tertiary)
                 }
                 .buttonStyle(.borderless)
                 .compatHelp("Очистить")
+                .compatAccessibilityLabel("Очистить номер")
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .themedSurface()
-    }
-
-    private var placeholder: String {
-        model.callPhase == .active ? "Тоны" : "Номер"
     }
 }
 
-/// Кнопки, которые имеют смысл только в разговоре: удержание, микрофон, макросы.
+/// Кнопки, которые имеют смысл только в разговоре: удержание, микрофон, перевод.
 ///
-/// Появляются вместе с разговором и исчезают вместе с ним. Держать их на экране
-/// постоянно, но выключенными, значит занимать место на узкой панели ради того,
-/// чем нельзя воспользоваться.
+/// Три, и только три: конференция и консультация делаются DTMF-макросами на
+/// стороне сервера. Ряд виден и в покое, но выключенным — иначе его появление
+/// сдвигало бы сетку макросов в момент ответа на вызов.
 struct CallControls: View {
 
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(spacing: 6) {
-            if model.lines.count > 1 {
-                LineStrip()
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            controlButton(
+                title: model.isOnHold ? "Вернуть" : "Удержать",
+                symbol: model.isOnHold ? "play.fill" : "pause.fill",
+                isOn: model.isOnHold,
+                isEnabled: model.canHold,
+                help: model.isOnHold
+                    ? "Вернуться к разговору"
+                    : "Собеседник услышит музыку ожидания сервера"
+            ) {
+                Task { await model.toggleHold() }
             }
 
-            HStack(spacing: 6) {
-                controlButton(
-                    title: model.isOnHold ? "Вернуть" : "Удержать",
-                    systemImage: model.isOnHold ? "play.fill" : "pause.fill",
-                    isOn: model.isOnHold,
-                    isEnabled: model.canHold,
-                    help: model.isOnHold
-                        ? "Вернуться к разговору"
-                        : "Собеседник услышит музыку ожидания сервера"
-                ) {
-                    Task { await model.toggleHold() }
-                }
-
-                controlButton(
-                    title: model.isMicrophoneMuted ? "Включить" : "Микрофон",
-                    systemImage: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
-                    isOn: model.isMicrophoneMuted,
-                    isEnabled: model.callPhase == .active,
-                    help: "Собеседник не услышит вас и не узнает об этом"
-                ) {
-                    model.toggleMicrophone()
-                }
+            controlButton(
+                title: "Микрофон",
+                symbol: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
+                isOn: model.isMicrophoneMuted,
+                isEnabled: model.callPhase == .active,
+                help: "Собеседник не услышит вас и не узнает об этом"
+            ) {
+                model.toggleMicrophone()
             }
 
-            if !model.usableMacros.isEmpty {
-                // Ряд с переносом: макросов может быть сколько угодно, а панель
-                // шириной 280 точек не резиновая.
-                MacroFlow(items: model.usableMacros, spacing: 6) { macro in
-                    Button(macro.title) {
-                        model.send(macro: macro)
-                    }
-                    .buttonStyle(.plain)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .themedControlSurface()
-                    .hoverHighlight(isEnabled: model.canSendDTMF)
-                    .disabled(!model.canSendDTMF)
-                    .opacity(model.canSendDTMF ? 1 : 0.4)
-                    .compatHelp(model.settings.dtmf.sequence(of: macro).displayText)
-                }
-            }
-
-            HStack(spacing: 6) {
-                controlButton(
-                    title: "Перевести",
-                    systemImage: "phone.arrow.right",
-                    isOn: model.isTransferEntryVisible && model.numberEntry == .blindTransfer,
-                    isEnabled: model.canTransfer && !model.isTransferEntryVisible,
-                    help: "Слепой перевод текущего разговора"
-                ) {
-                    model.showTransferEntry()
-                }
-
-                controlButton(
-                    title: "Конференция",
-                    systemImage: "person.3.fill",
-                    isOn: model.isConferenceCommandSent,
-                    isEnabled: model.canStartConference,
-                    help: "Перевести оба плеча разговора в ConfBridge"
-                ) {
-                    model.startConference()
-                }
-            }
-
-            // Консультация: клиент уходит на удержание, оператор набирает
-            // коллегу и только после разговора соединяет их.
-            if let consultation = model.consultationLine {
-                HStack(spacing: 6) {
-                    controlButton(
-                        title: "Соединить",
-                        systemImage: "arrow.triangle.merge",
-                        isOn: false,
-                        isEnabled: model.canCompleteConsultation,
-                        help: "Соединить собеседников и уйти из разговора"
-                    ) {
-                        Task { await model.completeConsultation() }
-                    }
-
-                    controlButton(
-                        title: "Отбой \(consultation.title)",
-                        systemImage: "phone.down.fill",
-                        isOn: false,
-                        isEnabled: !model.isTransferring,
-                        help: "Завершить консультацию и вернуться к клиенту"
-                    ) {
-                        Task { await model.cancelConsultation() }
-                    }
-                }
-            } else {
-                controlButton(
-                    title: "Консультация",
-                    systemImage: "person.badge.plus",
-                    isOn: model.isTransferEntryVisible && model.numberEntry == .consultation,
-                    isEnabled: model.canConsult && !model.isTransferEntryVisible,
-                    help: "Позвонить коллеге, пока клиент на удержании"
-                ) {
-                    model.showConsultationEntry()
-                }
-            }
-
-            if model.isTransferEntryVisible {
-                TransferEntry()
+            controlButton(
+                title: "Перевести",
+                symbol: "phone.arrow.right",
+                isOn: model.isTransferEntryVisible,
+                isEnabled: model.canTransfer && !model.isTransferEntryVisible,
+                help: "Слепой перевод текущего разговора"
+            ) {
+                model.showTransferEntry()
             }
         }
+        .frame(height: Theme.Metrics.controlHeight)
     }
 
     private func controlButton(
         title: String,
-        systemImage: String,
+        symbol: String,
         isOn: Bool,
         isEnabled: Bool,
         help: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            CompatLabel(title: title, symbol: systemImage)
-                .font(Theme.Text.controlLabel)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .contentShape(.rect)
+            HStack(spacing: 3) {
+                CompatSymbol(name: symbol, size: 10)
+                Text(title)
+                    .font(Theme.Text.statusDetail)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .compatForeground(isOn ? Color.white : Color.primary)
         .compatBackground {
             if isOn {
-                RoundedRectangle(cornerRadius: Theme.Radius.control).fill(Theme.Palette.connecting)
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .fill(Theme.Palette.connecting)
             }
         }
         .themedControlSurface()
         .hoverHighlight(isEnabled: isEnabled)
         .disabled(!isEnabled)
-        .opacity(isEnabled ? 1 : 0.4)
+        .opacity(isEnabled ? 1 : 0.35)
         .compatHelp(help)
     }
 }
 
-/// Линии оператора: какая звучит, какие ждут на удержании.
+/// Сетка DTMF-макросов на месте бывшего дайлпада.
 ///
-/// Появляется только со второй линией. Одна линия — это обычный разговор, и
-/// полоса с единственной строкой заняла бы место, ничего не сообщив.
-private struct LineStrip: View {
+/// Крупная подпись, три в ряд, порядок постоянный: оператор целится в место, а
+/// не читает каждый раз. Вне разговора макросы видны, но выключены — набор у
+/// сотрудника постоянный, и его раскладка должна запоминаться глазами до того,
+/// как начнётся звонок.
+struct MacroGrid: View {
 
     @EnvironmentObject private var model: AppModel
 
-    private func isSwitchable(_ line: AppModel.CallLine) -> Bool {
-        line.id != model.activeLineID && !model.isSwitchingLines && !model.isTransferring
+    private var rows: [[AppSettings.DTMFSettings.Macro]] {
+        let macros = model.usableMacros
+        return stride(from: 0, to: macros.count, by: Theme.Metrics.macroColumns).map { start in
+            Array(macros[start..<min(start + Theme.Metrics.macroColumns, macros.count)])
+        }
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            ForEach(model.lines) { line in
-                Button {
-                    Task { await model.switchLine(to: line.id) }
-                } label: {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(line.id == model.activeLineID ? Theme.Palette.registered : Theme.Palette.offline)
-                            .frame(width: 6, height: 6)
-                        Text(line.title)
-                            .font(Theme.Text.panelStatus)
-                            .lineLimit(1)
-                        Spacer(minLength: 4)
-                        Text(line.status)
-                            .font(Theme.Text.panelDetail)
-                            .compatForeground(Theme.Palette.tertiary)
-                            .lineLimit(1)
+        VStack(spacing: Theme.Metrics.elementSpacing) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: Theme.Metrics.elementSpacing) {
+                    ForEach(row) { macro in
+                        macroButton(macro)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .contentShape(.rect)
+                    // Хвост неполного ряда: пустые места, чтобы кнопки не
+                    // расползались по ширине и раскладка не менялась.
+                    if row.count < Theme.Metrics.macroColumns {
+                        ForEach(0..<(Theme.Metrics.macroColumns - row.count), id: \.self) { _ in
+                            Color.clear.frame(maxWidth: .infinity)
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
-                .themedControlSurface()
-                .hoverHighlight(isEnabled: isSwitchable(line))
-                .disabled(!isSwitchable(line))
-                .compatHelp(
-                    line.id == model.activeLineID
-                        ? "Звук идёт по этой линии"
-                        : "Переключить звук на \(line.title)"
-                )
             }
         }
+    }
+
+    private func macroButton(_ macro: AppSettings.DTMFSettings.Macro) -> some View {
+        Button {
+            model.send(macro: macro)
+        } label: {
+            Text(macro.title)
+                .font(Theme.Text.macro)
+                // Подпись из одного слова переносить некуда: перенос разорвал бы
+                // «Конференция» посреди слова, оставив висячую букву. Такие
+                // подписи держим в строку и ужимаем кеглем, из двух слов —
+                // переносим по пробелу.
+                .lineLimit(macro.title.contains(" ") ? 2 : 1)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity)
+                // Клавиша забирает свободную вертикаль и не сжимается ниже
+                // минимума: иначе между сеткой и кнопкой завершения возник бы
+                // провал вместо заданных 15 точек.
+                .frame(minHeight: Theme.Metrics.macroMinHeight, maxHeight: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .themedControlSurface()
+        .hoverHighlight(isEnabled: model.canSendDTMF)
+        .disabled(!model.canSendDTMF)
+        .opacity(model.canSendDTMF ? 1 : 0.35)
+        .compatHelp(model.settings.dtmf.sequence(of: macro).displayText)
     }
 }
 
-/// Номер перевода или консультации и его подтверждение.
+/// Номер перевода и его подтверждение.
 ///
-/// Поле показывается только по явному нажатию: в панели 280 точек, и постоянно
-/// занимать место редкой операцией за счёт клавиатуры и статуса звонка нельзя.
-private struct TransferEntry: View {
+/// Собрано на тех же токенах, что и вся панель: системные `roundedBorder` и
+/// `bordered` выпадали из окна другим радиусом, рамкой и высотой.
+struct TransferEntry: View {
 
     @EnvironmentObject private var model: AppModel
 
-    private var isConsultation: Bool { model.numberEntry == .consultation }
-
-    private var actionTitle: String { isConsultation ? "Позвонить" : "Перевести" }
-
     private func submit() {
         guard model.hasTransferNumber, !model.isTransferring else { return }
-        Task {
-            if isConsultation {
-                await model.startConsultation()
-            } else {
-                await model.blindTransfer()
-            }
-        }
+        Task { await model.blindTransfer() }
     }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: Theme.Metrics.elementSpacing) {
             CompatTextField(
-                title: isConsultation ? "Номер коллеги" : "Номер перевода",
+                title: "Номер перевода",
                 text: Binding(
                     get: { model.transferNumber },
                     set: { model.transferNumber = $0 }
                 ),
                 onSubmit: submit
             )
-                .textFieldStyle(.roundedBorder)
-                .disabled(model.isTransferring)
+            .textFieldStyle(.plain)
+            .font(Theme.Text.callerName)
+            .lineLimit(1)
+            .padding(.horizontal, Theme.Metrics.contentPadding)
+            .frame(height: 34)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .themedControlSurface()
+            .disabled(model.isTransferring)
 
-            HStack(spacing: 6) {
-                Button("Отмена") {
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                button("Отмена", isProminent: false) {
                     model.cancelTransferEntry()
                 }
-                .frame(maxWidth: .infinity)
                 .disabled(model.isTransferring)
 
-                Button(action: submit) {
-                    if model.isTransferring {
-                        CompatSpinner()
-                            .frame(height: 12)
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text(actionTitle)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .compatProminentButtonStyle()
-                .disabled(!model.hasTransferNumber || model.isTransferring)
-            }
-            .controlSize(.small)
-        }
-        .padding(8)
-        .themedSurface()
-    }
-}
-
-/// Кнопки макросов: перенос по ширине там, где он есть, и сетка там, где нет.
-///
-/// `Layout` появился только в macOS 13, а срез x86_64 обязан работать на
-/// Catalina. Замена ему — фиксированные три кнопки в ряд: подпись макроса
-/// задаёт оператор, и предсказать её ширину заранее нельзя, но три коротких
-/// кнопки в панель шириной 280 точек влезают всегда. Переносить по месту без
-/// `Layout` пришлось бы через `GeometryReader` и preference key, а это лишний
-/// проход раскладки ради ряда кнопок.
-struct MacroFlow<Item: Identifiable, Content: View>: View {
-
-    let items: [Item]
-    var spacing: CGFloat = 6
-    @ViewBuilder let content: (Item) -> Content
-
-    private static var itemsPerRow: Int { 3 }
-
-    var body: some View {
-        if #available(macOS 13.0, *) {
-            FlowRow(spacing: spacing) {
-                ForEach(items) { content($0) }
-            }
-        } else {
-            VStack(alignment: .leading, spacing: spacing) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                    HStack(spacing: spacing) {
-                        ForEach(row) { content($0) }
-                        Spacer(minLength: 0)
-                    }
+                if model.isTransferring {
+                    CompatSpinner()
+                        .frame(height: 12)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 30)
+                } else {
+                    button("Перевести", isProminent: true, action: submit)
+                        .disabled(!model.hasTransferNumber)
+                        .opacity(model.hasTransferNumber ? 1 : 0.4)
                 }
             }
         }
     }
 
-    private var rows: [[Item]] {
-        stride(from: 0, to: items.count, by: Self.itemsPerRow).map { start in
-            Array(items[start..<min(start + Self.itemsPerRow, items.count)])
+    private func button(
+        _ title: String,
+        isProminent: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Theme.Text.controlLabel)
+                .compatForeground(isProminent ? Color.white : Color.primary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 30)
+                .contentShape(Rectangle())
         }
-    }
-}
-
-/// Ряд с переносом на следующую строку.
-///
-/// SwiftUI до `Layout` этого не умел, а `LazyVGrid` раздаёт колонкам одинаковую
-/// ширину — подписи макросов бывают и в два символа, и в десять.
-@available(macOS 13.0, *)
-struct FlowRow: Layout {
-
-    var spacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
-        var rowWidth: CGFloat = 0
-        var totalHeight: CGFloat = 0
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if rowWidth > 0, rowWidth + spacing + size.width > width {
-                totalHeight += rowHeight + spacing
-                rowWidth = size.width
-                rowHeight = size.height
-            } else {
-                rowWidth += rowWidth > 0 ? spacing + size.width : size.width
-                rowHeight = max(rowHeight, size.height)
+        .buttonStyle(.plain)
+        .compatBackground {
+            if isProminent {
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .fill(Theme.Palette.answer)
             }
         }
-        return CGSize(width: width == .infinity ? rowWidth : width, height: totalHeight + rowHeight)
-    }
-
-    func placeSubviews(
-        in bounds: CGRect,
-        proposal: ProposedViewSize,
-        subviews: Subviews,
-        cache: inout ()
-    ) {
-        var x = bounds.minX
-        var y = bounds.minY
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-    }
-}
-
-/// Честная пометка о том, что ещё не сделано.
-///
-/// Нужна, чтобы скелет нельзя было принять за работающее приложение: кнопка,
-/// которая выглядит рабочей и молча ничего не делает, хуже отсутствующей.
-struct MilestoneNote: View {
-
-    private let text: String
-
-    init(_ text: String) {
-        self.text = text
-    }
-
-    var body: some View {
-        CompatLabel(title: text, symbol: "hammer.fill")
-            .font(.footnote)
-            .compatForeground(.secondary)
+        .themedControlSurface()
+        .hoverHighlight()
     }
 }
