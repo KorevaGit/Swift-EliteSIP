@@ -96,6 +96,21 @@ extension View {
         background(content(), alignment: alignment)
     }
 
+    /// Содержимое во всю высоту окна, включая полосу заголовка.
+    ///
+    /// Панель рисует собственную строку состояния на одной линии со светофором,
+    /// а SwiftUI по умолчанию отводит под полосу заголовка безопасную зону и
+    /// опускает содержимое под неё. `ignoresSafeArea` — macOS 11, ниже тот же
+    /// смысл даёт `edgesIgnoringSafeArea`.
+    @ViewBuilder
+    func compatIgnoreSafeArea() -> some View {
+        if #available(macOS 11.0, *) {
+            self.ignoresSafeArea()
+        } else {
+            self.edgesIgnoringSafeArea(.all)
+        }
+    }
+
     /// `background(_:in:)` — заливка формой — тоже macOS 12.
     func compatBackground(_ color: Color, cornerRadius: CGFloat) -> some View {
         background(RoundedRectangle(cornerRadius: cornerRadius).fill(color))

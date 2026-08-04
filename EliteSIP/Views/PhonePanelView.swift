@@ -59,6 +59,7 @@ struct PhonePanelView: View {
         // скругления у содержимого быть не должно, иначе по углам проступят
         // углы окна.
         .themedPanelSurface(cornerRadius: 0)
+        .compatIgnoreSafeArea()
         .onReceive(clock) { now = $0 }
         .compatBackground {
             WindowAccessor { window in
@@ -111,8 +112,7 @@ struct PhonePanelView: View {
     /// у сотрудника их шесть или девять, и меняются они в настройках, а не по
     /// ходу разговора.
     private var panelHeight: CGFloat {
-        let fixed = Theme.Metrics.elementSpacing          // поле над строкой состояния
-            + Theme.Metrics.statusBarHeight
+        let fixed = Theme.Metrics.statusBarHeight
             + Theme.Gap.statusToHeader
             + Theme.Metrics.headerHeight
             + Theme.Gap.macrosToAction
@@ -142,8 +142,13 @@ struct PhonePanelView: View {
     /// на нескольких профилях это первое, что спрашивают. Заодно исчезает целый
     /// класс сдвигов: строка есть всегда и место занимает всегда.
     private var statusBar: some View {
-        HStack(spacing: Theme.Metrics.elementSpacing) {
-            indicator
+        HStack(spacing: 4) {
+            // Цветной точки здесь больше нет: рядом со светофором она читается
+            // как четвёртая кнопка окна. Состояние несёт цвет самой подписи.
+            if model.isBusy {
+                CompatSpinner()
+                    .frame(width: 10, height: 10)
+            }
 
             Text(model.settings.account.username)
                 .font(Theme.Text.statusNumber)
@@ -153,6 +158,9 @@ struct PhonePanelView: View {
                 .font(Theme.Text.statusDetail)
                 .compatForeground(statusColor)
                 .lineLimit(1)
+                // «Не подключено» — самая длинная из подписей состояния, и в
+                // 250 точек рядом со светофором она укладывается впритык.
+                .minimumScaleFactor(0.85)
 
             Spacer(minLength: 4)
 
@@ -163,19 +171,9 @@ struct PhonePanelView: View {
             sizeToggle
         }
         .frame(height: Theme.Metrics.statusBarHeight)
-        .padding(.top, Theme.Metrics.elementSpacing)
-    }
-
-    @ViewBuilder
-    private var indicator: some View {
-        if model.isBusy {
-            CompatSpinner()
-                .frame(width: 10, height: 10)
-        } else {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 6, height: 6)
-        }
+        // Слева — светофор окна. Он остаётся: это единственный способ закрыть
+        // панель мышью, пока значка в строке меню нет.
+        .padding(.leading, Theme.Metrics.trafficLightsInset)
     }
 
     private var statusColor: Color {
@@ -197,7 +195,7 @@ struct PhonePanelView: View {
             Chevron(pointsUp: !isCompact)
                 .stroke(Theme.Palette.textSecondary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                 .frame(width: 9, height: 5)
-                .frame(width: 20, height: Theme.Metrics.statusBarHeight)
+                .frame(width: 18, height: Theme.Metrics.statusBarHeight)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -215,7 +213,7 @@ struct PhonePanelView: View {
         Button(action: action) {
             CompatSymbol(name: symbol, size: 12)
                 .compatForeground(Theme.Palette.textSecondary)
-                .frame(width: 20, height: Theme.Metrics.statusBarHeight)
+                .frame(width: 18, height: Theme.Metrics.statusBarHeight)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
