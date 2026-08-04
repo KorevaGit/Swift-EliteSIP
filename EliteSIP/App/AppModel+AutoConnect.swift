@@ -63,7 +63,19 @@ extension AppModel {
     /// поднятого агента. Молчит, когда подключаться нечем, — это не ошибка, а
     /// обычное состояние ненастроенной машины.
     func connectIfPossible() async {
-        guard canConnect else { return }
+        guard canConnect else {
+            // Молчать здесь нельзя: без кнопки «Подключить» единственный след
+            // отказа — строка состояния, а в журнале должно остаться, чего
+            // именно не хватило. Самый частый случай — пароль сохранён, но для
+            // другого профиля: ключ связки это «номер@домен».
+            if let hint = setupHint {
+                append(
+                    level: .warning,
+                    message: "автоподключение отложено: \(hint.lowercased()) — профиль «\(settings.profiles.active.label)», \(settings.account.username)@\(settings.account.domain)"
+                )
+            }
+            return
+        }
         await connect()
     }
 

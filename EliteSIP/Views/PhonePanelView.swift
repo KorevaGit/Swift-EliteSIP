@@ -148,13 +148,34 @@ struct PhonePanelView: View {
                 .font(Theme.Text.statusNumber)
                 .lineLimit(1)
 
-            Text(model.registrationTitle)
-                .font(Theme.Text.statusDetail)
-                .compatForeground(statusColor)
-                .lineLimit(1)
-                // «Не подключено» — самая длинная из подписей состояния, и в
-                // 250 точек рядом со светофором она укладывается впритык.
-                .minimumScaleFactor(0.85)
+            // Когда подключиться мешает незаполненная настройка, подпись
+            // становится дорогой к ней. Иначе «Нужен пароль» — это тупик:
+            // кнопки «Подключить» больше нет, и человеку некуда нажать.
+            if model.setupHint != nil {
+                Button {
+                    NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(model.registrationTitle)
+                            .font(Theme.Text.statusDetail)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                        CompatSymbol(name: "exclamationmark.circle", size: 11)
+                    }
+                    .compatForeground(Theme.Palette.connecting)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .compatHelp("Открыть настройки и заполнить недостающее")
+            } else {
+                Text(model.registrationTitle)
+                    .font(Theme.Text.statusDetail)
+                    .compatForeground(statusColor)
+                    .lineLimit(1)
+                    // «Не подключено» — самая длинная из подписей состояния, и
+                    // в 270 точек рядом со светофором она укладывается впритык.
+                    .minimumScaleFactor(0.85)
+            }
 
             Spacer(minLength: 4)
 

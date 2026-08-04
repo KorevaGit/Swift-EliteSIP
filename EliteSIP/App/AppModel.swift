@@ -313,9 +313,25 @@ final class AppModel: ObservableObject {
         settings.account.isUsable && (hasStoredPassword || !passwordDraft.isEmpty) && agent == nil
     }
 
+    /// Чего не хватает, чтобы подключиться.
+    ///
+    /// `nil` — не хватает не человеку, а обстоятельствам: сети, серверу,
+    /// времени. Такое чинится само, и говорить об этом оператору нечего.
+    ///
+    /// Появилось вместе с автоподключением: пока в панели была кнопка
+    /// «Подключить», её неактивность сама была сообщением. Кнопки нет, и
+    /// «Не подключено» без причины оставляет человека гадать — особенно когда
+    /// пароль сохранён, но для другого профиля.
+    var setupHint: String? {
+        guard case .idle = registration else { return nil }
+        if !settings.account.isUsable { return "Нет учётной записи" }
+        if !hasStoredPassword { return "Нужен пароль" }
+        return nil
+    }
+
     var registrationTitle: String {
         switch registration {
-        case .idle: "Не подключено"
+        case .idle: setupHint ?? "Не подключено"
         case .registering: "Подключение…"
         case .registered: "На линии"
         case .unregistering: "Отключение…"
