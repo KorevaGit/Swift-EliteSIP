@@ -54,6 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.mainMenu = makeMainMenu()
         showPhoneWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+        // Регистрация поднимается сама: ручного «Подключить» в панели нет.
+        model.startAutoConnect()
     }
 
     /// Закрытая панель приложение не завершает: софтфон обязан оставаться на

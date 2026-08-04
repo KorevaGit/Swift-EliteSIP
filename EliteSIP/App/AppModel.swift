@@ -4,6 +4,7 @@ import CallGuard
 import CallHistory
 import Diagnostics
 import MediaCore
+import Network
 import SIPCore
 import SwiftUI
 
@@ -146,6 +147,15 @@ final class AppModel: ObservableObject {
     var selfTest: VoiceSelfTest?
 
     @Published private(set) var registration: SIPRegistrationState = .idle
+
+    /// Наблюдатель за сетью и признак её последнего состояния.
+    ///
+    /// Не `private`: логика автоподключения живёт в `AppModel+AutoConnect`,
+    /// а хранимые свойства расширению добавить нельзя.
+    var networkMonitor: NWPathMonitor?
+    var lastNetworkPathIsSatisfied = false
+    var lastNetworkInterfaces: Set<String> = []
+    var wakeObserver: NSObjectProtocol?
     @Published private(set) var hasStoredPassword = false
     @Published private(set) var log: [LogEntry] = []
 
@@ -288,6 +298,10 @@ final class AppModel: ObservableObject {
 
     var isConnected: Bool { registration.isRegistered }
 
+    /// Поднят ли агент. Нужен автоподключению: сам `agent` приватный, и знать о
+    /// нём снаружи надо ровно одно — существует он или нет.
+    var isAgentRunning: Bool { agent != nil }
+
     var isBusy: Bool {
         switch registration {
         case .registering, .unregistering: true
@@ -328,6 +342,10 @@ final class AppModel: ObservableObject {
             hasStoredPassword = !passwordDraft.isEmpty
             passwordDraft = ""
             append(level: .info, message: hasStoredPassword ? "пароль сохранён в Keychain" : "пароль удалён")
+            // Ручного «Подключить» в панели больше нет: как только появился
+            // пароль, подключаемся сами — иначе оператор сохранил бы его и
+            // остался без линии, не понимая, чего ждёт.
+            if hasStoredPassword { Task { await connectIfPossible() } }
         } catch {
             append(level: .error, message: "не удалось сохранить пароль: \(error.localizedDescription)")
         }

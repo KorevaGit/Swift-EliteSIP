@@ -105,7 +105,8 @@ struct PhonePanelView: View {
     /// у сотрудника их шесть или девять, и меняются они в настройках, а не по
     /// ходу разговора.
     private var panelHeight: CGFloat {
-        let fixed = Theme.Metrics.statusBarHeight
+        let fixed = Theme.Metrics.statusBarTopInset
+            + Theme.Metrics.statusBarHeight
             + Theme.Gap.statusToHeader
             + Theme.Metrics.headerHeight
             + Theme.Gap.headerToControls
@@ -165,6 +166,7 @@ struct PhonePanelView: View {
         // Слева — светофор окна. Он остаётся: это единственный способ закрыть
         // панель мышью, пока значка в строке меню нет.
         .padding(.leading, Theme.Metrics.trafficLightsInset)
+        .padding(.top, Theme.Metrics.statusBarTopInset)
     }
 
     private var statusColor: Color {
@@ -185,11 +187,14 @@ struct PhonePanelView: View {
         Button(action: action) {
             CompatSymbol(name: symbol, size: 12)
                 .compatForeground(Theme.Palette.textSecondary)
-                .frame(width: 18, height: Theme.Metrics.statusBarHeight)
+                .frame(
+                    width: Theme.Metrics.statusIconHitSize,
+                    height: Theme.Metrics.statusIconHitSize
+                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .hoverHighlight(cornerRadius: 5)
+        .hoverHighlight(cornerRadius: 6)
         .compatHelp(help)
         .compatAccessibilityLabel(label)
     }
