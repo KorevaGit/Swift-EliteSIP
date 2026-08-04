@@ -28,7 +28,6 @@ struct PhonePanelView: View {
     private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     @State private var now = Date()
-    @State private var isCompact = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,13 +38,7 @@ struct PhonePanelView: View {
             // накладкой: накладка на размер родителя не влияет в принципе.
             Color.clear
                 .frame(maxHeight: .infinity)
-                .compatOverlay(alignment: .top) {
-                    if isCompact {
-                        header.padding(.top, Theme.Gap.statusToHeader)
-                    } else {
-                        middle
-                    }
-                }
+                .compatOverlay(alignment: .top) { middle }
                 .clipped()
 
             bottomBar
@@ -115,22 +108,22 @@ struct PhonePanelView: View {
         let fixed = Theme.Metrics.statusBarHeight
             + Theme.Gap.statusToHeader
             + Theme.Metrics.headerHeight
+            + Theme.Gap.headerToControls
+            + Theme.Metrics.controlHeight
             + Theme.Gap.macrosToAction
             + Theme.Metrics.actionHeight
             + Theme.Metrics.contentPadding
 
-        guard !isCompact else { return fixed }
+        // Пустого места под макросы не резервируется: пока их нет, панель
+        // ровно на них короче, а каждый добавленный ряд просто добавляет
+        // высоты. Ряд управления при этом остаётся — он не про макросы.
+        let rows = (model.usableMacros.count + Theme.Metrics.macroColumns - 1) / Theme.Metrics.macroColumns
+        guard rows > 0 else { return fixed }
 
-        let count = max(model.usableMacros.count, 1)
-        let rows = (count + Theme.Metrics.macroColumns - 1) / Theme.Metrics.macroColumns
         let grid = CGFloat(rows) * Theme.Metrics.macroMinHeight
             + CGFloat(rows - 1) * Theme.Metrics.elementSpacing
 
-        return fixed
-            + Theme.Gap.headerToControls
-            + Theme.Metrics.controlHeight
-            + Theme.Gap.controlsToMacros
-            + grid
+        return fixed + Theme.Gap.controlsToMacros + grid
     }
 
     // MARK: - Ярус 1: строка состояния
@@ -167,8 +160,6 @@ struct PhonePanelView: View {
             iconButton("gearshape", help: "Настройки EliteSIP (⌘,)", label: "Настройки") {
                 NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
             }
-
-            sizeToggle
         }
         .frame(height: Theme.Metrics.statusBarHeight)
         // Слева — светофор окна. Он остаётся: это единственный способ закрыть
@@ -183,25 +174,6 @@ struct PhonePanelView: View {
         case .registered: Theme.Palette.registered
         case .failed: Theme.Palette.failure
         }
-    }
-
-    /// Переключатель размера. Своей иконки нет и не нужно: шеврон рисуется
-    /// формой и одинаков на всех версиях macOS, где растровому комплекту
-    /// пришлось бы держать отдельный файл.
-    private var sizeToggle: some View {
-        Button {
-            isCompact.toggle()
-        } label: {
-            Chevron(pointsUp: !isCompact)
-                .stroke(Theme.Palette.textSecondary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                .frame(width: 9, height: 5)
-                .frame(width: 18, height: Theme.Metrics.statusBarHeight)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .hoverHighlight(cornerRadius: 5)
-        .compatHelp(isCompact ? "Развернуть панель" : "Свернуть панель")
-        .compatAccessibilityLabel(isCompact ? "Развернуть панель" : "Свернуть панель")
     }
 
     private func iconButton(
@@ -235,16 +207,17 @@ struct PhonePanelView: View {
             // вызов: макросы и всё под ними подскакивали бы на его высоту.
             CallControls()
 
-            // Единственная граница между управлением и макросами — воздух.
-            Color.clear.frame(height: Theme.Gap.controlsToMacros)
-
             // Поле перевода занимает место сетки макросов, а не встаёт под ней:
             // пока оператор набирает номер перевода, макросы всё равно не
             // нужны, а лишний ярус пришлось бы отнять у чего-то другого.
             if model.isTransferEntryVisible {
+                // Единственная граница между управлением и тем, что под ним, —
+                // воздух. Когда снизу пусто, нет и его.
+                Color.clear.frame(height: Theme.Gap.controlsToMacros)
                 TransferEntry()
                 Spacer(minLength: 0)
-            } else {
+            } else if !model.usableMacros.isEmpty {
+                Color.clear.frame(height: Theme.Gap.controlsToMacros)
                 MacroGrid()
             }
         }
@@ -362,29 +335,6 @@ struct PhonePanelView: View {
             onAnswer: {},
             onDecline: {}
         )
-    }
-}
-
-/// Шеврон переключателя размера.
-///
-/// Рисуется формой, а не иконкой: комплекту для Catalina пришлось бы держать под
-/// него два файла ради двух отрезков.
-private struct Chevron: Shape {
-
-    let pointsUp: Bool
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        if pointsUp {
-            path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        } else {
-            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        }
-        return path
     }
 }
 

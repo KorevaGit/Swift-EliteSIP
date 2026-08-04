@@ -45,6 +45,11 @@ final class AppModel: ObservableObject {
             if KeychainStore.key(for: settings.account) != KeychainStore.key(for: oldValue.account) {
                 refreshStoredPasswordFlag()
             }
+            // Тема применяется ко всему приложению разом: окон несколько, и
+            // расходиться по оформлению им нельзя.
+            if settings.appearance != oldValue.appearance {
+                NSApp.appearance = settings.appearance.appKitAppearance
+            }
             // Журнал пересобирается только при смене его собственных настроек:
             // переоткрывать файл на каждое движение ползунка громкости незачем.
             if settings.logFile != oldValue.logFile {

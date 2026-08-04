@@ -39,6 +39,7 @@ struct ManagerSettingsView: View {
         // а не спотыкаться о неё, меняя громкость.
         Form {
             WorkplaceSection()
+            AppearanceSection()
             AudioSection()
             SelfTestSection()
             RingtoneSection()
@@ -49,6 +50,34 @@ struct ManagerSettingsView: View {
         .sheet(isPresented: $isAskingForPassword) {
             AdminUnlockView(isPresented: $isAskingForPassword)
                 .environmentObject(model)
+        }
+    }
+}
+
+// MARK: - Оформление
+
+/// Светлая тема, тёмная или как в системе.
+///
+/// Настройка менеджера, а не администратора: панель висит поверх CRM весь день,
+/// и если CRM светлая, а система тёмная, выбор делает тот, кто на это смотрит.
+private struct AppearanceSection: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Section(header: Text("Оформление")) {
+            Picker(
+                "Тема",
+                selection: Binding(
+                    get: { model.settings.appearance },
+                    set: { model.settings.appearance = $0 }
+                )
+            ) {
+                ForEach(AppearanceSetting.allCases) { option in
+                    Text(option.title).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
         }
     }
 }

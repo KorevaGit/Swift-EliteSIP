@@ -48,6 +48,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var callHistoryWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Тема — до первого окна: иначе панель успевает нарисоваться в
+        // системном оформлении и перекрашивается уже на глазах.
+        NSApp.appearance = model.settings.appearance.appKitAppearance
         NSApp.mainMenu = makeMainMenu()
         showPhoneWindow(nil)
         NSApp.activate(ignoringOtherApps: true)

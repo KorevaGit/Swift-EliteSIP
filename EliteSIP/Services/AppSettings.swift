@@ -1,4 +1,5 @@
 import AdminAccess
+import AppKit
 import CallGuard
 import CallHistory
 import Diagnostics
@@ -46,6 +47,13 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// умолчания — история включена, срок 30 дней. Версия растёт от
     /// несовместимости, а не от прибавления.
     var history: CallHistorySettings = CallHistorySettings()
+
+    /// Светлая тема, тёмная или как в системе.
+    ///
+    /// Схема не выросла: старый файл читается терпимым декодером и получает
+    /// `.system` — ровно прежнее поведение, когда приложение просто следовало
+    /// за системой.
+    var appearance: AppearanceSetting = .system
 
     /// Административный доступ: пароль и то, кто управляет настройками.
     ///
@@ -700,5 +708,37 @@ enum SettingsStore {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(settings).write(to: url, options: .atomic)
+    }
+}
+
+/// Оформление приложения: за системой, светлое или тёмное.
+///
+/// Своя настройка, а не только системная, потому что рабочее место оператора
+/// живёт не по его вкусу: панель висит поверх CRM весь день, и если CRM светлая,
+/// а система тёмная, то тёмная панель на светлом фоне бьёт по глазам сильнее,
+/// чем несовпадение с остальной системой.
+enum AppearanceSetting: String, Codable, Sendable, CaseIterable, Identifiable {
+
+    case system
+    case light
+    case dark
+
+    public var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "Системная"
+        case .light: return "Светлая"
+        case .dark: return "Тёмная"
+        }
+    }
+
+    /// `nil` — «не навязывать»: окна следуют за системой.
+    var appKitAppearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
     }
 }
