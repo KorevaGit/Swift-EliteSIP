@@ -7,27 +7,22 @@ import SwiftUI
 /// включая те, что раньше её сдвигали.
 struct SheetView: View {
 
+    /// Состояния подобраны под то, что в этой правке новое: голова панели.
+    ///
+    /// Первые четыре — один и тот же покой с разным содержимым слота беды:
+    /// именно они отвечают на вопрос, не двигает ли надпись список и
+    /// шестерёнку. Последние два оставлены как контроль: голова поменялась, а
+    /// обещание про неподвижный низ — нет.
     private let states: [(String, PrototypeState)] = [
-        ("Покой", .make { _ in }),
-        ("Разговор", .make { $0.phase = .active; $0.callSeconds = 143 }),
-        ("Разговор · удержание,\nвторая линия, сбой связи", .make {
+        ("Покой · на линии", .make { _ in }),
+        ("Нет сети", .make { $0.trouble = .noNetwork }),
+        ("Профиль без пароля\n(ведёт в настройки)", .make { $0.trouble = .needsSetup }),
+        ("Сервер отказал —\nсамая длинная надпись", .make { $0.trouble = .failed }),
+        ("Отключён вручную", .make { $0.isOfflineByChoice = true }),
+        ("Разговор", .make {
             $0.phase = .active
-            $0.callSeconds = 512
-            $0.isOnHold = true
-            $0.hasSecondLine = true
-            $0.hasRegistrationFailure = true
-        }),
-        ("Разговор · перевод", .make {
-            $0.phase = .active
-            $0.callSeconds = 47
-            $0.isTransferVisible = true
-            $0.transferNumber = "176"
-        }),
-        ("Компактный · покой", .make { $0.size = .compact; $0.dialedNumber = "2929" }),
-        ("Компактный · разговор", .make {
-            $0.size = .compact
-            $0.phase = .active
-            $0.callSeconds = 78
+            $0.callSeconds = 143
+            $0.activeProfileIndex = 2
         }),
     ]
 
@@ -79,10 +74,14 @@ extension PrototypeState {
     /// одновременно и не должны делить одни и те же поля.
     @MainActor
     static func make(_ configure: (PrototypeState) -> Void) -> PrototypeState {
-        let state = PrototypeState()
+        let state = PrototypeState(isInteractive: false)
         // `onAppear` в офскрин-рендере не срабатывает, поэтому тему листа
         // выбираем прямо здесь.
         state.isDark = !CommandLine.arguments.contains("--light")
+        // Стекло вне окна не рисуется — рисовать его на листе значит показать
+        // не ту поверхность, которую обсуждаем. Прозрачность смотрят в
+        // `--panel`, лист отвечает только за компоновку.
+        state.glass = .material
         configure(state)
         return state
     }

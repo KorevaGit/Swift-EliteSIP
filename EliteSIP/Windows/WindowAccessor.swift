@@ -40,6 +40,50 @@ struct WindowAccessor: NSViewRepresentable {
     }
 }
 
+/// Сообщает вёрстке высоту полосы заголовка.
+///
+/// Спрашиваем у окна, а не держим числом в `Theme`: величина системная и по
+/// версиям разная — замер живого окна на macOS 26 дал 32 точки против 28 на
+/// прежних. Своя константа означала бы, что панель ошибается в высоте ровно на
+/// разницу, а вместе с ней уезжает и всё, что под полосой.
+///
+/// При `.fullSizeContentView` содержимое занимает окно целиком, поэтому высота
+/// полосы — это разница между рамкой и той её частью, которую система считает
+/// свободной под содержимое.
+final class TitleBarInsetView: NSView {
+
+    var report: ((CGFloat) -> Void)?
+
+    private var reported: CGFloat?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        let inset = window.frame.height - window.contentLayoutRect.height
+        // Ноль означает, что окно ещё не разложено; отрицательного не бывает.
+        // Ни то ни другое сообщать вёрстке нельзя — она задаст себе высоту по
+        // мусорному числу и второй раз спросить будет некому.
+        guard inset > 0, reported != inset else { return }
+        reported = inset
+        report?(inset)
+    }
+}
+
+struct TitleBarInsetReader: NSViewRepresentable {
+
+    let report: (CGFloat) -> Void
+
+    func makeNSView(context: Context) -> TitleBarInsetView {
+        let view = TitleBarInsetView()
+        view.report = report
+        return view
+    }
+
+    func updateNSView(_ nsView: TitleBarInsetView, context: Context) {
+        nsView.report = report
+    }
+}
+
 /// Задаёт окну высоту и переносит её при изменении, сохраняя верхний левый угол.
 ///
 /// Отдельно от `WindowAccessor`, потому что тот настраивает окно однократно, а
@@ -51,11 +95,19 @@ final class PanelHeightView: NSView {
     private var applied: CGFloat?
     private var pending: CGFloat?
 
+    /// Высота задаётся рамке окна.
+    ///
+    /// При `.fullSizeContentView` содержимое и рамка — одно и то же, поэтому
+    /// разделять их не на чем. Высоту полосы заголовка вёрстка при этом всё
+    /// равно знает: её сообщает `TitleBarInsetReader`, и она входит в
+    /// присланное сюда число.
     func apply(height: CGFloat) {
         pending = height
         guard let window, applied != height else { return }
         applied = height
 
+        // Верхний левый угол держим на месте: окно растёт вниз. Иначе панель
+        // прыгала бы вверх при каждом добавленном ряде макросов.
         let topLeft = CGPoint(x: window.frame.minX, y: window.frame.maxY)
         window.setFrame(
             CGRect(

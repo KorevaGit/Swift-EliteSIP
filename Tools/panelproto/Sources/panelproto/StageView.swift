@@ -80,6 +80,35 @@ struct StageView: View {
                     .labelsHidden()
                 }
 
+                group("Профиль и связь") {
+                    Picker("", selection: $state.trouble) {
+                        ForEach(PrototypeState.Trouble.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .labelsHidden()
+                    Toggle("Отключён вручную", isOn: $state.isOfflineByChoice)
+                    Text("Проверка: надпись о беде не двигает ни список, ни шестерёнку.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                group("Поверхность") {
+                    Picker("", selection: $state.glass) {
+                        ForEach(Tokens.Glass.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+
+                    HStack(spacing: 8) {
+                        Slider(value: $state.surfaceTint, in: 0...0.9)
+                        Text(String(format: "%.2f", state.surfaceTint))
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(width: 34, alignment: .trailing)
+                    }
+                    Text("Подкраска: 0 — чистое стекло, 0.72 — как сейчас в приложении.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 group("Что двигало вёрстку раньше") {
                     Toggle("Сбой регистрации", isOn: $state.hasRegistrationFailure)
                     Toggle("Вторая линия", isOn: $state.hasSecondLine)

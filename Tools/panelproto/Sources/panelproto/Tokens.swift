@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Предлагаемый набор токенов панели.
@@ -35,6 +36,14 @@ enum Tokens {
 
         /// Макросы → кнопка завершения.
         static let macrosToAction: CGFloat = 15
+
+        /// Полоса заголовка → строка состояния.
+        ///
+        /// Меньше остальных: список профилей относится к заголовку — это тот же
+        /// вопрос «что это за окно», только с ответом «и под каким номером».
+        /// Между ними воздуха ровно столько, чтобы точки светофора не касались
+        /// капсулы списка.
+        static let titleToStatus: CGFloat = 4
     }
 
     enum Radius {
@@ -42,16 +51,17 @@ enum Tokens {
         static let surface: CGFloat = 12
         /// Всё нажимаемое.
         static let control: CGFloat = 8
+        /// Капсула списка профилей. Скруглена сильнее всего остального
+        /// намеренно: так она читается как переключатель состояния, а не как
+        /// ещё одна кнопка панели.
+        static let pill: CGFloat = 11
     }
 
     enum Metrics {
-        /// Панель уже прежней: 250 вместо 280.
-        ///
-        /// Дайлпада, ради которого держались 280, больше нет, а подпись макроса
-        /// в три колонки укладывается и здесь — при 250 на клавишу приходится
-        /// 71 точка. Каждая снятая точка ширины возвращается CRM, поверх
-        /// которой панель висит весь рабочий день.
-        static let panelWidth: CGFloat = 250
+        /// Ширина панели. 270 — то, что стоит в приложении: прототип обсуждает
+        /// правку головы, и менять под неё ещё и ширину значит сравнивать два
+        /// разных окна.
+        static let panelWidth: CGFloat = 270
 
         /// Две высоты панели. Внутри каждой высота жёсткая: окно не дышит от
         /// того, что появилась вторая линия или полоса сбоя.
@@ -95,9 +105,32 @@ enum Tokens {
         /// а три коротких кнопки в 280 точек влезают всегда.
         static let macroColumns = 3
 
-        /// Строка состояния наверху: номер, состояние клиента, настройки и
-        /// переключатель размера.
-        static let statusBarHeight: CGFloat = 20
+        /// Строка состояния наверху: список профилей, беда, настройки.
+        ///
+        /// 22, а не прежние 20: в строке теперь стоит капсула с точкой и
+        /// шевроном, и на 20 точках она прижимается к тексту вплотную.
+        static let statusBarHeight: CGFloat = 22
+
+        /// Полоса заголовка: светофор и название.
+        ///
+        /// 28 — системная высота полосы у окна с обычным заголовком. Своя
+        /// величина здесь была бы ошибкой: в приложении полосу рисует не
+        /// вёрстка, а само окно, и подогнать под неё придётся всё остальное.
+        static let titleBarHeight: CGFloat = 28
+
+        /// Светофор: три точки по 12 с шагом 8, первая в 20 точках от края.
+        /// Числа системные, повторены здесь только ради макета — в приложении
+        /// кнопки рисует окно.
+        static let trafficLightDiameter: CGFloat = 12
+        static let trafficLightSpacing: CGFloat = 8
+        static let trafficLightInset: CGFloat = 20
+
+        /// Капсула списка профилей: точка, номер, шеврон.
+        static let profilePickerHeight: CGFloat = 22
+        /// Диаметр точки состояния в капсуле. 8, а не прежние 6: точка
+        /// осталась единственным, чем показано обычное состояние, и на 6
+        /// точках цвет читается хуже, чем должен.
+        static let statusDotDiameter: CGFloat = 8
     }
 
     /// Начертания заданы размером, а не именованным стилем: панель фиксированной
@@ -121,7 +154,15 @@ enum Tokens {
         /// читаться совсем — светло-серое по светлому.
         static let strip = Font.system(size: 11)
         /// Номер, под которым зарегистрирован менеджер.
-        static let statusNumber = Font.system(size: 11, weight: .semibold)
+        ///
+        /// 12, а не 11: он переехал в кнопку списка и стал целью для мыши, а не
+        /// подписью. 13 системного заголовка при этом не берём — номер не
+        /// должен спорить с названием окна строкой выше.
+        static let statusNumber = Font.system(size: 12, weight: .semibold)
+        /// Название приложения в полосе заголовка. Системная величина заголовка
+        /// окна: полосу в приложении рисует окно, и наш кегль обязан совпасть с
+        /// его собственным.
+        static let title = Font.system(size: 13, weight: .semibold)
         /// Собеседник в поле линии, когда линий две: имя то же, что и в шапке,
         /// но строка вдвое ниже, и начертание приходится ужать.
         static let lineTitle = Font.system(size: 12, weight: .medium)
@@ -136,16 +177,48 @@ enum Tokens {
         static let decline = Color.red
         static let warning = Color.orange
         static let failure = Color.red
-        /// Уровни текста заданы прозрачностью от `.primary`, а не системными
-        /// `.secondary` и `.tertiary`.
+
+        /// Три уровня текста, заданные цветом, а не прозрачностью от `.primary`.
         ///
-        /// Системные уровни на macOS живут с прозрачностью около половины и
-        /// рассчитаны на непрозрачный фон окна. На подкрашенном материале они
-        /// теряют ещё часть контраста и в светлой теме перестают читаться
-        /// первыми — что и было видно на «на линии». Здесь уровни заданы явно и
-        /// одинаково работают в обеих темах.
-        static let textSecondary = Color.primary.opacity(0.70)
-        static let tertiary = Color.primary.opacity(0.50)
+        /// Системные `.secondary` и `.tertiary` живут с прозрачностью около
+        /// половины и рассчитаны на непрозрачный фон окна. На подкрашенном
+        /// материале они теряют ещё часть контраста и в светлой теме перестают
+        /// читаться первыми.
+        ///
+        /// В светлой теме основной текст чёрный, и это решение о контрасте, а
+        /// не о вкусе: прозрачная панель сама по себе светлее не становится, а
+        /// вот фон под ней бывает любым, и запас по контрасту тратится именно
+        /// на это. Чёрный даёт около 9.7:1 в худшем случае — вдвое выше нормы,
+        /// и текст остаётся читаемым поверх чего угодно.
+        ///
+        /// Взято сплошным чёрным, а не системным `labelColor` (чёрный на 85 %):
+        /// прозрачность поверх прозрачной поверхности перемножается, и
+        /// предсказать итог на произвольном фоне нельзя. Здесь цвет один и тот
+        /// же всегда.
+        ///
+        /// В тёмной теме менять было нечего: белый на тёмном таким эффектом не
+        /// обладает, и уровни там по-прежнему белый с прозрачностью.
+        static func textPrimary(_ scheme: ColorScheme) -> Color {
+            scheme == .dark ? Color.white.opacity(0.92) : Color.black
+        }
+
+        /// Второй уровень поставлен ровно на норму — 4.5:1 в худшем случае.
+        /// Ниже опускать нельзя: этим цветом набраны таймер и номер
+        /// собеседника, а их читают, а не скользят взглядом.
+        static func textSecondary(_ scheme: ColorScheme) -> Color {
+            scheme == .dark
+                ? Color.white.opacity(0.70)
+                : Color(red: 0.24, green: 0.26, blue: 0.30)
+        }
+
+        /// Третий уровень — подписи, которые читают редко, и точки-разделители.
+        /// Ниже нормы контраста он опускаться не должен всё равно: «редко» не
+        /// значит «никогда».
+        static func textTertiary(_ scheme: ColorScheme) -> Color {
+            scheme == .dark
+                ? Color.white.opacity(0.50)
+                : Color(red: 0.34, green: 0.37, blue: 0.42)
+        }
     }
 }
 
@@ -153,17 +226,21 @@ extension View {
 
     /// Основная поверхность панели: материал плюс собственная подкраска.
     ///
-    /// Один материал без подкраски не годится. Он пропускает то, что под окном,
-    /// и поверх пёстрой CRM даёт мутно-серый — одинаково грязный в обеих темах.
-    /// Серый текст по такому фону не спасают ни кегль, ни прозрачность, потому
-    /// что контраст съеден самим фоном. Подкраска задаёт поверхности
-    /// собственную светлоту: в светлой теме почти белую, в тёмной почти чёрную,
-    /// — а материал остаётся ради живого просвечивания по краям.
+    /// Три ступени, как и будет в приложении: Liquid Glass на macOS 26,
+    /// `Material` на 12+, `NSVisualEffectView` на Catalina. Ступени не
+    /// взаимозаменяемы по виду, и проверять компоновку надо на той, которую
+    /// увидит машина оператора, — отсюда переключатель в стенде.
     ///
-    /// В приложении здесь три ступени: стекло на macOS 26, материал на 12+,
-    /// `NSVisualEffectView` на Catalina. Подкраска нужна на всех трёх.
-    func protoSurface(_ radius: CGFloat = Tokens.Radius.surface) -> some View {
-        modifier(PanelSurface(cornerRadius: radius))
+    /// Подкраска нужна на всех трёх и настраивается: чем её меньше, тем окно
+    /// прозрачнее и тем хуже читается мелкий текст поверх пёстрой CRM. Это и
+    /// есть та величина, которую в макете подбирают глазами, а потом
+    /// закрепляют числом.
+    func protoSurface(
+        _ radius: CGFloat = Tokens.Radius.surface,
+        glass: Tokens.Glass = .material,
+        tint: Double = 0.72
+    ) -> some View {
+        modifier(PanelSurface(cornerRadius: radius, glass: glass, tint: tint))
     }
 
     /// Поверхность нажимаемого элемента: слабый слой поверх фона панели.
@@ -176,23 +253,94 @@ extension View {
     }
 }
 
+extension Tokens {
+
+    /// Чем сделана поверхность панели.
+    ///
+    /// Ступень выбирается версией системы, а не вкусом: `glass` есть только на
+    /// macOS 26, `material` — с 12, `visualEffect` работает везде начиная с
+    /// Catalina. В стенде переключается руками, чтобы одну и ту же компоновку
+    /// можно было посмотреть глазами оператора на каждой из трёх машин.
+    enum Glass: String, CaseIterable, Identifiable {
+        case glass = "Liquid Glass"
+        case material = "Материал"
+        case visualEffect = "Catalina"
+
+        var id: String { rawValue }
+    }
+}
+
 private struct PanelSurface: ViewModifier {
 
     let cornerRadius: CGFloat
+    let glass: Tokens.Glass
+    let tint: Double
 
     @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
         content.background {
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(.ultraThinMaterial)
+            base
                 .overlay {
+                    // Подкраска задаёт поверхности собственную светлоту: без
+                    // неё материал поверх пёстрой CRM даёт мутно-серый,
+                    // одинаково грязный в обеих темах, и мелкий текст по такому
+                    // фону не спасают ни кегль, ни цвет. Ноль означает «совсем
+                    // без подкраски» и оставляет ровно то, что даёт система.
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .fill(scheme == .dark
-                              ? Color.black.opacity(0.55)
-                              : Color.white.opacity(0.72))
+                              ? Color.black.opacity(tint * 0.76)
+                              : Color.white.opacity(tint))
                 }
         }
+    }
+
+    @ViewBuilder
+    private var base: some View {
+        switch glass {
+        case .glass:
+            if #available(macOS 26.0, *) {
+                // `.clear` вместо `.regular`: regular сам подмешивает столько
+                // непрозрачности, что просвечивания почти не остаётся, а окно
+                // ради него и затевалось.
+                Color.clear.glassEffect(.clear, in: .rect(cornerRadius: cornerRadius))
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius).fill(.ultraThinMaterial)
+            }
+        case .material:
+            RoundedRectangle(cornerRadius: cornerRadius).fill(.ultraThinMaterial)
+        case .visualEffect:
+            // То же, что панель получает на Catalina: системный материал через
+            // AppKit. `.behindWindow` — ради него всё и делается: `.withinWindow`
+            // размывает содержимое своего же окна и на просвет не работает.
+            BehindWindowMaterial(cornerRadius: cornerRadius)
+        }
+    }
+}
+
+/// `NSVisualEffectView` с размытием того, что за окном.
+///
+/// Отдельным типом, а не `Material`: у SwiftUI-материала режим смешивания не
+/// настраивается, и просвечивание окна насквозь через него не получить.
+struct BehindWindowMaterial: NSViewRepresentable {
+
+    var material: NSVisualEffectView.Material = .hudWindow
+    var cornerRadius: CGFloat
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.cornerRadius = cornerRadius
+        view.layer?.masksToBounds = true
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.layer?.cornerRadius = cornerRadius
     }
 }
 

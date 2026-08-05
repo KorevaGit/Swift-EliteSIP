@@ -131,14 +131,35 @@ final class AppModel: ObservableObject {
     /// от любого движения интерфейса.
     var selfTest: VoiceSelfTest?
 
-    @Published private(set) var registration: SIPRegistrationState = .idle
+    @Published private(set) var registration: SIPRegistrationState = .idle {
+        didSet { noteRegistrationChanged() }
+    }
+
+    /// Затянулось ли подключение.
+    ///
+    /// Слот беды молчит про обычную регистрацию: она занимает доли секунды и
+    /// текстом только мигала бы — при каждом запуске, смене сети и пробуждении.
+    /// Говорить стоит о затянувшейся, и признак этого взводится по таймеру.
+    @Published private(set) var isRegistrationSlow = false
+
+    /// Ушёл ли оператор с линии сам.
+    ///
+    /// Только в памяти: в настройки не пишется намеренно, см. `goOffline()`.
+    @Published var isOfflineByChoice = false
+
+    private var registrationSlowTask: Task<Void, Never>?
+
+    /// Сколько ждать, прежде чем сказать «Подключение…».
+    private static let slowRegistrationDelay: Interval = .seconds(2)
 
     /// Наблюдатель за сетью и признак её последнего состояния.
     ///
     /// Не `private`: логика автоподключения живёт в `AppModel+AutoConnect`,
     /// а хранимые свойства расширению добавить нельзя.
     var networkMonitor: NWPathMonitor?
-    var lastNetworkPathIsSatisfied = false
+    /// `@Published`, потому что от него зависит слот беды: пропавшая сеть
+    /// обязана появляться в строке состояния, а не только в журнале.
+    @Published var lastNetworkPathIsSatisfied = false
     var lastNetworkInterfaces: Set<String> = []
     var wakeObserver: NSObjectProtocol?
     @Published private(set) var log: [LogEntry] = []
@@ -439,6 +460,32 @@ final class AppModel: ObservableObject {
         }
         await disconnect()
         await connect()
+    }
+
+    /// Взводит и снимает признак затянувшегося подключения.
+    ///
+    /// Задача пересоздаётся на каждой смене состояния, а не заводится один раз:
+    /// регистрация повторяется с backoff, и вторая попытка обязана отсчитывать
+    /// свои две секунды заново — иначе после первого же долгого подключения
+    /// надпись висела бы до конца сеанса.
+    private func noteRegistrationChanged() {
+        registrationSlowTask?.cancel()
+        registrationSlowTask = nil
+
+        guard case .registering = registration else {
+            isRegistrationSlow = false
+            return
+        }
+
+        isRegistrationSlow = false
+        registrationSlowTask = Task { [weak self] in
+            try? await Task.sleep(Self.slowRegistrationDelay)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { [weak self] in
+                guard let self, case .registering = registration else { return }
+                isRegistrationSlow = true
+            }
+        }
     }
 
     private func handle(_ event: SIPUserAgent.Event) {

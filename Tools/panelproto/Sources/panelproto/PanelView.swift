@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Панель софтфона — согласованная компоновка.
@@ -17,38 +18,68 @@ struct PanelView: View {
 
     @EnvironmentObject private var state: PrototypeState
 
+    /// Рисовать ли полосу заголовка самим.
+    ///
+    /// В стенде — да: панель здесь лежит внутри чужого окна, и светофора у неё
+    /// своего нет. В режиме `--panel` полосу рисует настоящее окно, и наша
+    /// нарисованная встала бы второй.
+    var drawsTitleBar = true
+
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    /// Вид, из-под которого раскрывается список профилей.
+    @State private var anchor = MenuAnchor()
+
+    /// Тема берётся из состояния, а не из `@Environment`.
+    ///
+    /// Панель сама выставляет `colorScheme` своему поддереву — но собственное
+    /// окружение вида читается из родителя, и `@Environment` здесь показывал бы
+    /// тему стенда вместо темы панели.
+    private var scheme: ColorScheme { state.isDark ? .dark : .light }
 
     var body: some View {
         VStack(spacing: 0) {
-            statusBar
+            // Полоса заголовка идёт до боковых полей, а не внутри них: светофор
+            // отступает от края окна на свои системные 20 точек, и наши 12 к
+            // ним не прибавляются.
+            if drawsTitleBar {
+                titleBar
+            }
 
-            // Середина занимает ровно то, что осталось, и ни точкой больше.
-            //
-            // Высоту задаёт пустой `Color.clear`, а содержимое кладётся
-            // накладкой: накладка на размер родителя не влияет в принципе.
-            // Обычная стопка так не умеет — она сообщает наверх свою идеальную
-            // высоту, и при полосе сбоя со второй линией низ панели уезжал вниз
-            // ровно так, как мы запретили.
-            Color.clear
-                .frame(maxHeight: .infinity)
-                .overlay(alignment: .top) {
-                    if state.size == .full {
-                        middle
-                    } else {
-                        callerOrNumber
-                            .padding(.top, Tokens.Gap.statusToHeader)
+            VStack(spacing: 0) {
+                statusBar
+
+                // Середина занимает ровно то, что осталось, и ни точкой больше.
+                //
+                // Высоту задаёт пустой `Color.clear`, а содержимое кладётся
+                // накладкой: накладка на размер родителя не влияет в принципе.
+                // Обычная стопка так не умеет — она сообщает наверх свою
+                // идеальную высоту, и при полосе сбоя со второй линией низ
+                // панели уезжал вниз ровно так, как мы запретили.
+                Color.clear
+                    .frame(maxHeight: .infinity)
+                    .overlay(alignment: .top) {
+                        if state.size == .full {
+                            middle
+                        } else {
+                            callerOrNumber
+                                .padding(.top, Tokens.Gap.statusToHeader)
+                        }
                     }
-                }
-                .clipped()
+                    .clipped()
 
-            bottomBar
-                .padding(.top, Tokens.Gap.macrosToAction)
+                bottomBar
+                    .padding(.top, Tokens.Gap.macrosToAction)
+            }
+            .padding(.horizontal, Tokens.Space.wide)
+            .padding(.bottom, Tokens.Space.wide)
         }
-        .padding(.horizontal, Tokens.Space.wide)
-        .padding(.bottom, Tokens.Space.wide)
         .frame(width: Tokens.Metrics.panelWidth, height: height)
-        .protoSurface()
+        // Основной цвет текста задан один раз на всю панель, а не по месту:
+        // иначе `.primary` протёк бы в каждую подпись, которой цвет не указали
+        // явно, и светлая тема чинилась бы по одной строке.
+        .foregroundStyle(Tokens.Palette.textPrimary(scheme))
+        .protoSurface(glass: state.glass, tint: state.surfaceTint)
         .environment(\.colorScheme, state.isDark ? .dark : .light)
         .onReceive(timer) { _ in state.tick() }
     }
@@ -57,8 +88,17 @@ struct PanelView: View {
     /// установки, а не состояния: у конкретного сотрудника макросов шесть или
     /// девять, и меняются они в настройках, а не по ходу разговора. Панель
     /// по-прежнему не дышит от того, что происходит на линии.
+    /// Полоса заголовка входит в высоту только когда её рисуем мы. В режиме
+    /// `--panel` её высоту добавляет само окно, и посчитать её дважды значит
+    /// получить панель на 28 точек выше нужного.
+    private var titleBarHeight: CGFloat {
+        drawsTitleBar ? Tokens.Metrics.titleBarHeight : 0
+    }
+
     private var height: CGFloat {
-        guard state.size == .full else { return Tokens.Metrics.panelHeightCompact }
+        guard state.size == .full else {
+            return Tokens.Metrics.panelHeightCompact + titleBarHeight
+        }
         let rows = (state.macros.count + Tokens.Metrics.macroColumns - 1) / Tokens.Metrics.macroColumns
         // Высота собрана из тех же промежутков, что и сама компоновка, а не
         // подобрана на глаз: полоса заголовка, шапка, УМП, промежуток, сетка в
@@ -68,7 +108,9 @@ struct PanelView: View {
 
         // Все слагаемые постоянны, поэтому и остаток, который достаётся сетке,
         // постоянен: клавиши стоят на одном месте в любом состоянии панели.
-        let fixed = Tokens.Space.tight + Tokens.Metrics.statusBarHeight
+        let fixed = titleBarHeight
+            + Tokens.Gap.titleToStatus
+            + Tokens.Metrics.statusBarHeight
             + Tokens.Gap.statusToHeader
             + Tokens.Metrics.headerHeight
             + Tokens.Gap.headerToControls
@@ -81,55 +123,195 @@ struct PanelView: View {
         return fixed + grid
     }
 
-    // MARK: - Ярус 1: шапка
+    // MARK: - Ярус 1: голова
 
-    /// Строка состояния: кто зарегистрирован, в каком состоянии клиент и вход в
-    /// настройки.
+    /// Полоса заголовка: светофор и название приложения по центру.
     ///
-    /// Она постоянная, а не всплывающая по сбою. Всплывающая полоса решала одну
-    /// задачу — показать аварию, — но не отвечала на вопрос «под каким номером я
-    /// сейчас работаю», а на трёх профилях это первое, что спрашивают. Заодно
-    /// исчезает целый класс сдвигов: строка есть всегда и место занимает всегда.
+    /// Заголовок вернулся не ради красоты. Панель висит поверх CRM весь день, и
+    /// в стопке чужих окон её надо опознавать краем глаза — по имени, а не по
+    /// содержимому. Номер в заголовок при этом не пошёл: он меняется вместе с
+    /// профилем, а заголовок окна — то, что не меняется никогда.
     ///
-    /// Собрана в один ярус с переключателем размера: отдельная полоса заголовка
-    /// над ней стояла пустой и стоила ещё 24 точки.
+    /// В приложении эту полосу рисует само окно (`titleVisibility = .visible`,
+    /// `titlebarAppearsTransparent = true`), и здесь она нарисована только
+    /// затем, чтобы прототип показывал целое окно, а не его начинку.
+    private var titleBar: some View {
+        ZStack {
+            Text("EliteSIP")
+                .font(Tokens.Text.title)
+                .foregroundStyle(Tokens.Palette.textSecondary(scheme))
+
+            HStack(spacing: Tokens.Metrics.trafficLightSpacing) {
+                trafficLight(Color(red: 1.00, green: 0.38, blue: 0.35))
+                trafficLight(Color(red: 1.00, green: 0.74, blue: 0.18))
+                trafficLight(Color(red: 0.16, green: 0.79, blue: 0.25))
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, Tokens.Metrics.trafficLightInset)
+        }
+        .frame(height: Tokens.Metrics.titleBarHeight)
+    }
+
+    private func trafficLight(_ color: Color) -> some View {
+        Circle()
+            .fill(color)
+            .frame(
+                width: Tokens.Metrics.trafficLightDiameter,
+                height: Tokens.Metrics.trafficLightDiameter
+            )
+    }
+
+    /// Строка состояния: список профилей, беда и настройки.
+    ///
+    /// Прежняя строка отвечала на «под каким номером я работаю» текстом, и
+    /// ответ было некуда нажать: смена профиля жила в настройках. Теперь номер
+    /// сам является кнопкой списка — вопрос и ответ на него в одном месте.
+    ///
+    /// Три слота с жёсткими ролями: список слева, шестерёнка справа, беда
+    /// между ними. Средний слот тянется и обрезается, крайние не меняют
+    /// размер никогда — иначе список ездил бы влево-вправо от длины чужой
+    /// надписи, и попасть в него с одного движения стало бы нельзя.
     private var statusBar: some View {
         HStack(spacing: Tokens.Space.tight) {
-            Circle()
-                .fill(state.statusColor)
-                .frame(width: 6, height: 6)
+            profilePicker
 
-            Text(state.managerNumber)
-                .font(Tokens.Text.statusNumber)
-                .lineLimit(1)
-
-            Text(state.statusText)
-                .font(Tokens.Text.strip)
-                .foregroundStyle(state.hasRegistrationFailure
-                                 ? Tokens.Palette.failure
-                                 : Tokens.Palette.textSecondary)
-                .lineLimit(1)
-
-            if state.hasRegistrationFailure {
-                Button("Повторить") {}
-                    .buttonStyle(.plain)
-                    .font(Tokens.Text.strip)
-                    .foregroundStyle(Tokens.Palette.warning)
-            }
-
-            Spacer(minLength: 4)
+            // Тот же приём, что и у середины панели: место занимает пустой
+            // прямоугольник, а надпись кладётся накладкой и на размер не влияет
+            // вовсе. Иначе длинная беда раздвинула бы строку и увезла
+            // шестерёнку за край.
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .leading) { troubleLabel }
+                .clipped()
 
             iconButton("gearshape", help: "Настройки") {}
-
-            iconButton(
-                state.size == .full ? "chevron.up" : "chevron.down",
-                help: state.size == .full ? "Свернуть панель" : "Развернуть панель"
-            ) {
-                state.size = state.size == .full ? .compact : .full
-            }
         }
         .frame(height: Tokens.Metrics.statusBarHeight)
-        .padding(.top, Tokens.Space.tight)
+        .padding(.top, Tokens.Gap.titleToStatus)
+    }
+
+    /// Кнопка выбора профиля: точка состояния, номер, шеврон.
+    ///
+    /// Состояние и профиль в одном контроле намеренно. Это один вопрос, а не
+    /// два: «кто я и на линии ли я» — и разводить его по разным углам панели
+    /// значит заставлять глаз собирать ответ из двух мест.
+    ///
+    /// Список — `NSMenu`, а не `Menu` из SwiftUI, и это не прототипная
+    /// условность. `Menu` появился в macOS 11, а x86_64 обязан работать на
+    /// Catalina; `NSMenu.popUp` есть всегда. Заодно снимается вторая беда:
+    /// `Menu` со своим стилем перерисовывает подпись по-своему и выбрасывает из
+    /// неё и точку состояния, и капсулу.
+    private var profilePicker: some View {
+        Button {
+            anchor.popUp(menu: makeProfileMenu())
+        } label: {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(state.statusColor)
+                    .frame(
+                        width: Tokens.Metrics.statusDotDiameter,
+                        height: Tokens.Metrics.statusDotDiameter
+                    )
+
+                Text(state.isOfflineByChoice ? "Отключён" : state.managerNumber)
+                    .font(Tokens.Text.statusNumber)
+                    .lineLimit(1)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(Tokens.Palette.textTertiary(scheme))
+            }
+            .padding(.horizontal, Tokens.Space.base)
+            .frame(height: Tokens.Metrics.profilePickerHeight)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .protoControlSurface(Tokens.Radius.pill)
+        .protoHover(radius: Tokens.Radius.pill)
+        .background {
+            if state.isInteractive {
+                MenuAnchorView(anchor: anchor)
+            }
+        }
+        .help("Профиль и состояние линии")
+    }
+
+    private func makeProfileMenu() -> NSMenu {
+        let menu = NSMenu()
+
+        for (index, profile) in state.profiles.enumerated() {
+            // Номер и пометка одной строкой: пометка — единственное, чем два
+            // профиля одного добавочного различаются.
+            let item = NSMenuItem(
+                title: "\(profile.number) · \(profile.label)",
+                action: nil,
+                keyEquivalent: ""
+            )
+            item.state = (!state.isOfflineByChoice && index == state.activeProfileIndex)
+                ? .on
+                : .off
+            item.onSelect = {
+                state.activeProfileIndex = index
+                state.isOfflineByChoice = false
+            }
+            menu.addItem(item)
+        }
+
+        menu.addItem(.separator())
+
+        let offline = NSMenuItem(title: "Отключён", action: nil, keyEquivalent: "")
+        offline.state = state.isOfflineByChoice ? .on : .off
+        // В разговоре отключение недоступно (M6b): снять регистрацию посреди
+        // звонка значит уронить его.
+        offline.onSelect = state.isInCall ? nil : { state.isOfflineByChoice = true }
+        menu.addItem(offline)
+
+        return menu
+    }
+
+    /// Слот беды между списком и шестерёнкой.
+    ///
+    /// Пустует почти весь день, и это правильно: место здесь занято не текстом,
+    /// а его возможностью — появление надписи не должно ничего двигать.
+    /// Обычное состояние сюда не пишется вовсе, его несёт цвет точки слева.
+    @ViewBuilder
+    private var troubleLabel: some View {
+        let text = state.troubleText
+
+        if !text.isEmpty {
+            if state.trouble.opensSettings {
+                // Чинит человек — значит, надпись обязана вести туда, где чинят.
+                Button {} label: {
+                    troubleContent(text)
+                }
+                .buttonStyle(.plain)
+                .help("Профиль настраивает администратор — открыть настройки")
+            } else {
+                // Чинится само: сеть вернётся, сервер ответит. Нажимать не на
+                // что, и делать вид, что есть, — обман.
+                troubleContent(text)
+            }
+        }
+    }
+
+    private func troubleContent(_ text: String) -> some View {
+        HStack(spacing: 3) {
+            Text(text)
+                .font(Tokens.Text.strip)
+                .lineLimit(1)
+                // Сжимается, но до предела: ниже 0.85 надпись перестаёт
+                // читаться, и честнее обрезать хвост, чем показать нечитаемое.
+                .minimumScaleFactor(0.85)
+                .truncationMode(.tail)
+
+            if state.trouble.opensSettings {
+                Image(systemName: "exclamationmark.circle")
+                    .font(.system(size: 10))
+            }
+        }
+        .foregroundStyle(state.trouble == .connecting
+                         ? Tokens.Palette.textSecondary(scheme)
+                         : Tokens.Palette.failure)
     }
 
     private func iconButton(
@@ -140,8 +322,8 @@ struct PanelView: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 12))
-                .foregroundStyle(Tokens.Palette.textSecondary)
-                .frame(width: 20, height: Tokens.Metrics.statusBarHeight)
+                .foregroundStyle(Tokens.Palette.textSecondary(scheme))
+                .frame(width: 22, height: Tokens.Metrics.statusBarHeight)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -223,7 +405,7 @@ struct PanelView: View {
         Button {} label: {
             HStack(spacing: Tokens.Space.tight) {
                 Circle()
-                    .fill(isActive ? Tokens.Palette.answer : Tokens.Palette.tertiary)
+                    .fill(isActive ? Tokens.Palette.answer : Tokens.Palette.textTertiary(scheme))
                     .frame(width: 6, height: 6)
 
                 Text(title)
@@ -235,7 +417,7 @@ struct PanelView: View {
                 Text(status)
                     .font(Tokens.Text.callerNumber)
                     .monospacedDigit()
-                    .foregroundStyle(isActive ? Tokens.Palette.textSecondary : Tokens.Palette.tertiary)
+                    .foregroundStyle(isActive ? Tokens.Palette.textSecondary(scheme) : Tokens.Palette.textTertiary(scheme))
                     .lineLimit(1)
             }
             .padding(.horizontal, Tokens.Space.wide)
@@ -272,13 +454,13 @@ struct PanelView: View {
                     if state.callerName?.isEmpty == false {
                         Text(state.callerNumber)
                             .font(Tokens.Text.callerNumber)
-                            .foregroundStyle(Tokens.Palette.textSecondary)
+                            .foregroundStyle(Tokens.Palette.textSecondary(scheme))
                             .lineLimit(1)
                             .layoutPriority(-1)
 
                         Text("·")
                             .font(Tokens.Text.callerNumber)
-                            .foregroundStyle(Tokens.Palette.tertiary)
+                            .foregroundStyle(Tokens.Palette.textTertiary(scheme))
                     }
 
                     Text(state.timerText)
@@ -289,7 +471,7 @@ struct PanelView: View {
                         .font(Tokens.Text.callerNumber)
                         .foregroundStyle(state.isOnHold || state.isMuted
                                          ? Tokens.Palette.warning
-                                         : Tokens.Palette.textSecondary)
+                                         : Tokens.Palette.textSecondary(scheme))
                         .lineLimit(1)
 
                     Spacer(minLength: 0)
@@ -302,18 +484,29 @@ struct PanelView: View {
                 // номер вводится с клавиатуры — значит поле обязано быть полем:
                 // отсюда бесплатно берутся backspace, выделение, ⌘C и ⌘V,
                 // которых сейчас в панели нет.
-                TextField("Номер", text: $state.dialedNumber)
-                    .textFieldStyle(.plain)
-                    .font(Tokens.Text.number)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if state.isInteractive {
+                    TextField("Номер", text: $state.dialedNumber)
+                        .textFieldStyle(.plain)
+                        .font(Tokens.Text.number)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    // Лист состояний: поля тут нет, есть его вид.
+                    Text(state.dialedNumber.isEmpty ? "Номер" : state.dialedNumber)
+                        .font(Tokens.Text.number)
+                        .foregroundStyle(state.dialedNumber.isEmpty
+                                         ? Tokens.Palette.textTertiary(scheme)
+                                         : Tokens.Palette.textPrimary(scheme))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 if !state.dialedNumber.isEmpty {
                     Button {
                         state.clear()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(Tokens.Palette.tertiary)
+                            .foregroundStyle(Tokens.Palette.textTertiary(scheme))
                     }
                     .buttonStyle(.plain)
                     .help("Очистить")
@@ -378,7 +571,7 @@ struct PanelView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isOn ? Color.white : Color.primary)
+        .foregroundStyle(isOn ? Color.white : Tokens.Palette.textPrimary(scheme))
         .background(
             RoundedRectangle(cornerRadius: Tokens.Radius.control)
                 .fill(isOn ? Tokens.Palette.warning : Color.primary.opacity(0.08))
@@ -478,7 +671,7 @@ struct PanelView: View {
         Button(action: action) {
             Text(title)
                 .font(Tokens.Text.control)
-                .foregroundStyle(isProminent ? Color.white : Color.primary)
+                .foregroundStyle(isProminent ? Color.white : Tokens.Palette.textPrimary(scheme))
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
                 .contentShape(.rect)

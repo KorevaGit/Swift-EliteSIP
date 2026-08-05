@@ -540,6 +540,8 @@ private struct LevelMeters: View {
 
 private struct LevelMeter: View {
 
+    @Environment(\.colorScheme) private var scheme
+
     let title: String
     let level: Float
 
@@ -547,7 +549,7 @@ private struct LevelMeter: View {
         CompatLabeledContent(title: title) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.Palette.tertiary.opacity(0.5))
+                    Capsule().fill(Theme.Palette.textTertiary(scheme).opacity(0.5))
                     Capsule()
                         .fill(color)
                         // Корень вместо самого уровня: слух логарифмический, и на
@@ -936,6 +938,8 @@ private struct DelayField: View {
 
 struct DiagnosticsTab: View {
 
+    @Environment(\.colorScheme) private var scheme
+
     @EnvironmentObject private var model: AppModel
 
     private var appVersion: String {
@@ -1040,7 +1044,7 @@ struct DiagnosticsTab: View {
             if model.log.isEmpty {
                 Text("Пусто. Нажмите «Подключить».")
                     .font(.footnote)
-                    .compatForeground(Theme.Palette.tertiary)
+                    .compatForeground(Theme.Palette.textTertiary(scheme))
             }
         }
     }
@@ -1049,7 +1053,7 @@ struct DiagnosticsTab: View {
         ForEach(model.log) { entry in
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(TimeText.withSeconds.string(from: entry.date))
-                    .compatForeground(Theme.Palette.tertiary)
+                    .compatForeground(Theme.Palette.textTertiary(scheme))
                 Text(entry.message)
                     .compatForeground(color(for: entry.level))
                     .compatTextSelection()

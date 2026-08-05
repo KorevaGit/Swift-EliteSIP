@@ -23,14 +23,28 @@ struct PhonePanelView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var incomingCall: IncomingCallPanel
 
+    @Environment(\.colorScheme) private var scheme
+
     /// Тикает таймер разговора. Ровно раз в секунду и только пока панель на
     /// экране.
     private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     @State private var now = Date()
 
+    /// Вид, из-под которого раскрывается список профилей.
+    @State private var anchor = MenuAnchor()
+
+    /// Высота полосы заголовка — та, что сообщило окно.
+    ///
+    /// Умолчание нужно только на первый кадр, до того как окно ответит: 28 —
+    /// величина полосы на macOS до 26. Ошибиться на ней не страшно, потому что
+    /// ответ приходит в том же проходе раскладки.
+    @State private var titleBarInset: CGFloat = 28
+
     var body: some View {
         VStack(spacing: 0) {
+            titleBar
+
             statusBar
 
             // Середина занимает ровно то, что осталось, и ни точкой больше.
@@ -56,14 +70,18 @@ struct PhonePanelView: View {
         .onReceive(clock) { now = $0 }
         .compatBackground {
             WindowAccessor { window in
-                // Заголовок скрыт, поэтому окно надо таскать за фон.
+                // Полоса заголовка появилась, но таскать за фон всё равно
+                // удобнее: панель узкая, и целиться в 28 точек сверху ради
+                // передвижения — лишняя работа.
                 window.isMovableByWindowBackground = true
                 window.styleMask.remove(.resizable)
             }
         }
-        // Размер задаётся рамке окна, а не контенту: при скрытом заголовке
-        // рамка получается на высоту полосы заголовка больше, и «высота 340» у
-        // контента давала бы окно в 372 точки.
+        .compatBackground {
+            TitleBarInsetReader { titleBarInset = $0 }
+        }
+        // Высота — вместе с полосой заголовка: при `.fullSizeContentView`
+        // содержимое и рамка окна это одно и то же.
         .compatBackground { PanelHeight(height: panelHeight) }
         .onAppear {
             #if DEBUG
@@ -105,7 +123,11 @@ struct PhonePanelView: View {
     /// у сотрудника их шесть или девять, и меняются они в настройках, а не по
     /// ходу разговора.
     private var panelHeight: CGFloat {
-        let fixed = Theme.Metrics.statusBarTopInset
+        // Полоса заголовка входит в высоту: содержимое лежит под ней целиком, и
+        // её место занимает отступ строки состояния. Число не наше — его
+        // сообщило окно.
+        let fixed = titleBarInset
+            + Theme.Gap.titleToStatus
             + Theme.Metrics.statusBarHeight
             + Theme.Gap.statusToHeader
             + Theme.Metrics.headerHeight
@@ -127,72 +149,215 @@ struct PhonePanelView: View {
         return fixed + Theme.Gap.controlsToMacros + grid
     }
 
-    // MARK: - Ярус 1: строка состояния
+    // MARK: - Ярус 1: голова
 
-    /// Кто зарегистрирован, в каком состоянии клиент и вход в настройки.
+    /// Название окна по центру полосы заголовка.
     ///
-    /// Постоянная, а не всплывающая по сбою. Всплывающая полоса показывала бы
-    /// аварию, но не отвечала на вопрос «под каким номером я сейчас работаю», а
-    /// на нескольких профилях это первое, что спрашивают. Заодно исчезает целый
-    /// класс сдвигов: строка есть всегда и место занимает всегда.
+    /// Рисуем сами, потому что системный заголовок центрируется по своей
+    /// логике и на узкой панели встаёт левее середины. Место под полосу всё
+    /// равно наше: содержимое идёт под ней целиком (`.fullSizeContentView`), а
+    /// высоту сообщает окно.
+    ///
+    /// Светофор рисует по-прежнему окно и поверх нас — поэтому надпись просто
+    /// не должна до него доставать. При 270 точках ширины она и не достаёт:
+    /// кнопки заканчиваются на 70-й, название начинается после 100-й.
+    private var titleBar: some View {
+        Text("EliteSIP")
+            .font(Theme.Text.windowTitle)
+            .compatForeground(Theme.Palette.textSecondary(scheme))
+            .lineLimit(1)
+            .frame(maxWidth: .infinity)
+            .frame(height: titleBarInset)
+    }
+
+    /// Капсула профиля, слот беды и вход в настройки.
+    ///
+    /// Стоит под полосой заголовка, а не на одной линии со светофором. Раньше
+    /// она делила линию с кнопками окна ради экономии 28 точек, и это стоило
+    /// двух вещей: у окна не было имени, а номер стоял так близко к светофору,
+    /// что читался как четвёртая кнопка.
+    ///
+    /// Три слота с жёсткими ролями: капсула слева, шестерёнка справа, беда
+    /// между ними. Средний тянется и обрезается, крайние не меняют размер
+    /// никогда — иначе капсула ездила бы влево-вправо от длины чужой надписи, и
+    /// попасть в неё с одного движения стало бы нельзя.
     private var statusBar: some View {
-        HStack(spacing: 4) {
-            // Цветной точки здесь больше нет: рядом со светофором она читается
-            // как четвёртая кнопка окна. Состояние несёт цвет самой подписи.
-            if model.isBusy {
-                CompatSpinner()
-                    .frame(width: 10, height: 10)
-            }
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            // Капсула получает свой размер первой: иначе жадный средний слот
+            // забирает всю ширину, и пометка профиля обрезается даже когда
+            // строка пустая и место есть.
+            profilePicker
+                .layoutPriority(1)
 
-            Text(model.settings.account.username)
-                .font(Theme.Text.statusNumber)
-                .lineLimit(1)
-
-            // Когда подключиться мешает незаполненная настройка, подпись
-            // становится дорогой к ней: кнопки «Подключить» больше нет, и без
-            // этого человеку некуда нажать вовсе.
+            // Тот же приём, что и у середины панели: место занимает пустой
+            // прямоугольник, а надпись кладётся накладкой и на размер не влияет
+            // вовсе.
             //
-            // Ведёт она в «Настройки», а оттуда — в «Управление» по
-            // административному паролю. Это верный адрес для обоих случаев:
-            // и учётку, и пароль профиля заводит администратор, а оператор
-            // пароля от добавочного не знает и вводить его не должен.
-            if model.setupHint != nil {
-                Button {
-                    NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
-                } label: {
-                    HStack(spacing: 3) {
-                        Text(model.registrationTitle)
-                            .font(Theme.Text.statusDetail)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                        CompatSymbol(name: "exclamationmark.circle", size: 11)
-                    }
-                    .compatForeground(Theme.Palette.connecting)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .compatHelp("Профиль настраивает администратор — открыть настройки")
-            } else {
-                Text(model.registrationTitle)
-                    .font(Theme.Text.statusDetail)
-                    .compatForeground(statusColor)
-                    .lineLimit(1)
-                    // «Не подключено» — самая длинная из подписей состояния, и
-                    // в 270 точек рядом со светофором она укладывается впритык.
-                    .minimumScaleFactor(0.85)
-            }
-
-            Spacer(minLength: 4)
+            // `minWidth` — то, что капсуле забирать нельзя. Иначе длинная
+            // пометка съедала бы слот беды целиком, а беда важнее пометки:
+            // пометку оператор и так знает, он сам за этой машиной сидит.
+            Color.clear
+                .frame(
+                    minWidth: Theme.Metrics.troubleSlotMinWidth,
+                    maxWidth: .infinity,
+                    maxHeight: .infinity
+                )
+                .compatOverlay(alignment: .leading) { troubleLabel }
+                .clipped()
 
             iconButton("gearshape", help: "Настройки EliteSIP (⌘,)", label: "Настройки") {
                 NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
             }
         }
         .frame(height: Theme.Metrics.statusBarHeight)
-        // Слева — светофор окна. Он остаётся: это единственный способ закрыть
-        // панель мышью, пока значка в строке меню нет.
-        .padding(.leading, Theme.Metrics.trafficLightsInset)
-        .padding(.top, Theme.Metrics.statusBarTopInset)
+        // Место под полосу заголовка занимает `titleBar` сверху, здесь остаётся
+        // только воздух до неё.
+        .padding(.top, Theme.Gap.titleToStatus)
+    }
+
+    /// Кнопка выбора профиля: точка состояния, номер, шеврон.
+    ///
+    /// Состояние и профиль в одном контроле намеренно. Это один вопрос, а не
+    /// два — «кто я и на линии ли я», — и разводить его по разным углам панели
+    /// значит заставлять глаз собирать ответ из двух мест.
+    ///
+    /// В разговоре капсула не нажимается: смена профиля и отключение снимают
+    /// регистрацию и закрывают диалоги (M6b). Гаснет при этом только шеврон —
+    /// номер и точка остаются в полную силу, потому что читать их надо и в
+    /// разговоре.
+    private var profilePicker: some View {
+        Button {
+            anchor.popUp(menu: makeProfileMenu())
+        } label: {
+            HStack(spacing: Theme.Metrics.tightSpacing) {
+                Circle()
+                    .fill(model.isOfflineByChoice ? Theme.Palette.offline : statusColor)
+                    .frame(
+                        width: Theme.Metrics.statusDotDiameter,
+                        height: Theme.Metrics.statusDotDiameter
+                    )
+
+                Text(model.panelStatusTitle)
+                    .font(Theme.Text.statusNumber)
+                    .lineLimit(1)
+
+                if let label = model.panelStatusLabel {
+                    Text(label)
+                        .font(Theme.Text.statusDetail)
+                        .compatForeground(Theme.Palette.textTertiary(scheme))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        // Уступает место всему остальному: номер и шеврон
+                        // обязаны остаться целыми, пометка — нет.
+                        .layoutPriority(-1)
+                }
+
+                if model.canOpenProfileMenu {
+                    // Шеврон — единственное, чем капсула сообщает, что она
+                    // кнопка со списком, а не подпись. Иконки в комплекте нет,
+                    // и рисовать её незачем: `ChevronDown` — форма.
+                    ChevronDown()
+                        .compatForeground(Theme.Palette.textTertiary(scheme))
+                }
+            }
+            .padding(.horizontal, Theme.Metrics.sectionSpacing)
+            .frame(height: Theme.Metrics.profilePickerHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .themedControlSurface(cornerRadius: pickerRadius)
+        .hoverHighlight(cornerRadius: pickerRadius, isEnabled: model.canOpenProfileMenu)
+        .disabled(!model.canOpenProfileMenu)
+        .compatBackground { MenuAnchorView(anchor: anchor) }
+        .compatHelp(
+            model.canOpenProfileMenu
+                ? "Профиль и состояние линии"
+                : "Профиль не меняется в разговоре"
+        )
+        .compatAccessibilityLabel("Профиль \(model.panelStatusTitle)")
+    }
+
+    private var pickerRadius: CGFloat {
+        Theme.Radius.capsule(height: Theme.Metrics.profilePickerHeight)
+    }
+
+    private func makeProfileMenu() -> NSMenu {
+        let menu = NSMenu()
+
+        for profile in model.profiles {
+            let item = NSMenuItem(
+                // Номер и пометка одной строкой: пометка — единственное, чем
+                // два профиля одного добавочного различаются.
+                title: model.profileMenuTitle(profile),
+                action: nil,
+                keyEquivalent: ""
+            )
+            item.state = (!model.isOfflineByChoice && profile.id == model.activeProfileID)
+                ? .on
+                : .off
+            item.onSelect = { Task { await model.goOnline(profile: profile.id) } }
+            menu.addItem(item)
+        }
+
+        menu.addItem(.separator())
+
+        let offline = NSMenuItem(title: "Отключён", action: nil, keyEquivalent: "")
+        offline.state = model.isOfflineByChoice ? .on : .off
+        offline.onSelect = { Task { await model.goOffline() } }
+        menu.addItem(offline)
+
+        return menu
+    }
+
+    /// Слот беды между капсулой и шестерёнкой.
+    ///
+    /// Пустует почти весь день, и это правильно: место здесь занято не текстом,
+    /// а его возможностью — появление надписи не должно ничего двигать.
+    /// Обычное состояние сюда не пишется вовсе, его несёт цвет точки слева.
+    @ViewBuilder
+    private var troubleLabel: some View {
+        if let trouble = model.trouble {
+            if trouble.opensSettings {
+                // Чинит человек — значит, надпись обязана вести туда, где чинят.
+                // Ведёт в «Настройки», а оттуда в «Управление» по
+                // административному паролю: и учётку, и пароль профиля заводит
+                // администратор, а оператор пароля от добавочного не знает.
+                Button {
+                    NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
+                } label: {
+                    troubleContent(trouble)
+                }
+                .buttonStyle(.plain)
+            } else {
+                // Чинится само: сеть вернётся, сервер ответит. Нажимать не на
+                // что, и делать вид, что есть, — обман.
+                //
+                // Подсказки с подробностями здесь тоже нет: на Catalina её не
+                // существует, а вторая правда в двух местах хуже одной.
+                // Подробности живут в журнале.
+                troubleContent(trouble)
+            }
+        }
+    }
+
+    private func troubleContent(_ trouble: AppModel.Trouble) -> some View {
+        HStack(spacing: Theme.Metrics.tightSpacing) {
+            Text(trouble.text)
+                .font(Theme.Text.statusDetail)
+                .lineLimit(1)
+                // Сжимается, но до предела: ниже 0.85 надпись перестаёт
+                // читаться, и честнее обрезать хвост, чем показать нечитаемое.
+                .minimumScaleFactor(0.85)
+                .truncationMode(.tail)
+
+            if trouble.opensSettings {
+                CompatSymbol(name: "exclamationmark.circle", size: Theme.Icon.small)
+            }
+        }
+        .compatForeground(
+            trouble.isFailure ? Theme.Palette.failure : Theme.Palette.textSecondary(scheme)
+        )
+        .contentShape(Rectangle())
     }
 
     private var statusColor: Color {
@@ -211,8 +376,8 @@ struct PhonePanelView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            CompatSymbol(name: symbol, size: 12)
-                .compatForeground(Theme.Palette.textSecondary)
+            CompatSymbol(name: symbol, size: Theme.Icon.medium)
+                .compatForeground(Theme.Palette.textSecondary(scheme))
                 .frame(
                     width: Theme.Metrics.statusIconHitSize,
                     height: Theme.Metrics.statusIconHitSize
@@ -264,7 +429,7 @@ struct PhonePanelView: View {
             //
             // Отдельной полосы линий нет: линия и есть собеседник, и показывать
             // их порознь значит дважды писать одно и то же.
-            VStack(spacing: 4) {
+            VStack(spacing: Theme.Metrics.tightSpacing) {
                 ForEach(model.lines.prefix(2)) { line in
                     LineField(line: line, now: now)
                 }
@@ -289,10 +454,10 @@ struct PhonePanelView: View {
             Button {
                 NSApp.sendAction(#selector(AppDelegate.showCallHistoryWindow(_:)), to: nil, from: nil)
             } label: {
-                VStack(spacing: 1) {
-                    CompatSymbol(name: "clock", size: 13)
+                VStack(spacing: Theme.Metrics.hairSpacing) {
+                    CompatSymbol(name: "clock", size: Theme.Icon.large)
                     Text("История")
-                        .font(.system(size: 10))
+                        .font(Theme.Text.actionCaption)
                 }
                 .frame(width: Theme.Metrics.historyWidth, height: Theme.Metrics.actionHeight)
                 .contentShape(Rectangle())
@@ -377,6 +542,8 @@ struct CallHeader: View {
 
     @EnvironmentObject private var model: AppModel
 
+    @Environment(\.colorScheme) private var scheme
+
     let now: Date
 
     var body: some View {
@@ -392,25 +559,25 @@ struct CallHeader: View {
         if model.isInCall {
             // Две строки: имя крупно, а номер, таймер и состояние — одной мелкой
             // строкой под ним.
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
                 Text(title)
                     .font(Theme.Text.callerName)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
 
-                HStack(spacing: 5) {
+                HStack(spacing: Theme.Metrics.tightSpacing) {
                     // Номер показывается только когда крупным идёт имя, иначе
                     // он повторил бы сам себя.
                     if hasName {
                         Text(model.activeLine?.peer ?? "")
                             .font(Theme.Text.callerNumber)
-                            .compatForeground(Theme.Palette.textSecondary)
+                            .compatForeground(Theme.Palette.textSecondary(scheme))
                             .lineLimit(1)
                             .layoutPriority(-1)
 
                         Text("·")
                             .font(Theme.Text.callerNumber)
-                            .compatForeground(Theme.Palette.tertiary)
+                            .compatForeground(Theme.Palette.textTertiary(scheme))
                     }
 
                     if let duration {
@@ -424,7 +591,7 @@ struct CallHeader: View {
                         .compatForeground(
                             model.isOnHold || model.isMicrophoneMuted
                                 ? Theme.Palette.connecting
-                                : Theme.Palette.textSecondary
+                                : Theme.Palette.textSecondary(scheme)
                         )
                         .lineLimit(1)
 
@@ -459,6 +626,8 @@ struct LineField: View {
 
     @EnvironmentObject private var model: AppModel
 
+    @Environment(\.colorScheme) private var scheme
+
     let line: AppModel.CallLine
     let now: Date
 
@@ -473,9 +642,17 @@ struct LineField: View {
             Task { await model.switchLine(to: line.id) }
         } label: {
             HStack(spacing: Theme.Metrics.elementSpacing) {
+                // Точка стоит в колонке шириной с точку капсулы, а не по своему
+                // размеру: она мельче (6 против 8), и выровненные по краю
+                // кружки разошлись бы центрами. Колонка выравнивает именно
+                // центры — глаз считывает их, а не края.
                 Circle()
-                    .fill(isActive ? Theme.Palette.registered : Theme.Palette.tertiary)
-                    .frame(width: 6, height: 6)
+                    .fill(isActive ? Theme.Palette.registered : Theme.Palette.textTertiary(scheme))
+                    .frame(
+                        width: Theme.Metrics.lineDotDiameter,
+                        height: Theme.Metrics.lineDotDiameter
+                    )
+                    .frame(width: Theme.Metrics.statusDotDiameter)
 
                 Text(line.displayName?.isEmpty == false ? line.displayName! : line.title)
                     .font(Theme.Text.lineTitle)
@@ -486,12 +663,14 @@ struct LineField: View {
                 Text(status)
                     .font(Theme.Text.callerNumber)
                     .compatMonospacedDigit()
-                    .compatForeground(isActive ? Theme.Palette.textSecondary : Theme.Palette.tertiary)
+                    .compatForeground(isActive ? Theme.Palette.textSecondary(scheme) : Theme.Palette.textTertiary(scheme))
                     .lineLimit(1)
             }
-            .padding(.horizontal, Theme.Metrics.contentPadding)
+            // Столько же, сколько внутри капсулы профиля: тогда обе точки
+            // встают на одну вертикаль — в 20 точках от края окна.
+            .padding(.horizontal, Theme.Metrics.sectionSpacing)
             .frame(maxWidth: .infinity)
-            .frame(height: 22)
+            .frame(height: Theme.Metrics.lineFieldHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -523,6 +702,8 @@ struct DialedNumberField: View {
 
     @EnvironmentObject private var model: AppModel
 
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
             CompatTextField(
@@ -542,8 +723,8 @@ struct DialedNumberField: View {
                 Button {
                     model.clearDialedNumber()
                 } label: {
-                    CompatSymbol(name: "xmark.circle.fill", size: 12)
-                        .compatForeground(Theme.Palette.tertiary)
+                    CompatSymbol(name: "xmark.circle.fill", size: Theme.Icon.medium)
+                        .compatForeground(Theme.Palette.textTertiary(scheme))
                 }
                 .buttonStyle(.borderless)
                 .compatHelp("Очистить")
@@ -608,8 +789,8 @@ struct CallControls: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 3) {
-                CompatSymbol(name: symbol, size: 10)
+            HStack(spacing: Theme.Metrics.tightSpacing) {
+                CompatSymbol(name: symbol, size: Theme.Icon.small)
                 Text(title)
                     .font(Theme.Text.statusDetail)
                     .lineLimit(1)
@@ -629,7 +810,7 @@ struct CallControls: View {
         .themedControlSurface()
         .hoverHighlight(isEnabled: isEnabled)
         .disabled(!isEnabled)
-        .opacity(isEnabled ? 1 : 0.35)
+        .opacity(isEnabled ? 1 : Theme.Metrics.disabledOpacity)
         .compatHelp(help)
     }
 }
@@ -694,7 +875,7 @@ struct MacroGrid: View {
         .themedControlSurface()
         .hoverHighlight(isEnabled: model.canSendDTMF)
         .disabled(!model.canSendDTMF)
-        .opacity(model.canSendDTMF ? 1 : 0.35)
+        .opacity(model.canSendDTMF ? 1 : Theme.Metrics.disabledOpacity)
         .compatHelp(model.settings.dtmf.sequence(of: macro).displayText)
     }
 }
@@ -726,7 +907,7 @@ struct TransferEntry: View {
             .font(Theme.Text.callerName)
             .lineLimit(1)
             .padding(.horizontal, Theme.Metrics.contentPadding)
-            .frame(height: 34)
+            .frame(height: Theme.Metrics.transferFieldHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .themedControlSurface()
             .disabled(model.isTransferring)
@@ -739,9 +920,9 @@ struct TransferEntry: View {
 
                 if model.isTransferring {
                     CompatSpinner()
-                        .frame(height: 12)
+                        .frame(height: Theme.Icon.medium)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 30)
+                        .frame(height: Theme.Metrics.transferButtonHeight)
                 } else {
                     button("Перевести", isProminent: true, action: submit)
                         .disabled(!model.hasTransferNumber)
@@ -761,7 +942,7 @@ struct TransferEntry: View {
                 .font(Theme.Text.controlLabel)
                 .compatForeground(isProminent ? Color.white : Color.primary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 30)
+                .frame(height: Theme.Metrics.transferButtonHeight)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -117,16 +117,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
             ),
             // Без `.resizable`: это и есть `windowResizability(.contentSize)`.
+            //
+            // `.fullSizeContentView` обязателен вместе с прозрачным окном:
+            // без него содержимое начинается под полосой заголовка, а сама
+            // полоса остаётся без фона — светофор и название повисают над
+            // рабочим столом, оторванные от панели. С ним поверхность панели
+            // идёт под полосу, и стекло получается сплошным.
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
+        // Имя у окна есть, но рисует его вёрстка, а не AppKit.
+        //
+        // Системный заголовок центрируется по своей логике, которая для узкой
+        // панели даёт не середину: замер живого окна показал 108.75 точки при
+        // середине 135. Спорить с ней нечем — своё же название мы ставим ровно
+        // по центру. Само `title` при этом остаётся: по нему окно называется в
+        // меню «Окно» и в переключателе задач.
         window.title = "EliteSIP"
-        // Пара строк, заменяющая `windowStyle(.hiddenTitleBar)`.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+
+        // Без этой пары никакая прозрачность не работает: под материалом
+        // окажется непрозрачный фон самого окна, и размывать `.behindWindow`
+        // будет нечего.
+        window.isOpaque = false
+        window.backgroundColor = .clear
+
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: withEnvironment(PhonePanelView()))
+
+        // Панель висит поверх CRM весь рабочий день, и уходить под неё от
+        // первого же клика мимо не должна: оператор ставит окно один раз и
+        // дальше только смотрит на него.
+        window.level = .floating
+        // Но полноэкранным приложениям она при этом не мешает: без
+        // `.fullScreenAuxiliary` плавающее окно либо исчезает при переходе в
+        // полный экран, либо выкидывает из него.
+        window.collectionBehavior = [.fullScreenAuxiliary, .managed]
 
         // Размер задаётся до центрирования, а не после: `NSHostingController`
         // подгоняет окно под содержимое, и `center()` посчитал бы середину для
@@ -140,10 +168,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ),
             display: false
         )
-        window.center()
+        restorePosition(of: window)
 
         phoneWindow = window
         window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Имя, под которым AppKit хранит позицию панели между запусками.
+    private static let phoneWindowAutosaveName = "EliteSIPPhonePanel"
+
+    /// Возвращает панель туда, где её оставили.
+    ///
+    /// Место для панели оператор выбирает один раз, а центр экрана — это место,
+    /// выбранное за него. Хранит позицию AppKit сам, от нас нужно только имя и
+    /// проверка на исчезнувший монитор.
+    private func restorePosition(of window: NSWindow) {
+        let restored = window.setFrameUsingName(Self.phoneWindowAutosaveName)
+        window.setFrameAutosaveName(Self.phoneWindowAutosaveName)
+
+        // Сохранённая позиция могла остаться от внешнего монитора, которого
+        // сейчас нет: ноутбук отключили от дока, и панель уехала за пределы
+        // единственного экрана — то есть исчезла. Проверяем не «попала ли она
+        // на экран целиком», а «видно ли её вообще»: частично уехавшее окно
+        // оператор дотащит сам, а полностью пропавшее — нет.
+        let isVisible = NSScreen.screens.contains { $0.visibleFrame.intersects(window.frame) }
+        guard restored, isVisible else {
+            window.center()
+            return
+        }
     }
 
     /// Не `private`: то же действие посылает кнопка на панели через

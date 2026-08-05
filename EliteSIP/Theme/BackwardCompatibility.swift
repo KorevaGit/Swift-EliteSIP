@@ -350,6 +350,30 @@ struct CompatSymbol: View {
     }
 }
 
+/// Шеврон вниз — формой, а не картинкой из комплекта.
+///
+/// В `Assets.xcassets/Symbols` его нет, и это не упущение: комплект рисуется
+/// руками ради Catalina, а шеврон — три отрезка, которые проще задать, чем
+/// нарисовать. Заодно он остаётся резким на любом размере и берёт цвет от
+/// окружения, как и остальные иконки.
+struct ChevronDown: View {
+
+    /// Ширина «галки». Высота — половина: пропорция взята у системного
+    /// шеврона, при других она читается как стрелка или как галочка.
+    var width: CGFloat = 7
+    var lineWidth: CGFloat = 1.5
+
+    var body: some View {
+        Path { path in
+            path.move(to: CGPoint(x: 0, y: 0))
+            path.addLine(to: CGPoint(x: width / 2, y: width / 2))
+            path.addLine(to: CGPoint(x: width, y: 0))
+        }
+        .stroke(style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+        .frame(width: width, height: width / 2)
+    }
+}
+
 /// Замена `Label(_:systemImage:)`, которого нет до macOS 11.
 struct CompatLabel: View {
 
@@ -391,12 +415,20 @@ private struct CompatTask: ViewModifier {
 struct CompatMaterial: NSViewRepresentable {
 
     var material: NSVisualEffectView.Material = .contentBackground
+
+    /// Что размывать: содержимое своего окна или то, что за ним.
+    ///
+    /// Умолчание осталось прежним, потому что на нём стоят внутренние
+    /// поверхности. Для фона самого окна нужен `.behindWindow` — иначе
+    /// прозрачности не будет вовсе, сколько ни настраивай подкраску: размывать
+    /// материалу будет нечего, кроме собственного окна.
+    var blending: NSVisualEffectView.BlendingMode = .withinWindow
     var cornerRadius: CGFloat
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = material
-        view.blendingMode = .withinWindow
+        view.blendingMode = blending
         view.state = .active
         view.wantsLayer = true
         view.layer?.cornerRadius = cornerRadius
@@ -406,6 +438,7 @@ struct CompatMaterial: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
+        nsView.blendingMode = blending
         nsView.layer?.cornerRadius = cornerRadius
     }
 }

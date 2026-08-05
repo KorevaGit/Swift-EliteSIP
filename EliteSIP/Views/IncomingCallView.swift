@@ -21,6 +21,8 @@ import SwiftUI
 /// каждом вызове. «Отклонить» доступен и с клавиатуры, и для screen reader.
 struct IncomingCallView: View {
 
+    @Environment(\.colorScheme) private var scheme
+
     let callerNumber: String
     let callerName: String?
     let challenge: CallGuardChallenge
@@ -70,7 +72,7 @@ struct IncomingCallView: View {
             // выключили, значка нет, и это видно на скриншоте экрана.
             if isGuarded {
                 CompatSymbol(name: "lock.shield.fill")
-                    .compatForeground(Theme.Palette.tertiary)
+                    .compatForeground(Theme.Palette.textTertiary(scheme))
                     .compatHelp("Защита от автокликеров включена")
             }
         }
