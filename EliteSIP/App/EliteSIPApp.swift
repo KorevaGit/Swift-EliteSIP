@@ -54,6 +54,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.mainMenu = makeMainMenu()
         showPhoneWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+        #if DEBUG
+        // До автоподключения: сетка макросов должна быть на экране с первого
+        // кадра, а не появляться после первой записи настроек.
+        model.seedDebugMacrosIfNeeded()
+        #endif
+
         // Регистрация поднимается сама: ручного «Подключить» в панели нет.
         model.startAutoConnect()
     }

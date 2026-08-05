@@ -45,6 +45,9 @@ final class AppModel: ObservableObject {
             // тому профилю, который сейчас на экране.
             if KeychainStore.key(for: settings.account) != KeychainStore.key(for: oldValue.account) {
                 refreshStoredPasswordFlag()
+                // Запомненный пароль принадлежал прежней учётке. Держать его
+                // дальше — способ однажды зарегистрироваться чужим паролем.
+                cachedPassword = nil
             }
             // Тема применяется ко всему приложению разом: окон несколько, и
             // расходиться по оформлению им нельзя.
@@ -157,6 +160,20 @@ final class AppModel: ObservableObject {
     var lastNetworkInterfaces: Set<String> = []
     var wakeObserver: NSObjectProtocol?
     @Published private(set) var hasStoredPassword = false
+
+    /// Пароль, уже прочитанный из связки ключей в этом запуске, вместе с
+    /// ключом записи, из которой он взят.
+    ///
+    /// Держится в памяти намеренно. Чтение из связки ключей — единственное
+    /// место, где macOS может показать запрос разрешения и остановить нас до
+    /// ответа человека, а перерегистрируемся мы не по нажатию: смена сети,
+    /// пробуждение, повтор после отказа. Без запоминания каждое такое событие
+    /// снова упиралось бы в диалог — и упиралось бы в него в момент, когда
+    /// перед экраном может не быть никого.
+    ///
+    /// Ключ хранится рядом со значением, потому что профилей несколько (M7b):
+    /// пароль, прочитанный для одной учётки, к другой отношения не имеет.
+    private var cachedPassword: (key: String, value: String)?
     @Published private(set) var log: [LogEntry] = []
 
     @Published var dialedNumber: String = ""
@@ -286,14 +303,56 @@ final class AppModel: ObservableObject {
     /// «Разрешить».
     private func loadStoredPassword() async -> String? {
         let key = keychainKey
+        if let cachedPassword, cachedPassword.key == key { return cachedPassword.value }
         do {
-            return try await Task.detached(priority: .userInitiated) {
+            let password = try await Task.detached(priority: .userInitiated) {
                 try KeychainStore.password(for: key)
             }.value
+            if let password, !password.isEmpty {
+                cachedPassword = (key, password)
+            }
+            return password
         } catch {
             append(level: .error, message: "Keychain не отдал пароль: \(error.localizedDescription)")
             return nil
         }
+    }
+
+    /// Достаёт пароль из связки ключей заранее, на запуске.
+    ///
+    /// Раньше первое чтение приходилось на саму регистрацию — то есть на
+    /// секунды после старта, когда окно панели ещё разъезжается, а приложение
+    /// не факт что вышло вперёд. Запрос разрешения от macOS в этот момент
+    /// человек либо не замечает, либо закрывает как непонятно откуда взявшийся,
+    /// и автоподключение первого запуска молча не проходит: пароль есть, а
+    /// прочитать его не дали.
+    ///
+    /// Поэтому чтение делается отдельным шагом, до регистрации и после того,
+    /// как окно показано и приложение активно. Дальше пароль живёт в
+    /// `cachedPassword`, и до конца запуска связка ключей больше не
+    /// понадобится — ни на смену сети, ни на пробуждение.
+    ///
+    /// Возвращает `false`, только если пароль есть, но взять его не дали:
+    /// регистрацию в этом случае затевать нечем, а второй заход за паролем
+    /// показал бы человеку второй такой же запрос подряд.
+    @discardableResult
+    func primeStoredPassword() async -> Bool {
+        guard hasStoredPassword, cachedPassword?.key != keychainKey else { return true }
+        guard await loadStoredPassword() != nil else {
+            // Причину уже написал `loadStoredPassword`; здесь важно
+            // последствие, а оно другое: регистрация впереди и она не пройдёт.
+            append(
+                level: .warning,
+                message: "пароль из связки ключей не прочитан — автоподключение не пройдёт, "
+                    + "разрешите доступ и сохраните пароль заново"
+            )
+            // На панели кнопки «Подключить» нет, и молчаливое «Не подключено»
+            // здесь неверно: связка ключей отказала, само это не пройдёт.
+            callStatus = "Нет доступа к паролю"
+            return false
+        }
+        append(level: .debug, message: "пароль получен из связки ключей")
+        return true
     }
 
     var isConnected: Bool { registration.isRegistered }
@@ -323,11 +382,37 @@ final class AppModel: ObservableObject {
     /// «Не подключено» без причины оставляет человека гадать — особенно когда
     /// пароль сохранён, но для другого профиля.
     var setupHint: String? {
+        switch setupNeed {
+        case .account: "Нет учётной записи"
+        case .password: "Нужен пароль"
+        case nil: nil
+        }
+    }
+
+    /// Чего именно не хватает — как повод к действию, а не как подпись.
+    ///
+    /// Два случая разведены, потому что чинятся они в разных местах и разными
+    /// людьми. Учётку заводит администратор в «Управлении», и звать туда самим
+    /// нельзя. Пароль — свой собственный, его вводит тот, кто сел за машину, и
+    /// спросить его приложение обязано само.
+    enum SetupNeed {
+        case account
+        case password
+    }
+
+    var setupNeed: SetupNeed? {
         guard case .idle = registration else { return nil }
-        if !settings.account.isUsable { return "Нет учётной записи" }
-        if !hasStoredPassword { return "Нужен пароль" }
+        if !settings.account.isUsable { return .account }
+        if !hasStoredPassword { return .password }
         return nil
     }
+
+    /// Позвать за паролем. Ставит `AppDelegate` — окна принадлежат ему.
+    ///
+    /// Замыкание, а не флаг в модели: спросить пароль надо один раз и в
+    /// конкретный момент, а не «пока состояние такое». Наблюдение за флагом
+    /// открывало бы окно заново при каждом обновлении модели.
+    var onNeedsPassword: (@MainActor () -> Void)?
 
     var registrationTitle: String {
         switch registration {
@@ -356,6 +441,10 @@ final class AppModel: ObservableObject {
         do {
             try KeychainStore.save(password: passwordDraft, for: keychainKey)
             hasStoredPassword = !passwordDraft.isEmpty
+            // Только что сохранённый пароль запоминаем сразу: перечитывать его
+            // обратно из связки ключей значит без нужды спросить разрешение на
+            // то, что мы и так знаем.
+            cachedPassword = hasStoredPassword ? (keychainKey, passwordDraft) : nil
             passwordDraft = ""
             append(level: .info, message: hasStoredPassword ? "пароль сохранён в Keychain" : "пароль удалён")
             // Ручного «Подключить» в панели больше нет: как только появился
@@ -370,6 +459,7 @@ final class AppModel: ObservableObject {
     func forgetPassword() {
         try? KeychainStore.delete(for: keychainKey)
         hasStoredPassword = false
+        cachedPassword = nil
         passwordDraft = ""
         append(level: .info, message: "пароль удалён из Keychain")
     }
@@ -462,14 +552,6 @@ final class AppModel: ObservableObject {
         } else {
             append(level: .debug, message: "стука нет (\(because))")
         }
-
-        // Разрешение на микрофон спрашиваем заранее, при выходе на линию.
-        //
-        // Иначе системный диалог впервые появляется под звонок: окно входящего
-        // уже скрыто, оператор считает, что принял лид, а мы вместо ответа
-        // показываем ему запрос доступа. Здесь же он всплывает в спокойный
-        // момент и больше не мешает никогда.
-        Task { _ = await VoiceAudioEngine.requestMicrophoneAccess() }
 
         // Ответ на чужой повторный INVITE собирает приложение: это удержание с
         // той стороны, смена кодека или переброс медиа на другой адрес — всё
@@ -2159,7 +2241,9 @@ final class AppModel: ObservableObject {
         if shared {
             append(level: .info, message: "профиль удалён; пароль остался у профиля с тем же номером")
         } else {
-            try? KeychainStore.delete(for: KeychainStore.key(for: removed.account))
+            let removedKey = KeychainStore.key(for: removed.account)
+            try? KeychainStore.delete(for: removedKey)
+            if cachedPassword?.key == removedKey { cachedPassword = nil }
             append(level: .info, message: "профиль удалён вместе с паролем")
         }
 
