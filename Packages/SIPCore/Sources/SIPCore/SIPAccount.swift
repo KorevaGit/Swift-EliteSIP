@@ -2,9 +2,9 @@ import Foundation
 
 /// Учётная запись SIP.
 ///
-/// Пароля здесь нет и не будет: он живёт в Keychain и передаётся отдельно, в
-/// `DigestAuthentication.Credentials`. Так его нельзя случайно записать в файл
-/// настроек или в лог вместе со всей структурой.
+/// Пароля здесь нет: он лежит в `SIPProfile` и передаётся отдельно, в
+/// `DigestAuthentication.Credentials`. Так его нельзя случайно записать в лог
+/// вместе со всей структурой — а её печатают и в диагностике, и в журнале.
 public struct SIPAccount: Sendable, Hashable, Codable {
 
     /// Внутренний номер — он же user-part в address-of-record.

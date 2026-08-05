@@ -102,6 +102,16 @@ struct AppSettings: Codable, Sendable, Equatable {
         set { profiles.active.account = newValue }
     }
 
+    /// Пароль активного профиля — тем же коротким путём, что и учётка.
+    ///
+    /// Живёт в настройках, а не в связке ключей (решение от 5 августа 2026,
+    /// см. `SIPProfile`): это часть настройки рабочего места, которую делает
+    /// администратор, а не секрет того, кто за машиной сидит.
+    var sipPassword: String {
+        get { profiles.active.password }
+        set { profiles.active.password = newValue }
+    }
+
     /// Свой почленный инициализатор: наличие `init(from:)` отменяет
     /// синтезированный.
     init(
@@ -708,6 +718,14 @@ enum SettingsStore {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(settings).write(to: url, options: .atomic)
+        // Права 0600 — потому что с 5 августа 2026 в файле лежит пароль от
+        // добавочного (см. `SIPProfile`). Ставятся после каждой записи, а не
+        // один раз при создании: `.atomic` пишет во временный файл и
+        // переименовывает его на место старого, то есть права у файла каждый
+        // раз новые, взятые из umask.
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o600], ofItemAtPath: url.path
+        )
     }
 }
 

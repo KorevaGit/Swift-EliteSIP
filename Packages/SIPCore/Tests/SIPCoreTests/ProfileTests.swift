@@ -103,25 +103,32 @@ final class ProfileTests: XCTestCase {
         XCTAssertEqual(list.profiles.count, 1)
     }
 
-    /// Пароль в связке ключей лежит под «номер@домен». Два профиля с одной
-    /// парой — одно рабочее место, и удаление одного не должно стирать пароль
-    /// у второго.
-    func testSharedCredentialsAreDetectedByNumberAndDomain() {
-        let office = SIPProfile(label: "офис", account: account("100"))
-        let remote = SIPProfile(label: "удалённый", account: account("100"))
-        let other = SIPProfile(account: account("200"))
-        let list = SIPProfileList(profiles: [office, remote, other])
+    /// Пароль — поле профиля, а не общая запись в связке ключей: два профиля с
+    /// одинаковой парой номер+домен держат каждый свой, и удаление одного
+    /// второго не касается.
+    func testPasswordBelongsToProfileNotToNumberAndDomain() {
+        let office = SIPProfile(label: "офис", account: account("100"), password: "первый")
+        let remote = SIPProfile(label: "удалённый", account: account("100"), password: "второй")
+        var list = SIPProfileList(profiles: [office, remote])
 
-        XCTAssertTrue(list.sharesCredentials(of: office, excludingID: office.id))
-        XCTAssertFalse(list.sharesCredentials(of: other, excludingID: other.id))
+        XCTAssertEqual(list.remove(office.id)?.password, "первый")
+        XCTAssertEqual(list.profiles.count, 1)
+        XCTAssertEqual(list.profiles[0].password, "второй")
     }
 
-    func testSharedCredentialsIgnoreDifferentDomain() {
-        let office = SIPProfile(account: account("100", "pbx.office"))
-        let remote = SIPProfile(account: account("100", "pbx.remote"))
-        let list = SIPProfileList(profiles: [office, remote])
-
-        XCTAssertFalse(list.sharesCredentials(of: office, excludingID: office.id))
+    /// Файл, записанный до переезда пароля в профиль, читается без ключа
+    /// `password` — и не падает, а получает пустой пароль.
+    func testProfileWithoutPasswordKeyDecodesAsUnset() throws {
+        let json = Data(
+            """
+            {"id":"\(UUID().uuidString)","label":"старый",
+             "account":{"username":"100","displayName":"","domain":"pbx.example",
+                        "transport":"udp","registrationExpires":300}}
+            """.utf8
+        )
+        let profile = try JSONDecoder().decode(SIPProfile.self, from: json)
+        XCTAssertTrue(profile.password.isEmpty)
+        XCTAssertEqual(profile.account.username, "100")
     }
 
     // MARK: - Пресеты

@@ -26,7 +26,6 @@ extension AppModel {
     var hasUnsavedAdministrationChanges: Bool {
         guard let administrationSnapshot else { return false }
         return settings != administrationSnapshot
-            || pendingSIPPassword != nil
             || pendingAdminPassword != nil
             || pendingAdminPasswordRemoval
     }
@@ -36,7 +35,6 @@ extension AppModel {
         guard administrationSnapshot == nil else { return }
         administrationSnapshot = settings
         isHoldingSettingsWrites = true
-        pendingSIPPassword = nil
         pendingAdminPassword = nil
         pendingAdminPasswordRemoval = false
     }
@@ -55,15 +53,9 @@ extension AppModel {
         isHoldingSettingsWrites = false
         administrationSnapshot = nil
 
-        // Пароли применяются здесь, а не по своим кнопкам: согласовано, что в
-        // черновике всё, включая пароли. Пока «Сохранить» не нажато, ни одна
-        // запись в связке ключей не меняется — то есть «Отменить» отменяет и их.
-        if let pendingSIPPassword {
-            passwordDraft = pendingSIPPassword
-            savePassword()
-            self.pendingSIPPassword = nil
-        }
-
+        // Пароль SIP отдельного применения не требует: он поле настроек, и
+        // уезжает на диск вместе с ними — тем же `persistSettings` ниже.
+        // Административный пароль живёт не в файле, поэтому применяется здесь.
         if pendingAdminPasswordRemoval {
             try? removeAdminPassword()
             pendingAdminPasswordRemoval = false
@@ -90,6 +82,12 @@ extension AppModel {
                 ? "настройки сохранены вручную: машина переведена в локальный режим"
                 : "закрытые настройки сохранены, режим управления — локальный"
         )
+
+        // Ровно то, что раньше делала `savePassword`: как только у профиля
+        // появился пароль, выходим на линию сами. Ручного «Подключить» в панели
+        // нет, и без этого администратор сохранил бы настройку и оставил
+        // оператора смотреть на «Профиль без пароля» до ближайшей смены сети.
+        Task { await connectIfPossible() }
     }
 
     /// «Отменить»: возвращает всё как было при входе.
@@ -97,7 +95,6 @@ extension AppModel {
         guard let administrationSnapshot else { return }
 
         isHoldingSettingsWrites = false
-        pendingSIPPassword = nil
         pendingAdminPassword = nil
         pendingAdminPasswordRemoval = false
 
@@ -112,19 +109,9 @@ extension AppModel {
 
     // MARK: - Отложенные пароли
 
-    /// Пароль SIP: в черновик, а не в связку ключей.
-    func stageSIPPassword(_ password: String) {
-        pendingSIPPassword = password
-    }
-
-    /// Признак «пароль задан» с учётом черновика — иначе форма показывала бы
-    /// «не задан» после того, как его только что вписали.
-    var hasSIPPasswordIncludingDraft: Bool {
-        if let pendingSIPPassword { return !pendingSIPPassword.isEmpty }
-        return hasStoredPassword
-    }
-
-    /// Административный пароль: тоже в черновик.
+    /// Административный пароль: в черновик. Пароль SIP своей отложенной
+    /// копии не имеет — он лежит в `settings`, а их запись на диск уже
+    /// придержана, и «Отменить» возвращает снимок вместе с ним.
     func stageAdminPassword(_ password: String) {
         pendingAdminPassword = password
         pendingAdminPasswordRemoval = false

@@ -50,7 +50,7 @@ EliteSIP/               приложение
   Assets.xcassets/      Symbols/ — свой комплект иконок вместо SF Symbols,
                         которых на Catalina нет. Исходники — во фрейме
                         «Иконки · комплект для Catalina» того же макета Figma
-  Services/             настройки, Keychain, рингтон
+  Services/             настройки, рингтон
   Views/                панель, дайлпад, входящий вызов, настройки
   Windows/              NSPanel входящего, слежение за курсором, доступ к NSWindow
   Theme/                токены размеров и цветов, шим Liquid Glass ↔ материалы,

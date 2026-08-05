@@ -69,7 +69,7 @@ struct AccountSettingsTab: View {
                     Spacer()
                 }
 
-                Text("Зарегистрирован всегда ровно один профиль — отмеченный. У каждого свой пароль в Keychain; удаление профиля стирает и его.")
+                Text("Зарегистрирован всегда ровно один профиль — отмеченный. У каждого свой пароль; удаление профиля стирает и его.")
                     .font(.footnote)
                     .compatForeground(.secondary)
             }
@@ -94,16 +94,20 @@ struct AccountSettingsTab: View {
             }
 
             Section(header: Text("Пароль")) {
+                // Обычное поле профиля, без кнопок «Принять» и «Удалить».
+                // Придержку до «Сохранить» делает само окно «Управление»: на
+                // диск не уходит ничего, пока оно открыто, а «Отменить»
+                // возвращает снимок вместе с паролем.
                 HStack {
                     if isPasswordRevealed {
                         TextField("Пароль", text: Binding(
-                            get: { model.passwordDraft },
-                            set: { model.passwordDraft = $0 }
+                            get: { model.settings.sipPassword },
+                            set: { model.settings.sipPassword = $0 }
                         ))
                     } else {
                         SecureField("Пароль", text: Binding(
-                            get: { model.passwordDraft },
-                            set: { model.passwordDraft = $0 }
+                            get: { model.settings.sipPassword },
+                            set: { model.settings.sipPassword = $0 }
                         ))
                     }
                     Button {
@@ -114,46 +118,15 @@ struct AccountSettingsTab: View {
                     .buttonStyle(.borderless)
                 }
 
-                HStack {
-                    // Не «сохранить в Keychain», а «принять»: запись в связку
-                    // ключей происходит по кнопке «Сохранить» внизу окна, вместе
-                    // со всем остальным. Согласовано: в черновике всё, включая
-                    // пароли, — иначе «Отменить» отменяло бы не всё.
-                    Button("Принять пароль") {
-                        model.stageSIPPassword(model.passwordDraft)
-                        model.passwordDraft = ""
-                    }
-                    .disabled(model.passwordDraft.isEmpty)
-
-                    if model.hasSIPPasswordIncludingDraft {
-                        Button("Удалить сохранённый") {
-                            model.stageSIPPassword("")
-                            model.passwordDraft = ""
-                        }
-                    }
-
-                    Spacer()
-
-                    CompatLabel(
-                        title: model.hasSIPPasswordIncludingDraft ? "Пароль задан" : "Пароль не задан",
-                        symbol: model.hasSIPPasswordIncludingDraft ? "checkmark.circle" : "exclamationmark.circle"
-                    )
+                Text("""
+                    Пароль от добавочного вписывает администратор: оператор его \
+                    не знает и вводить не должен. Хранится в файле настроек этой \
+                    машины, рядом с номером профиля, и в выгрузку диагностики не \
+                    попадает.
+                    """)
                     .font(.footnote)
                     .compatForeground(.secondary)
-                }
-
-                if model.pendingSIPPassword != nil {
-                    CompatLabel(
-                        title: "Пароль применится при сохранении настроек",
-                        symbol: "exclamationmark.triangle"
-                    )
-                    .font(.footnote)
-                    .compatForeground(.orange)
-                }
-
-                Text("Пароль хранится в Keychain и не попадает ни в файл настроек, ни в выгрузку диагностики.")
-                    .font(.footnote)
-                    .compatForeground(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Section(header: Text("Сеть")) {

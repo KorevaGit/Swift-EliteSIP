@@ -34,21 +34,6 @@ final class AppModel: ObservableObject {
     @Published var settings: AppSettings {
         didSet {
             guard settings != oldValue else { return }
-            // Ключ записи в связке ключей — «номер@домен». Сменили любое из
-            // двух — и признак «пароль задан» относится уже к другой учётке:
-            // без перепроверки настройки показывали бы «сохранён в Keychain»
-            // для номера, у которого пароля нет. Проверка наличия дешёвая и
-            // диалога не вызывает, поэтому её можно делать прямо здесь.
-            //
-            // Со списком профилей сюда же попадает переключение профиля: ключ
-            // считается от активного, и «пароль задан» обязано относиться к
-            // тому профилю, который сейчас на экране.
-            if KeychainStore.key(for: settings.account) != KeychainStore.key(for: oldValue.account) {
-                refreshStoredPasswordFlag()
-                // Запомненный пароль принадлежал прежней учётке. Держать его
-                // дальше — способ однажды зарегистрироваться чужим паролем.
-                cachedPassword = nil
-            }
             // Тема применяется ко всему приложению разом: окон несколько, и
             // расходиться по оформлению им нельзя.
             if settings.appearance != oldValue.appearance {
@@ -75,10 +60,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Пароль, введённый в настройках. Хранится в Keychain, здесь живёт только
-    /// до нажатия «Сохранить» и обратно из Keychain не читается.
-    @Published var passwordDraft: String = ""
-
     /// Что показать под кнопкой «Исправить сеть». Живёт до следующего нажатия:
     /// человек нажал её потому, что что-то не работает, и ответ «сделано» ему
     /// нужен на экране, а не в журнале.
@@ -103,8 +84,9 @@ final class AppModel: ObservableObject {
     /// Придержка записи на диск, пока открыт черновик.
     @Published var isHoldingSettingsWrites = false
 
-    /// Пароль SIP, введённый в черновике и ещё не уехавший в связку ключей.
-    @Published var pendingSIPPassword: String?
+    // Отдельного черновика для пароля SIP здесь нет: он обычное поле настроек,
+    // а придержку записи на диск делает `isHoldingSettingsWrites` — та же, что
+    // и для всего остального в окне «Управление».
 
     /// Административный пароль в черновике.
     @Published var pendingAdminPassword: String?
@@ -159,21 +141,6 @@ final class AppModel: ObservableObject {
     var lastNetworkPathIsSatisfied = false
     var lastNetworkInterfaces: Set<String> = []
     var wakeObserver: NSObjectProtocol?
-    @Published private(set) var hasStoredPassword = false
-
-    /// Пароль, уже прочитанный из связки ключей в этом запуске, вместе с
-    /// ключом записи, из которой он взят.
-    ///
-    /// Держится в памяти намеренно. Чтение из связки ключей — единственное
-    /// место, где macOS может показать запрос разрешения и остановить нас до
-    /// ответа человека, а перерегистрируемся мы не по нажатию: смена сети,
-    /// пробуждение, повтор после отказа. Без запоминания каждое такое событие
-    /// снова упиралось бы в диалог — и упиралось бы в него в момент, когда
-    /// перед экраном может не быть никого.
-    ///
-    /// Ключ хранится рядом со значением, потому что профилей несколько (M7b):
-    /// пароль, прочитанный для одной учётки, к другой отношения не имеет.
-    private var cachedPassword: (key: String, value: String)?
     @Published private(set) var log: [LogEntry] = []
 
     @Published var dialedNumber: String = ""
@@ -184,7 +151,6 @@ final class AppModel: ObservableObject {
     init() {
         let storedVersion = SettingsStore.storedSchemaVersion()
         settings = SettingsStore.load()
-        refreshStoredPasswordFlag()
         openLogFileIfNeeded()
         // После журнала: открытие истории пишет в него свой исход, включая
         // «база была повреждена».
@@ -270,91 +236,6 @@ final class AppModel: ObservableObject {
 
     // MARK: - Учётная запись
 
-    private var keychainKey: String {
-        KeychainStore.key(for: settings.account)
-    }
-
-    /// Обновляет признак «пароль задан».
-    ///
-    /// Наличие проверяется без чтения самого пароля, и это не оптимизация, а
-    /// условие работоспособности запуска. Чтение данных из связки ключей
-    /// упирается в ACL: после каждой пересборки подпись приложения другая,
-    /// macOS показывает запрос разрешения, а `SecItemCopyMatching` блокирует
-    /// поток до ответа человека. Вызванное из `init`, это вешало приложение
-    /// целиком — окна ещё не создавались, показывать запрос было некуда, и
-    /// софтфон стартовал в пустоту без единого окна и без крэша.
-    private func refreshStoredPasswordFlag() {
-        do {
-            hasStoredPassword = try KeychainStore.hasPassword(for: keychainKey)
-        } catch {
-            hasStoredPassword = false
-        }
-    }
-
-    /// Пароль из Keychain — не с главного потока.
-    ///
-    /// Именно здесь возможен запрос разрешения, и пока человек на него не
-    /// ответил, вызов не возвращается. На главном потоке это заморозило бы
-    /// интерфейс ровно в тот момент, когда от человека ждут ответа.
-    ///
-    /// Ошибку не глушим: «записи нет» и «Keychain отказал» — совершенно разные
-    /// случаи, а выглядят одинаково. Без сообщения отказ выглядит как «пароль
-    /// не задан», и пользователь вводит его заново вместо того, чтобы нажать
-    /// «Разрешить».
-    private func loadStoredPassword() async -> String? {
-        let key = keychainKey
-        if let cachedPassword, cachedPassword.key == key { return cachedPassword.value }
-        do {
-            let password = try await Task.detached(priority: .userInitiated) {
-                try KeychainStore.password(for: key)
-            }.value
-            if let password, !password.isEmpty {
-                cachedPassword = (key, password)
-            }
-            return password
-        } catch {
-            append(level: .error, message: "Keychain не отдал пароль: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    /// Достаёт пароль из связки ключей заранее, на запуске.
-    ///
-    /// Раньше первое чтение приходилось на саму регистрацию — то есть на
-    /// секунды после старта, когда окно панели ещё разъезжается, а приложение
-    /// не факт что вышло вперёд. Запрос разрешения от macOS в этот момент
-    /// человек либо не замечает, либо закрывает как непонятно откуда взявшийся,
-    /// и автоподключение первого запуска молча не проходит: пароль есть, а
-    /// прочитать его не дали.
-    ///
-    /// Поэтому чтение делается отдельным шагом, до регистрации и после того,
-    /// как окно показано и приложение активно. Дальше пароль живёт в
-    /// `cachedPassword`, и до конца запуска связка ключей больше не
-    /// понадобится — ни на смену сети, ни на пробуждение.
-    ///
-    /// Возвращает `false`, только если пароль есть, но взять его не дали:
-    /// регистрацию в этом случае затевать нечем, а второй заход за паролем
-    /// показал бы человеку второй такой же запрос подряд.
-    @discardableResult
-    func primeStoredPassword() async -> Bool {
-        guard hasStoredPassword, cachedPassword?.key != keychainKey else { return true }
-        guard await loadStoredPassword() != nil else {
-            // Причину уже написал `loadStoredPassword`; здесь важно
-            // последствие, а оно другое: регистрация впереди и она не пройдёт.
-            append(
-                level: .warning,
-                message: "пароль из связки ключей не прочитан — автоподключение не пройдёт, "
-                    + "разрешите доступ и сохраните пароль заново"
-            )
-            // На панели кнопки «Подключить» нет, и молчаливое «Не подключено»
-            // здесь неверно: связка ключей отказала, само это не пройдёт.
-            callStatus = "Нет доступа к паролю"
-            return false
-        }
-        append(level: .debug, message: "пароль получен из связки ключей")
-        return true
-    }
-
     var isConnected: Bool { registration.isRegistered }
 
     /// Поднят ли агент. Нужен автоподключению: сам `agent` приватный, и знать о
@@ -369,7 +250,7 @@ final class AppModel: ObservableObject {
     }
 
     var canConnect: Bool {
-        settings.account.isUsable && (hasStoredPassword || !passwordDraft.isEmpty) && agent == nil
+        settings.account.isUsable && !settings.sipPassword.isEmpty && agent == nil
     }
 
     /// Чего не хватает, чтобы подключиться.
@@ -379,40 +260,17 @@ final class AppModel: ObservableObject {
     ///
     /// Появилось вместе с автоподключением: пока в панели была кнопка
     /// «Подключить», её неактивность сама была сообщением. Кнопки нет, и
-    /// «Не подключено» без причины оставляет человека гадать — особенно когда
-    /// пароль сохранён, но для другого профиля.
-    var setupHint: String? {
-        switch setupNeed {
-        case .account: "Нет учётной записи"
-        case .password: "Нужен пароль"
-        case nil: nil
-        }
-    }
-
-    /// Чего именно не хватает — как повод к действию, а не как подпись.
+    /// «Не подключено» без причины оставляет человека гадать.
     ///
-    /// Два случая разведены, потому что чинятся они в разных местах и разными
-    /// людьми. Учётку заводит администратор в «Управлении», и звать туда самим
-    /// нельзя. Пароль — свой собственный, его вводит тот, кто сел за машину, и
-    /// спросить его приложение обязано само.
-    enum SetupNeed {
-        case account
-        case password
-    }
-
-    var setupNeed: SetupNeed? {
+    /// Обе подписи — про настройку, а не про действие оператора. Пароль от
+    /// добавочного вписывает администратор в «Управлении», и просить его у
+    /// того, кто сел за машину, приложение не должно: он его не знает.
+    var setupHint: String? {
         guard case .idle = registration else { return nil }
-        if !settings.account.isUsable { return .account }
-        if !hasStoredPassword { return .password }
+        if !settings.account.isUsable { return "Нет учётной записи" }
+        if settings.sipPassword.isEmpty { return "Профиль без пароля" }
         return nil
     }
-
-    /// Позвать за паролем. Ставит `AppDelegate` — окна принадлежат ему.
-    ///
-    /// Замыкание, а не флаг в модели: спросить пароль надо один раз и в
-    /// конкретный момент, а не «пока состояние такое». Наблюдение за флагом
-    /// открывало бы окно заново при каждом обновлении модели.
-    var onNeedsPassword: (@MainActor () -> Void)?
 
     var registrationTitle: String {
         switch registration {
@@ -437,33 +295,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func savePassword() {
-        do {
-            try KeychainStore.save(password: passwordDraft, for: keychainKey)
-            hasStoredPassword = !passwordDraft.isEmpty
-            // Только что сохранённый пароль запоминаем сразу: перечитывать его
-            // обратно из связки ключей значит без нужды спросить разрешение на
-            // то, что мы и так знаем.
-            cachedPassword = hasStoredPassword ? (keychainKey, passwordDraft) : nil
-            passwordDraft = ""
-            append(level: .info, message: hasStoredPassword ? "пароль сохранён в Keychain" : "пароль удалён")
-            // Ручного «Подключить» в панели больше нет: как только появился
-            // пароль, подключаемся сами — иначе оператор сохранил бы его и
-            // остался без линии, не понимая, чего ждёт.
-            if hasStoredPassword { Task { await connectIfPossible() } }
-        } catch {
-            append(level: .error, message: "не удалось сохранить пароль: \(error.localizedDescription)")
-        }
-    }
-
-    func forgetPassword() {
-        try? KeychainStore.delete(for: keychainKey)
-        hasStoredPassword = false
-        cachedPassword = nil
-        passwordDraft = ""
-        append(level: .info, message: "пароль удалён из Keychain")
-    }
-
     // MARK: - Подключение
 
     func connect() async {
@@ -475,15 +306,11 @@ final class AppModel: ObservableObject {
             return
         }
 
-        // Черновик пароля имеет приоритет: пользователь мог только что его
-        // ввести и нажать «Подключить», не нажимая «Сохранить».
-        let password: String
-        if !passwordDraft.isEmpty {
-            password = passwordDraft
-        } else if let stored = await loadStoredPassword() {
-            password = stored
-        } else {
-            append(level: .error, message: "пароль не задан")
+        // Пароль лежит в самом профиле, рядом с номером и доменом: брать его
+        // больше неоткуда, и ждать его появления не нужно.
+        let password = settings.sipPassword
+        guard !password.isEmpty else {
+            append(level: .error, message: "у профиля не задан пароль")
             return
         }
 
@@ -2142,9 +1969,6 @@ final class AppModel: ObservableObject {
             refuseProfileChange()
             return
         }
-        // Признак «пароль задан» пересчитает наблюдатель `settings`: пресет
-        // меняет и номер, и домен, то есть ключ записи в связке ключей.
-        passwordDraft = ""
         settings.profiles.upsert(
             preset.account,
             label: preset.label,
@@ -2172,11 +1996,12 @@ final class AppModel: ObservableObject {
     }
 
     /// Делает профиль активным: снимает регистрацию со старого и, если у нового
-    /// есть сохранённый пароль, поднимает её заново.
+    /// есть пароль, поднимает её заново.
     ///
     /// Молча оставаться отключённым нельзя — оператор нажал на профиль, а не на
     /// «Отключить», — но и подключиться без пароля не получится. Поэтому второй
-    /// случай проговаривается вслух.
+    /// случай проговаривается вслух, и говорится он про настройку профиля:
+    /// вписывать пароль оператору нечем и незачем.
     func selectProfile(_ id: UUID) async {
         guard id != settings.profiles.activeID else { return }
         guard settings.profiles[id] != nil else { return }
@@ -2188,16 +2013,15 @@ final class AppModel: ObservableObject {
         let wasConnected = agent != nil
         if wasConnected { await disconnect() }
 
-        passwordDraft = ""
         settings.profiles.activate(id)
         append(level: .info, message: "профиль: \(profileTitle(id))")
 
         guard wasConnected else { return }
-        if hasStoredPassword {
+        if !settings.sipPassword.isEmpty {
             await connect()
         } else {
-            append(level: .warning, message: "у профиля нет сохранённого пароля — подключение не восстановлено")
-            callStatus = "Введите пароль профиля"
+            append(level: .warning, message: "у профиля не задан пароль — подключение не восстановлено")
+            callStatus = "Профиль без пароля"
         }
     }
 
@@ -2209,7 +2033,6 @@ final class AppModel: ObservableObject {
             refuseProfileChange()
             return
         }
-        passwordDraft = ""
         // Рабочее место наследуется от текущего профиля: второй добавочный
         // заводят с того же места, что и первый. Доверие к сертификату — нет,
         // у него безопасное умолчание.
@@ -2221,9 +2044,8 @@ final class AppModel: ObservableObject {
 
     /// Удаляет профиль вместе с его паролем.
     ///
-    /// Пароль стирается только тогда, когда его больше некому делить: ключ в
-    /// связке ключей — «номер@домен», и два профиля с одной парой означают одно
-    /// и то же рабочее место, а не два.
+    /// Пароль уходит с профилем сам: он его поле. Отдельной проверки «не делит
+    /// ли эту запись кто-то ещё» больше нет — делить стало нечего.
     func removeProfile(_ id: UUID) async {
         let isActive = id == settings.profiles.activeID
         if isActive {
@@ -2234,25 +2056,9 @@ final class AppModel: ObservableObject {
             if agent != nil { await disconnect() }
         }
 
-        guard let removed = settings.profiles[id] else { return }
-        let shared = settings.profiles.sharesCredentials(of: removed, excludingID: id)
+        guard settings.profiles[id] != nil else { return }
         settings.profiles.remove(id)
-
-        if shared {
-            append(level: .info, message: "профиль удалён; пароль остался у профиля с тем же номером")
-        } else {
-            let removedKey = KeychainStore.key(for: removed.account)
-            try? KeychainStore.delete(for: removedKey)
-            if cachedPassword?.key == removedKey { cachedPassword = nil }
-            append(level: .info, message: "профиль удалён вместе с паролем")
-        }
-
-        if isActive {
-            passwordDraft = ""
-            // Ключ мог не измениться — например, у удалённого профиля не было
-            // ни номера, ни домена, как и у оставшегося. Пересчитываем прямо.
-            refreshStoredPasswordFlag()
-        }
+        append(level: .info, message: "профиль удалён вместе с паролем")
     }
 
     /// Метка пишется как введена, без подрезки пробелов: подрезать на каждом
@@ -2267,8 +2073,7 @@ final class AppModel: ObservableObject {
     /// изнутри `192.168.1.2`, снаружи внешний домен. Одно без другого
     /// бессмысленно, потому что из дома внутренний адрес недостижим, а из
     /// офиса внешний ведёт на тот же сервер длинной дорогой. Отсюда всё
-    /// остальное: перерегистрация, перенос пароля на новый ключ связки ключей
-    /// и стук перед первой регистрацией снаружи.
+    /// остальное: перерегистрация и стук перед первой регистрацией снаружи.
     ///
     /// Адрес переписывается только у профиля, который смотрит на нашу пару
     /// адресов: лабораторный `127.0.0.1` и чужую АТС трогать нельзя — пометка
@@ -2301,10 +2106,9 @@ final class AppModel: ObservableObject {
         settings.profiles.setSite(site, for: id)
 
         if movesAddress, let newHost {
-            // Пароль лежит под ключом «номер@домен», и смена домена оставила бы
-            // профиль без пароля при живой записи в связке ключей. Переносим:
-            // сервер тот же самый, и учётные данные у него те же.
-            await carryPassword(of: profile, toDomain: newHost)
+            // Пароль переносить больше не нужно: он поле профиля и переезжает
+            // вместе с ним. Раньше он лежал в связке ключей под «номер@домен»,
+            // и смена домена оставляла профиль без пароля.
             var moved = settings.profiles[id]?.account
             moved?.domain = newHost
             if let moved, settings.profiles.setAccount(moved, for: id) {
@@ -2321,42 +2125,12 @@ final class AppModel: ObservableObject {
             )
         }
 
-        refreshStoredPasswordFlag()
-
         guard wasConnected, movesAddress else { return }
-        if hasStoredPassword || !passwordDraft.isEmpty {
+        if !settings.sipPassword.isEmpty {
             await connect()
         } else {
-            append(level: .warning, message: "у профиля нет сохранённого пароля — подключение не восстановлено")
-            callStatus = "Введите пароль профиля"
-        }
-    }
-
-    /// Переносит пароль профиля на новый домен.
-    ///
-    /// Чтение пароля способно вызвать диалог связки ключей, поэтому идёт с
-    /// отдельного потока и только в ответ на действие человека — то же правило,
-    /// что у `loadStoredPassword`. Молчаливая неудача здесь допустима: хуже
-    /// пустого поля пароля только зависший интерфейс.
-    private func carryPassword(of profile: SIPProfile, toDomain domain: String) async {
-        let oldKey = KeychainStore.key(for: profile.account)
-        let newKey = KeychainStore.key(for: profile.account.username, domain: domain)
-        guard oldKey != newKey else { return }
-        guard (try? KeychainStore.hasPassword(for: oldKey)) == true else { return }
-        guard (try? KeychainStore.hasPassword(for: newKey)) != true else { return }
-
-        let carried = await Task.detached(priority: .userInitiated) {
-            try? KeychainStore.password(for: oldKey)
-        }.value
-        guard let carried, !carried.isEmpty else {
-            append(level: .warning, message: "пароль не перенесён на новый адрес — введите его заново")
-            return
-        }
-        do {
-            try KeychainStore.save(password: carried, for: newKey)
-            append(level: .debug, message: "пароль профиля перенесён на новый адрес")
-        } catch {
-            append(level: .warning, message: "пароль не перенесён: \(error.localizedDescription)")
+            append(level: .warning, message: "у профиля не задан пароль — подключение не восстановлено")
+            callStatus = "Профиль без пароля"
         }
     }
 
