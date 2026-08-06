@@ -259,21 +259,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// шлёт кнопка на панели через цепочку ответчиков, и второго кода,
     /// умеющего открывать это окно, в приложении нет.
     @objc func showCallHistoryWindow(_ sender: Any?) {
+        // Срез перечитывается до показа, и оба раза — и когда окно заводится, и
+        // когда его открывают снова. Причина у первого случая не та же, что у
+        // второго, и стоила она живого прогона: пока список обновлялся из
+        // `onAppear`, первое открытие успевало разложить строки, получить новый
+        // массив и уехать прокруткой в конец — то есть встречало оператора
+        // самым старым звонком вместо самого свежего. Второй случай проще:
+        // окно живёт между показами (`isReleasedWhenClosed = false`), а звонки
+        // шли и пока оно было закрыто.
+        model.reloadHistory()
+
         if let callHistoryWindow {
-            // Окно живёт между показами, а срез истории в нём — нет: за время,
-            // пока оно было закрыто, звонки шли.
-            model.reloadHistory()
             callHistoryWindow.makeKeyAndOrderFront(nil)
             return
         }
 
+        // Тот же рецепт стекла, что у панели и у настроек: `.fullSizeContentView`
+        // с прозрачной полосой заголовка, непрозрачность выключена, фон
+        // прозрачный. Иначе окно осталось бы единственным непрозрачным из трёх,
+        // и это читалось бы как забытое, а не как решение.
+        //
+        // Ловушка с безопасной зоной, которая стоила настройкам итерации, здесь
+        // не срабатывает: у окна истории размер свой и меняется мышью, а не
+        // выводится из идеальной высоты содержимого. Сходиться нечему.
         let window = NSWindow(
             contentRect: CGRect(origin: .zero, size: CGSize(width: 560, height: 420)),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "История звонков"
+        window.titleVisibility = .visible
+        window.titlebarAppearsTransparent = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
             rootView: withEnvironment(CallHistoryWindowView())

@@ -151,6 +151,8 @@ extension AppModel {
     func reloadHistory() {
         guard let historyStore else {
             historyRecords = []
+            historyTotalCount = 0
+            historyTotalCountUnfiltered = 0
             return
         }
         // Записи только что закрытого звонка ждём: список открывают сразу
@@ -159,6 +161,11 @@ extension AppModel {
         historyStore.flush()
         historyRecords = historyStore.records(matching: historyFilter, limit: Self.historyPageSize)
         historyTotalCount = historyStore.count(matching: historyFilter)
+        // Второй счёт — только ради пустого состояния: оно обязано отличать
+        // «под фильтр ничего не попало» от «звонков не было вовсе».
+        historyTotalCountUnfiltered = historyFilter == .all
+            ? historyTotalCount
+            : historyStore.count(matching: .all)
     }
 
     /// Повторный набор одним нажатием.
