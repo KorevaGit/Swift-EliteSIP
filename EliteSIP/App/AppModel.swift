@@ -122,18 +122,64 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Выбранный в календаре день — начало местных суток. nil — все дни.
+    @Published var historySelectedDay: Date? {
+        didSet {
+            guard historySelectedDay != oldValue else { return }
+            reloadHistory()
+        }
+    }
+
+    /// Сколько раз окно истории открывали.
+    ///
+    /// Не счётчик ради счётчика: он входит в личность списка, и её смена
+    /// заставляет SwiftUI собрать прокрутку заново — то есть с начала. Каждое
+    /// открытие обязано показывать свежие звонки, а не то место, до которого
+    /// оператор долистал в прошлый раз и забыл. Прокрутить список руками нечем:
+    /// `ScrollViewReader` появился в macOS 11, а срез x86_64 обязан работать на
+    /// Catalina.
+    ///
+    /// Считается именно открытие окна, а не перечитывание списка: то случается
+    /// после каждого звонка, и швырять оператора наверх посреди чтения нельзя.
+    @Published private(set) var historyOpenCount = 0
+
+    func noteCallHistoryWindowOpened() {
+        historyOpenCount += 1
+    }
+
+    /// Дни, в которые у активного профиля были звонки, — точки в календаре.
+    ///
+    /// Считается при открытии окна и при смене профиля, а не при каждой
+    /// перерисовке: запрос читает все записи профиля за срок хранения, и вешать
+    /// его на раскладку календаря значило бы повторять при каждом наведении
+    /// курсора.
+    @Published var historyDaysWithCalls: Set<Date> = []
+
     /// Показанная страница истории и общее число записей под фильтром.
     @Published var historyRecords: [CallRecord] = []
     @Published var historyTotalCount: Int = 0
 
-    /// Сколько записей всего, без оглядки на фильтр.
+    /// Сколько записей у профиля всего, без оглядки на фильтр и на выбранный
+    /// день.
     ///
     /// Нужно ровно одному месту — пустому состоянию окна. Без него «пусто» под
     /// фильтром и «пусто вообще» выглядят одинаково, и оператор, включивший
     /// «Пропущенные» и увидевший пустой список, читает это как «история не
-    /// работает». Считается тем же индексом и той же выборкой, что и число под
-    /// фильтром, — второго похода в базу это не стоит.
+    /// работает».
     @Published var historyTotalCountUnfiltered: Int = 0
+
+    /// Есть ли что догружать ниже показанного.
+    var historyHasMore: Bool { historyRecords.count < historyTotalCount }
+
+    /// Область выборки: профиль всегда, день — если выбран.
+    ///
+    /// Граница жёсткая и проходит здесь, в одном месте на всё приложение. Ни
+    /// окно, ни стрелки в панели своей области не строят: разойдись эти два
+    /// ответа — и в поле набора «боевого» профиля всплывали бы лабораторные
+    /// номера, которых оператор в истории не видит.
+    var historyScope: CallHistoryStore.Scope {
+        CallHistoryStore.Scope(profileID: settings.profiles.activeID, day: historySelectedDay)
+    }
 
     /// Живая проверка. Держится здесь, потому что её нельзя терять на
     /// перерисовке формы: `deinit` останавливает движок, и запись оборвалась бы
@@ -953,11 +999,11 @@ final class AppModel: ObservableObject {
         case .answered(let body, _):
             startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID)
 
-        case .failed(_, let reason):
+        case .failed(let status, let reason):
             reservation.release()
             append(level: .info, message: "звонок не состоялся: \(reason)")
             setStatus(reason, on: lineID)
-            teardown(lineID: lineID, status: reason)
+            teardown(lineID: lineID, status: reason, outcome: .forFailure(status: status))
 
         case .ended(let reason):
             reservation.release()
@@ -1600,7 +1646,11 @@ final class AppModel: ObservableObject {
     }
 
     /// Убирает линию и, если она была последней, всё общее состояние звонка.
-    private func teardown(lineID: String, status: String) {
+    private func teardown(
+        lineID: String,
+        status: String,
+        outcome: CallRecord.Outcome? = nil
+    ) {
         callTasks.removeValue(forKey: lineID)?.cancel()
         retire(line(lineID)?.media)
 
@@ -1608,7 +1658,11 @@ final class AppModel: ObservableObject {
         // ровно той причиной, которую увидит оператор. Расхождение между
         // подписью под кнопкой и строкой в истории означало бы, что верить
         // будут памяти, а не записи.
-        finishHistory(lineID: lineID, reason: status)
+        //
+        // Код исхода приходит сюда с самого события, а не выводится из
+        // `status`: строка человеческая и её однажды перепишут, а слово в
+        // истории должно остаться тем же.
+        finishHistory(lineID: lineID, reason: status, outcome: outcome)
 
         let wasActive = lineID == activeLineID
         lines.removeAll { $0.id == lineID }
@@ -1805,9 +1859,13 @@ final class AppModel: ObservableObject {
             // поднимается там же, где он отправляется.
             break
 
-        case .failed(_, let reason):
+        case .failed(let status, let reason):
             append(level: .info, message: "входящий не состоялся: \(reason)")
-            teardown(lineID: lineID, status: reason)
+            // Код всё равно передаём, хотя у входящего без ответа исход и так
+            // «пропущен»: он записан в базу и пригодится, когда историю начнут
+            // сверять с CDR в M9. На экран его в этом случае не выпускает
+            // `CallRecord.outcome` — там пропущенный решается направлением.
+            teardown(lineID: lineID, status: reason, outcome: .forFailure(status: status))
 
         case .ended(let reason):
             append(level: .info, message: "входящий завершён: \(reason)")
@@ -2218,6 +2276,9 @@ final class AppModel: ObservableObject {
 
         settings.profiles.activate(id)
         append(level: .info, message: "профиль: \(profileTitle(id))")
+        // История жёстко ограничена активным профилем, поэтому она обязана
+        // смениться вместе с ним — в том числе в уже открытом окне.
+        historyDidChangeProfile()
 
         guard wasConnected else { return }
         if !settings.sipPassword.isEmpty {

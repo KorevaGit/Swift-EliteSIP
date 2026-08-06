@@ -309,6 +309,9 @@ private struct ProfileRow: View {
     /// на весь список.
     @State private var isEditingLabel = false
 
+    /// Спрошено ли про удаление. Своё у каждой строки, как и правка метки.
+    @State private var isConfirmingRemoval = false
+
     var body: some View {
         HStack(spacing: 8) {
             Button {
@@ -367,13 +370,58 @@ private struct ProfileRow: View {
             .compatHelp(isEditingLabel ? "Готово" : "Переименовать профиль")
 
             Button {
-                Task { await model.removeProfile(profile.id) }
+                isConfirmingRemoval = true
             } label: {
                 CompatSymbol(name: "trash")
             }
             .buttonStyle(.borderless)
             .disabled(isActive && !model.canSwitchProfile)
-            .compatHelp("Удалить профиль вместе с его паролем")
+            .compatHelp("Удалить профиль вместе с его паролем и историей звонков")
+        }
+        // Вопрос задаётся здесь, хотя записи удалит только «Сохранить».
+        //
+        // Решает человек в момент нажатия на корзину, и число он должен видеть
+        // тогда же: узнать о потере ста записей после того, как она случилась,
+        // — это не предупреждение, а отчёт. Само удаление откладывается до
+        // «Сохранить» вместе со всеми правками окна, но «Отменить» историю уже
+        // не вернёт, и об этом сказано прямо.
+        .alert(isPresented: $isConfirmingRemoval) {
+            Alert(
+                title: Text("Удалить профиль «\(profile.title)»?"),
+                message: Text(removalWarning),
+                primaryButton: .destructive(Text("Удалить")) {
+                    Task { await model.removeProfile(profile.id) }
+                },
+                secondaryButton: .cancel(Text("Отмена"))
+            )
+        }
+    }
+
+    /// Что именно уйдёт вместе с профилем.
+    ///
+    /// История считается на месте, а не берётся из окна истории: то показывает
+    /// активный профиль, а удаляют обычно не его.
+    private var removalWarning: String {
+        let records = model.historyCount(ofProfile: profile.id)
+        guard records > 0 else {
+            return "Вместе с профилем будет удалён его пароль. Истории звонков у этого профиля нет."
+        }
+        return """
+            Вместе с профилем будут удалены его пароль и \(records) \(Self.recordsWord(records)) \
+            истории звонков. Вернуть их «Отменой» будет нельзя.
+            """
+    }
+
+    /// Число записей произносится по-русски: «1 запись», «2 записи»,
+    /// «5 записей». Иначе предупреждение о необратимом действии выглядит
+    /// небрежно ровно там, где к нему должно быть больше всего доверия.
+    private static func recordsWord(_ count: Int) -> String {
+        let tail = count % 100
+        if (11...14).contains(tail) { return "записей" }
+        switch count % 10 {
+        case 1: return "запись"
+        case 2, 3, 4: return "записи"
+        default: return "записей"
         }
     }
 

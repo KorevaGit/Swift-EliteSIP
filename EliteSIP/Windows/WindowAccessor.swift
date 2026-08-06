@@ -40,6 +40,47 @@ struct WindowAccessor: NSViewRepresentable {
     }
 }
 
+/// Название окна, которое меняется по ходу работы.
+///
+/// Отдельно от `WindowAccessor`, потому что тот настраивает окно однократно.
+/// Нужен ровно одному окну — истории: она жёстко ограничена активным профилем,
+/// и профиль назван в заголовке. Сменил оператор профиль — заголовок обязан
+/// смениться вместе со списком, иначе окно подписано чужим именем.
+final class WindowTitleView: NSView {
+
+    private var applied: String?
+    private var pending: String?
+
+    func apply(title: String) {
+        pending = title
+        guard let window, applied != title else { return }
+        applied = title
+        window.title = title
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let pending else { return }
+        applied = nil
+        apply(title: pending)
+    }
+}
+
+struct WindowTitle: NSViewRepresentable {
+
+    let title: String
+
+    func makeNSView(context: Context) -> WindowTitleView {
+        let view = WindowTitleView()
+        view.apply(title: title)
+        return view
+    }
+
+    func updateNSView(_ nsView: WindowTitleView, context: Context) {
+        nsView.apply(title: title)
+    }
+}
+
 /// Держит окно поверх других — но только пока это оправдано.
 ///
 /// Отдельно от `WindowAccessor`, потому что тот настраивает окно однократно, а

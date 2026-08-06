@@ -51,6 +51,7 @@ extension AppModel {
         }
 
         reloadHistory()
+        refreshHistoryDays()
         startHistoryPruning()
     }
 
@@ -135,9 +136,14 @@ extension AppModel {
     /// Причина — та же строка, что видел оператор в подписи под кнопкой.
     /// Расхождение здесь означало бы, что человек помнит одно, а история
     /// показывает другое, и верить после этого будут памяти.
-    func finishHistory(lineID: String, reason: String) {
+    ///
+    /// Код исхода приходит отдельно от причины и только оттуда, где ответ
+    /// сервера ещё разобран на части. Выводить его из самой причины нельзя:
+    /// формулировку на панели однажды поменяют, и история молча начнёт писать
+    /// «отказ» вместо «занято».
+    func finishHistory(lineID: String, reason: String, outcome: CallRecord.Outcome? = nil) {
         guard let historyStore, let id = historyRecordIDs.removeValue(forKey: lineID) else { return }
-        historyStore.finish(id, reason: reason)
+        historyStore.finish(id, reason: reason, outcome: outcome)
         reloadHistory()
     }
 
@@ -159,13 +165,99 @@ extension AppModel {
         // после разговора, и увидеть в нём «идёт» вместо длительности значит
         // решить, что история сломана.
         historyStore.flush()
-        historyRecords = historyStore.records(matching: historyFilter, limit: Self.historyPageSize)
-        historyTotalCount = historyStore.count(matching: historyFilter)
+
+        let scope = historyScope
+        historyRecords = historyStore.records(
+            matching: historyFilter, scope: scope, limit: Self.historyPageSize
+        )
+        historyTotalCount = historyStore.count(matching: historyFilter, scope: scope)
+
         // Второй счёт — только ради пустого состояния: оно обязано отличать
-        // «под фильтр ничего не попало» от «звонков не было вовсе».
-        historyTotalCountUnfiltered = historyFilter == .all
+        // «под фильтр ничего не попало» от «звонков не было вовсе». Считается
+        // без дня и без направления, то есть по всей истории профиля.
+        let wholeProfile = CallHistoryStore.Scope(profileID: scope.profileID)
+        historyTotalCountUnfiltered = historyFilter == .all && scope.day == nil
             ? historyTotalCount
-            : historyStore.count(matching: .all)
+            : historyStore.count(matching: .all, scope: wholeProfile)
+    }
+
+    /// Догружает следующую страницу, когда оператор долистал до низа.
+    ///
+    /// Без этого всё, что старше первых двухсот записей, было недостижимо ни
+    /// одним действием: `OFFSET` в хранилище есть с M7d, но второй страницы в
+    /// интерфейсе не существовало. У оператора колл-центра двести записей —
+    /// это два-три дня.
+    ///
+    /// Повторный вызов на той же странице безвреден: выборка идёт от текущего
+    /// числа показанных строк, и пока догрузка не пришла, смещение не меняется.
+    func loadMoreHistory() {
+        guard let historyStore, historyHasMore else { return }
+        let next = historyStore.records(
+            matching: historyFilter,
+            scope: historyScope,
+            limit: Self.historyPageSize,
+            offset: historyRecords.count
+        )
+        guard !next.isEmpty else { return }
+
+        // По идентификатору, а не слепым добавлением: между страницами мог
+        // прийти новый звонок, и тогда граница страницы сдвигается — запись,
+        // стоявшая двухсотой, приезжает во второй странице ещё раз. В списке
+        // это выглядит как задвоившийся звонок.
+        var seen = Set(historyRecords.map(\.id))
+        historyRecords.append(contentsOf: next.filter { seen.insert($0.id).inserted })
+    }
+
+    /// Перечитывает дни, в которые были звонки, — под точки в календаре.
+    func refreshHistoryDays() {
+        guard let historyStore else {
+            historyDaysWithCalls = []
+            return
+        }
+        historyDaysWithCalls = historyStore.daysWithCalls(
+            scope: CallHistoryStore.Scope(profileID: settings.profiles.activeID)
+        )
+    }
+
+    /// Показывает историю другого профиля.
+    ///
+    /// Зовётся при смене профиля, а не только при открытии окна: граница
+    /// жёсткая, и открытое окно, показывающее историю профиля, с которого уже
+    /// ушли, — это ровно та дыра, ради закрытия которой границу и проводили.
+    /// Выбранный день при этом сбрасывается: он был выбран по чужим точкам.
+    func historyDidChangeProfile() {
+        historySelectedDay = nil
+        reloadHistory()
+        refreshHistoryDays()
+    }
+
+    /// Сколько записей потеряет удаление этого профиля.
+    ///
+    /// Нужно до удаления, а не после: отменить его нельзя, и человек обязан
+    /// увидеть число раньше, чем нажмёт.
+    func historyCount(ofProfile id: UUID) -> Int {
+        guard let historyStore else { return 0 }
+        historyStore.flush()
+        return historyStore.count(matching: .all, scope: CallHistoryStore.Scope(profileID: id))
+    }
+
+    /// Удаляет историю профилей, которых больше нет.
+    ///
+    /// Вызывается из `commitAdministration`, а не из `removeProfile`: окно
+    /// «Управление» копит правки до «Сохранить», и удаление записей — то, что
+    /// «Отменить» вернуть не может. Это второе такое место после уменьшения
+    /// срока хранения, и оба исключения по одной причине.
+    func deleteHistory(ofProfiles ids: [UUID]) {
+        guard let historyStore, !ids.isEmpty else { return }
+        for id in ids {
+            let removed = historyStore.deleteHistory(ofProfile: id)
+            guard removed > 0 else { continue }
+            // Удаление персональных данных — то, о чём в журнале обязана
+            // остаться строка, ровно как при уборке по сроку.
+            append(level: .info, message: "история удалённого профиля стёрта: записей — \(removed)")
+        }
+        reloadHistory()
+        refreshHistoryDays()
     }
 
     /// Повторный набор одним нажатием.
@@ -199,10 +291,17 @@ extension AppModel {
         // на это второй раз в момент набора незачем.
         guard let historyStore else { return [] }
 
+        // Область та же, что у окна, и по той же причине: номер, которого
+        // оператор не видит в истории, не имеет права всплыть у него в поле
+        // набора. День сюда не входит — стрелки про «наберу тот же номер ещё
+        // раз», а не про выбранную в окне дату.
         var seen = Set<String>()
         var numbers: [String] = []
-        for record in historyStore.records(matching: .outgoing, limit: Self.dialHistoryDepth * 4)
-        where !record.number.isEmpty {
+        for record in historyStore.records(
+            matching: .outgoing,
+            scope: CallHistoryStore.Scope(profileID: settings.profiles.activeID),
+            limit: Self.dialHistoryDepth * 4
+        ) where !record.number.isEmpty {
             // Повторы схлопываются: набирали три раза подряд — в списке один
             // раз, иначе стрелка вверх трижды приведёт в одно и то же место.
             guard seen.insert(record.number).inserted else { continue }

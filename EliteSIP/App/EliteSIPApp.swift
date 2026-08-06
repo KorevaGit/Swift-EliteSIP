@@ -268,6 +268,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // окно живёт между показами (`isReleasedWhenClosed = false`), а звонки
         // шли и пока оно было закрыто.
         model.reloadHistory()
+        model.refreshHistoryDays()
+        // Каждое открытие начинает список сверху: оператор пришёл смотреть
+        // свежие звонки, а не то место, до которого долистал вчера.
+        model.noteCallHistoryWindowOpened()
 
         if let callHistoryWindow {
             callHistoryWindow.makeKeyAndOrderFront(nil)

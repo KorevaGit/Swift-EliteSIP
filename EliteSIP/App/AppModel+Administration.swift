@@ -50,6 +50,13 @@ extension AppModel {
         let wasManagedElsewhere = settings.admin.management != .local
         let historyChanged = settings.history != snapshot.history
 
+        // Профили, удалённые в черновике. Их история уходит вместе с ними: она
+        // ограничена профилем жёстко, и оставить её значило бы держать записи,
+        // которые больше некому показать. Считается до применения, потому что
+        // после в настройках этих профилей уже нет.
+        let survivors = Set(settings.profiles.profiles.map(\.id))
+        let removedProfiles = snapshot.profiles.profiles.map(\.id).filter { !survivors.contains($0) }
+
         isHoldingSettingsWrites = false
         administrationSnapshot = nil
 
@@ -75,6 +82,10 @@ extension AppModel {
         if historyChanged {
             openHistoryIfNeeded()
         }
+
+        // После `openHistoryIfNeeded`: та могла завести хранилище заново, и
+        // удалять надо из того, которое сейчас открыто.
+        deleteHistory(ofProfiles: removedProfiles)
 
         append(
             level: wasManagedElsewhere ? .warning : .info,

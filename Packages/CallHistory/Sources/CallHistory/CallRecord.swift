@@ -30,6 +30,71 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
         case consultation = 1
     }
 
+    /// Чем кончился звонок — одним словом.
+    ///
+    /// **Кодом, а не разбором строки.** Причина уже хранится в `endReason` той
+    /// же формулировкой, которую видел оператор на панели, и вывести из неё
+    /// короткое слово можно было бы сравнением с образцами. Так делать нельзя:
+    /// стоит поменять формулировку на панели — и история молча начнёт писать
+    /// «отказ» вместо «занято», причём ни один тест этого не заметит, потому что
+    /// обе строки правильные, просто разные. Код ставится в момент, когда ответ
+    /// сервера ещё разобран на части, и после этого не зависит ни от чьих слов.
+    ///
+    /// Значения начинаются с единицы: колонка появилась миграцией и у старых
+    /// записей пуста, а `Row.integer` отдаёт ноль и на пустоту тоже. Ноль как
+    /// «код не записан» позволяет не заводить отдельный accessor ради одной
+    /// колонки.
+    public enum Outcome: Int, Sendable, Hashable, CaseIterable {
+
+        /// Разговор состоялся. Слова у него нет — вместо него длительность.
+        case completed = 1
+        /// Входящий, на который не ответили.
+        case missed = 2
+        /// 486, 600.
+        case busy = 3
+        /// 408, 480, 487 — никто не снял трубку, или мы не дождались.
+        case noAnswer = 4
+        /// 404.
+        case unknownNumber = 5
+        /// 403, 603.
+        case declined = 6
+        /// Всё остальное. Код ответа остаётся в `endReason` и в журнале.
+        case failed = 7
+
+        /// Слово в колонке длительности. Шесть слов на все неудачи, и это
+        /// потолок: седьмое означало бы, что оператору предлагают различать
+        /// то, на что он всё равно ответит одинаково.
+        public var title: String? {
+            switch self {
+            case .completed: return nil
+            case .missed: return "пропущен"
+            case .busy: return "занято"
+            case .noAnswer: return "не ответил"
+            case .unknownNumber: return "нет номера"
+            case .declined: return "отклонён"
+            case .failed: return "отказ"
+            }
+        }
+
+        /// Перевод кода ответа SIP в слово.
+        ///
+        /// Живёт здесь, а не в приложении, потому что рядом с самим словарём:
+        /// добавить исход и забыть про отображение — то же самое, что добавить
+        /// его без смысла.
+        public static func forFailure(status: Int) -> Outcome {
+            switch status {
+            case 486, 600: return .busy
+            case 404: return .unknownNumber
+            case 403, 603: return .declined
+            // 487 — это наш же CANCEL: мы положили трубку раньше, чем взяли ту.
+            // Для оператора это неотличимо от «не ответил», и различать их
+            // отдельным словом означало бы объяснять ему устройство SIP.
+            case 408, 480, 487: return .noAnswer
+            default: return .failed
+            }
+        }
+    }
+
     public let id: UUID
 
     /// Локальный SIP Call-ID. По нему звонок ищут в журнале приложения, когда
@@ -87,6 +152,12 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
     /// Причина завершения — той же строкой, что видел оператор на панели.
     public var endReason: String?
 
+    /// Код исхода, записанный в момент завершения.
+    ///
+    /// nil у записей, заведённых до появления колонки, и у тех, чей исход
+    /// выводится однозначно и без сервера, — см. `outcome`.
+    public var outcomeCode: Outcome?
+
     public var wasTransferred: Bool
     public var wasConference: Bool
 
@@ -105,6 +176,7 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
         answeredAt: Date? = nil,
         endedAt: Date? = nil,
         endReason: String? = nil,
+        outcomeCode: Outcome? = nil,
         wasTransferred: Bool = false,
         wasConference: Bool = false
     ) {
@@ -122,6 +194,7 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
         self.answeredAt = answeredAt
         self.endedAt = endedAt
         self.endReason = endReason
+        self.outcomeCode = outcomeCode
         self.wasTransferred = wasTransferred
         self.wasConference = wasConference
     }
@@ -149,5 +222,23 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
     public var title: String {
         if let displayName, !displayName.isEmpty { return displayName }
         return number.isEmpty ? "неизвестный номер" : number
+    }
+
+    /// Исход, как его показывает история.
+    ///
+    /// Записанный код — не единственный источник, и это сделано нарочно. Две
+    /// вещи выводятся однозначно и без сервера: состоявшийся разговор виден по
+    /// времени ответа, а пропущенный — по направлению вместе с его отсутствием.
+    /// Хранить их кодом значило бы завести второе место, где может лежать
+    /// другая правда, — а фильтр «Пропущенные» всё равно отбирает по
+    /// `answered_at`, и разойтись эти два ответа не имеют права.
+    ///
+    /// Порядок проверок поэтому такой: ответили — разговор; входящий без
+    /// ответа — пропущенный; дальше уже то, что сказал сервер; а если он не
+    /// сказал ничего (запись до миграции, обрыв без ответа) — «не ответил».
+    public var outcome: Outcome {
+        if isAnswered { return .completed }
+        if direction == .incoming { return .missed }
+        return outcomeCode ?? .noAnswer
     }
 }

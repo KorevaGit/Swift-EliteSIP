@@ -59,10 +59,12 @@ struct CallHistorySettingsTab: View {
 
             Section(header: Text("Хранилище")) {
                 CompatLabeledContent("Файл", value: AppSettings.CallHistorySettings.fileURL.compatPath)
-                // Всего, а не под фильтром окна истории: администратор смотрит
-                // сюда, чтобы понять, сколько персональных данных лежит на
-                // машине, а не сколько было пропущенных.
-                CompatLabeledContent("Записей", value: "\(model.historyStore?.count() ?? 0)")
+                // Всего и по всем профилям, а не под отбором окна истории:
+                // администратор смотрит сюда, чтобы понять, сколько
+                // персональных данных лежит на машине. Окно истории при этом
+                // остаётся ограниченным одним профилем — здесь число, а не
+                // записи, и границу это не открывает.
+                CompatLabeledContent("Записей", value: "\(model.historyStore?.totalCount() ?? 0)")
                 CompatLabeledContent("Состояние", value: storageState)
             }
         }

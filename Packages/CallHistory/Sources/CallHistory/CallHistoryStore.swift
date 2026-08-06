@@ -89,8 +89,33 @@ public final class CallHistoryStore: @unchecked Sendable {
     private static let recordColumns = """
         id, call_id, server_call_id, direction, role, number, sip_login, display_name, \
         profile_id, profile_label, started_at, answered_at, ended_at, end_reason, \
-        was_transferred, was_conference
+        outcome_code, was_transferred, was_conference
         """
+
+    /// Что показывает окно, кроме направления.
+    ///
+    /// Отдельным типом, а не двумя параметрами у каждого метода: условие выборки
+    /// собирается в одном месте, и добавить третью грань (скажем, роль) можно,
+    /// не переписывая четыре сигнатуры. Внутрь строки SQL отсюда не попадает
+    /// ничего — и профиль, и границы дня уходят параметрами.
+    public struct Scope: Sendable, Equatable {
+
+        /// Профиль, чью историю показываем.
+        ///
+        /// **Не опциональный по смыслу, а опциональный технически.** Граница
+        /// жёсткая: окно всегда показывает ровно один профиль, и nil здесь
+        /// означает «профиля нет вовсе» — тогда не показывается ничего. Это не
+        /// то же самое, что «все профили»: такого режима у истории нет.
+        public var profileID: UUID?
+
+        /// Начало выбранного дня. nil — все дни.
+        public var day: Date?
+
+        public init(profileID: UUID?, day: Date? = nil) {
+            self.profileID = profileID
+            self.day = day
+        }
+    }
 
     private let settings: Settings
     private let queue = DispatchQueue(label: "com.elite.EliteSIP.history", qos: .utility)
@@ -174,10 +199,13 @@ public final class CallHistoryStore: @unchecked Sendable {
                 answered_at REAL,
                 ended_at REAL,
                 end_reason TEXT,
+                outcome_code INTEGER,
                 was_transferred INTEGER NOT NULL DEFAULT 0,
                 was_conference INTEGER NOT NULL DEFAULT 0
             );
             """)
+
+        try migrate(database)
 
         // Индекс по времени — то, ради чего выбран SQLite. Список открывается
         // выборкой «последние двести по убыванию времени», и без индекса она
@@ -191,9 +219,35 @@ public final class CallHistoryStore: @unchecked Sendable {
         )
         // Переопределение имени из EliteDash (M9) ищет по номеру.
         try database.execute("CREATE INDEX IF NOT EXISTS calls_number ON calls(number);")
+        // Профиль первым: с 6 августа 2026 история жёстко ограничена активным
+        // профилем, то есть **каждая** выборка отбирает по нему, а порядок
+        // внутри отбора всё равно по времени. Без этого индекса приёмка «десять
+        // тысяч записей не замедляют открытие окна» перестала бы выполняться:
+        // отбор по профилю пришёлся бы на индекс по времени и означал бы чтение
+        // всей таблицы.
+        try database.execute(
+            "CREATE INDEX IF NOT EXISTS calls_profile_started_at ON calls(profile_id, started_at DESC);"
+        )
 
         try closeInterrupted(database)
         try deleteExpired(database, now: Date())
+    }
+
+    /// Догоняет схему до текущей.
+    ///
+    /// Отдельным шагом, а не «пересоздать таблицу»: в ней лежат номера лидов за
+    /// месяц, и терять их при обновлении приложения нельзя. `CREATE TABLE IF
+    /// NOT EXISTS` выше на существующей базе не делает ничего — новую колонку
+    /// добавляет только `ALTER TABLE`.
+    ///
+    /// Наличие колонки проверяется, а не глотается ошибка: `ALTER TABLE` на уже
+    /// добавленной колонке — это ошибка, неотличимая от настоящей поломки, и
+    /// молча пропускать её значило бы не заметить, что схема не сошлась.
+    private func migrate(_ database: SQLiteDatabase) throws {
+        let columns = try database.query("PRAGMA table_info(calls);") { $0.text(1) ?? "" }
+        if !columns.contains("outcome_code") {
+            try database.execute("ALTER TABLE calls ADD COLUMN outcome_code INTEGER;")
+        }
     }
 
     /// Отставляет испорченную базу в сторону и возвращает её новое имя.
@@ -242,7 +296,7 @@ public final class CallHistoryStore: @unchecked Sendable {
             try? database.run(
                 """
                 INSERT OR REPLACE INTO calls (\(Self.recordColumns))
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 [
                     .text(record.id.uuidString),
@@ -259,6 +313,7 @@ public final class CallHistoryStore: @unchecked Sendable {
                     .date(record.answeredAt),
                     .date(record.endedAt),
                     .text(record.endReason),
+                    Self.code(record.outcomeCode),
                     .flag(record.wasTransferred),
                     .flag(record.wasConference),
                 ]
@@ -289,11 +344,26 @@ public final class CallHistoryStore: @unchecked Sendable {
     /// Условие `ended_at IS NULL` защищает от второго закрытия: причину звонку
     /// назначает первое событие, которое его завершило, а не последнее. Иначе
     /// «переведён на 601» затиралось бы обычным «завершён», приезжающим следом
-    /// по той же линии.
-    public func finish(_ id: UUID, at date: Date = Date(), reason: String) {
-        update("UPDATE calls SET ended_at = ?, end_reason = ? WHERE id = ? AND ended_at IS NULL;", [
-            .date(date), .text(reason), .text(id.uuidString),
-        ])
+    /// по той же линии. Код исхода идёт тем же запросом и под тем же условием:
+    /// слово и причина обязаны быть из одного события, иначе строка скажет
+    /// «занято» под причиной «переведён».
+    public func finish(
+        _ id: UUID,
+        at date: Date = Date(),
+        reason: String,
+        outcome: CallRecord.Outcome? = nil
+    ) {
+        update(
+            """
+            UPDATE calls SET ended_at = ?, end_reason = ?, outcome_code = ?
+            WHERE id = ? AND ended_at IS NULL;
+            """,
+            [.date(date), .text(reason), Self.code(outcome), .text(id.uuidString)]
+        )
+    }
+
+    private static func code(_ outcome: CallRecord.Outcome?) -> SQLiteDatabase.Value {
+        outcome.map { .integer(Int64($0.rawValue)) } ?? .null
     }
 
     /// Привязывает идентификатор звонка со стороны сервера. Задел под M9.
@@ -329,32 +399,140 @@ public final class CallHistoryStore: @unchecked Sendable {
 
     // MARK: - Чтение
 
+    /// Условие и параметры под фильтр и область.
+    ///
+    /// Единственное место, где собирается `WHERE`. Внутрь строки попадают
+    /// только константы самого перечисления; профиль и границы дня уходят
+    /// параметрами — их значения приходят снаружи.
+    private static func selection(
+        _ filter: Filter,
+        _ scope: Scope
+    ) -> (clause: String, parameters: [SQLiteDatabase.Value]) {
+        var conditions: [String] = []
+        var parameters: [SQLiteDatabase.Value] = []
+
+        if let condition = filter.condition {
+            conditions.append(condition)
+        }
+
+        // Профиль отбирается всегда, даже когда его нет: nil означает «профиля
+        // нет», и показывать в этом случае надо ничего, а не всё. Записи с
+        // пустым `profile_id` не видны никогда — граница строгая, и «ничей»
+        // звонок не имеет права всплыть в чужой истории.
+        conditions.append("profile_id = ?")
+        parameters.append(.text(scope.profileID?.uuidString))
+
+        if let day = scope.day {
+            // Границы считает вызывающий своим календарём и своим часовым
+            // поясом: SQLite про местное время знает только через модификатор
+            // 'localtime', а он берёт пояс системы в момент запроса — то есть
+            // после перелёта дал бы другой ответ на тот же вопрос.
+            conditions.append("started_at >= ? AND started_at < ?")
+            parameters.append(.date(day))
+            parameters.append(.date(day.addingTimeInterval(24 * 60 * 60)))
+        }
+
+        return ("WHERE " + conditions.joined(separator: " AND "), parameters)
+    }
+
     /// Записи, новые первыми.
+    ///
+    /// `offset` — не украшение: окно догружает следующие двести, когда оператор
+    /// долистал до низа. Без этого всё, что старше первой страницы, было
+    /// недостижимо ни одним действием.
     public func records(
         matching filter: Filter = .all,
+        scope: Scope,
         limit: Int = 200,
         offset: Int = 0
     ) -> [CallRecord] {
         queue.sync {
             guard let database else { return [] }
-            let condition = filter.condition.map { "WHERE \($0)" } ?? ""
+            let selection = Self.selection(filter, scope)
             let rows = try? database.query(
                 """
-                SELECT \(Self.recordColumns) FROM calls \(condition)
+                SELECT \(Self.recordColumns) FROM calls \(selection.clause)
                 ORDER BY started_at DESC LIMIT ? OFFSET ?;
                 """,
-                [.integer(Int64(limit)), .integer(Int64(offset))],
+                selection.parameters + [.integer(Int64(limit)), .integer(Int64(offset))],
                 read: Self.record(from:)
             )
             return rows ?? []
         }
     }
 
-    public func count(matching filter: Filter = .all) -> Int {
+    /// Сколько записей лежит на машине всего — по всем профилям.
+    ///
+    /// Единственное место, которое смотрит поверх границы профилей, и оно
+    /// административное: в «Управлении» этим числом отвечают на вопрос
+    /// «сколько персональных данных здесь накоплено», а он про машину, а не
+    /// про того, кто сейчас за ней сидит. Записи при этом не показываются —
+    /// только считаются.
+    public func totalCount() -> Int {
         queue.sync {
             guard let database else { return 0 }
-            let condition = filter.condition.map { "WHERE \($0)" } ?? ""
-            return Int((try? database.integer("SELECT count(*) FROM calls \(condition);")) ?? 0)
+            return Int((try? database.integer("SELECT count(*) FROM calls;")) ?? 0)
+        }
+    }
+
+    public func count(matching filter: Filter = .all, scope: Scope) -> Int {
+        queue.sync {
+            guard let database else { return 0 }
+            let selection = Self.selection(filter, scope)
+            let value = try? database.integer(
+                "SELECT count(*) FROM calls \(selection.clause);",
+                selection.parameters
+            )
+            return Int(value ?? 0)
+        }
+    }
+
+    /// Дни, в которые у профиля были звонки, — под точки в календаре.
+    ///
+    /// Возвращает начала местных суток. Группировка идёт в SQLite модификатором
+    /// `'localtime'`, а не вычитанием часов: смещение пояса не постоянно —
+    /// внутри срока хранения может лежать переход на летнее время, и звонок в
+    /// ночь перевода иначе попал бы в соседний день.
+    ///
+    /// Фильтр направления сюда не передаётся намеренно. Точка отвечает на
+    /// «работал ли я в этот день», а не «были ли в этот день пропущенные»:
+    /// иначе календарь пустел бы при переключении фильтра, и день, который
+    /// оператор точно помнит, оказывался бы неотмеченным.
+    public func daysWithCalls(scope: Scope, now: Date = Date()) -> Set<Date> {
+        queue.sync {
+            guard let database else { return [] }
+            let days = min(max(settings.maximumAgeInDays, 1), 3650)
+            let horizon = now.addingTimeInterval(-Double(days) * 24 * 60 * 60)
+            let texts = try? database.query(
+                """
+                SELECT DISTINCT date(started_at, 'unixepoch', 'localtime') FROM calls
+                WHERE profile_id = ? AND started_at >= ?;
+                """,
+                [.text(scope.profileID?.uuidString), .date(horizon)]
+            ) { $0.text(0) }
+
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyy-MM-dd"
+            return Set((texts ?? []).compactMap { $0.flatMap(formatter.date(from:)) })
+        }
+    }
+
+    /// Удаляет историю профиля целиком. Возвращает, сколько удалила.
+    ///
+    /// Синхронно и с ответом, потому что вызывающему он нужен дважды: спросить
+    /// человека до удаления («будут удалены 137 записей») и написать число в
+    /// журнал после. Отменить это нельзя — поэтому спрашивают заранее, а не
+    /// предлагают возврат потом.
+    @discardableResult
+    public func deleteHistory(ofProfile profileID: UUID) -> Int {
+        queue.sync {
+            guard let database else { return 0 }
+            try? database.run(
+                "DELETE FROM calls WHERE profile_id = ?;",
+                [.text(profileID.uuidString)]
+            )
+            return database.changes
         }
     }
 
@@ -374,8 +552,12 @@ public final class CallHistoryStore: @unchecked Sendable {
             answeredAt: row.date(11),
             endedAt: row.date(12),
             endReason: row.text(13),
-            wasTransferred: row.flag(14),
-            wasConference: row.flag(15)
+            // Ноль здесь — это и «пусто», и «такого кода нет»: значения
+            // перечисления начинаются с единицы именно затем, чтобы одно
+            // прочтение отвечало на оба вопроса.
+            outcomeCode: CallRecord.Outcome(rawValue: Int(row.integer(14))),
+            wasTransferred: row.flag(15),
+            wasConference: row.flag(16)
         )
     }
 

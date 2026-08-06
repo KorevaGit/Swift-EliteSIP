@@ -11,6 +11,16 @@ import Testing
 @Suite("История звонков", .serialized)
 struct CallHistoryStoreTests {
 
+    /// Профиль, которому принадлежат записи почти всех проверок.
+    ///
+    /// Один на набор, потому что с 6 августа 2026 выборка **всегда** отбирает
+    /// по профилю: история жёстко ограничена активным. Свой у каждого набора —
+    /// `@Suite` создаёт экземпляр под каждую проверку, и пересечься они не
+    /// могут даже теоретически.
+    private let profile = UUID()
+
+    private var scope: CallHistoryStore.Scope { CallHistoryStore.Scope(profileID: profile) }
+
     private func makeSettings(days: Int = 30) -> CallHistoryStore.Settings {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("elitesip-history-test-\(UUID().uuidString)", isDirectory: true)
@@ -34,7 +44,7 @@ struct CallHistoryStoreTests {
             direction: direction,
             number: number,
             sipLogin: "SIP/\(number)",
-            profileID: UUID(),
+            profileID: profile,
             profileLabel: "Боевой",
             startedAt: startedAt
         )
@@ -56,14 +66,14 @@ struct CallHistoryStoreTests {
 
         // Открытая запись видна ещё до конца разговора — ради этого запись и
         // заводится в начале.
-        #expect(store.records().first?.endedAt == nil)
+        #expect(store.records(scope: scope).first?.endedAt == nil)
 
         let answered = call.startedAt.addingTimeInterval(4)
         store.markAnswered(call.id, at: answered)
         store.finish(call.id, at: answered.addingTimeInterval(90), reason: "Завершён")
         store.flush()
 
-        let stored = store.records().first
+        let stored = store.records(scope: scope).first
         #expect(stored?.id == call.id)
         #expect(stored?.number == "601")
         #expect(stored?.sipLogin == "SIP/601")
@@ -88,7 +98,7 @@ struct CallHistoryStoreTests {
         store.finish(call.id, reason: "Завершён")
         store.flush()
 
-        #expect(store.records().first?.endReason == "Переведён на 601")
+        #expect(store.records(scope: scope).first?.endReason == "Переведён на 601")
     }
 
     @Test("Время ответа не сдвигается повторным событием")
@@ -104,7 +114,7 @@ struct CallHistoryStoreTests {
         store.markAnswered(call.id, at: first.addingTimeInterval(60))
         store.flush()
 
-        #expect(store.records().first?.answeredAt == first)
+        #expect(store.records(scope: scope).first?.answeredAt == first)
     }
 
     @Test("Перевод и конференция остаются в записи")
@@ -119,7 +129,7 @@ struct CallHistoryStoreTests {
         store.markConference(call.id)
         store.flush()
 
-        let stored = store.records().first
+        let stored = store.records(scope: scope).first
         #expect(stored?.wasTransferred == true)
         #expect(stored?.wasConference == true)
     }
@@ -142,7 +152,7 @@ struct CallHistoryStoreTests {
         }
 
         let reopened = CallHistoryStore(settings: settings)
-        let stored = reopened.records().first
+        let stored = reopened.records(scope: scope).first
         #expect(stored?.id == call.id, "запись обязана пережить завершение приложения")
         #expect(
             stored?.endReason == CallHistoryStore.interruptedReason,
@@ -165,7 +175,7 @@ struct CallHistoryStoreTests {
         store.flush()
 
         #expect(store.prune(now: now) == 1)
-        let numbers = store.records().map(\.number)
+        let numbers = store.records(scope: scope).map(\.number)
         #expect(numbers == ["601"])
     }
 
@@ -178,11 +188,11 @@ struct CallHistoryStoreTests {
             let store = CallHistoryStore(settings: settings)
             store.begin(record(startedAt: Date().addingTimeInterval(-10 * 24 * 3600)))
             store.flush()
-            #expect(store.records().count == 1)
+            #expect(store.records(scope: scope).count == 1)
         }
 
         let reopened = CallHistoryStore(settings: settings)
-        #expect(reopened.records().isEmpty, "просроченное не должно дожидаться, пока кто-нибудь нажмёт кнопку")
+        #expect(reopened.records(scope: scope).isEmpty, "просроченное не должно дожидаться, пока кто-нибудь нажмёт кнопку")
     }
 
     @Test("Нулевой срок не означает «удалить всё»")
@@ -195,7 +205,7 @@ struct CallHistoryStoreTests {
         store.flush()
         store.prune()
 
-        #expect(store.records().count == 1, "значение из файла настроек правит человек — границы ставим сами")
+        #expect(store.records(scope: scope).count == 1, "значение из файла настроек правит человек — границы ставим сами")
     }
 
     // MARK: - Выборка
@@ -216,11 +226,11 @@ struct CallHistoryStoreTests {
         store.begin(record(direction: .outgoing, number: "601", startedAt: now.addingTimeInterval(-2)))
         store.flush()
 
-        #expect(store.records(matching: .all).count == 3)
-        #expect(store.records(matching: .incoming).map(\.number) == ["701", "702"])
-        #expect(store.records(matching: .outgoing).map(\.number) == ["601"])
-        #expect(store.records(matching: .missed).map(\.number) == ["702"])
-        #expect(store.count(matching: .missed) == 1)
+        #expect(store.records(matching: .all, scope: scope).count == 3)
+        #expect(store.records(matching: .incoming, scope: scope).map(\.number) == ["701", "702"])
+        #expect(store.records(matching: .outgoing, scope: scope).map(\.number) == ["601"])
+        #expect(store.records(matching: .missed, scope: scope).map(\.number) == ["702"])
+        #expect(store.count(matching: .missed, scope: scope) == 1)
     }
 
     @Test("Неотвеченный исходящий пропущенным не считается")
@@ -241,7 +251,7 @@ struct CallHistoryStoreTests {
         store.begin(record(number: "новый", startedAt: now))
         store.flush()
 
-        #expect(store.records().map(\.number) == ["новый", "старый"])
+        #expect(store.records(scope: scope).map(\.number) == ["новый", "старый"])
     }
 
     // MARK: - Приёмка: десять тысяч записей
@@ -261,14 +271,14 @@ struct CallHistoryStoreTests {
             ))
         }
         store.flush()
-        #expect(store.count() == 10_000)
+        #expect(store.totalCount() == 10_000)
 
         // Панель открывается одной выборкой первой страницы. Порог намеренно
         // щедрый: цель проверки — поймать чтение всей таблицы, а не измерить
         // машину сборки. Полный проход по десяти тысячам с разбором строк не
         // уложился бы и в секунду.
         let started = Date()
-        let page = store.records(matching: .missed, limit: 200)
+        let page = store.records(matching: .missed, scope: scope, limit: 200)
         let elapsed = Date().timeIntervalSince(started)
 
         #expect(page.count == 200)
@@ -287,8 +297,8 @@ struct CallHistoryStoreTests {
         }
         store.flush()
 
-        #expect(store.records(limit: 4).map(\.number) == ["0", "1", "2", "3"])
-        #expect(store.records(limit: 4, offset: 4).map(\.number) == ["4", "5", "6", "7"])
+        #expect(store.records(scope: scope, limit: 4).map(\.number) == ["0", "1", "2", "3"])
+        #expect(store.records(scope: scope, limit: 4, offset: 4).map(\.number) == ["4", "5", "6", "7"])
     }
 
     // MARK: - Порча файла
@@ -325,7 +335,7 @@ struct CallHistoryStoreTests {
         let call = record(number: "603")
         reopened.begin(call)
         reopened.flush()
-        #expect(reopened.records().map(\.number) == ["603"])
+        #expect(reopened.records(scope: scope).map(\.number) == ["603"])
     }
 
     // MARK: - Задел под EliteDash
@@ -342,7 +352,7 @@ struct CallHistoryStoreTests {
         store.overrideDisplayName("Иванов, ООО «Ромашка»", forNumber: "79001234567")
         store.flush()
 
-        let stored = store.records().first
+        let stored = store.records(scope: scope).first
         #expect(stored?.displayName == "Иванов, ООО «Ромашка»")
         #expect(stored?.number == "79001234567", "исходный номер обязан остаться: список имён у EliteDash меняется")
         #expect(stored?.sipLogin == "SIP/79001234567")
@@ -360,6 +370,275 @@ struct CallHistoryStoreTests {
         store.attachServerCallID("1754212800.42", to: call.id)
         store.flush()
 
-        #expect(store.records().first?.serverCallID == "1754212800.42")
+        #expect(store.records(scope: scope).first?.serverCallID == "1754212800.42")
+    }
+
+    // MARK: - Граница профиля
+
+    @Test("Чужой профиль не виден ни в выборке, ни в счёте")
+    func scopesToProfile() {
+        let settings = makeSettings()
+        defer { remove(settings) }
+
+        let store = CallHistoryStore(settings: settings)
+        let other = UUID()
+        store.begin(record(number: "601"))
+        store.begin(CallRecord(
+            callID: UUID().uuidString, direction: .outgoing, number: "чужой",
+            profileID: other, profileLabel: "Лаба"
+        ))
+        store.flush()
+
+        #expect(store.records(scope: scope).map(\.number) == ["601"])
+        #expect(store.count(scope: scope) == 1)
+        // Обе записи на диске есть — граница проходит по выборке, а не по
+        // записи: администратор считает всё, что накоплено на машине.
+        #expect(store.totalCount() == 2)
+    }
+
+    @Test("Запись без профиля не видна никому")
+    func hidesRecordsWithoutProfile() {
+        let settings = makeSettings()
+        defer { remove(settings) }
+
+        let store = CallHistoryStore(settings: settings)
+        store.begin(CallRecord(
+            callID: UUID().uuidString, direction: .outgoing, number: "ничей", profileID: nil
+        ))
+        store.flush()
+
+        #expect(store.records(scope: scope).isEmpty)
+        #expect(
+            store.records(scope: CallHistoryStore.Scope(profileID: nil)).isEmpty,
+            "nil в области означает «профиля нет», а не «показать бесхозные»"
+        )
+        #expect(store.totalCount() == 1, "запись на диске остаётся, невидима только выборке")
+    }
+
+    @Test("Удаление профиля уносит его историю и не трогает чужую")
+    func deletesHistoryOfProfile() {
+        let settings = makeSettings()
+        defer { remove(settings) }
+
+        let store = CallHistoryStore(settings: settings)
+        let other = UUID()
+        store.begin(record(number: "601"))
+        store.begin(record(number: "602"))
+        store.begin(CallRecord(
+            callID: UUID().uuidString, direction: .outgoing, number: "чужой", profileID: other
+        ))
+        store.flush()
+
+        #expect(store.deleteHistory(ofProfile: profile) == 2)
+        #expect(store.records(scope: scope).isEmpty)
+        #expect(store.count(scope: CallHistoryStore.Scope(profileID: other)) == 1)
+    }
+
+    // MARK: - Отбор по дню
+
+    @Test("Отбор по дню берёт местные сутки целиком и не залезает в соседние")
+    func scopesToDay() {
+        let settings = makeSettings(days: 3650)
+        defer { remove(settings) }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+
+        let store = CallHistoryStore(settings: settings)
+        // Первая и последняя минуты суток: границы должны попадать внутрь, а
+        // не срезаться — звонок в 00:03 принадлежит своему дню, а не прошлому.
+        store.begin(record(number: "начало", startedAt: today.addingTimeInterval(60)))
+        store.begin(record(number: "конец", startedAt: today.addingTimeInterval(24 * 3600 - 60)))
+        store.begin(record(number: "вчера", startedAt: yesterday.addingTimeInterval(12 * 3600)))
+        store.flush()
+
+        let day = CallHistoryStore.Scope(profileID: profile, day: today)
+        #expect(Set(store.records(scope: day).map(\.number)) == ["начало", "конец"])
+        #expect(store.count(scope: day) == 2)
+        #expect(store.count(scope: CallHistoryStore.Scope(profileID: profile, day: yesterday)) == 1)
+    }
+
+    @Test("Дни со звонками перечисляются началами местных суток")
+    func listsDaysWithCalls() {
+        let settings = makeSettings(days: 3650)
+        defer { remove(settings) }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let older = calendar.date(byAdding: .day, value: -5, to: today)!
+
+        let store = CallHistoryStore(settings: settings)
+        store.begin(record(startedAt: today.addingTimeInterval(9 * 3600)))
+        store.begin(record(startedAt: today.addingTimeInterval(18 * 3600)))
+        store.begin(record(startedAt: older.addingTimeInterval(11 * 3600)))
+        store.flush()
+
+        // Два звонка одного дня дают одну точку, а не две.
+        #expect(store.daysWithCalls(scope: scope) == [today, older])
+    }
+
+    @Test("Дни чужого профиля в календарь не попадают")
+    func listsDaysOfOwnProfileOnly() {
+        let settings = makeSettings(days: 3650)
+        defer { remove(settings) }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        let store = CallHistoryStore(settings: settings)
+        store.begin(CallRecord(
+            callID: UUID().uuidString, direction: .outgoing, number: "чужой",
+            profileID: UUID(), startedAt: today.addingTimeInterval(9 * 3600)
+        ))
+        store.flush()
+
+        #expect(store.daysWithCalls(scope: scope).isEmpty)
+    }
+
+    @Test("Дни за сроком хранения в календарь не попадают")
+    func skipsDaysBeyondRetention() {
+        let settings = makeSettings(days: 7)
+        defer { remove(settings) }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        // Запись старше срока могла бы дожить до открытия календаря: уборка
+        // идёт при открытии базы и раз в сутки, а не в момент запроса.
+        let ancient = calendar.date(byAdding: .day, value: -30, to: today)!
+
+        let store = CallHistoryStore(settings: settings)
+        store.begin(record(startedAt: ancient.addingTimeInterval(9 * 3600)))
+        store.begin(record(startedAt: today.addingTimeInterval(9 * 3600)))
+        store.flush()
+
+        #expect(store.daysWithCalls(scope: scope) == [today])
+    }
+
+    // MARK: - Исход
+
+    @Test("Код исхода записывается вместе с причиной и переживает перечитывание")
+    func storesOutcomeCode() {
+        let settings = makeSettings()
+        defer { remove(settings) }
+
+        let store = CallHistoryStore(settings: settings)
+        let call = record()
+        store.begin(call)
+        store.finish(call.id, reason: "занято", outcome: .busy)
+        store.flush()
+
+        let stored = store.records(scope: scope).first
+        #expect(stored?.outcomeCode == .busy)
+        #expect(stored?.outcome == .busy)
+        #expect(stored?.outcome.title == "занято")
+    }
+
+    @Test("Состоявшийся разговор и пропущенный не спрашивают у кода")
+    func derivesOutcomeWithoutCode() {
+        let settings = makeSettings()
+        defer { remove(settings) }
+
+        let store = CallHistoryStore(settings: settings)
+
+        // Разговор состоялся: даже если код по недосмотру сказал бы другое,
+        // ответ даёт время ответа — иначе история разошлась бы сама с собой.
+        let talked = record(number: "601")
+        store.begin(talked)
+        store.markAnswered(talked.id)
+        store.finish(talked.id, reason: "Завершён", outcome: .failed)
+
+        // Входящий без ответа — пропущенный, и это то же самое условие, по
+        // которому отбирает фильтр «Пропущенные».
+        let missed = record(direction: .incoming, number: "701")
+        store.begin(missed)
+        store.finish(missed.id, reason: "отклонён", outcome: .declined)
+
+        // Исходящий без ответа и без кода — «не ответил», а не пустота.
+        let old = record(number: "602")
+        store.begin(old)
+        store.finish(old.id, reason: "Завершён")
+        store.flush()
+
+        let stored = Dictionary(
+            uniqueKeysWithValues: store.records(scope: scope).map { ($0.number, $0.outcome) }
+        )
+        #expect(stored["601"] == .completed)
+        #expect(stored["701"] == .missed)
+        #expect(stored["602"] == .noAnswer)
+    }
+
+    @Test("Все шесть слов исхода различны, а у состоявшегося слова нет")
+    func outcomeVocabularyIsDistinct() {
+        let titles = CallRecord.Outcome.allCases.compactMap(\.title)
+        #expect(CallRecord.Outcome.completed.title == nil, "вместо слова у него длительность")
+        #expect(titles.count == 6)
+        #expect(Set(titles).count == 6, "два исхода с одним словом различать нечем")
+    }
+
+    @Test("Коды ответа SIP переводятся в слова")
+    func mapsSIPStatusToOutcome() {
+        #expect(CallRecord.Outcome.forFailure(status: 486) == .busy)
+        #expect(CallRecord.Outcome.forFailure(status: 600) == .busy)
+        #expect(CallRecord.Outcome.forFailure(status: 404) == .unknownNumber)
+        #expect(CallRecord.Outcome.forFailure(status: 603) == .declined)
+        #expect(CallRecord.Outcome.forFailure(status: 403) == .declined)
+        #expect(CallRecord.Outcome.forFailure(status: 408) == .noAnswer)
+        #expect(CallRecord.Outcome.forFailure(status: 480) == .noAnswer)
+        #expect(CallRecord.Outcome.forFailure(status: 487) == .noAnswer)
+        #expect(CallRecord.Outcome.forFailure(status: 503) == .failed)
+    }
+
+    // MARK: - Миграция
+
+    @Test("База без колонки исхода открывается, а не заводится заново")
+    func migratesOldDatabase() throws {
+        let settings = makeSettings()
+        defer { remove(settings) }
+
+        // Схема до 6 августа 2026: та же таблица без `outcome_code`.
+        try FileManager.default.createDirectory(
+            at: settings.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        let old = try SQLiteDatabase(url: settings.fileURL)
+        try old.execute("""
+            CREATE TABLE calls (
+                id TEXT PRIMARY KEY NOT NULL, call_id TEXT NOT NULL, server_call_id TEXT,
+                direction INTEGER NOT NULL, role INTEGER NOT NULL, number TEXT NOT NULL,
+                sip_login TEXT, display_name TEXT, profile_id TEXT, profile_label TEXT,
+                started_at REAL NOT NULL, answered_at REAL, ended_at REAL, end_reason TEXT,
+                was_transferred INTEGER NOT NULL DEFAULT 0,
+                was_conference INTEGER NOT NULL DEFAULT 0
+            );
+            """)
+        try old.run(
+            """
+            INSERT INTO calls (id, call_id, direction, role, number, profile_id, started_at, \
+            answered_at, ended_at, end_reason, was_transferred, was_conference)
+            VALUES (?, ?, 1, 0, ?, ?, ?, NULL, ?, ?, 0, 0);
+            """,
+            [
+                .text(UUID().uuidString), .text("старый"), .text("601"),
+                .text(profile.uuidString), .date(Date()), .date(Date()), .text("занято"),
+            ]
+        )
+
+        let store = CallHistoryStore(settings: settings)
+        #expect(store.openOutcome == .ready, "старая база — не повреждённая, отставлять её нельзя")
+
+        let stored = store.records(scope: scope).first
+        #expect(stored?.number == "601", "записи месячной давности обязаны пережить обновление")
+        #expect(stored?.outcomeCode == nil)
+        #expect(stored?.outcome == .noAnswer, "кода нет — исход выводится, а не теряется")
+
+        // И новая запись в мигрированную базу пишется уже с кодом.
+        let fresh = record(number: "602")
+        store.begin(fresh)
+        store.finish(fresh.id, reason: "нет номера", outcome: .unknownNumber)
+        store.flush()
+        #expect(
+            store.records(scope: scope).first(where: { $0.number == "602" })?.outcomeCode
+                == .unknownNumber
+        )
     }
 }
