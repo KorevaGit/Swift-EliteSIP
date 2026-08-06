@@ -472,7 +472,10 @@ private struct AdministrationRow: View {
     @Binding var isAskingForPassword: Bool
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Metrics.elementSpacing) {
+        // По центру, а не по верху: подпись здесь в две строки, а значок и
+        // кнопка — в одну, и при верхнем выравнивании оба прижимались к
+        // верхнему краю плашки, оставляя под собой пустую полосу.
+        HStack(alignment: .center, spacing: Theme.Metrics.elementSpacing) {
             // Значок занимает колонку подписей: у этого блока подписи нет, но
             // левый край у страницы один на всех.
             CompatSymbol(name: "lock.shield.fill")
