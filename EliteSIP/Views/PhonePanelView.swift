@@ -23,8 +23,6 @@ struct PhonePanelView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var incomingCall: IncomingCallPanel
 
-    @Environment(\.colorScheme) private var scheme
-
     /// Тикает таймер разговора. Ровно раз в секунду и только пока панель на
     /// экране.
     private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -99,6 +97,13 @@ struct PhonePanelView: View {
                 Task { await model.connect() }
             }
 
+            // Открывает настройки сразу: снимок этого окна нужен для сверки
+            // раскладки и контраста, а дотянуться до него скриптом иначе
+            // нечем — ⌘, до приложения не доходит, пока оно не в фокусе.
+            if ProcessInfo.processInfo.arguments.contains("--open-settings") {
+                NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
+            }
+
             // Проверка звука одной командой: подключиться и сразу позвонить.
             // Автоматизировать «слышно себя» нельзя, а вот дойти до разговора
             // без десятка кликов — можно.
@@ -154,23 +159,17 @@ struct PhonePanelView: View {
 
     // MARK: - Ярус 1: голова
 
-    /// Название окна по центру полосы заголовка.
+    /// Место под полосу заголовка.
     ///
-    /// Рисуем сами, потому что системный заголовок центрируется по своей
-    /// логике и на узкой панели встаёт левее середины. Место под полосу всё
-    /// равно наше: содержимое идёт под ней целиком (`.fullSizeContentView`), а
-    /// высоту сообщает окно.
+    /// Пусто, и это правка от 6 августа 2026: раньше здесь стояла своя надпись
+    /// «EliteSIP», а системную никто не отключал — `titleVisibility` осталась
+    /// видимой, и два одинаковых названия лежали друг на друге со сдвигом.
     ///
-    /// Светофор рисует по-прежнему окно и поверх нас — поэтому надпись просто
-    /// не должна до него доставать. При 270 точках ширины она и не достаёт:
-    /// кнопки заканчиваются на 70-й, название начинается после 100-й.
+    /// Теперь название рисует окно, а вёрстка только держит под него высоту:
+    /// содержимое идёт под полосой целиком (`.fullSizeContentView`), и без
+    /// этого места строка состояния уехала бы под светофор.
     private var titleBar: some View {
-        Text("EliteSIP")
-            .font(Theme.Text.windowTitle)
-            .compatForeground(Theme.Palette.textSecondary(scheme))
-            .lineLimit(1)
-            .frame(maxWidth: .infinity)
-            .frame(height: titleBarInset)
+        Color.clear.frame(height: titleBarInset)
     }
 
     /// Капсула профиля, слот беды и вход в настройки.
@@ -208,7 +207,7 @@ struct PhonePanelView: View {
                 .compatOverlay(alignment: .leading) { troubleLabel }
                 .clipped()
 
-            iconButton("gearshape", help: "Настройки EliteSIP (⌘,)", label: "Настройки") {
+            iconButton("gearshape", label: "Настройки") {
                 NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
             }
         }
@@ -247,7 +246,7 @@ struct PhonePanelView: View {
                 if let label = model.panelStatusLabel {
                     Text(label)
                         .font(Theme.Text.statusDetail)
-                        .compatForeground(Theme.Palette.textTertiary(scheme))
+                        .compatForeground(Theme.Palette.textTertiary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         // Уступает место всему остальному: номер и шеврон
@@ -260,7 +259,7 @@ struct PhonePanelView: View {
                     // кнопка со списком, а не подпись. Иконки в комплекте нет,
                     // и рисовать её незачем: `ChevronDown` — форма.
                     ChevronDown()
-                        .compatForeground(Theme.Palette.textTertiary(scheme))
+                        .compatForeground(Theme.Palette.textTertiary)
                 }
             }
             .padding(.horizontal, Theme.Metrics.sectionSpacing)
@@ -272,11 +271,6 @@ struct PhonePanelView: View {
         .hoverHighlight(cornerRadius: pickerRadius, isEnabled: model.canOpenProfileMenu)
         .disabled(!model.canOpenProfileMenu)
         .compatBackground { MenuAnchorView(anchor: anchor) }
-        .compatHelp(
-            model.canOpenProfileMenu
-                ? "Профиль и состояние линии"
-                : "Профиль не меняется в разговоре"
-        )
         .compatAccessibilityLabel("Профиль \(model.panelStatusTitle)")
     }
 
@@ -358,7 +352,7 @@ struct PhonePanelView: View {
             }
         }
         .compatForeground(
-            trouble.isFailure ? Theme.Palette.failure : Theme.Palette.textSecondary(scheme)
+            trouble.isFailure ? Theme.Palette.failure : Theme.Palette.textSecondary
         )
         .contentShape(Rectangle())
     }
@@ -374,13 +368,12 @@ struct PhonePanelView: View {
 
     private func iconButton(
         _ symbol: String,
-        help: String,
         label: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             CompatSymbol(name: symbol, size: Theme.Icon.medium)
-                .compatForeground(Theme.Palette.textSecondary(scheme))
+                .compatForeground(Theme.Palette.textSecondary)
                 .frame(
                     width: Theme.Metrics.statusIconHitSize,
                     height: Theme.Metrics.statusIconHitSize
@@ -389,7 +382,6 @@ struct PhonePanelView: View {
         }
         .buttonStyle(.plain)
         .hoverHighlight(cornerRadius: 6)
-        .compatHelp(help)
         .compatAccessibilityLabel(label)
     }
 
@@ -468,7 +460,6 @@ struct PhonePanelView: View {
             .buttonStyle(.plain)
             .themedControlSurface()
             .hoverHighlight()
-            .compatHelp("История звонков (⌘Y)")
             .compatAccessibilityLabel("История звонков")
         }
     }
@@ -510,7 +501,6 @@ struct PhonePanelView: View {
         // Системное затемнение выключенной кнопки на стеклянном фоне почти не
         // видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
         .opacity(isCallButtonEnabled ? 1 : 0.4)
-        .compatHelp(model.isInCall ? "Завершить разговор" : "Позвонить по набранному номеру")
     }
 
     #if DEBUG
@@ -545,8 +535,6 @@ struct CallHeader: View {
 
     @EnvironmentObject private var model: AppModel
 
-    @Environment(\.colorScheme) private var scheme
-
     let now: Date
 
     var body: some View {
@@ -574,13 +562,13 @@ struct CallHeader: View {
                     if hasName {
                         Text(model.activeLine?.peer ?? "")
                             .font(Theme.Text.callerNumber)
-                            .compatForeground(Theme.Palette.textSecondary(scheme))
+                            .compatForeground(Theme.Palette.textSecondary)
                             .lineLimit(1)
                             .layoutPriority(-1)
 
                         Text("·")
                             .font(Theme.Text.callerNumber)
-                            .compatForeground(Theme.Palette.textTertiary(scheme))
+                            .compatForeground(Theme.Palette.textTertiary)
                     }
 
                     if let duration {
@@ -594,7 +582,7 @@ struct CallHeader: View {
                         .compatForeground(
                             model.isOnHold || model.isMicrophoneMuted
                                 ? Theme.Palette.connecting
-                                : Theme.Palette.textSecondary(scheme)
+                                : Theme.Palette.textSecondary
                         )
                         .lineLimit(1)
 
@@ -629,8 +617,6 @@ struct LineField: View {
 
     @EnvironmentObject private var model: AppModel
 
-    @Environment(\.colorScheme) private var scheme
-
     let line: AppModel.CallLine
     let now: Date
 
@@ -650,7 +636,7 @@ struct LineField: View {
                 // кружки разошлись бы центрами. Колонка выравнивает именно
                 // центры — глаз считывает их, а не края.
                 Circle()
-                    .fill(isActive ? Theme.Palette.registered : Theme.Palette.textTertiary(scheme))
+                    .fill(isActive ? Theme.Palette.registered : Theme.Palette.textTertiary)
                     .frame(
                         width: Theme.Metrics.lineDotDiameter,
                         height: Theme.Metrics.lineDotDiameter
@@ -666,7 +652,7 @@ struct LineField: View {
                 Text(status)
                     .font(Theme.Text.callerNumber)
                     .compatMonospacedDigit()
-                    .compatForeground(isActive ? Theme.Palette.textSecondary(scheme) : Theme.Palette.textTertiary(scheme))
+                    .compatForeground(isActive ? Theme.Palette.textSecondary : Theme.Palette.textTertiary)
                     .lineLimit(1)
             }
             // Столько же, сколько внутри капсулы профиля: тогда обе точки
@@ -685,7 +671,6 @@ struct LineField: View {
         }
         .hoverHighlight(cornerRadius: 6, isEnabled: isSwitchable)
         .disabled(!isSwitchable)
-        .compatHelp(isActive ? "Звук идёт по этой линии" : "Переключить звук на \(line.title)")
     }
 
     private var status: String {
@@ -704,8 +689,6 @@ struct LineField: View {
 struct DialedNumberField: View {
 
     @EnvironmentObject private var model: AppModel
-
-    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
@@ -738,10 +721,9 @@ struct DialedNumberField: View {
                     model.clearDialedNumber()
                 } label: {
                     CompatSymbol(name: "xmark.circle.fill", size: Theme.Icon.medium)
-                        .compatForeground(Theme.Palette.textTertiary(scheme))
+                        .compatForeground(Theme.Palette.textTertiary)
                 }
                 .buttonStyle(.borderless)
-                .compatHelp("Очистить")
                 .compatAccessibilityLabel("Очистить номер")
             }
         }
@@ -763,10 +745,7 @@ struct CallControls: View {
                 title: model.isOnHold ? "Вернуть" : "Удержать",
                 symbol: model.isOnHold ? "play.fill" : "pause.fill",
                 isOn: model.isOnHold,
-                isEnabled: model.canHold,
-                help: model.isOnHold
-                    ? "Вернуться к разговору"
-                    : "Собеседник услышит музыку ожидания сервера"
+                isEnabled: model.canHold
             ) {
                 Task { await model.toggleHold() }
             }
@@ -775,8 +754,7 @@ struct CallControls: View {
                 title: "Микрофон",
                 symbol: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
                 isOn: model.isMicrophoneMuted,
-                isEnabled: model.callPhase == .active,
-                help: "Собеседник не услышит вас и не узнает об этом"
+                isEnabled: model.callPhase == .active
             ) {
                 model.toggleMicrophone()
             }
@@ -785,8 +763,7 @@ struct CallControls: View {
                 title: "Перевести",
                 symbol: "phone.arrow.right",
                 isOn: model.isTransferEntryVisible,
-                isEnabled: model.canTransfer && !model.isTransferEntryVisible,
-                help: "Слепой перевод текущего разговора"
+                isEnabled: model.canTransfer && !model.isTransferEntryVisible
             ) {
                 model.showTransferEntry()
             }
@@ -799,7 +776,6 @@ struct CallControls: View {
         symbol: String,
         isOn: Bool,
         isEnabled: Bool,
-        help: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -825,7 +801,6 @@ struct CallControls: View {
         .hoverHighlight(isEnabled: isEnabled)
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : Theme.Metrics.disabledOpacity)
-        .compatHelp(help)
     }
 }
 
@@ -890,7 +865,6 @@ struct MacroGrid: View {
         .hoverHighlight(isEnabled: model.canSendDTMF)
         .disabled(!model.canSendDTMF)
         .opacity(model.canSendDTMF ? 1 : Theme.Metrics.disabledOpacity)
-        .compatHelp(model.settings.dtmf.sequence(of: macro).displayText)
     }
 }
 

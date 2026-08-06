@@ -111,6 +111,17 @@ extension View {
         }
     }
 
+    /// Тумблер вместо галочки.
+    ///
+    /// Вне `Form` macOS рисует `Toggle` галочкой, а в окне настроек ожидается
+    /// тумблер. Настройки менеджера собраны без `Form` — сгруппированная форма
+    /// ставит непрозрачные плашки и прячет материал окна, — поэтому стиль
+    /// приходится называть явно. Сокращение `.switch` появилось в macOS 12, сам
+    /// стиль есть с 10.15.
+    func compatSwitchToggle() -> some View {
+        toggleStyle(SwitchToggleStyle())
+    }
+
     /// `background(_:in:)` — заливка формой — тоже macOS 12.
     func compatBackground(_ color: Color, cornerRadius: CGFloat) -> some View {
         background(RoundedRectangle(cornerRadius: cornerRadius).fill(color))

@@ -138,15 +138,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        // Имя у окна есть, но рисует его вёрстка, а не AppKit.
+        // Название рисует окно. Своё, нарисованное вёрсткой, отсюда убрано:
+        // системное никто не отключал, и два одинаковых заголовка лежали друг
+        // на друге со сдвигом.
         //
-        // Системный заголовок центрируется по своей логике, которая для узкой
-        // панели даёт не середину: замер живого окна показал 108.75 точки при
-        // середине 135. Спорить с ней нечем — своё же название мы ставим ровно
-        // по центру. Само `title` при этом остаётся: по нему окно называется в
-        // меню «Окно» и в переключателе задач.
-        window.title = "EliteSIP"
-        window.titleVisibility = .hidden
+        // «Экран вызова», а не «EliteSIP»: имя приложения и так стоит в меню, а
+        // окон у него несколько, и заголовок должен отвечать на «какое это
+        // окно», а не повторять, чьё оно.
+        window.title = "Экран вызова"
         window.titlebarAppearsTransparent = true
 
         // Без этой пары никакая прозрачность не работает: под материалом
@@ -217,15 +216,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
+        // Тот же рецепт, что у панели, и по тем же причинам:
+        //
+        //   - `.fullSizeContentView` с прозрачной полосой заголовка — иначе у
+        //     прозрачного окна полоса остаётся без материала, и светофор с
+        //     названием повисают над чужим окном;
+        //   - название рисует окно, а не вёрстка: под полосу заголовка у нас
+        //     заходит только фон, поэтому системная надпись ложится на
+        //     материал, а не повисает над чужим окном;
+        //   - непрозрачным окно быть не должно, иначе размывать нечего.
+        //
+        // Не `.resizable`: ширина задана вёрсткой, высоту считает содержимое, и
+        // тянуть окно не за что — страница одна и целиком видна.
         let window = NSWindow(
-            contentRect: CGRect(origin: .zero, size: CGSize(width: 660, height: 460)),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: CGRect(origin: .zero, size: CGSize(width: 560, height: 600)),
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
+        // Видимость задана явно: она была выставлена в `.hidden`, пока
+        // название рисовала вёрстка, и после возврата к системному заголовку
+        // полоса осталась пустой — светофор без единой надписи рядом.
         window.title = "Настройки EliteSIP"
+        window.titleVisibility = .visible
+        window.titlebarAppearsTransparent = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: withEnvironment(SettingsView()))
+
         window.center()
         // Ради одного: закрытие окна гасит административный режим (M7c).
         window.delegate = self

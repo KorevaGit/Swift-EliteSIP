@@ -16,8 +16,11 @@ import SwiftUI
 struct SettingsView: View {
 
     var body: some View {
+        // Ни ширины, ни высоты здесь: ширину задаёт `ManagerSettingsView`
+        // (`Theme.Metrics.settingsWidth`), высоту — его содержимое, а окно
+        // подстраивается под обе. Минимумы отсюда убраны вместе с прокруткой:
+        // страница одна и целиком видна, растягивать её некуда.
         ManagerSettingsView()
-            .frame(minWidth: 640, minHeight: 460)
     }
 }
 
@@ -44,10 +47,14 @@ struct AccountSettingsTab: View {
                     }
                 }
 
-                TextField("Метка активного профиля", text: Binding(
-                    get: { model.settings.profiles.active.label },
-                    set: { model.renameProfile(model.activeProfileID, to: $0) }
-                ))
+                // Поля «Метка активного профиля» здесь больше нет:
+                // переименование переехало в саму строку, к каждому профилю
+                // своё. Прежнее правило «правим только активный» означало, что
+                // подписать второй профиль можно, лишь переключив на него
+                // рабочее место оператора, — то есть настройка через побочный
+                // эффект, да ещё и запрещённая в разговоре. Отобрать пометку у
+                // менеджера, не починив это, было нельзя: ставить её стало бы
+                // некому.
 
                 WorkplacePicker()
 
@@ -297,6 +304,11 @@ private struct ProfileRow: View {
 
     private var isActive: Bool { profile.id == model.activeProfileID }
 
+    /// Правится ли пометка прямо сейчас. Своё у каждой строки: два поля
+    /// одновременно не нужны, а гасить чужое пришлось бы отдельным состоянием
+    /// на весь список.
+    @State private var isEditingLabel = false
+
     var body: some View {
         HStack(spacing: 8) {
             Button {
@@ -328,6 +340,31 @@ private struct ProfileRow: View {
             .disabled(!isActive && !model.canSwitchProfile)
 
             Spacer()
+
+            // Пометка — то слово, по которому оператор узнаёт свой профиль в
+            // капсуле панели. Заводит и правит его администратор: у менеджера
+            // этого больше нет.
+            //
+            // За карандашом, а не полем всегда: строка уже кнопка выбора
+            // профиля, и поле ввода в ней перехватывало бы нажатия у главного
+            // действия списка.
+            if isEditingLabel {
+                TextField("Без названия", text: Binding(
+                    get: { profile.label },
+                    set: { model.renameProfile(profile.id, to: $0) }
+                ))
+                .labelsHidden()
+                .frame(width: 140)
+            }
+
+            Button {
+                isEditingLabel.toggle()
+            } label: {
+                CompatSymbol(name: isEditingLabel ? "checkmark.circle" : "pencil")
+            }
+            .buttonStyle(.borderless)
+            .compatForeground(.secondary)
+            .compatHelp(isEditingLabel ? "Готово" : "Переименовать профиль")
 
             Button {
                 Task { await model.removeProfile(profile.id) }
@@ -540,8 +577,6 @@ private struct LevelMeters: View {
 
 private struct LevelMeter: View {
 
-    @Environment(\.colorScheme) private var scheme
-
     let title: String
     let level: Float
 
@@ -549,7 +584,7 @@ private struct LevelMeter: View {
         CompatLabeledContent(title: title) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.Palette.textTertiary(scheme).opacity(0.5))
+                    Capsule().fill(Theme.Palette.textTertiary.opacity(0.5))
                     Capsule()
                         .fill(color)
                         // Корень вместо самого уровня: слух логарифмический, и на
@@ -938,8 +973,6 @@ private struct DelayField: View {
 
 struct DiagnosticsTab: View {
 
-    @Environment(\.colorScheme) private var scheme
-
     @EnvironmentObject private var model: AppModel
 
     private var appVersion: String {
@@ -1044,7 +1077,7 @@ struct DiagnosticsTab: View {
             if model.log.isEmpty {
                 Text("Пусто. Нажмите «Подключить».")
                     .font(.footnote)
-                    .compatForeground(Theme.Palette.textTertiary(scheme))
+                    .compatForeground(Theme.Palette.textTertiary)
             }
         }
     }
@@ -1053,7 +1086,7 @@ struct DiagnosticsTab: View {
         ForEach(model.log) { entry in
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(TimeText.withSeconds.string(from: entry.date))
-                    .compatForeground(Theme.Palette.textTertiary(scheme))
+                    .compatForeground(Theme.Palette.textTertiary)
                 Text(entry.message)
                     .compatForeground(color(for: entry.level))
                     .compatTextSelection()
