@@ -36,6 +36,7 @@ extension AppModel {
                 // Те же настройки, что у разговора: проверка обязана пройти
                 // ровно тот путь, который потом сломается или не сломается.
                 let test = try VoiceSelfTest(
+                    bus: voiceBus(),
                     configuration: VoiceAudioEngine.Configuration(
                         inputDeviceUID: settings.audio.inputDeviceUID,
                         outputDeviceUID: settings.audio.outputDeviceUID,

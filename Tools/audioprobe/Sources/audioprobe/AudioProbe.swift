@@ -28,8 +28,13 @@ struct AudioProbe {
             await watchDevices(seconds: seconds)
         case "engine":
             await probeEngine(seconds: seconds, voiceProcessing: !arguments.contains("--no-vpio"))
+        case "bus":
+            await probeBus()
         case "release":
-            await probeRelease()
+            await probeRelease(
+                disablingInputOnly: arguments.contains("--input-only"),
+                reassigningDevice: arguments.contains("--reassign")
+            )
         case "matrix":
             await MatrixProbe.run(seconds: value(of: "--seconds", in: arguments).flatMap(Double.init) ?? 4)
         case "quality":
@@ -49,7 +54,10 @@ struct AudioProbe {
               watch [--seconds N]      следить за сменой устройств и частот
               engine [--seconds N]     поднять AVAudioEngine и замерить тракт
                      [--no-vpio]       без системной обработки голоса
+              bus                      отпускает ли гарнитуру общий тракт (VoiceAudioBus)
               release                  чем именно отпускается Bluetooth-гарнитура
+                     [--input-only]    выключать обработку голоса только на входе
+                     [--reassign]      переназначить устройство вместо разбора движка
               quality                  качество пересчёта частоты и G.711, без устройства
               matrix [--seconds N]     прогон по всем сочетаниям устройств
               voice  [--seconds N]     боевой VoiceAudioEngine на синтетическом потоке
@@ -273,6 +281,84 @@ struct AudioProbe {
         printSnapshot(prefix: stamp())
     }
 
+    // MARK: - bus
+
+    /// Отпускает ли гарнитуру **боевой** путь: `VoiceAudioBus.claim` и
+    /// `release`, как их зовёт разговор.
+    ///
+    /// Отдельно от `release` намеренно. Тот замеряет голый `AVAudioEngine` и
+    /// отвечает на вопрос «чем вообще отпускается»; этот отвечает на вопрос
+    /// «отпускает ли то, что мы написали». Разница между этими двумя вопросами
+    /// один раз уже стоила жалобы: движок сделали общим, положившись на
+    /// прежний замер, а он к тому времени устарел.
+    static func probeBus() async {
+        let stamp = Self.makeStamp()
+
+        guard await requestMicrophone() else {
+            print("Нет доступа к микрофону.")
+            exit(1)
+        }
+
+        func rates(_ label: String) {
+            let bluetooth = AudioDeviceCatalog.devices().filter { $0.transport == .bluetooth }
+            if bluetooth.isEmpty {
+                print("[\(stamp())] \(label): Bluetooth-устройств нет — проверять нечего")
+                return
+            }
+            for device in bluetooth {
+                print("[\(stamp())] \(label): \(device.summary)")
+            }
+        }
+
+        final class Owner {}
+        let owner = Owner()
+
+        guard let bus = try? VoiceAudioBus() else {
+            print("Тракт не собрался.")
+            exit(1)
+        }
+
+        rates("до разговора")
+        print("[\(stamp())] умолчания до: вход \(AudioDeviceCatalog.defaultInput?.name ?? "нет"),"
+            + " выход \(AudioDeviceCatalog.defaultOutput?.name ?? "нет")")
+
+        // Заявка на гарнитуру — то, чем FaceTime переключает звук на AirPods.
+        let outcome = await bus.beginArbitration()
+        print("[\(stamp())] арбитраж: \(outcome.summary)")
+        print("[\(stamp())] умолчания после: вход \(AudioDeviceCatalog.defaultInput?.name ?? "нет"),"
+            + " выход \(AudioDeviceCatalog.defaultOutput?.name ?? "нет")")
+
+        var handlers = VoiceAudioBus.Handlers()
+        handlers.diagnostic = { print("[\(stamp())] звук: \($0)") }
+        handlers.needsFrame = { nil }
+
+        do {
+            try bus.claim(
+                ObjectIdentifier(owner),
+                configuration: .init(),
+                handlers: handlers
+            )
+        } catch {
+            print("Тракт не поднялся: \(error.localizedDescription)")
+            exit(1)
+        }
+        try? await Task.sleep(for: .seconds(3))
+        rates("разговор идёт")
+
+        bus.release(ObjectIdentifier(owner))
+        try? await Task.sleep(for: .seconds(1))
+        rates("сразу после отбоя")
+
+        // Замена движка отложена на секунду — ждём с запасом.
+        try? await Task.sleep(for: .seconds(3))
+        rates("через 4 с после отбоя")
+
+        try? await Task.sleep(for: .seconds(5))
+        rates("ещё через 5 с")
+
+        withExtendedLifetime(bus) {}
+    }
+
     // MARK: - release
 
     /// Ищет, что именно возвращает Bluetooth-гарнитуру из режима связи.
@@ -280,8 +366,22 @@ struct AudioProbe {
     /// Вопрос не праздный: `engine.stop()` его не возвращает, а держать AirPods
     /// в режиме гарнитуры между звонками — ровно та жалоба, ради которой в
     /// прежней версии появился `RELEASE_AUDIO_DEVICE_WHEN_IDLE`.
-    static func probeRelease() async {
+    /// - Parameter disablingInputOnly: выключать обработку голоса только на
+    ///   узле входа. По `AVAudioIONode.h` этого достаточно — «disabling this
+    ///   mode on either of the IO nodes automatically disabled it on the other
+    ///   IO node», — и вопрос ровно в том, так ли это на живой гарнитуре.
+    ///   Проверять надо именно здесь: разница видна только на Bluetooth и
+    ///   только глазами на частоте устройства.
+    static func probeRelease(
+        disablingInputOnly: Bool = false,
+        reassigningDevice: Bool = false
+    ) async {
         let stamp = Self.makeStamp()
+        print(
+            disablingInputOnly
+                ? "Вариант: выключаем обработку голоса ТОЛЬКО на входе."
+                : "Вариант: выключаем обработку голоса на входе и на выходе."
+        )
 
         guard await requestMicrophone() else {
             print("Нет доступа к микрофону.")
@@ -345,7 +445,35 @@ struct AudioProbe {
             rates("после removeTap + detach + reset")
 
             try? input.setVoiceProcessingEnabled(false)
-            try? output.setVoiceProcessingEnabled(false)
+            if !disablingInputOnly {
+                try? output.setVoiceProcessingEnabled(false)
+            }
+
+            // Переназначение устройства узлу ввода-вывода: закрывает ли оно
+            // прежнее? Если да — гарнитуру можно отпускать, не разбирая движок,
+            // а значит общий движок и AirPods уживаются.
+            if reassigningDevice,
+               let unit = input.audioUnit,
+               let builtIn = AudioDeviceCatalog.devices().first(where: {
+                   $0.uid == "BuiltInMicrophoneDevice"
+               }) {
+                var id = builtIn.id
+                let status = AudioUnitSetProperty(
+                    unit,
+                    kAudioOutputUnitProperty_CurrentDevice,
+                    kAudioUnitScope_Global,
+                    0,
+                    &id,
+                    UInt32(MemoryLayout<AudioDeviceID>.size)
+                )
+                print("[\(stamp())] переназначение на встроенный микрофон: статус \(status)")
+                try? await Task.sleep(for: .seconds(3))
+                rates("после переназначения устройства")
+            }
+            print(
+                "[\(stamp())] обработка голоса: вход \(input.isVoiceProcessingEnabled),"
+                    + " выход \(output.isVoiceProcessingEnabled)"
+            )
             try? await Task.sleep(for: .seconds(3))
             rates("после выключения обработки голоса")
         }
@@ -394,6 +522,8 @@ struct AudioProbe {
         engine.onEvent = { event in
             switch event {
             case .restarted(let reason): print("[\(stamp())] тракт пересобран: \(reason)")
+            case .restarting(let reason, let attempt):
+                print("[\(stamp())] пересобираю тракт, попытка \(attempt): \(reason)")
             case .broken(let reason): print("[\(stamp())] тракт сломан: \(reason)")
             case .routeChanged(let route): print("[\(stamp())] маршрут: \(route.summary)")
             }

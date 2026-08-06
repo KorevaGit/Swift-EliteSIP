@@ -131,6 +131,10 @@ final class AppModel: ObservableObject {
     /// от любого движения интерфейса.
     var selfTest: VoiceSelfTest?
 
+    /// Общий аудиотракт. Заводится при первом звонке или первой самопроверке —
+    /// см. `voiceBus()`.
+    private var sharedVoiceBus: VoiceAudioBus?
+
     @Published private(set) var registration: SIPRegistrationState = .idle {
         didSet { noteRegistrationChanged() }
     }
@@ -799,6 +803,8 @@ final class AppModel: ObservableObject {
             return false
         }
 
+        await claimHeadset()
+
         guard let address = await agent.mediaAddress else {
             append(level: .error, message: "неизвестен внешний адрес — нечего указать в SDP")
             return false
@@ -991,6 +997,7 @@ final class AppModel: ObservableObject {
             let session = try MediaSession(
                 negotiated: negotiated,
                 reservation: reservation,
+                bus: voiceBus(),
                 inputDeviceUID: settings.audio.inputDeviceUID,
                 outputDeviceUID: settings.audio.outputDeviceUID,
                 releasesDeviceWhenIdle: settings.audio.releasesDeviceWhenIdle,
@@ -1017,6 +1024,27 @@ final class AppModel: ObservableObject {
                 Task { @MainActor in self?.handle(audio: event, on: lineID) }
             }
             try session.start()
+
+            // Линия могла уйти, пока поднимался звук: BYE или CANCEL
+            // расходится с 200 OK на сети, и `teardown` успевает раньше.
+            // Молча выйти нельзя — `mutate` по несуществующей линии не делает
+            // ничего, и сессия с открытым микрофоном, включённой обработкой
+            // голоса и занятой парой портов осталась бы висеть до выхода из
+            // приложения. На Bluetooth-гарнитуре это ещё и режим связи у всей
+            // системы.
+            guard line(lineID) != nil else {
+                append(level: .warning, message: "линия снялась, пока поднимался звук — сессия закрыта")
+                retire(session)
+                return
+            }
+            // Прежняя сессия на этой же линии — повторный ответ по одному
+            // Call-ID. Заменить её ссылкой значит потерять единственного, кто
+            // мог бы её остановить.
+            if let previous = line(lineID)?.media, previous !== session {
+                append(level: .warning, message: "на линии уже был звук — прежняя сессия закрыта")
+                retire(previous)
+            }
+
             mutate(lineID) {
                 $0.media = session
                 $0.audioRoute = session.route
@@ -1346,7 +1374,11 @@ final class AppModel: ObservableObject {
         for line in lines where line.id != activeLineID {
             line.media?.suspendAudio()
         }
-        if let activeLineID, let media = line(activeLineID)?.media, !media.isAudioActive {
+        // Условие «а не запущена ли она уже» убрано намеренно: с общим трактом
+        // судить об этом линия должна по владению, а не по своему флагу, и
+        // решает это `resumeAudio()`. Иначе линия, у которой тракт отобрала
+        // ответившая консультация, считала бы себя звучащей и молчала.
+        if let activeLineID, let media = line(activeLineID)?.media {
             do {
                 try media.resumeAudio()
             } catch {
@@ -1492,10 +1524,76 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Общий аудиотракт приложения.
+    ///
+    /// Один на все линии и на самопроверку: микрофон, выход и обработка голоса
+    /// у оператора одни. Заводится лениво и живёт до выхода — движок, который
+    /// не деаллоцируется, не может быть разобран под руками у собственного
+    /// слушателя свойств, и именно это чинит падение 6 августа 2026.
+    ///
+    /// Пересоздать его нельзя даже при отказе: пока хоть одна линия помнит
+    /// ключ владения, подмена объекта означала бы, что её остановка уходит в
+    /// пустоту, а звук остаётся захваченным.
+    func voiceBus() throws -> VoiceAudioBus {
+        if let sharedVoiceBus { return sharedVoiceBus }
+        let bus = try VoiceAudioBus()
+        sharedVoiceBus = bus
+        return bus
+    }
+
+    /// Просит систему перевести звук на беспроводную гарнитуру.
+    ///
+    /// То, чего клиенту не хватало: FaceTime и другие софтфоны в начале
+    /// разговора переключают устройство на AirPods, а мы брали то, что стоит
+    /// системным по умолчанию. Само открытие устройства гарнитуру не забирает —
+    /// если она слушает iPhone, там и останется.
+    ///
+    /// Зовётся до подъёма медиа и никого не задерживает: к моменту, когда
+    /// придёт 200 OK и начнётся сборка тракта, арбитраж давно закончился, а
+    /// секунду ожидания в худшем случае оператор проводит, слушая гудки.
+    ///
+    /// Не зовётся, когда оба устройства выбраны в настройках явно. Арбитраж
+    /// меняет системное умолчание, то есть звук всей машины: оператору, который
+    /// сознательно посадил софтфон на USB-гарнитуру, переключение системы на
+    /// AirPods — сюрприз, и не его. Когда хоть одна сторона отдана системе,
+    /// спрашивать её же, какое устройство лучше, — ровно то, чего от настройки
+    /// «системное по умолчанию» и ждут.
+    private func claimHeadset() async {
+        guard settings.audio.inputDeviceUID == nil || settings.audio.outputDeviceUID == nil else {
+            return
+        }
+        guard let bus = try? voiceBus() else { return }
+
+        let outcome = await bus.beginArbitration()
+        // Молчим о самом обычном исходе: гарнитуры рядом нет либо она и так
+        // наша. Журнал разговора не место для строки, которая всегда одинакова.
+        guard outcome.defaultDeviceChanged || outcome.error != nil || outcome.timedOut else {
+            return
+        }
+        append(level: outcome.error == nil ? .info : .warning, message: "звук: \(outcome.summary)")
+    }
+
+    /// Снимает медиа-сессию с линии.
+    ///
+    /// Отдельным методом, потому что дорог не сам вызов, а то, что его легко не
+    /// сделать: сессия, потерянная без остановки, уносит с собой открытый
+    /// микрофон, включённую обработку голоса и пару портов.
+    ///
+    /// Здесь была отсрочка освобождения на секунду — заплатка от падения
+    /// 6 августа 2026, когда `AVAudioEngine` разбирался в том же витке, в
+    /// котором наша же остановка поставила уведомления на очередь
+    /// `AVAudioIOUnit`. Отсрочка снята вместе с причиной: тракт теперь общий и
+    /// не деаллоцируется вовсе (`VoiceAudioBus`), а держать снятую сессию
+    /// лишнюю секунду стало вредно — звонок, начатый сразу после отбоя, попадал
+    /// бы на разбор её узла.
+    private func retire(_ media: MediaSession?) {
+        media?.stop()
+    }
+
     /// Убирает линию и, если она была последней, всё общее состояние звонка.
     private func teardown(lineID: String, status: String) {
         callTasks.removeValue(forKey: lineID)?.cancel()
-        line(lineID)?.media?.stop()
+        retire(line(lineID)?.media)
 
         // История закрывается здесь, потому что здесь снимается линия, — и
         // ровно той причиной, которую увидит оператор. Расхождение между
@@ -1559,7 +1657,7 @@ final class AppModel: ObservableObject {
     private func teardownAllLines() {
         for line in lines {
             callTasks.removeValue(forKey: line.id)?.cancel()
-            line.media?.stop()
+            retire(line.media)
             // Отключение от сервера рвёт разговор, и назвать это как-то иначе
             // нельзя: линия снимается не потому, что собеседник положил трубку.
             finishHistory(lineID: line.id, reason: "Отключение от сервера")
@@ -1713,6 +1811,8 @@ final class AppModel: ObservableObject {
             await agent.rejectIncomingCall(callID: lineID, status: 486)
             return
         }
+
+        await claimHeadset()
 
         guard let address = await agent.mediaAddress else {
             append(level: .error, message: "неизвестен внешний адрес — нечего указать в SDP")

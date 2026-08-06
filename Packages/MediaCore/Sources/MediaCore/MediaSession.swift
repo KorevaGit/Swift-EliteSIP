@@ -109,7 +109,33 @@ public final class MediaSession: @unchecked Sendable {
     public let localPort: UInt16
     private let portReservation: RTPPortReservation
 
-    private let engine: VoiceAudioEngine
+    /// Общий аудиотракт. Сессия им не владеет — берёт на время разговора.
+    private let bus: VoiceAudioBus
+    /// Ключ владения. Считается от самой сессии, поэтому уникален и умирает
+    /// вместе с ней.
+    private var token: VoiceAudioBus.Token { ObjectIdentifier(self) }
+    /// Под какие настройки поднимать тракт, когда эта линия его получит.
+    private let audioConfiguration: VoiceAudioEngine.Configuration
+
+    /// Состояние звука этой линии, пока тракт у кого-то другого.
+    ///
+    /// Своего движка у фоновой линии больше нет, а причины молчать
+    /// (`AppModel.applyAudioState`) складываются на ней в любой момент — и
+    /// когда она в фоне, и когда её только что вернули. Значение хранится
+    /// здесь и досылается в тракт при получении владения; иначе возврат из
+    /// фона отдавал бы линию с чужой громкостью и чужим mute.
+    private struct AudioState {
+        var isMuted = false
+        /// Что успел намерить движок, пока звук был наш. Для сводки после
+        /// звонка: счётчики общего тракта обнуляются на смене владельца, и
+        /// спросить их у уже отпущенного движка нельзя.
+        var renderedSamples = 0
+        var starvedRenders = 0
+        var route = AudioRoute(input: nil, output: nil)
+        var usesEchoCancellation = false
+    }
+
+    private let audio = UnfairLock(initialState: AudioState())
 
     /// Всё, что меняется при пересогласовании, — одним куском под одним замком.
     private struct Transport {
@@ -143,9 +169,17 @@ public final class MediaSession: @unchecked Sendable {
 
     private let flow = UnfairLock(initialState: Flow())
 
+    /// Собирает медиа-половину разговора.
+    ///
+    /// `bus` — общий аудиотракт приложения. Без него сессия заводит свой
+    /// собственный, и это не поблажка вызывающему: так работают `sipcheck`,
+    /// `audioprobe` и тесты, у которых разговор ровно один, а общий тракт был
+    /// бы лишней связностью. Внутри приложения передавать общий обязательно —
+    /// линий до трёх, и звуковая карта у них одна.
     public init(
         negotiated: NegotiatedMedia,
         reservation: RTPPortReservation,
+        bus: VoiceAudioBus? = nil,
         inputDeviceUID: String? = nil,
         outputDeviceUID: String? = nil,
         releasesDeviceWhenIdle: Bool = true,
@@ -158,14 +192,15 @@ public final class MediaSession: @unchecked Sendable {
             codec: negotiated.codec,
             packetTimeMilliseconds: negotiated.packetTimeMilliseconds
         )
-        engine = try VoiceAudioEngine(configuration: .init(
+        audioConfiguration = VoiceAudioEngine.Configuration(
             codec: negotiated.codec,
             packetTimeMilliseconds: negotiated.packetTimeMilliseconds,
             inputDeviceUID: inputDeviceUID,
             outputDeviceUID: outputDeviceUID,
             releasesDeviceWhenIdle: releasesDeviceWhenIdle,
             automaticGainControl: automaticGainControl
-        ))
+        )
+        self.bus = try bus ?? VoiceAudioBus(configuration: audioConfiguration)
         transport = UnfairLock(
             initialState: try Self.makeTransport(negotiated: negotiated, localPort: localPort)
         )
@@ -202,35 +237,49 @@ public final class MediaSession: @unchecked Sendable {
     }
 
     /// Куда писать подробности о форматах звука.
-    public var onDiagnostic: (@Sendable (String) -> Void)? {
-        get { engine.onDiagnostic }
-        set { engine.onDiagnostic = newValue }
-    }
-
-    /// Работает ли системное эхоподавление в этом разговоре.
-    public var usesEchoCancellation: Bool { engine.usesEchoCancellation }
-
-    /// Пиковые уровни в обе стороны, от 0 до 1. Чтение сбрасывает пик.
-    public var inputLevel: Float { engine.inputLevel }
-    public var outputLevel: Float { engine.outputLevel }
+    ///
+    /// Обработчики теперь хранятся у сессии, а не у движка: движок общий, и
+    /// висящее на нём замыкание фоновой линии писало бы в журнал за чужой
+    /// разговор. В тракт они уходят в момент, когда сессия его забирает.
+    public var onDiagnostic: (@Sendable (String) -> Void)?
 
     /// Распакованные отсчёты принятого звука — для диагностики.
-    public var onDecodedSamples: (@Sendable ([Int16]) -> Void)? {
-        get { engine.onDecodedSamples }
-        set { engine.onDecodedSamples = newValue }
-    }
+    public var onDecodedSamples: (@Sendable ([Int16]) -> Void)?
 
     /// События аудиотракта: пересборка после смены устройства, смена маршрута.
-    public var onAudioEvent: (@Sendable (VoiceAudioEngine.Event) -> Void)? {
-        get { engine.onEvent }
-        set { engine.onEvent = newValue }
+    public var onAudioEvent: (@Sendable (VoiceAudioEngine.Event) -> Void)?
+
+    /// Работает ли системное эхоподавление в этом разговоре.
+    ///
+    /// Пока звук наш — спрашиваем тракт, иначе отдаём последнее известное:
+    /// фоновая линия про эхоподавление ответить не может, а показать «нет» ей
+    /// значит соврать оператору, что разговор идёт через колонки без защиты.
+    public var usesEchoCancellation: Bool {
+        bus.withEngine(token) { $0.usesEchoCancellation }
+            ?? audio.withLock { $0.usesEchoCancellation }
     }
 
-    public func start() throws {
-        wireTransport()
+    /// Пиковые уровни в обе стороны, от 0 до 1. Чтение сбрасывает пик.
+    ///
+    /// У фоновой линии уровней нет по существу: её микрофон молчит, а принятое
+    /// выбрасывается. Ноль здесь — правда, а не заглушка.
+    public var inputLevel: Float { bus.withEngine(token) { $0.inputLevel } ?? 0 }
+    public var outputLevel: Float { bus.withEngine(token) { $0.outputLevel } ?? 0 }
 
-        engine.onEncodedFrame = { [weak self] frame in
-            guard let self else { return }
+    /// Собирает обработчики для общего тракта.
+    ///
+    /// Каждый проверяет, что звук всё ещё наш. Проверка не лишняя: между
+    /// снятием владения и остановкой движка помещается уже начатый вызов из
+    /// потока подачи, и без неё фоновая линия успела бы отправить свой кадр в
+    /// чужой разговор.
+    private func makeHandlers() -> VoiceAudioBus.Handlers {
+        var handlers = VoiceAudioBus.Handlers()
+        handlers.diagnostic = { [weak self] message in self?.onDiagnostic?(message) }
+        handlers.event = { [weak self] event in self?.onAudioEvent?(event) }
+        handlers.decodedSamples = { [weak self] samples in self?.onDecodedSamples?(samples) }
+
+        handlers.encodedFrame = { [weak self] frame in
+            guard let self, bus.isOwner(token) else { return }
             // Пока идёт событие DTMF, звук в линию не уходит.
             //
             // Не из экономии: все пакеты одного нажатия обязаны нести одну и ту
@@ -248,23 +297,53 @@ public final class MediaSession: @unchecked Sendable {
         // скрадывал, но расхождение накапливалось весь разговор. Теперь кадр
         // просят ровно тогда, когда звуковой карте нужны отсчёты, — часы одни
         // и те же, и разойтись им не с чем.
-        //
-        // Смысл джиттер-буфера при этом сохраняется: связь между неровным
-        // приходом из сети и ровным воспроизведением по-прежнему разорвана,
-        // просто ровность теперь берётся у кварца, а не у планировщика.
-        engine.onNeedsFrame = { [weak self] in
-            guard let self else { return nil }
+        handlers.needsFrame = { [weak self] in
+            guard let self, bus.isOwner(token) else { return nil }
             guard let frame = bufferLock.withLock({ jitter.pop() }) else { return nil }
             return VoiceAudioEngine.PlaybackFrame(
                 payload: frame.payload,
                 isConcealment: frame.isConcealment
             )
         }
+        return handlers
+    }
+
+    /// Забирает общий тракт себе и запускает его.
+    private func claimAudio() throws {
+        try bus.claim(token, configuration: audioConfiguration, handlers: makeHandlers())
+        // Всё, что накопилось на линии, пока звука у неё не было, досылается
+        // сразу: mute, поставленный на фоновой линии, обязан пережить возврат.
+        let muted = audio.withLock { $0.isMuted }
+        bus.withEngine(token) { engine in
+            engine.isMuted = muted
+            audio.withLock { state in
+                state.route = engine.route
+                state.usesEchoCancellation = engine.usesEchoCancellation
+            }
+        }
+    }
+
+    /// Отпускает общий тракт, запомнив то, что после этого спросить будет не у
+    /// кого.
+    private func releaseAudio() {
+        bus.withEngine(token) { engine in
+            audio.withLock { state in
+                state.renderedSamples += engine.renderedSampleCount
+                state.starvedRenders += engine.starvedRenderCount
+                state.route = engine.route
+                state.usesEchoCancellation = engine.usesEchoCancellation
+            }
+        }
+        bus.release(token)
+    }
+
+    public func start() throws {
+        wireTransport()
 
         portReservation.activate()
         startTransport()
         do {
-            try engine.start()
+            try claimAudio()
         } catch {
             stop()
             throw error
@@ -368,10 +447,25 @@ public final class MediaSession: @unchecked Sendable {
         remoteViewLock.withLock { $0 }
     }
 
+    /// Сессию нельзя выбросить работающей.
+    ///
+    /// `stop()` идемпотентен, поэтому обычный путь (снятие линии) от этого
+    /// ничего не теряет. Нужен `deinit` для путей, где ссылка теряется молча:
+    /// звонок, успевший закончиться, пока поднимался звук, — тогда и порт, и
+    /// сокет RTP, и звуковое устройство остались бы занятыми до выхода из
+    /// приложения, а движок деаллоцировался бы работающим (см. `deinit` в
+    /// `VoiceAudioEngine`).
+    ///
+    /// `engine.stop()` заходит на очередь движка синхронно, так что отпускать
+    /// последнюю ссылку на сессию нельзя из блока, выполняющегося на ней же.
+    deinit {
+        stop()
+    }
+
     public func stop() {
         cancelDTMFQueue()
         isAudioRunning.withLock { $0 = false }
-        engine.stop()
+        releaseAudio()
         let current = transport.withLock { $0 }
         if let current {
             if !current.rtp.isSecured { current.rtcp.stop() }
@@ -402,7 +496,7 @@ public final class MediaSession: @unchecked Sendable {
         // устройство. Иначе последний захваченный кадр успевает уйти в линию
         // уже после того, как оператор переключился на другую.
         isHeld = true
-        engine.stop()
+        releaseAudio()
         bufferLock.withLock { jitter.reset() }
     }
 
@@ -411,12 +505,22 @@ public final class MediaSession: @unchecked Sendable {
     ///
     /// Слышно как короткий провал — ровно как при смене устройства посреди
     /// разговора, и по той же причине: граф собирается с нуля.
+    /// Условие выхода — владение трактом, а не собственный флаг «я запущена».
+    ///
+    /// Разница появилась вместе с общим трактом и стоит потерянного звука.
+    /// Линия может считать себя работающей и при этом не владеть трактом: его
+    /// успела забрать другая — например, консультация, ответившая уже после
+    /// того, как оператор переключился обратно. По флагу такая линия молча не
+    /// возвращала бы себе звук, а на экране оставалось бы «Разговор».
     public func resumeAudio() throws {
-        guard !isAudioRunning.withLock({ $0 }) else { return }
-        try engine.start()
+        guard !ownsAudio else { return }
+        try claimAudio()
         isAudioRunning.withLock { $0 = true }
         isHeld = false
     }
+
+    /// Наш ли сейчас общий тракт.
+    public var ownsAudio: Bool { bus.isOwner(token) }
 
     /// Работает ли аудиотракт этой линии.
     public var isAudioActive: Bool { isAudioRunning.withLock { $0 } }
@@ -429,9 +533,17 @@ public final class MediaSession: @unchecked Sendable {
     // MARK: - Удержание
 
     /// Немой микрофон. Работает и как удержание, и как отдельная кнопка.
+    ///
+    /// Хранится у сессии, а не спрашивается у тракта: тракт общий, и у фоновой
+    /// линии его нет вовсе. Причины молчать складываются на линии в любой
+    /// момент (`AppModel.applyAudioState`), в том числе пока она в фоне, — и
+    /// значение обязано дожить до возврата.
     public var isMicrophoneMuted: Bool {
-        get { engine.isMuted }
-        set { engine.isMuted = newValue }
+        get { audio.withLock { $0.isMuted } }
+        set {
+            audio.withLock { $0.isMuted = newValue }
+            bus.withEngine(token) { $0.isMuted = newValue }
+        }
     }
 
     /// Отдавать принятое в звук.
@@ -731,15 +843,28 @@ public final class MediaSession: @unchecked Sendable {
         let codec = transport.withLock { $0?.configuration.codec } ?? .pcmu
         // Длительность считается по отсчётам, которые запросила звуковая карта:
         // это единственные часы в разговоре, которые нельзя оспорить.
-        let seconds = Double(engine.renderedSampleCount) / Double(codec.sampleRate)
+        // Счётчики общего тракта принадлежат текущему владельцу и обнуляются на
+        // смене, поэтому своё складывается из накопленного за прошлые владения
+        // и того, что тракт намерил, пока он наш. Иначе сводка после разговора
+        // с переключением линий показывала бы только последний кусок.
+        let counters = audio.withLock { $0 }
+        let live = bus.withEngine(token) { ($0.renderedSampleCount, $0.starvedRenderCount) }
+        let renderedSamples = counters.renderedSamples + (live?.0 ?? 0)
+        let starvedRenders = counters.starvedRenders + (live?.1 ?? 0)
+
+        // Длительность считается по отсчётам, которые запросила звуковая карта:
+        // это единственные часы в разговоре, которые нельзя оспорить.
+        let seconds = Double(renderedSamples) / Double(codec.sampleRate)
         let buffer = bufferLock.withLock { (jitter.jitterMilliseconds, jitter.targetDepth) }
         return String(
             format: "принято %d, спрятано %d, не по порядку %d, недоборов %d, "
                 + "проиграно %.1f с, пустых рендеров %d, джиттер %.1f мс, запас %d кадр.",
             stats.received, stats.concealed, stats.reordered, stats.underruns,
-            seconds, engine.starvedRenderCount, buffer.0, buffer.1
+            seconds, starvedRenders, buffer.0, buffer.1
         ) + (remoteView.map { " | у собеседника: \($0.summary)" } ?? "")
     }
 
-    public var route: AudioRoute { engine.route }
+    public var route: AudioRoute {
+        bus.withEngine(token) { $0.route } ?? audio.withLock { $0.route }
+    }
 }

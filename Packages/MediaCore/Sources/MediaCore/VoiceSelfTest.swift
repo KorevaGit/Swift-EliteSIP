@@ -36,7 +36,9 @@ public final class VoiceSelfTest: @unchecked Sendable {
     /// Подробности в журнал.
     public var onDiagnostic: (@Sendable (String) -> Void)?
 
-    private let engine: VoiceAudioEngine
+    private let bus: VoiceAudioBus
+    private let configuration: VoiceAudioEngine.Configuration
+    private var token: VoiceAudioBus.Token { ObjectIdentifier(self) }
     private let frameCapacity: Int
 
     /// Записанное и позиция воспроизведения под одним замком: их трогают два
@@ -50,14 +52,20 @@ public final class VoiceSelfTest: @unchecked Sendable {
         var isPlaying = false
     }
 
-    /// Собирает проверку под те же настройки звука, с которыми идёт разговор.
+    /// Собирает проверку под те же настройки звука, с которыми идёт разговор,
+    /// и на том же общем тракте.
     ///
     /// `releasesDeviceWhenIdle` намеренно оставлен как в настройках: если у
     /// человека Bluetooth-гарнитура и приложение отпускает её между звонками,
     /// проверка обязана пройти тот же путь захвата устройства, что и звонок, —
     /// иначе она подтвердит работоспособность того, чего в звонке не будет.
-    public init(configuration: VoiceAudioEngine.Configuration) throws {
-        engine = try VoiceAudioEngine(configuration: configuration)
+    ///
+    /// Общий тракт вместо своего движка — это ещё и единственный способ
+    /// гарантировать, что проверка и разговор не откроют устройство
+    /// одновременно: владелец у тракта один, и он же решает, кому отказать.
+    public init(bus: VoiceAudioBus, configuration: VoiceAudioEngine.Configuration) throws {
+        self.bus = bus
+        self.configuration = configuration
         let packetTime = max(configuration.packetTimeMilliseconds, 1)
         frameCapacity = VoiceSelfTest.recordingSeconds * 1000 / packetTime
     }
@@ -77,11 +85,12 @@ public final class VoiceSelfTest: @unchecked Sendable {
             $0.isPlaying = false
         }
 
-        engine.onDiagnostic = { [weak self] message in
+        var handlers = VoiceAudioBus.Handlers()
+        handlers.diagnostic = { [weak self] message in
             self?.onDiagnostic?(message)
         }
 
-        engine.onEncodedFrame = { [weak self] frame in
+        handlers.encodedFrame = { [weak self] frame in
             guard let self else { return }
             let finished: Bool = state.withLock {
                 guard $0.isRecording else { return false }
@@ -98,7 +107,7 @@ public final class VoiceSelfTest: @unchecked Sendable {
             }
         }
 
-        engine.onNeedsFrame = { [weak self] in
+        handlers.needsFrame = { [weak self] in
             guard let self else { return nil }
             let payload: Data? = state.withLock { state -> Data? in
                 guard state.isPlaying, state.playbackIndex < state.frames.count else { return nil }
@@ -115,12 +124,20 @@ public final class VoiceSelfTest: @unchecked Sendable {
                 $0.isPlaying = false
                 return true
             }
-            if wasPlaying { finish() }
+            // Отпускать тракт прямо отсюда нельзя: этот обработчик вызывает
+            // поток подачи, а остановка его же и дожидается. Раньше это сходило
+            // с рук — остановка потока не ждала, — но ждать её пришлось
+            // научить: перенастройка общего движка меняет кодеки, и делать это
+            // под работающим потоком нельзя. Уводим завершение на главную
+            // очередь: там оно никому не мешает.
+            if wasPlaying {
+                DispatchQueue.main.async { [weak self] in self?.finish() }
+            }
             return nil
         }
 
         do {
-            try engine.start()
+            try bus.claim(token, configuration: configuration, handlers: handlers)
             report(.recording(remainingSeconds: VoiceSelfTest.recordingSeconds))
         } catch {
             state.withLock { $0.isRecording = false }
@@ -142,12 +159,12 @@ public final class VoiceSelfTest: @unchecked Sendable {
             $0.playbackIndex = 0
             return active
         }
-        engine.stop()
+        bus.release(token)
         if wasActive { report(.idle) }
     }
 
     private func finish() {
-        engine.stop()
+        bus.release(token)
         state.withLock { $0.frames.removeAll() }
         report(.finished)
     }
@@ -169,6 +186,6 @@ public final class VoiceSelfTest: @unchecked Sendable {
     }
 
     deinit {
-        engine.stop()
+        bus.release(token)
     }
 }

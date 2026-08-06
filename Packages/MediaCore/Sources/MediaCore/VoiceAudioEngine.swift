@@ -23,8 +23,12 @@ import os
 ///    наушников на ходу меняет частоты входа и выхода. Уведомление приходит
 ///    пачкой, поэтому оно ещё и склеивается по времени.
 /// 3. **Явное выключение обработки голоса при остановке.** `engine.stop()`
-///    Bluetooth-гарнитуру не отпускает — замерено: AirPods остаются в режиме
-///    двусторонней связи бесконечно. Отпускает именно выключение VPIO.
+///    оставляет узел ввода-вывода в раскладке VPIO, и следующий запуск наследует
+///    её вместе с чужим числом каналов. Заметьте: саму Bluetooth-гарнитуру это
+///    **не** отпускает — перемерено 6 августа 2026, из режима связи её выводит
+///    только освобождение объекта `AVAudioEngine`, чем занимается
+///    `VoiceAudioBus`. Прежняя запись в `docs/audio.md` говорила обратное и
+///    успела стоить регрессии.
 ///
 /// Класс помечен `@unchecked Sendable`: изменяемое состояние либо живёт под
 /// замком, либо трогается только на одном потоке. Где именно — отмечено по месту.
@@ -144,16 +148,44 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         case routeChanged(AudioRoute)
     }
 
+    /// Обработчики разговора — все под одним замком.
+    ///
+    /// Замок появился вместе с общим движком. Пока движок создавался на каждый
+    /// звонок, обработчики ставились один раз до `start()` и больше не
+    /// менялись; теперь они переезжают с линии на линию на живом объекте, а
+    /// читают их потоки подачи и кодирования. Обычное свойство здесь — гонка
+    /// данных, и не теоретическая: замыкание меняется целым словом указателя
+    /// плюс контекстом, и поймать его наполовину заменённым значит уйти в
+    /// произвольный адрес с потока реального времени.
+    private struct Handlers {
+        var diagnostic: (@Sendable (String) -> Void)?
+        var event: (@Sendable (Event) -> Void)?
+        var encodedFrame: (@Sendable (Data) -> Void)?
+        var decodedSamples: (@Sendable ([Int16]) -> Void)?
+        var needsFrame: (@Sendable () -> PlaybackFrame?)?
+    }
+
+    private let handlers = UnfairLock(initialState: Handlers())
+
     /// Куда писать подробности о форматах. Без них разбирать отказы CoreAudio
     /// невозможно: он сообщает номер ошибки, но не то, что именно не сошлось.
-    public var onDiagnostic: (@Sendable (String) -> Void)?
+    public var onDiagnostic: (@Sendable (String) -> Void)? {
+        get { handlers.withLock { $0.diagnostic } }
+        set { handlers.withLock { $0.diagnostic = newValue } }
+    }
 
     /// События тракта. Вызывается на служебной очереди, не на потоке звука.
-    public var onEvent: (@Sendable (Event) -> Void)?
+    public var onEvent: (@Sendable (Event) -> Void)? {
+        get { handlers.withLock { $0.event } }
+        set { handlers.withLock { $0.event = newValue } }
+    }
 
     /// Кодированный кадр с микрофона, готовый к отправке в RTP.
     /// Вызывается на потоке звукового ввода — не блокировать.
-    public var onEncodedFrame: (@Sendable (Data) -> Void)?
+    public var onEncodedFrame: (@Sendable (Data) -> Void)? {
+        get { handlers.withLock { $0.encodedFrame } }
+        set { handlers.withLock { $0.encodedFrame = newValue } }
+    }
 
     /// Кадр для воспроизведения вместе с признаком, настоящий он или спрятанный.
     public struct PlaybackFrame: Sendable {
@@ -174,7 +206,10 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// именно приехало», не полагаясь на уши. Без него проверить чужой кодер
     /// нечем — совпадения счётчиков пакетов для этого мало. Вызывается на
     /// потоке подачи, поэтому обработчик обязан быть быстрым.
-    public var onDecodedSamples: (@Sendable ([Int16]) -> Void)?
+    public var onDecodedSamples: (@Sendable ([Int16]) -> Void)? {
+        get { handlers.withLock { $0.decodedSamples } }
+        set { handlers.withLock { $0.decodedSamples = newValue } }
+    }
 
     /// Запрос очередного кадра для воспроизведения.
     ///
@@ -182,15 +217,23 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// звуковая карта забирает отсчёты. Возврат nil означает «нечего играть» —
     /// подающий поток на этом успокаивается до следующего запроса.
     /// Вызывается на выделенном потоке подачи, не на потоке рендера.
-    public var onNeedsFrame: (@Sendable () -> PlaybackFrame?)?
+    public var onNeedsFrame: (@Sendable () -> PlaybackFrame?)? {
+        get { handlers.withLock { $0.needsFrame } }
+        set { handlers.withLock { $0.needsFrame = newValue } }
+    }
 
-    private let configuration: Configuration
+    /// Настройки текущего разговора.
+    ///
+    /// Изменяемые, потому что движок переживает звонок: один `AVAudioEngine` на
+    /// приложение вместо объекта на звонок — см. `reconfigure(to:)`. Трогается
+    /// только на `control`.
+    private var configuration: Configuration
     private let engine = AVAudioEngine()
     private var sourceNode: AVAudioSourceNode?
 
     /// Формат разговора: частота кодека, моно. У G.711 это 8 кГц, у G.722 —
     /// 16 кГц. Всё остальное движок пересчитывает сам.
-    private let conversationFormat: AVAudioFormat
+    private var conversationFormat: AVAudioFormat
 
     /// Очередь, на которой происходят запуск, остановка и перестройка графа.
     /// Последовательная: пересборка и остановка не должны наложиться.
@@ -204,6 +247,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     private var captureRemainder: [Int16] = []
     private var captureConversionFormats: (source: AVAudioFormat, destination: AVAudioFormat)?
     private var sinkNode: AVAudioSinkNode?
+
+    /// Форматы, на которых собран текущий граф. Нужны, чтобы не пересобирать
+    /// его на уведомлении, за которым ничего не стоит, — см. `isGraphStillValid`.
+    /// Трогается только на `control`.
+    private var builtFormats: (input: AVAudioFormat, output: AVAudioFormat)?
 
     /// Своё агрегатное устройство, если микрофон и наушники разные. Живёт ровно
     /// столько, сколько граф: пока оно существует, оба подчинённых устройства
@@ -247,6 +295,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     private let captureSignal = DispatchSemaphore(value: 0)
     private var encodeThread: Thread?
     private let isEncoding = UnfairLock(initialState: false)
+    /// Взводится потоком кодирования на выходе — по нему остановка понимает,
+    /// что кодеки больше никто не трогает.
+    private let encodeExited = DispatchSemaphore(value: 0)
 
     // MARK: - Состояние воспроизведения
     // Читается на потоке рендера, пишется подающим потоком — отсюда замок.
@@ -267,6 +318,8 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     private let feedSignal = DispatchSemaphore(value: 0)
     private var feedThread: Thread?
     private let isFeeding = UnfairLock(initialState: false)
+    /// Взводится потоком подачи на выходе. См. `waitForExit`.
+    private let feedExited = DispatchSemaphore(value: 0)
 
     // MARK: - Состояние жизненного цикла
     // Трогается только на `control`, кроме чтения `isRunning`.
@@ -347,6 +400,66 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             ring: SampleRing(capacity: 48_000, targetFill: 0),
             scratch: [Float](repeating: 0, count: 16_384)
         ))
+    }
+
+    /// Переводит движок на настройки следующего разговора.
+    ///
+    /// Существует ради общего движка: `AVAudioEngine` живёт всё время работы
+    /// приложения, а кодек, размер пакета и выбранное устройство принадлежат
+    /// звонку. Раньше это решалось созданием нового объекта на каждый звонок, и
+    /// именно оттуда взялось падение 6 августа 2026 — движок разбирался под
+    /// руками у собственного слушателя свойств.
+    ///
+    /// Только на остановленном тракте, и это не формальность: перенастройка
+    /// заново выделяет кольца, а делать это, пока их читает поток реального
+    /// времени, нельзя.
+    public func reconfigure(to configuration: Configuration) throws {
+        try control.sync {
+            guard !isRunning else {
+                throw AudioError.engineFailed(
+                    step: "перенастройка тракта",
+                    reason: "движок ещё работает"
+                )
+            }
+            try applyConfiguration(configuration)
+        }
+    }
+
+    /// Вызывается на `control` из `reconfigure(to:)`. `init` делает то же самое
+    /// прямым присваиванием: до полной инициализации хранимых свойств методы
+    /// звать нельзя.
+    private func applyConfiguration(_ configuration: Configuration) throws {
+        guard let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: Double(configuration.codec.sampleRate),
+            channels: 1,
+            interleaved: false
+        ) else {
+            throw AudioError.formatUnavailable
+        }
+
+        self.configuration = configuration
+        conversationFormat = format
+        restartPolicy = configuration.restartPolicy
+        decoder = AudioFrameDecoder(codec: configuration.codec)
+        encoder = AudioFrameEncoder(codec: configuration.codec)
+        concealer = PacketLossConcealer(codec: configuration.codec)
+
+        // Кольцо воспроизведения считается от кодека: у G.722 в кадре вдвое
+        // больше отсчётов при том же пакетном времени.
+        playbackLock.withLock { state in
+            state = PlaybackState(ring: SampleRing(
+                capacity: configuration.maximumPlaybackFrames * configuration.samplesPerFrame,
+                targetFill: configuration.targetPlaybackFrames * configuration.samplesPerFrame
+            ))
+        }
+        // Кольцо захвата от кодека не зависит — оно считается по самой высокой
+        // частоте устройства, — но остаток прошлого разговора из него убрать
+        // надо: пересчитывать его будет уже другой конвертер.
+        captureLock.withLock { state in
+            state.ring.removeAll()
+            state.capturedSamples = 0
+        }
     }
 
     // MARK: - Разрешение на микрофон
@@ -458,11 +571,20 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             // Включать надо ДО подключения узлов: VoiceProcessingIO меняет
             // формат входа и выхода, и уже созданные соединения после этого
             // становятся неверными.
+            // Включение на одном узле включает и на другом — так сказано в
+            // AVAudioIONode.h, и лишний вызов стоит лишней пересборки узла
+            // ввода-вывода. Проверяем результат, а не полагаемся на слово:
+            // разойдись документация с жизнью — тракт поднялся бы без
+            // эхоподавления молча, а это ровно тот отказ, который не слышно.
             do {
                 try input.setVoiceProcessingEnabled(true)
-                try output.setVoiceProcessingEnabled(true)
             } catch {
                 throw AudioError.voiceProcessingUnavailable(error.localizedDescription)
+            }
+            guard output.isVoiceProcessingEnabled else {
+                throw AudioError.voiceProcessingUnavailable(
+                    "включение на входе не включило обработку на выходе"
+                )
             }
             // Автоусиление обработка голоса включает сама и не спрашивает. На
             // хорошем микрофоне оно «дышит»: подтягивает шум в паузах и
@@ -530,6 +652,16 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         } catch {
             throw AudioError.engineFailed(step: "запуск движка", reason: error.localizedDescription)
         }
+
+        // Форматы запоминаются после успешного запуска: по ним решается, надо
+        // ли вообще пересобирать граф на уведомлении о смене конфигурации.
+        // Читаются заново, а не берутся из локальных переменных выше: между
+        // ними прошли пересоединение микшера и запуск, и интересует состояние
+        // того графа, который сейчас играет.
+        builtFormats = (
+            input: input.outputFormat(forBus: 0),
+            output: output.inputFormat(forBus: 0)
+        )
     }
 
     /// Назначает движку выбранное устройство.
@@ -632,6 +764,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         converter = nil
         captureConversionFormats = nil
         captureRemainder.removeAll()
+        builtFormats = nil
 
         // Кольцо захвата чистится вместе с конвертером, и это не уборка ради
         // порядка. В нём лежат отсчёты, записанные на ПРЕЖНЕЙ частоте
@@ -675,37 +808,62 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     // MARK: - Остановка
 
     public func stop() {
-        control.sync {
-            guard isRunning else { return }
-            runningFlag.withLock { $0 = false }
+        control.sync { performStop() }
+    }
 
-            pendingRebuild?.cancel()
-            pendingRebuild = nil
-            restartPolicy.recordSuccess()
+    /// Разбирает тракт. Вызывается на `control` — из `stop()` или из `deinit`.
+    private func performStop() {
+        guard isRunning else { return }
+        runningFlag.withLock { $0 = false }
 
-            if let configurationObserver {
-                NotificationCenter.default.removeObserver(configurationObserver)
-                self.configurationObserver = nil
-            }
-            routeObservation = nil
+        pendingRebuild?.cancel()
+        pendingRebuild = nil
+        restartPolicy.recordSuccess()
 
-            stopFeeding()
-            stopEncoding()
-            teardownGraph()
-            releaseDeviceIfNeeded()
-
-            resetCoders()
-            captureLock.withLock { state in
-                state.ring.removeAll()
-                state.capturedSamples = 0
-            }
-            playbackLock.withLock { state in
-                state.ring.removeAll()
-                state.starvedRenders = 0
-                state.renderedSamples = 0
-            }
-            lastRoute = nil
+        if let configurationObserver {
+            NotificationCenter.default.removeObserver(configurationObserver)
+            self.configurationObserver = nil
         }
+        routeObservation = nil
+
+        stopFeeding()
+        stopEncoding()
+        teardownGraph()
+        releaseDeviceIfNeeded()
+
+        resetCoders()
+        captureLock.withLock { state in
+            state.ring.removeAll()
+            state.capturedSamples = 0
+        }
+        playbackLock.withLock { state in
+            state.ring.removeAll()
+            state.starvedRenders = 0
+            state.renderedSamples = 0
+        }
+        lastRoute = nil
+    }
+
+    /// Движок не может быть освобождён работающим.
+    ///
+    /// Это не уборка ради порядка, а починка падения: `-[AVAudioEngine dealloc]`
+    /// разбирает узел ввода-вывода, и если в этот момент на приватной очереди
+    /// `AVAudioIOUnit` ещё лежит отложенный блок слушателя свойств, он приходит
+    /// в уже освобождённый объект. Крэш 6 августа 2026 (`EXC_BAD_ACCESS` в
+    /// `objc_msgSend` из `AVAudioIOUnit::IOUnitPropertyListener`) случился ровно
+    /// так: главный поток снимал линию и деаллоцировал движок сразу после того,
+    /// как `releaseDeviceIfNeeded()` пересобрал узел выключением обработки
+    /// голоса. Пока движок живёт по объекту на звонок, единственная защита —
+    /// гарантировать, что к моменту освобождения тракт уже разобран.
+    ///
+    /// Без `control.sync`: последняя ссылка вполне может отпуститься на самой
+    /// `control` (её берут блоки пересборки), а синхронный заход на свою же
+    /// последовательную очередь — мёртвая блокировка. Взаимного исключения
+    /// здесь и не нужно: в `deinit` других владельцев не осталось по
+    /// определению, а потоки подачи и кодирования держат `self` слабо и уже
+    /// видят nil.
+    deinit {
+        performStop()
     }
 
     /// Отпускает звуковое устройство.
@@ -718,8 +876,13 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// устройство.
     private func releaseDeviceIfNeeded() {
         guard configuration.releasesDeviceWhenIdle, usesVoiceProcessing else { return }
+        // Один вызов на оба узла: «disabling this mode on either of the IO nodes
+        // automatically disabled it on the other IO node» (AVAudioIONode.h).
+        // Второй вызов не бесплатен — каждый пересобирает узел ввода-вывода, а
+        // на Bluetooth-гарнитуре это переключение режима. Замерено по журналу:
+        // отбой на AirPods держал главный поток 1,37–1,46 с против 0,30 с на
+        // встроенном устройстве.
         try? engine.inputNode.setVoiceProcessingEnabled(false)
-        try? engine.outputNode.setVoiceProcessingEnabled(false)
         usesVoiceProcessing = false
         onDiagnostic?("устройство отпущено")
     }
@@ -732,7 +895,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// поэтому и путь один: два разных способа пересобрать граф — это два
     /// разных набора граблей, а слышно их одинаково плохо.
     public func restart(reason: String = "запрошено приложением") {
-        scheduleRebuild(reason: reason)
+        // Явная просьба пересобрать выполняется всегда, даже если форматы не
+        // изменились: сюда приходят со сменой устройства в настройках, а её по
+        // форматам не видно — новое устройство вполне может работать на той же
+        // частоте, что и прежнее.
+        scheduleRebuild(reason: reason, force: true)
     }
 
     private func subscribeToConfigurationChanges() {
@@ -741,7 +908,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             object: engine,
             queue: nil
         ) { [weak self] _ in
-            self?.scheduleRebuild(reason: "конфигурация звука изменилась")
+            self?.scheduleRebuild(reason: "конфигурация звука изменилась", force: false)
         }
     }
 
@@ -760,13 +927,17 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// уведомлений подряд (появляется агрегатное устройство обработки голоса,
     /// потом меняется частота), и перестройка на каждом успевает столкнуться со
     /// следующим.
-    private func scheduleRebuild(reason: String, after delay: TimeInterval = 0.3) {
+    private func scheduleRebuild(
+        reason: String,
+        force: Bool,
+        after delay: TimeInterval = 0.3
+    ) {
         control.async { [weak self] in
             guard let self, self.isRunning else { return }
 
             self.pendingRebuild?.cancel()
             let work = DispatchWorkItem { [weak self] in
-                self?.rebuild(reason: reason)
+                self?.rebuild(reason: reason, force: force)
             }
             self.pendingRebuild = work
             self.control.asyncAfter(deadline: .now() + delay, execute: work)
@@ -774,9 +945,15 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     }
 
     /// Собирает граф заново на новых форматах. Вызывается на `control`.
-    private func rebuild(reason: String) {
+    private func rebuild(reason: String, force: Bool) {
         guard isRunning else { return }
         pendingRebuild = nil
+
+        if !force, isGraphStillValid() {
+            // Уведомление пришло, а пересобирать нечего: см. `isGraphStillValid`.
+            reportRoute()
+            return
+        }
 
         onDiagnostic?("пересобираю тракт: \(reason)")
         teardownGraph()
@@ -796,6 +973,46 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         } catch {
             handleRebuildFailure(reason: reason, error: error)
         }
+    }
+
+    /// Годен ли собранный граф под то, что сейчас у железа.
+    ///
+    /// Замерено на AirPods Pro (журнал 5 и 6 августа 2026, шесть звонков
+    /// подряд): захват микрофона переводит гарнитуру в режим связи, и
+    /// `AVAudioEngineConfigurationChange` приходит **уже после** того, как граф
+    /// собран на послепереходных форматах. Мы пересобирали его через полсекунды
+    /// после начала разговора, хотя ни вход, ни выход, ни формат разговора при
+    /// этом не менялись:
+    ///
+    /// ```
+    /// 11:39:18.396  вход 24000/3, выход 24000/2, разговор 8000   ← собрали
+    /// 11:39:18.871  пересобираю тракт: конфигурация звука изменилась
+    /// 11:39:18.883  вход 24000/3, выход 24000/2, разговор 8000   ← то же самое
+    /// ```
+    ///
+    /// Стоила эта пересборка провала в звуке на каждом звонке — там, где
+    /// менять было нечего.
+    ///
+    /// Сверяются ровно те форматы, от которых зависит граф: частота и число
+    /// каналов входа (по ним строится конвертер захвата) и выхода (по нему
+    /// пересоединяется микшер). Смена устройства на равное по формату ловится
+    /// маршрутом, а `isRunning` у самого движка — это защита от случая, когда
+    /// AVFAudio остановил его сам: тогда пересобирать надо обязательно.
+    private func isGraphStillValid() -> Bool {
+        guard engine.isRunning, sourceNode != nil, sinkNode != nil else { return false }
+        guard let built = builtFormats else { return false }
+        guard route == lastRoute else { return false }
+        return Self.matches(engine.inputNode.outputFormat(forBus: 0), built.input)
+            && Self.matches(engine.outputNode.inputFormat(forBus: 0), built.output)
+    }
+
+    /// Совпадают ли форматы в том, что важно графу.
+    ///
+    /// Сравниваются частота и число каналов, а не объекты: `AVAudioFormat`
+    /// равными себя не считает, если разошлась раскладка каналов, а нам от неё
+    /// ничего не нужно — канал берётся нулевой.
+    private static func matches(_ lhs: AVAudioFormat, _ rhs: AVAudioFormat) -> Bool {
+        lhs.sampleRate == rhs.sampleRate && lhs.channelCount == rhs.channelCount
     }
 
     /// Разбирает неудачную пересборку.
@@ -821,7 +1038,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
                     + " попытка \(attempt) через \(Int(delay * 1000)) мс"
             )
             onEvent?(.restarting(reason: error.localizedDescription, attempt: attempt))
-            scheduleRebuild(reason: reason, after: delay)
+            // Повтор после неудачи — всегда настоящая пересборка: графа сейчас
+            // нет вовсе, и сверять его форматы не с чем.
+            scheduleRebuild(reason: reason, force: true, after: delay)
 
         case .giveUp(let attempts, let elapsed):
             runningFlag.withLock { $0 = false }
@@ -895,8 +1114,12 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// Приоритет — как у звука, но не realtime: тяжёлого здесь ничего нет.
     private func startFeeding() {
         isFeeding.withLock { $0 = true }
+        // Счётчик мог остаться взведённым с прошлого раза: остановка из самого
+        // потока подачи (`VoiceSelfTest`) не забирает сигнал.
+        while feedExited.wait(timeout: .now()) == .success {}
 
-        let thread = Thread { [weak self] in
+        let thread = Thread { [weak self, feedExited] in
+            defer { feedExited.signal() }
             while true {
                 guard let self else { return }
                 self.feedSignal.wait()
@@ -915,8 +1138,39 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // Будим поток, чтобы он увидел флаг и вышел, иначе он навсегда останется
         // висеть на семафоре.
         feedSignal.signal()
-        feedThread = nil
+        waitForExit(of: &feedThread, signalled: feedExited, name: "подачи")
         concealer.reset()
+    }
+
+    /// Дожидается выхода служебного потока звука.
+    ///
+    /// Не педантизм: `fillRing` работает с `decoder` и `concealer`, а
+    /// `encodePendingCapture` — с `converter` и остатком пересчёта. Всё это
+    /// обычные поля без замков, и `resetCoders()` вместе с `reconfigure(to:)`
+    /// переписывают их целиком. Пока остановка не дожидалась потока, она
+    /// меняла кодек у него под руками — на объекте-на-звонок это почти всегда
+    /// сходило с рук, потому что следом объект умирал целиком; общий движок
+    /// живёт дальше и получает разговор на кодеке от прошлого звонка.
+    ///
+    /// Выход по своему же потоку разрешён и не ждёт ничего: `VoiceSelfTest`
+    /// заканчивает проверку прямо из обработчика подачи, то есть зовёт
+    /// остановку из потока, которого сам же и дожидался бы. Это не обход
+    /// правила, а его единственное законное исключение — поток, дошедший до
+    /// остановки, уже вышел из работы с кодеками.
+    ///
+    /// Полсекунды — потолок, а не ожидание: столько поток не работает никогда,
+    /// а зависнуть здесь навсегда значит подвесить отбой.
+    private func waitForExit(
+        of thread: inout Thread?,
+        signalled semaphore: DispatchSemaphore,
+        name: String
+    ) {
+        guard let running = thread else { return }
+        thread = nil
+        guard running !== Thread.current else { return }
+        if semaphore.wait(timeout: .now() + 0.5) == .timedOut {
+            onDiagnostic?("поток \(name) не вышел за полсекунды")
+        }
     }
 
     /// Добирает кольцо до целевого запаса. Всё тяжёлое — декодирование и
@@ -1113,8 +1367,10 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// на кадры пакетного времени.
     private func startEncoding() {
         isEncoding.withLock { $0 = true }
+        while encodeExited.wait(timeout: .now()) == .success {}
 
-        let thread = Thread { [weak self] in
+        let thread = Thread { [weak self, encodeExited] in
+            defer { encodeExited.signal() }
             while true {
                 guard let self else { return }
                 self.captureSignal.wait()
@@ -1131,7 +1387,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     private func stopEncoding() {
         isEncoding.withLock { $0 = false }
         captureSignal.signal()
-        encodeThread = nil
+        waitForExit(of: &encodeThread, signalled: encodeExited, name: "кодирования")
     }
 
     private func encodePendingCapture() {
