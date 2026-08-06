@@ -34,6 +34,14 @@ final class StageDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // `--settings` — макет окна настроек менеджера (этап 2). Своим окном и
+        // по тем же причинам, что `--panel`: прозрачность внутри стенда не
+        // видна, а в этом макете она и есть предмет разговора.
+        if CommandLine.arguments.contains("--settings") {
+            showSettingsWindow()
+            return
+        }
+
         // `--sheet` рисует все состояния сразу и нужен для снимка на
         // согласование; без него открывается интерактивный стенд.
         let isSheet = CommandLine.arguments.contains("--sheet")
@@ -118,6 +126,67 @@ final class StageDelegate: NSObject, NSApplicationDelegate {
         self.window = window
 
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Настройки настоящим окном: прозрачный фон, системный материал под ним.
+    ///
+    /// Высоту не задаём — её считает содержимое. Смысл макета в том числе в
+    /// том, чтобы увидеть, сколько окно просит, а не проверить, влезает ли оно
+    /// в заранее назначенное число.
+    private func showSettingsWindow() {
+        let isDark = !CommandLine.arguments.contains("--light")
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: SettingsTokens.windowWidth, height: 600),
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Настройки EliteSIP"
+        // Название рисует вёрстка: системное встало бы над содержимым, которое
+        // при `.fullSizeContentView` начинается под полосой, и материала под
+        // ним не было бы. То же решение, что в панели.
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.isMovableByWindowBackground = true
+        // Поверх остального — только в стенде и только ради снимков: окно
+        // прозрачное, и если его накрыть чужим, снимать будет нечего. В
+        // приложении настройки — обычное окно.
+        window.level = .floating
+        window.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+
+        // Высоту окна задаёт содержимое, и это здесь не удобство, а условие.
+        // При `.fullSizeContentView` окно ровно такой высоты, какую попросила
+        // вёрстка, — значит, материал накрывает и полосу заголовка. Стоит
+        // вёрстке оказаться ниже окна (например, от `maxHeight: .infinity`),
+        // как разница вылезает сверху дырой насквозь: у прозрачного окна там не
+        // «чуть светлее», а чужие вкладки под светофором.
+        window.contentViewController = NSHostingController(rootView: SettingsProtoView())
+
+        // Не по центру, а в заданную точку главного экрана: центр приходится на
+        // тот дисплей, где мышь, и снимок для сверки каждый раз промахивается
+        // мимо окна.
+        // `screens.first`, а не `main`: главным считается экран с курсором, а
+        // нужен тот, где строка меню, — его координаты совпадают с теми, в
+        // которых снимает `screencapture`.
+        if let screen = NSScreen.screens.first {
+            let visible = screen.visibleFrame
+            window.setFrameTopLeftPoint(
+                NSPoint(x: visible.minX + 80, y: visible.maxY - 20)
+            )
+        } else {
+            window.center()
+        }
+        window.makeKeyAndOrderFront(nil)
+        self.window = window
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        let frame = window.frame
+        let screenHeight = window.screen?.frame.height ?? 0
+        print("FRAME \(frame.minX) \(screenHeight - frame.maxY) \(frame.width) \(frame.height)")
     }
 
     private func render(to path: String) {
