@@ -29,6 +29,15 @@ enum Theme {
         static let controlsToMacros: CGFloat = 15
         /// Макросы → кнопка завершения.
         static let macrosToAction: CGFloat = 15
+
+        // Ярусы окна входящего. Тоже поимённо и тоже неравные: шапка и карточка
+        // отвечают на «что это за вызов» и стоят близко, а кнопки от них
+        // отделены, потому что это уже действие.
+
+        /// Шапка с якорем → карточка вызова.
+        static let incomingHeaderToCaller: CGFloat = 8
+        /// Карточка вызова → кнопки.
+        static let incomingCallerToActions: CGFloat = 14
     }
 
     enum Metrics {
@@ -163,6 +172,41 @@ enum Theme {
         /// меньше расчётного — например когда сервер не прислал имя.
         static let incomingCallPanelWidth: CGFloat = 320
 
+        /// Подкраска поверхности окна входящего.
+        ///
+        /// Это второй рецепт стекла в приложении, и он заведён сознательно.
+        /// Панель подкраску сняла 6 августа 2026, потому что та решала снятую
+        /// задачу: стабильная светлота нужна была нашим цветам текста, а их
+        /// больше нет. У окна входящего задача не снята — оно висит в случайной
+        /// точке поверх произвольной CRM, и мелкий текст в нём читают один раз,
+        /// быстро и под нагрузкой.
+        ///
+        /// Плотность задаёт **один** критерий: второй голос берёт 4.5:1 в обеих
+        /// темах над худшей подложкой. Не два сразу — на этом панель потеряла
+        /// три итерации (0.57 → 0.70 → 0.80), каждый раз потому, что целились
+        /// попеременно в читаемость и в вид. Заметность окна плёнка не решает:
+        /// за неё отвечает цветной якорь в шапке.
+        ///
+        /// **Число предварительное.** 0.30 — то, на чём стояла панель до
+        /// отмены, взято отправной точкой. Замер живого окна над настоящей CRM
+        /// не сделан, и до него это значение считать выбранным нельзя.
+        static let incomingSurfaceTint: Double = 0.30
+
+        /// Цветной якорь в шапке окна входящего — кружок с глифом внутри.
+        ///
+        /// Габарит, а не отступ: шкала про воздух между элементами, а не про их
+        /// размер. 20 — чтобы иконка в 12 точек стояла в кружке с полями, а сам
+        /// кружок не перерастал строку подписи рядом.
+        static let incomingAnchorSize: CGFloat = 20
+
+        /// Вертикальная набивка кнопок окна входящего.
+        ///
+        /// Одна на все три: до этого «Ответить» стояла на 9, «Отклонить» на 8,
+        /// цифровая цель на 10 — три числа на одну и ту же вещь, и различались
+        /// они на точку, то есть не различались. Кнопки при этом соседи по
+        /// окну, и разная высота у них читается как сбой раскладки.
+        static let incomingButtonPadding: CGFloat = 9
+
         // Шкала отступов: 2 / 4 / 6 / 8 / 12. Пять ступеней на всё, и всё, что
         // отступает, отступает одной из них.
         //
@@ -244,14 +288,26 @@ enum Theme {
     /// Dynamic Type на крупной настройке растянул бы его в половину экрана.
     /// Для остальных экранов по-прежнему используются системные стили.
     enum Text {
-        /// Подпись «Входящий вызов».
+        // Окно входящего говорит тремя голосами, и кегль назначается ярусу
+        // целиком, а не отдельным надписям. Было четыре — 11, 13, 15, 24, — и
+        // пятнадцатый жил ровно в одном месте: цифра внутри подсказки «чтобы
+        // ответить, нажмите». Два кегля в одной строке ради одного символа —
+        // это разнобой, а не иерархия.
+        //
+        // Числами, а не системными стилями: окно фиксированной ширины висит
+        // поверх чужого интерфейса, и Dynamic Type растянул бы его в половину
+        // экрана.
+
+        /// Главное: название раздачи или номер обычного звонящего.
+        ///
+        /// Начертание без `rounded`: 24 pt подбирались под цифры, а на главном
+        /// месте теперь чаще текст — «Горячий лид» скруглённым читается как
+        /// подпись к игре, а не как имя рабочей задачи.
+        static let incomingTitle = Font.system(size: 24, weight: .medium)
+        /// Строка: имя звонящего, номер под названием раздачи, подсказка.
+        static let incomingLine = Font.system(size: 13)
+        /// Мелкое: подпись «Входящий вызов» и причина отказа на её месте.
         static let incomingCaption = Font.system(size: 11)
-        /// Номер звонящего.
-        static let incomingNumber = Font.system(size: 24, weight: .medium, design: .rounded)
-        /// Имя звонящего и указание под ним.
-        static let incomingDetail = Font.system(size: 13)
-        /// Цифра, которую надо нажать, — в тексте указания.
-        static let incomingTarget = Font.system(size: 15)
         /// Цифра на кнопке-цели и на клавише набора.
         static let controlKey = Font.system(size: 20, design: .rounded)
         /// Надпись на кнопке.
@@ -394,6 +450,69 @@ private struct PanelSurface: ViewModifier {
     }
 }
 
+/// Поверхность окна входящего: стекло панели плюс подкраска.
+///
+/// Отдельно от `PanelSurface` по двум причинам сразу. Первая — сама подкраска
+/// (`Theme.Metrics.incomingSurfaceTint`). Вторая — «Уменьшение прозрачности»:
+/// когда системная настройка включена, стекла нет вовсе, и плёнка в 0.30
+/// поверх пустоты оставила бы окно почти без фона. Значит у поверхности обязан
+/// быть непрозрачный вариант, а не только плёнка поверх материала.
+///
+/// Панели такой вариант не нужен: у неё есть рамка окна и полоса заголовка,
+/// которые система рисует сама. Окно входящего borderless — без фона от него
+/// остаётся текст, висящий над чужим интерфейсом.
+private struct IncomingSurface: ViewModifier {
+
+    let cornerRadius: CGFloat
+
+    @Environment(\.colorScheme) private var scheme
+
+    /// `@State` с `onReceive`, а не `@StateObject`: тот появился в macOS 11, а
+    /// срез x86_64 обязан работать на Catalina.
+    @State private var reducesTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+
+    func body(content: Content) -> some View {
+        content
+            .compatBackground { base }
+            .onReceive(
+                NSWorkspace.shared.notificationCenter.publisher(
+                    for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+                )
+            ) { _ in
+                reducesTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+            }
+    }
+
+    @ViewBuilder
+    private var base: some View {
+        if reducesTransparency {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Color(NSColor.windowBackgroundColor))
+        } else {
+            material.compatOverlay {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(
+                        (scheme == .dark ? Color.black : Color.white)
+                            .opacity(Theme.Metrics.incomingSurfaceTint)
+                    )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var material: some View {
+        if #available(macOS 26.0, *) {
+            Color.clear.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            CompatMaterial(
+                material: .hudWindow,
+                blending: .behindWindow,
+                cornerRadius: cornerRadius
+            )
+        }
+    }
+}
+
 /// Наложение поверх содержимого, а не замена фона: под ним может быть и
 /// материал, и сплошная заливка, и подсветка должна работать одинаково.
 private struct HoverHighlight: ViewModifier {
@@ -451,6 +570,14 @@ extension View {
     /// подобрана на живом окне поверх настоящей CRM и закреплена числом.
     func themedPanelSurface(cornerRadius: CGFloat = Theme.Radius.surface) -> some View {
         modifier(PanelSurface(cornerRadius: cornerRadius))
+    }
+
+    /// Фон окна входящего: то же стекло, что у панели, плюс своя подкраска.
+    ///
+    /// Отдельный рецепт, а не `themedPanelSurface`, — см.
+    /// `Theme.Metrics.incomingSurfaceTint`.
+    func themedIncomingSurface(cornerRadius: CGFloat = Theme.Radius.surface) -> some View {
+        modifier(IncomingSurface(cornerRadius: cornerRadius))
     }
 
     /// Подсветка при наведении курсора.

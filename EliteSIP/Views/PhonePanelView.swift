@@ -518,8 +518,11 @@ struct PhonePanelView: View {
 
     private func showIncomingCallDemo() {
         incomingCall.show(
-            callerNumber: "2929",
-            callerName: "AutoDialer",
+            subject: IncomingCallSubject(
+                callerNumber: "2929",
+                callerName: "AutoDialer",
+                queues: model.settings.queues
+            ),
             policy: model.settings.incomingCall,
             onAnswer: {},
             onDecline: {}

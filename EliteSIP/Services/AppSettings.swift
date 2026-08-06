@@ -35,6 +35,13 @@ struct AppSettings: Codable, Sendable, Equatable {
     var ringtone: RingtoneSettings = RingtoneSettings()
     var dtmf: DTMFSettings = DTMFSettings()
     var conference: ConferenceSettings = ConferenceSettings()
+
+    /// Словарь очередей: по какому номеру приходит раздача и как её называть.
+    ///
+    /// Заводит администратор, менеджеру недоступен. Пустой словарь ничего не
+    /// ломает: без совпадения вызов считается обычным и показывает номер, то
+    /// есть ровно прежнее поведение.
+    var queues: QueueDirectory = QueueDirectory()
     var minimumLogLevel: SIPLogLevel
 
     /// Журнал в файле. Отдельно от `minimumLogLevel`: на экране нужен короткий,
@@ -122,6 +129,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         ringtone: RingtoneSettings = RingtoneSettings(),
         dtmf: DTMFSettings = DTMFSettings(),
         conference: ConferenceSettings = ConferenceSettings(),
+        queues: QueueDirectory = QueueDirectory(),
         minimumLogLevel: SIPLogLevel = .info,
         logFile: LogFileSettings = LogFileSettings(),
         history: CallHistorySettings = CallHistorySettings(),
@@ -137,6 +145,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.ringtone = ringtone
         self.dtmf = dtmf
         self.conference = conference
+        self.queues = queues
         self.minimumLogLevel = minimumLogLevel
         self.logFile = logFile
         self.history = history
@@ -170,6 +179,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         conference =
             try container.decodeIfPresent(ConferenceSettings.self, forKey: .conference)
                 ?? ConferenceSettings()
+        queues = try container.decodeIfPresent(QueueDirectory.self, forKey: .queues) ?? QueueDirectory()
         minimumLogLevel = try container.decodeIfPresent(SIPLogLevel.self, forKey: .minimumLogLevel) ?? .info
         // Файла настроек без этого ключа достаточно, чтобы журнал заработал:
         // умолчание включено. Диагностика, которую надо сперва включить, не
@@ -611,6 +621,77 @@ struct AppSettings: Codable, Sendable, Equatable {
 
         func sequence(of macro: Macro) -> DTMFSequence {
             DTMFSequence(macro.sequence, pauseMilliseconds: pauseMilliseconds)
+        }
+    }
+
+    /// Соответствия «номер очереди → как называть раздачу оператору».
+    ///
+    /// Существует ради одного места — главной строки окна входящего. По боевым
+    /// CDR на плечо агента приходит CallerID очереди, а не клиента: клиентский
+    /// лежит в `accountcode` и в SIP не приезжает вовсе. То есть на раздаче
+    /// номер одинаков от вызова к вызову и не сообщает ничего, а название
+    /// кампании сообщает, как здороваться.
+    ///
+    /// Словарь заодно и различает два вида входящих. Номер найден — это
+    /// раздача, и номер в окне не показывается вовсе. Не найден — обычный
+    /// звонок, коллега по внутреннему или клиент, и номер остаётся главным.
+    /// Отдельного признака «это очередь» в SIP нет, а гадать по длине номера
+    /// или по имени `AutoDialer` значило бы зашить в клиент чужой диалплан.
+    struct QueueDirectory: Codable, Sendable, Equatable {
+
+        struct Queue: Codable, Sendable, Equatable, Identifiable, Hashable {
+            var id: UUID = UUID()
+            /// Номер, с которого приходит раздача. В боевой конфигурации 2929.
+            var number: String = ""
+            /// Как называть её оператору: «Горячий лид», «Повторное обращение».
+            var title: String = ""
+
+            init(id: UUID = UUID(), number: String = "", title: String = "") {
+                self.id = id
+                self.number = number
+                self.title = title
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+                number = try container.decodeIfPresent(String.self, forKey: .number) ?? ""
+                title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+            }
+
+            /// Годна ли запись к применению. Половина записи хуже её отсутствия:
+            /// номер без названия убрал бы номер из окна и не дал взамен ничего.
+            var isUsable: Bool {
+                !Queue.normalized(number).isEmpty
+                    && !title.trimmingCharacters(in: .whitespaces).isEmpty
+            }
+
+            /// Сравнение по цифрам: номер в настройки вписывает человек, а
+            /// человек пишет и «2929», и «29 29».
+            static func normalized(_ number: String) -> String {
+                number.filter { $0.isNumber || $0 == "*" || $0 == "#" }
+            }
+        }
+
+        var queues: [Queue] = []
+
+        init(queues: [Queue] = []) {
+            self.queues = queues
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            queues = try container.decodeIfPresent([Queue].self, forKey: .queues) ?? []
+        }
+
+        /// Название раздачи по номеру звонящего. `nil` — вызов обычный.
+        func title(forCallerNumber number: String) -> String? {
+            let wanted = Queue.normalized(number)
+            guard !wanted.isEmpty else { return nil }
+            return queues
+                .first { $0.isUsable && Queue.normalized($0.number) == wanted }?
+                .title
+                .trimmingCharacters(in: .whitespaces)
         }
     }
 

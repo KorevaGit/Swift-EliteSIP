@@ -1686,6 +1686,24 @@ final class AppModel: ObservableObject {
     /// уедет в EliteDash целиком.
     @Published private(set) var lastGuardReport: CallGuardReport?
 
+    /// Про что вызов: раздача из очереди или обычный звонок.
+    ///
+    /// Решает словарь очередей администратора, и это единственный доступный
+    /// признак. В SIP отдельной пометки «это очередь» нет: на плечо агента
+    /// приходит обычный INVITE, у которого CallerID подменён на номер очереди.
+    /// Гадать по длине номера или по имени `AutoDialer` значило бы зашить в
+    /// клиент чужой диалплан — тот поменяют, а гадание останется.
+    ///
+    /// Пустой словарь ничего не ломает: все вызовы считаются обычными, то есть
+    /// поведение ровно прежнее.
+    private func incomingSubject(for call: SIPIncomingCall) -> IncomingCallSubject {
+        IncomingCallSubject(
+            callerNumber: call.displayNumber,
+            callerName: call.callerName,
+            queues: settings.queues
+        )
+    }
+
     private func handle(incoming call: SIPIncomingCall) {
         // Занятому оператору агент отвечает 486 ещё до события: раздача лидов
         // должна отдать вызов следующему агенту. Проверка здесь — на случай
@@ -1741,8 +1759,7 @@ final class AppModel: ObservableObject {
         )
 
         incomingCallPanel.show(
-            callerNumber: call.displayNumber,
-            callerName: call.callerName,
+            subject: incomingSubject(for: call),
             policy: settings.incomingCall,
             onAnswer: { [weak self] in
                 Task { await self?.answerIncomingCall() }

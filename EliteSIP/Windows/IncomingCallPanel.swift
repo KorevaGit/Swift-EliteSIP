@@ -49,8 +49,7 @@ final class IncomingCallPanel: ObservableObject {
     @Published private(set) var lastReport: CallGuardReport?
 
     func show(
-        callerNumber: String,
-        callerName: String?,
+        subject: IncomingCallSubject,
         policy: CallGuardPolicy,
         onAnswer: @escaping @MainActor () -> Void,
         onDecline: @escaping @MainActor () -> Void
@@ -91,8 +90,7 @@ final class IncomingCallPanel: ObservableObject {
         // константой, которая расходится с вёрсткой при первом же изменении.
         panel.contentViewController = NSHostingController(
             rootView: IncomingCallView(
-                callerNumber: callerNumber,
-                callerName: callerName,
+                subject: subject,
                 challenge: session.challenge,
                 isGuarded: policy.isEnabled,
                 onAttempt: { [weak self] target in

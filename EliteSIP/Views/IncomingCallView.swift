@@ -1,6 +1,41 @@
 import CallGuard
 import SwiftUI
 
+/// Про что этот вызов — и, значит, что стоит на главном месте окна.
+///
+/// Два случая, а не запасная цепочка внутри одного. По боевым CDR на плечо
+/// агента приходит CallerID очереди, а не клиента: клиентский лежит в
+/// `accountcode` и в SIP не приезжает вовсе. То есть на раздаче номер одинаков
+/// от вызова к вызову и не сообщает оператору ничего — а название кампании
+/// сообщает, как здороваться. На обычном звонке всё наоборот: номер коллеги по
+/// внутреннему или клиента — это и есть главное.
+///
+/// Различает случаи словарь очередей у администратора: номер найден — раздача,
+/// не найден — обычный звонок. Отдельного признака «это очередь» в SIP нет, а
+/// гадать по длине номера или по имени `AutoDialer` значило бы зашить в клиент
+/// чужой диалплан.
+enum IncomingCallSubject: Equatable {
+
+    /// Раздача из очереди. Номер не показывается вовсе: он один и тот же.
+    case queue(title: String)
+
+    /// Обычный звонок: номер главным, имя под ним, если сервер его прислал.
+    case caller(number: String, name: String?)
+
+    /// Разбор того, что пришло в INVITE, по словарю очередей.
+    ///
+    /// Одно место на все вызовы окна, включая проверочный показ из настроек:
+    /// иначе проверка показывала бы не то, что увидит оператор на боевом
+    /// вызове, — а ради этого её и открывают.
+    init(callerNumber: String, callerName: String?, queues: AppSettings.QueueDirectory) {
+        if let title = queues.title(forCallerNumber: callerNumber) {
+            self = .queue(title: title)
+        } else {
+            self = .caller(number: callerNumber, name: callerName)
+        }
+    }
+}
+
 /// Содержимое плавающего окна входящего вызова.
 ///
 /// Два состояния из макета, и переключает их одна настройка. Обычное: зелёная
@@ -21,8 +56,7 @@ import SwiftUI
 /// каждом вызове. «Отклонить» доступен и с клавиатуры, и для screen reader.
 struct IncomingCallView: View {
 
-    let callerNumber: String
-    let callerName: String?
+    let subject: IncomingCallSubject
     let challenge: CallGuardChallenge
     let isGuarded: Bool
     let onAttempt: @MainActor (Character) -> Void
@@ -31,81 +65,137 @@ struct IncomingCallView: View {
     @EnvironmentObject private var panel: IncomingCallPanel
 
     var body: some View {
+        // Промежутки заданы поимённо, а не общим spacing: ярусы здесь неравные
+        // по смыслу — шапка и карточка отвечают на «что это за вызов» и стоят
+        // близко, кнопки отделены, потому что это уже действие.
+        //
         // Без Spacer и без заданной высоты: окно подгоняется под содержимое.
         // Растянутый по фиксированной высоте столбец оставлял пустую полосу
         // между именем звонящего и кнопками.
-        VStack(alignment: .leading, spacing: challenge.hasChoice ? 12 : 14) {
+        VStack(alignment: .leading, spacing: 0) {
             header
             caller
-
-            if challenge.hasChoice {
-                prompt
-                digitTargets
-                declineButton
-            } else {
-                plainActions
-            }
+                .padding(.top, Theme.Gap.incomingHeaderToCaller)
+            actions
+                .padding(.top, Theme.Gap.incomingCallerToActions)
         }
-        .padding(16)
+        .padding(Theme.Metrics.contentPadding)
         .frame(width: Theme.Metrics.incomingCallPanelWidth)
-        .themedSurface()
+        .themedIncomingSurface()
     }
 
-    /// Причина отказа занимает место подписи «Входящий вызов».
+    /// Шапка: цветной якорь, подпись, щит.
     ///
-    /// Одно место на оба сообщения и в обоих состояниях окна: отдельная строка
-    /// под отказ дёргала бы высоту окна прямо под рукой оператора, а подпись в
-    /// этот момент всё равно ничего не сообщает — что вызов входящий, он уже
-    /// понял.
+    /// Причина отказа занимает место подписи «Входящий вызов». Одно место на
+    /// оба сообщения и в обоих состояниях окна: отдельная строка под отказ
+    /// дёргала бы высоту окна прямо под рукой оператора, а подпись в этот
+    /// момент всё равно ничего не сообщает — что вызов входящий, он уже понял.
     private var header: some View {
-        HStack(spacing: 6) {
-            CompatSymbol(name: "phone.arrow.down.left.fill")
-                .compatForeground(Theme.Palette.answer)
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            anchor
+
             Text(panel.refusal ?? "Входящий вызов")
+                .font(Theme.Text.incomingCaption)
                 .compatForeground(panel.refusal == nil ? Color.secondary : Theme.Palette.decline)
                 .animation(.easeOut(duration: 0.15), value: panel.refusal)
-            Spacer(minLength: 8)
+
+            Spacer(minLength: Theme.Metrics.sectionSpacing)
 
             // Щит — честный индикатор того, что защита работает. Когда её
             // выключили, значка нет, и это видно на скриншоте экрана.
             if isGuarded {
-                CompatSymbol(name: "lock.shield.fill")
+                CompatSymbol(name: "lock.shield.fill", size: Theme.Icon.medium)
                     .compatForeground(Theme.Palette.textTertiary)
-                    .compatHelp("Защита от автокликеров включена")
+                    .compatAccessibilityLabel("Защита от автокликеров включена")
             }
         }
-        .font(Theme.Text.incomingCaption)
     }
 
+    /// Цветной якорь — то, чем окно набирает заметность.
+    ///
+    /// Оно встаёт в случайную точку поверх произвольной CRM, и найти его глазами
+    /// оператор обязан за доли секунды. Плотностью фона это не решается: фон у
+    /// окна стеклянный и тон берёт у того, что под ним.
+    ///
+    /// Цена названа прямо и записана в `docs/anti-autoclicker.md`: постоянный
+    /// узнаваемый якорь обесценивает случайную позицию против кликера по
+    /// шаблону изображения — тот находит якорь и жмёт по постоянному смещению.
+    /// Принято потому, что позицией мы от шаблонного кликера и так не
+    /// защищались: от него защищает цифровая цель. В обычном режиме на окне и
+    /// так есть зелёная «Ответить», и якорь шаблону ничего нового не даёт; в
+    /// цифровом принимающая цифра случайна, и клик по постоянному смещению
+    /// попадает в цель в одном случае из четырёх.
+    private var anchor: some View {
+        CompatSymbol(name: "phone.arrow.down.left.fill", size: Theme.Icon.medium)
+            .compatForeground(.white)
+            .frame(
+                width: Theme.Metrics.incomingAnchorSize,
+                height: Theme.Metrics.incomingAnchorSize
+            )
+            .compatBackground(
+                Theme.Palette.answer,
+                cornerRadius: Theme.Radius.capsule(height: Theme.Metrics.incomingAnchorSize)
+            )
+    }
+
+    /// Карточка вызова. Главный ярус — одна строка с ужатием, без переноса:
+    /// длина чужого названия не имеет права двигать высоту окна.
+    @ViewBuilder
     private var caller: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(callerNumber)
-                .font(Theme.Text.incomingNumber)
+        switch subject {
+        case .queue(let title):
+            Text(title)
+                .font(Theme.Text.incomingTitle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
 
-            if let callerName, !callerName.isEmpty {
-                Text(callerName)
-                    .font(Theme.Text.incomingDetail)
-                    .compatForeground(.secondary)
+        case .caller(let number, let name):
+            VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
+                Text(number)
+                    .font(Theme.Text.incomingTitle)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+
+                if let name, !name.isEmpty {
+                    Text(name)
+                        .font(Theme.Text.incomingLine)
+                        .compatForeground(.secondary)
+                        .lineLimit(1)
+                }
             }
         }
     }
 
-    private var prompt: some View {
-        HStack(spacing: 4) {
-            Text("Чтобы ответить, нажмите")
-                .font(Theme.Text.incomingDetail)
-                .compatForeground(.secondary)
-            Text(String(challenge.answer))
-                .font(Theme.Text.incomingTarget)
-                .compatForeground(.primary)
+    @ViewBuilder
+    private var actions: some View {
+        if challenge.hasChoice {
+            VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
+                prompt
+                digitTargets
+                declineButton
+            }
+        } else {
+            plainActions
         }
     }
 
+    /// Подсказка набрана одним кеглем целиком.
+    ///
+    /// Цифра внутри неё раньше говорила своим, четвёртым по счёту: 15 pt против
+    /// 13 у остального текста. Два кегля в одной строке ради одного символа —
+    /// разнобой, а не иерархия; выделяет её цвет, а не размер.
+    private var prompt: some View {
+        HStack(spacing: Theme.Metrics.tightSpacing) {
+            Text("Чтобы ответить, нажмите")
+                .compatForeground(.secondary)
+            Text(String(challenge.answer))
+                .compatForeground(.primary)
+        }
+        .font(Theme.Text.incomingLine)
+    }
+
     private var digitTargets: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Metrics.sectionSpacing) {
             // Только мышью: цифра на клавиатуре вызов не принимает. Клавиатурное
             // нажатие не оставляет защите ни одного признака живого человека, и
             // отдельного пути для него здесь нет.
@@ -119,14 +209,14 @@ struct IncomingCallView: View {
 
     private var declineButton: some View {
         Button(action: onDecline) {
-            HStack(spacing: 6) {
+            HStack(spacing: Theme.Metrics.elementSpacing) {
                 CompatSymbol(name: "phone.down.fill")
                 Text("Отклонить")
             }
             .font(Theme.Text.controlLabel)
             .compatForeground(Theme.Palette.decline)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, Theme.Metrics.incomingButtonPadding)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -138,7 +228,7 @@ struct IncomingCallView: View {
 
     /// Обычная пара кнопок, когда подтверждение цифрой выключено.
     private var plainActions: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Theme.Metrics.sectionSpacing) {
             // Кнопка активна с первого кадра: локальной задержки активации нет.
             FilledCallButton(
                 title: "Ответить",
@@ -179,7 +269,7 @@ private struct DigitTargetButton: View {
                 .font(Theme.Text.controlKey)
                 .compatForeground(.primary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, Theme.Metrics.incomingButtonPadding)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -204,14 +294,14 @@ private struct FilledCallButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: Theme.Metrics.elementSpacing) {
                 CompatSymbol(name: icon)
                 Text(title)
             }
             .font(Theme.Text.controlLabel)
             .compatForeground(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
+            .padding(.vertical, Theme.Metrics.incomingButtonPadding)
             .compatBackground(fill, cornerRadius: Theme.Radius.control)
             .contentShape(.rect)
         }
