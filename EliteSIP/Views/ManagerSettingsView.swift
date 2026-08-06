@@ -499,7 +499,10 @@ private struct AdministrationRow: View {
             // принадлежит самопроверке и «Исправить сеть» — тому, чем менеджер
             // пользуется. Дорога к закрытым настройкам должна быть доступной, а
             // не заметной. Шеврон — потому что кнопка ведёт в другое окно.
+            // Сдвинута внутрь на поправку: без неё рамка кнопки уходит правее
+            // переключателей и «Прослушать», хотя прижата к той же вертикали.
             Button("Управление \u{203A}") { isAskingForPassword = true }
+                .padding(.trailing, Theme.Metrics.settingsButtonEdgeInset)
         }
         .font(.callout)
         .padding(Theme.Metrics.sectionSpacing)
