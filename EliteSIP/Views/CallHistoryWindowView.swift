@@ -32,7 +32,6 @@ struct CallHistoryWindowView: View {
         VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
             filterBar
             content
-            footer
         }
         // Поля те же, что в панели и настройках: `contentPadding` по краям, а
         // сверху — `Gap.titleToStatus`, потому что сверху не край окна, а
@@ -61,9 +60,15 @@ struct CallHistoryWindowView: View {
 
     /// Профиль в заголовке, потому что в строках его больше нет: список и так
     /// целиком принадлежит одному профилю, и повторять метку двести раз незачем.
+    ///
+    /// **Номер вместе с пометкой**, а не одна пометка: у двух профилей одного
+    /// добавочного пометка — единственное различие, но у двух разных добавочных
+    /// различие как раз номер, а пометки может не быть вовсе. Строится тем же
+    /// `profileMenuTitle`, что и пункты списка в капсуле панели: заголовок окна
+    /// обязан совпадать с тем, что оператор выбрал, слово в слово.
     private var windowTitle: String {
-        let label = model.settings.profiles.active.title
-        return label.isEmpty ? "История звонков" : "История звонков — \(label)"
+        let profile = model.profileMenuTitle(model.settings.profiles.active)
+        return profile.isEmpty ? "История звонков" : "История звонков — \(profile)"
     }
 
     // MARK: - Верх
@@ -126,11 +131,14 @@ struct CallHistoryWindowView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(days) { day in
+                    // Кеглем и цветом заголовка раздела, как в настройках, а не
+                    // мелкой серой подписью. День — это то, по чему в списке
+                    // ориентируются: он единственная точка опоры при прокрутке
+                    // на три недели назад, и вторым планом ей стоять нельзя.
                     Text(day.title)
-                        .font(.footnote)
-                        .compatForeground(Theme.Palette.textSecondary)
-                        .padding(.horizontal, Theme.Metrics.elementSpacing)
-                        .padding(.top, Theme.Metrics.sectionSpacing)
+                        .font(Font.subheadline.weight(.semibold))
+                        .padding(.horizontal, Theme.Metrics.sectionSpacing)
+                        .padding(.top, Theme.Metrics.contentPadding)
                         .padding(.bottom, Theme.Metrics.tightSpacing)
 
                     ForEach(day.records) { record in
@@ -140,7 +148,7 @@ struct CallHistoryWindowView: View {
                             // её от заголовка следующего дня, который и так
                             // разделяет сильнее любой линии.
                             Divider()
-                                .padding(.leading, Theme.Metrics.elementSpacing)
+                                .padding(.leading, Theme.Metrics.sectionSpacing)
                         }
                         CallHistoryRow(record: record)
                     }
@@ -255,32 +263,24 @@ struct CallHistoryWindowView: View {
         return "Под этот отбор не попал ни один звонок из \(model.historyTotalCountUnfiltered)."
     }
 
-    // MARK: - Подвал
-
-    /// При выключенной истории подписи нет вовсе. «Записей: 0» и «Хранится 30
-    /// дн.» под выключенной историей — два обещания подряд, и оба неверные:
-    /// считать нечего и хранить нечего.
-    @ViewBuilder
-    private var footer: some View {
-        if model.settings.history.isEnabled {
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                Text(shownCount)
-                Spacer()
-                Text("Хранится \(model.settings.history.maximumAgeInDays) дн., дальше удаляется")
-            }
-            .font(.footnote)
-            .compatForeground(Theme.Palette.textSecondary)
-        }
-    }
-
-    private var shownCount: String {
-        let shown = model.historyRecords.count
-        let total = model.historyTotalCount
-        if total > shown {
-            return "Показаны \(shown) из \(total)"
-        }
-        return total == 1 ? "1 запись" : "Записей: \(total)"
-    }
+    // Подвала у окна нет.
+    //
+    // Он говорил две вещи — «Записей: 24» и «Хранится 30 дн., дальше
+    // удаляется», — и обе к этому моменту потеряли повод.
+    //
+    // Счёт был нужен, пока список обрывался на двухсотой записи: подпись
+    // «Показаны 200 из 2847» была единственным признаком, что дальше что-то
+    // есть. Теперь список догружается прокруткой, и «дальше» видно самим
+    // списком.
+    //
+    // Срок хранения объяснял, почему звонка полугодовой давности не найти, —
+    // ровно то, ради чего подпись и заводилась (M7d). Теперь то же самое
+    // говорит календарь, и говорит сильнее: дни за сроком в нём просто не
+    // нажимаются. Правило, которое нельзя нарушить, объясняет себя лучше
+    // предложения о нём.
+    //
+    // Взамен полоса в 25 точек отдана списку — это ещё одна строка звонка на
+    // каждом экране, а окно открывают ради строк.
 
     // MARK: - Дни
 
@@ -563,8 +563,15 @@ private struct CallHistoryRow: View {
                     .compatForeground(
                         canRedial ? Theme.Palette.textPrimary : Theme.Palette.textTertiary
                     )
-                    .padding(.horizontal, Theme.Metrics.sectionSpacing)
-                    .padding(.vertical, Theme.Metrics.elementSpacing)
+                    // Квадрат, а не набивка по сторонам. Разная набивка по
+                    // горизонтали и вертикали давала приплюснутый
+                    // прямоугольник — форму, которой в приложении больше нигде
+                    // нет: клавиши макросов, кнопки управления и цифровые цели
+                    // либо квадратные, либо явно широкие.
+                    .frame(
+                        width: Theme.Metrics.historyRedialButton,
+                        height: Theme.Metrics.historyRedialButton
+                    )
                     // Рамка с фоном, а не голый значок: без неё оператор не
                     // понимает, что это кнопка, а не пометка строки.
                     .themedControlSurface(cornerRadius: Theme.Radius.control)
@@ -580,7 +587,12 @@ private struct CallHistoryRow: View {
         // странице настроек.
         .font(.callout)
         .padding(.vertical, Theme.Metrics.elementSpacing)
-        .padding(.horizontal, Theme.Metrics.elementSpacing)
+        // Тот же отступ внутри плашки, что у разделов настроек
+        // (`sectionSpacing`): плашка стоит на `contentPadding` от края окна, и
+        // содержимое начинается на 20 точках — как на менеджерской странице.
+        // Прежние 6 давали 18 и расходились с ней ровно на две точки, то есть
+        // на глаз не читались, а числами не совпадали.
+        .padding(.horizontal, Theme.Metrics.sectionSpacing)
     }
 
     /// Под именем — то, чем оно подтверждается: сам номер, если наверху стоит
@@ -593,7 +605,13 @@ private struct CallHistoryRow: View {
     /// дальше.
     private var subtitle: String {
         var parts: [String] = []
-        if record.title != record.number, !record.number.isEmpty {
+        // Номер стоит внизу всегда, даже когда он же написан наверху.
+        //
+        // Повтор выбран сознательно: до M9 имён почти нет, и без него нижняя
+        // строка у большинства звонков пустая — строка выглядит наполовину
+        // отвалившейся, а высоту всё равно занимает, потому что справа под ней
+        // стоит дата. Пустое место, которое нельзя убрать, хуже повтора.
+        if !record.number.isEmpty {
             parts.append(record.number)
         }
         if record.role == .consultation {
