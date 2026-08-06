@@ -164,7 +164,29 @@ final class AppModel: ObservableObject {
     var wakeObserver: NSObjectProtocol?
     @Published private(set) var log: [LogEntry] = []
 
-    @Published var dialedNumber: String = ""
+    /// Набранный номер — всегда в том виде, в котором он уйдёт на сервер.
+    ///
+    /// Нормализация стоит в `didSet`, а не в момент звонка, и это принципиально:
+    /// оператор должен видеть в поле ровно то, что уйдёт в INVITE. Номер
+    /// приезжает из CRM человеческим — `+7 (918) 000-11-22`, — и если чистить
+    /// его молча при отправке, в поле останется одно, а позвонит другое.
+    ///
+    /// Ограничение на длину тоже здесь: 32 знака — это больше любого реального
+    /// добавочного и международного номера вместе с плюсом, а вставка целой
+    /// страницы в поле набора не должна превращаться в попытку позвонить.
+    @Published var dialedNumber: String = "" {
+        didSet {
+            let normalized = String(DialedNumber.normalized(dialedNumber).prefix(32))
+            // Присваиваем только когда есть что менять: `didSet` сработает
+            // повторно, и без проверки это был бы бесконечный цикл.
+            if normalized != dialedNumber { dialedNumber = normalized }
+        }
+    }
+
+    /// Где мы сейчас в истории набора. `nil` — не в ней.
+    var dialHistoryIndex: Int?
+    /// Что было набрано до того, как оператор полез стрелкой в историю.
+    var dialHistoryDraft: String = ""
 
     @Published private var agent: SIPUserAgent?
     private var eventPump: Task<Void, Never>?
@@ -711,14 +733,18 @@ final class AppModel: ObservableObject {
 
     var hasTransferNumber: Bool { !normalizedTransferTarget.isEmpty }
 
-    /// Номер перевода без пробелов.
+    /// Номер перевода, приведённый к тому же виду, что и набранный.
     ///
-    /// Поле принимает вставку из буфера, а номера копируют вместе с
-    /// разделителями. `SIPCore` такой номер обязан отклонить — пробел в
-    /// Request-URI ломает разбор, — и оставлять оператору отказ «недопустимые
-    /// символы» вместо набора значило бы наказывать его за формат источника.
+    /// Раньше здесь вырезались только пробелы, и это закрывало половину беды:
+    /// номер копируют из CRM вместе со скобками и дефисами, а они ломают
+    /// разбор Request-URI так же. Правило одно на оба поля — иначе одна и та же
+    /// вставка в панель работала бы, а в перевод нет.
+    ///
+    /// В отличие от набранного, это поле нормализуется при отправке, а не при
+    /// вводе: оператор набирает номер перевода на слух под диктовку клиента, и
+    /// цифры, исчезающие из-под курсора, сбивают сильнее, чем помогают.
     private var normalizedTransferTarget: String {
-        transferNumber.filter { !$0.isWhitespace }
+        DialedNumber.normalized(transferNumber)
     }
 
     var canStartConference: Bool {
@@ -1921,7 +1947,9 @@ final class AppModel: ObservableObject {
         registration.isRegistered && lines.isEmpty
     }
 
-    var hasDialedNumber: Bool { !dialedNumber.isEmpty }
+    /// Есть ли что набирать. Один плюс номером не считается: он признак
+    /// формата, а не адрес.
+    var hasDialedNumber: Bool { DialedNumber.isDialable(dialedNumber) }
 
     /// Нажатие на клавиатуру. В разговоре это тон, вне разговора — цифра номера.
     ///
@@ -1942,7 +1970,9 @@ final class AppModel: ObservableObject {
     }
 
     func append(_ digit: Character) {
-        guard dialedNumber.count < 32 else { return }
+        // Ни длину, ни допустимость символа здесь не проверяем: и то и другое
+        // делает `didSet` самого поля, и правило одно на ввод с клавиатуры,
+        // вставку из буфера и перезвон из истории.
         dialedNumber.append(digit)
     }
 
