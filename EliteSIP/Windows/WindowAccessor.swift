@@ -40,6 +40,48 @@ struct WindowAccessor: NSViewRepresentable {
     }
 }
 
+/// Держит окно поверх других — но только пока это оправдано.
+///
+/// Отдельно от `WindowAccessor`, потому что тот настраивает окно однократно, а
+/// уровень меняется по ходу работы: поверх чужих окон панель нужна в
+/// разговоре, когда до кнопки «Завершить» надо дотянуться не глядя. В покое
+/// она такое же окно, как любое другое, и висеть над чужой работой ей незачем
+/// — это раздражает ровно тех, ради кого всё делается.
+final class WindowLevelView: NSView {
+
+    private var applied: NSWindow.Level?
+    private var pending: NSWindow.Level?
+
+    func apply(level: NSWindow.Level) {
+        pending = level
+        guard let window, applied != level else { return }
+        applied = level
+        window.level = level
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let pending else { return }
+        applied = nil
+        apply(level: pending)
+    }
+}
+
+struct WindowLevel: NSViewRepresentable {
+
+    let level: NSWindow.Level
+
+    func makeNSView(context: Context) -> WindowLevelView {
+        let view = WindowLevelView()
+        view.apply(level: level)
+        return view
+    }
+
+    func updateNSView(_ nsView: WindowLevelView, context: Context) {
+        nsView.apply(level: level)
+    }
+}
+
 /// Сообщает вёрстке высоту полосы заголовка.
 ///
 /// Спрашиваем у окна, а не держим числом в `Theme`: величина системная и по

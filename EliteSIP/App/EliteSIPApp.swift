@@ -147,11 +147,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: withEnvironment(PhonePanelView()))
 
-        // Панель висит поверх CRM весь рабочий день, и уходить под неё от
-        // первого же клика мимо не должна: оператор ставит окно один раз и
-        // дальше только смотрит на него.
-        window.level = .floating
-        // Но полноэкранным приложениям она при этом не мешает: без
+        // Уровень окна задаёт вёрстка (`WindowLevel`): поверх чужих окон панель
+        // нужна в разговоре, а в покое она обычное окно. Здесь только
+        // поведение, которое от состояния не зависит: без
         // `.fullScreenAuxiliary` плавающее окно либо исчезает при переходе в
         // полный экран, либо выкидывает из него.
         window.collectionBehavior = [.fullScreenAuxiliary, .managed]
