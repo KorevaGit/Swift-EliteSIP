@@ -146,6 +146,9 @@ enum Theme {
         /// Высота поля одной линии, когда линий две. Слот шапки делится на два
         /// таких поля, поэтому число связано с `headerHeight`, а не со шкалой.
         static let lineFieldHeight: CGFloat = 22
+        /// Кегль номера в поле набора. Живёт здесь, а не в `Text`, потому что
+        /// нужен и SwiftUI, и AppKit: поле набора собрано на `NSTextField`.
+        static let dialedNumberSize: CGFloat = 18
         /// Точка активной линии в этом поле.
         static let lineDotDiameter: CGFloat = 6
         /// Поле номера перевода и кнопки под ним. Габариты, а не отступы:
@@ -222,7 +225,12 @@ enum Theme {
         static let panelDetail = Font.system(size: 10)
 
         /// Номер в поле набора: пока номер набирают, он и есть главное.
-        static let dialedNumber = Font.system(size: 18, weight: .light, design: .rounded)
+        ///
+        /// Кегль вынесен в `Metrics.dialedNumberSize`, потому что само поле
+        /// собрано на `NSTextField` и просит `NSFont`, а не `Font`.
+        static let dialedNumber = Font.system(
+            size: Theme.Metrics.dialedNumberSize, weight: .light, design: .rounded
+        )
         /// Имя собеседника в разговоре — крупно. Оператор работает с человеком,
         /// а не с цифрами: имя читается, номер только сверяется.
         static let callerName = Font.system(size: 17, weight: .medium)

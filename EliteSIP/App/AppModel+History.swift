@@ -173,4 +173,75 @@ extension AppModel {
 
     /// Сколько строк показывает окно за раз.
     static var historyPageSize: Int { 200 }
+
+    // MARK: - История набора
+
+    /// Последние набранные номера, новые первыми, без повторов.
+    ///
+    /// Не то же самое, что окно истории: там записи со временем, именем и
+    /// исходом, здесь — только номера и только исходящие. Перезвон по
+    /// пропущенному живёт в окне, а это про другое — «наберу тот же номер
+    /// ещё раз», когда линия была занята или ответили не там.
+    ///
+    /// Читается из хранилища при каждом обращении, а не кэшируется: список
+    /// нужен в момент нажатия стрелки, то есть раз в минуты, а расходиться с
+    /// правдой он не должен вовсе.
+    private var recentDialedNumbers: [String] {
+        // Хранилища может не быть вовсе — база не открылась, и об этом уже
+        // сказано в журнале. Стрелка тогда просто ничего не делает: жаловаться
+        // на это второй раз в момент набора незачем.
+        guard let historyStore else { return [] }
+
+        var seen = Set<String>()
+        var numbers: [String] = []
+        for record in historyStore.records(matching: .outgoing, limit: Self.dialHistoryDepth * 4)
+        where !record.number.isEmpty {
+            // Повторы схлопываются: набирали три раза подряд — в списке один
+            // раз, иначе стрелка вверх трижды приведёт в одно и то же место.
+            guard seen.insert(record.number).inserted else { continue }
+            numbers.append(record.number)
+            if numbers.count == Self.dialHistoryDepth { break }
+        }
+        return numbers
+    }
+
+    /// Сколько номеров держим под стрелками.
+    ///
+    /// Десять — потому что дальше десятого шага стрелкой никто не листает: за
+    /// этим уже идут в окно истории, где есть имена и время.
+    static var dialHistoryDepth: Int { 10 }
+
+    /// Шаг по истории набора: `-1` — к более старым, `+1` — к более новым.
+    ///
+    /// Положение хранится в `dialHistoryIndex`, а не выводится из содержимого
+    /// поля: два одинаковых номера в списке невозможны, но набранное вручную
+    /// совпадение с историей сбивало бы отсчёт.
+    func stepDialHistory(_ step: Int) {
+        let numbers = recentDialedNumbers
+        guard !numbers.isEmpty else { return }
+
+        let next = (dialHistoryIndex ?? -1) + step
+        guard next >= 0 else {
+            // Вышли выше самого свежего — возвращаем поле в то состояние, в
+            // котором оператор его оставил, а не в пустое: он мог набрать
+            // половину номера и полезть в историю по ошибке.
+            dialHistoryIndex = nil
+            dialedNumber = dialHistoryDraft
+            return
+        }
+        guard next < numbers.count else { return }
+
+        // Первый шаг в историю запоминает набранное: иначе вернуться к нему
+        // будет неоткуда.
+        if dialHistoryIndex == nil { dialHistoryDraft = dialedNumber }
+        dialHistoryIndex = next
+        dialedNumber = numbers[next]
+    }
+
+    /// Сбрасывает положение в истории. Зовётся, когда номер поменяли руками:
+    /// после правки поле перестаёт быть «пунктом истории».
+    func resetDialHistoryPosition() {
+        dialHistoryIndex = nil
+        dialHistoryDraft = ""
+    }
 }

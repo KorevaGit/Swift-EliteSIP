@@ -709,18 +709,29 @@ struct DialedNumberField: View {
 
     var body: some View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
-            CompatTextField(
-                title: "Номер",
+            NumberField(
                 text: Binding(
                     get: { model.dialedNumber },
-                    set: { model.dialedNumber = $0 }
+                    set: { number in
+                        // Правка руками выводит поле из истории: после неё оно
+                        // уже не «пункт списка», и следующая стрелка вверх
+                        // обязана начать сначала.
+                        if number != model.dialedNumber { model.resetDialHistoryPosition() }
+                        model.dialedNumber = number
+                    }
                 ),
-                onSubmit: { Task { await model.placeCall() } }
+                placeholder: "Номер",
+                fontSize: Theme.Metrics.dialedNumberSize,
+                isEnabled: model.canPlaceCall,
+                onSubmit: { Task { await model.placeCall() } },
+                onCancel: { model.clearDialedNumber() },
+                onHistoryStep: { model.stepDialHistory($0) }
             )
-            .textFieldStyle(.plain)
-            .font(Theme.Text.dialedNumber)
-            .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // Гаснет вместе с рядом управления и макросами: без регистрации
+            // набирать некуда, и поле должно выглядеть так же, как остальное
+            // недоступное, а не как единственное живое место в панели.
+            .opacity(model.canPlaceCall ? 1 : Theme.Metrics.disabledOpacity)
 
             if model.hasDialedNumber {
                 Button {
