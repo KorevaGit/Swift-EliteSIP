@@ -18,6 +18,17 @@ import SwiftUI
 /// критерий этапа — «поиск занимает один взгляд», и одна короткая страница
 /// выполняет его строго лучше.
 ///
+/// **Три размера текста, и только три.** Заголовок раздела — `.subheadline`
+/// полужирным, всё содержимое строк — `.callout`, пояснения и производные
+/// значения — `.footnote`. Кегль назначается блоку целиком, а не отдельным
+/// надписям: до этого подписи строк были 12, подписи выключателей и значения
+/// 13, и одинаковые по смыслу вещи стояли разным кеглем.
+///
+/// Размеры системные, а не числами. Числами они заданы в панели и в окне
+/// входящего — те окна фиксированной ширины и висят поверх чужого интерфейса,
+/// им расти нельзя; там девять разных кеглей, и каждый ярус говорит своим
+/// голосом. Здесь окно обычное, и повторять эту россыпь незачем.
+///
 /// **Не `Form`.** Сгруппированная форма ставит непрозрачные плашки секций, и
 /// сквозь них не видно материала окна — то есть прозрачность, ради которой всё
 /// затевалось, пропадает. Отсюда ручная раскладка в две колонки: подпись слева
@@ -470,7 +481,6 @@ private struct AdministrationRow: View {
 
             VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
                 Text("Режим администратора")
-                    .font(.callout)
                 // Предупреждение, а не объяснение. Перечислять, что именно
                 // лежит за дверью, менеджеру незачем — он туда не идёт; а вот
                 // знать, что дверь заперта, надо до нажатия, иначе запрос
@@ -488,6 +498,7 @@ private struct AdministrationRow: View {
             // не заметной. Шеврон — потому что кнопка ведёт в другое окно.
             Button("Управление \u{203A}") { isAskingForPassword = true }
         }
+        .font(.callout)
         .padding(Theme.Metrics.sectionSpacing)
         .frame(maxWidth: .infinity, alignment: .leading)
         .themedControlSurface(cornerRadius: Theme.Radius.surface)
@@ -518,6 +529,10 @@ private struct SettingsSection<Content: View>: View {
             VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
                 content
             }
+            // Кегль задаётся блоку, а не каждой строке: так под него попадает
+            // и то, о чём легко забыть, — значение рядом с ползунком, имя
+            // файла рингтона, подписи кнопок.
+            .font(.callout)
             .padding(Theme.Metrics.sectionSpacing)
             .frame(maxWidth: .infinity, alignment: .leading)
             // Тот же слабый слой, что у клавиш панели: он полупрозрачен, и
@@ -542,7 +557,6 @@ private struct SettingsRow<Control: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
             Text(title)
-                .font(.callout)
                 .frame(width: Theme.Metrics.settingsLabelColumn, alignment: .trailing)
             control
             Spacer(minLength: 0)
