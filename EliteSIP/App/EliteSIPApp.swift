@@ -51,6 +51,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Тема — до первого окна: иначе панель успевает нарисоваться в
         // системном оформлении и перекрашивается уже на глазах.
         NSApp.appearance = model.settings.appearance.appKitAppearance
+        #if DEBUG
+        // Снимок обеих тем нужен для сверки контраста, а тема — настройка
+        // менеджера: без ключа проверяющему пришлось бы лезть в чужие
+        // настройки и возвращать их обратно.
+        //   EliteSIP.app/Contents/MacOS/EliteSIP --appearance light
+        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--appearance"),
+           index + 1 < ProcessInfo.processInfo.arguments.count {
+            let name = ProcessInfo.processInfo.arguments[index + 1]
+            NSApp.appearance = NSAppearance(named: name == "light" ? .aqua : .darkAqua)
+        }
+        #endif
         NSApp.mainMenu = makeMainMenu()
         showPhoneWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
