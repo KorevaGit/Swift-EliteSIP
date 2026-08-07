@@ -453,3 +453,45 @@ struct CompatMaterial: NSViewRepresentable {
         nsView.layer?.cornerRadius = cornerRadius
     }
 }
+
+/// Заставляет прокрутку не отбирать ширину у содержимого.
+///
+/// Системные полосы прокрутки бывают двух видов, и вид выбирает человек в
+/// настройках системы. «Всегда» — полоса занимает своё место в раскладке, и
+/// содержимое сужается ровно на её ширину, как только прокрутка появилась.
+/// Живое окно показало, чем это оборачивается: раздел с прокруткой («АТС») и
+/// раздел без неё («Аккаунт») получали разный отступ справа, и переключение
+/// между ними дёргало правый край.
+///
+/// Здесь полоса переводится в наложение: она рисуется поверх содержимого и
+/// ширины не отнимает. Это не спор с настройкой человека, а требование к окну,
+/// раскладку которого мы обещали проверять замером: два разных правых поля
+/// в одном окне замерить нельзя.
+///
+/// Свой `NSScrollView` ищется вверх по иерархии, потому что создаёт его SwiftUI
+/// и наружу не отдаёт. Поиск отложен до следующего цикла: в момент вызова
+/// `makeNSView` вью ещё не вставлена в дерево.
+struct ScrollOverlayScrollers: NSViewRepresentable {
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async { apply(from: view) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { apply(from: nsView) }
+    }
+
+    private func apply(from view: NSView) {
+        var candidate: NSView? = view
+        while let current = candidate {
+            if let scroll = current as? NSScrollView {
+                scroll.scrollerStyle = .overlay
+                scroll.autohidesScrollers = true
+                return
+            }
+            candidate = current.superview
+        }
+    }
+}

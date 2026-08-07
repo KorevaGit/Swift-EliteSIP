@@ -38,17 +38,22 @@ struct AdministrationWindowView: View {
         // окно от содержимого. Тут размер задаёт человек мышью, а содержимое
         // только читает результат.
         GeometryReader { proxy in
-            // Черты между сайдбаром и содержимым нет: панель плавающая, и
-            // граница ей не нужна — её задаёт собственный край панели. Черта
-            // рядом с ним читалась бы как вторая, лишняя.
-            HStack(spacing: 0) {
-                sidebar
-
-                VStack(spacing: 0) {
+            // Черт нет ни одной. Между сайдбаром и содержимым — потому что
+            // панель плавающая, и границу задаёт её собственный край; над
+            // кнопками — потому что полоса низа и без того отделена от
+            // содержимого своим положением, а черта рядом с краем панели
+            // читалась как вторая, лишняя.
+            //
+            // Низ вынесен из правой колонки во всю ширину окна: раньше он
+            // начинался на восемь точек правее панели, и «Сохранить» висело
+            // в полосе, которая до сайдбара не доходила.
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    sidebar
                     content
-                    Divider()
-                    footer
                 }
+
+                footer
             }
             .environment(\.settingsListColumns, columns(forWindowWidth: proxy.size.width))
         }
@@ -183,7 +188,12 @@ struct AdministrationWindowView: View {
         .themedSidebarSurface()
         .padding(.horizontal, Theme.Metrics.sectionSpacing)
         .padding(.bottom, Theme.Metrics.sectionSpacing)
-        .padding(.top, Theme.Metrics.adminSidebarTopInset)
+        // Тот же отступ сверху, что у содержимого справа и у страницы настроек:
+        // не край окна, а полоса заголовка, и расстояние от светофора до первой
+        // строки везде одно. Свой `adminSidebarTopInset` был подобран на глаз и
+        // опускал панель на два десятка точек ниже правой колонки — два верхних
+        // края в одном окне.
+        .padding(.top, Theme.Gap.titleToStatus)
     }
 
     private func sidebarRow(_ item: Section) -> some View {
@@ -201,6 +211,12 @@ struct AdministrationWindowView: View {
 
                 Text(item.title)
                     .lineLimit(1)
+                    // Акцент достаётся и подписи, как в системном сайдбаре:
+                    // один только цветной значок при нейтральной заливке читался
+                    // слабее, чем выбранная строка у Finder.
+                    .compatForeground(
+                        section == item ? Color.accentColor : Theme.Palette.textPrimary
+                    )
 
                 Spacer(minLength: 0)
 
@@ -266,6 +282,15 @@ struct AdministrationWindowView: View {
             .padding(.bottom, Theme.Metrics.contentPadding)
             .padding(.top, Theme.Gap.titleToStatus)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // Полоса прокрутки не отбирает ширину: иначе раздел с прокруткой и
+            // раздел без неё получают разный отступ справа, и правый край
+            // дёргается при переключении.
+            //
+            // Помощник стоит внутри прокрутки, а не на её фоне: `.background`
+            // кладёт вью рядом со `NSScrollView`, а не под него, и поиск вверх
+            // по иерархии до самой прокрутки не доходил — первый заход это и
+            // показал, отступы остались разными.
+            .compatBackground { ScrollOverlayScrollers() }
         }
         .controlSize(.small)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -350,8 +375,16 @@ struct AdministrationWindowView: View {
                 .compatProminentButtonStyle()
                 .disabled(!model.hasUnsavedAdministrationChanges)
         }
-        .padding(.horizontal, Theme.Metrics.contentPadding)
+        // Полоса идёт во всю ширину окна, но её содержимое начинается там же,
+        // где плашки разделов: значок состояния под сайдбаром висел бы на
+        // отдельном левом крае, а «один левый край у страницы» — правило с
+        // этапа 2.
+        .padding(.leading, Theme.Metrics.adminSidebarWidth
+            + Theme.Metrics.sectionSpacing * 2
+            + Theme.Metrics.contentPadding)
+        .padding(.trailing, Theme.Metrics.contentPadding)
         .padding(.vertical, Theme.Metrics.sectionSpacing)
+        .frame(maxWidth: .infinity)
         // Предупреждение дублируется на сохранении — того же содержания, что и
         // на входе. Намеренно: между входом и нажатием проходит вся настройка
         // рабочего места, и к этому моменту прочитанное на входе уже забыто.
