@@ -116,6 +116,10 @@ struct CallHistoryWindowView: View {
             HistoryDayButton()
             HistorySnapshotButton(
                 anchor: snapshot,
+                // Тот же `profileMenuTitle`, что в заголовке окна и в капсуле
+                // панели: снимок обязан быть подписан тем же именем, которое
+                // оператор видел, когда его делал.
+                profile: model.profileMenuTitle(model.settings.profiles.active),
                 isEnabled: !model.historyRecords.isEmpty,
                 onResult: show(notice:)
             )
@@ -606,7 +610,14 @@ final class HistorySnapshotAnchor {
     /// снимок подкладывается непрозрачный фон окна — и это к лучшему:
     /// полупрозрачный PNG в переписке показал бы чужой рабочий стол сквозь
     /// собственные строки.
-    func image() -> NSImage? {
+    ///
+    /// **Снимок подписывается, а не отдаётся голым.** Он уходит в переписку, то
+    /// есть человеку, у которого нет ни окна, ни его заголовка: он видит столбец
+    /// времён и не может их прочитать. Поэтому над рамкой стоят две вещи — чей
+    /// это список и который час на той машине, вместе с поясом. Без пояса
+    /// «21:07» в строке означает разное в Москве и в Новосибирске, а разбирают
+    /// по таким снимкам как раз опоздания и пропущенные.
+    func image(profile: String) -> NSImage? {
         guard let view,
               let content = view.window?.contentView,
               let layer = content.layer
@@ -641,7 +652,28 @@ final class HistorySnapshotAnchor {
         )
         guard let cropped = rendered.cropping(to: crop) else { return nil }
 
-        return Self.opaque(cropped, size: area.size, appearanceOf: view)
+        return Self.compose(
+            cropped,
+            size: area.size,
+            profile: profile,
+            appearanceOf: view
+        )
+    }
+
+    /// Подпись справа: который час на этой машине и в каком поясе.
+    ///
+    /// Пояс — числом от UTC, а не сокращением. «MSK» знают не все, а на
+    /// половине машин `abbreviation()` и так возвращает «GMT+3»; смещение
+    /// читается однозначно и переводится в чужой пояс вычитанием.
+    static func systemTime(now: Date = Date()) -> String {
+        let offset = TimeZone.current.secondsFromGMT(for: now)
+        let sign = offset < 0 ? "-" : "+"
+        let hours = abs(offset) / 3600
+        let minutes = (abs(offset) % 3600) / 60
+        let zone = minutes == 0
+            ? "UTC\(sign)\(hours)"
+            : String(format: "UTC%@%d:%02d", sign, hours, minutes)
+        return "\(HistoryDate.stamp(now)) · \(zone)"
     }
 
     /// Рисует слой целиком в свой контекст.
@@ -680,21 +712,32 @@ final class HistorySnapshotAnchor {
         return context.makeImage()
     }
 
-    /// Подкладывает непрозрачный фон окна.
+    /// Собирает готовый снимок: поля, шапка, рамка и сам список внутри неё.
     ///
-    /// Стекло `.behindWindow` рисует не приложение, а оконный сервер, и в
-    /// отрисовку слоя оно не попадает. Без подложки снимок вышел бы
-    /// полупрозрачным — то есть в переписке показал бы чужой рабочий стол
-    /// сквозь собственные строки.
-    private static func opaque(
+    /// Непрозрачный фон здесь не украшение. Стекло `.behindWindow` рисует не
+    /// приложение, а оконный сервер, и в отрисовку слоя оно не попадает; без
+    /// подложки снимок вышел бы полупрозрачным — то есть в переписке показал бы
+    /// чужой рабочий стол сквозь собственные строки.
+    private static func compose(
         _ image: CGImage,
         size: CGSize,
+        profile: String,
         appearanceOf view: NSView
     ) -> NSImage? {
+        let pad = Theme.Metrics.contentPadding
+        let gap = Theme.Metrics.elementSpacing
+        let captionHeight: CGFloat = 16
+
+        let total = CGSize(
+            width: size.width + pad * 2,
+            height: size.height + captionHeight + gap + pad * 2
+        )
+        let scale = CGFloat(image.width) / size.width
+
         guard let canvas = NSBitmapImageRep(
             bitmapDataPlanes: nil,
-            pixelsWide: image.width,
-            pixelsHigh: image.height,
+            pixelsWide: Int((total.width * scale).rounded()),
+            pixelsHigh: Int((total.height * scale).rounded()),
             bitsPerSample: 8,
             samplesPerPixel: 4,
             hasAlpha: true,
@@ -703,26 +746,77 @@ final class HistorySnapshotAnchor {
             bytesPerRow: 0,
             bitsPerPixel: 0
         ) else { return nil }
-        canvas.size = size
+        canvas.size = total
 
         guard let context = NSGraphicsContext(bitmapImageRep: canvas) else { return nil }
-        let bounds = CGRect(origin: .zero, size: size)
+
+        // Начало координат внизу слева: список стоит на нижнем поле, шапка над
+        // ним.
+        let listRect = CGRect(x: pad, y: pad, width: size.width, height: size.height)
+        let captionRect = CGRect(
+            x: pad,
+            y: listRect.maxY + gap,
+            width: size.width,
+            height: captionHeight
+        )
 
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = context
-        // Фон берётся под оформлением окна, а не под текущим: тёмное окно на
-        // светлой системе иначе получило бы светлую подложку под светлым же
+
+        // Всё рисование — под оформлением окна, а не под текущим: тёмное окно
+        // на светлой системе иначе получило бы светлую подложку под светлым же
         // текстом.
         withAppearance(of: view) {
             NSColor.windowBackgroundColor.setFill()
-            NSBezierPath.fill(bounds)
+            NSBezierPath.fill(CGRect(origin: .zero, size: total))
+
+            context.cgContext.draw(image, in: listRect)
+
+            // Рамка по краю списка, радиусом плашки: снимок кладут в переписку
+            // на чужой фон, и без рамки строки на тёмной подложке сливаются с
+            // тёмным фоном мессенджера — список перестаёт читаться как
+            // отдельная вещь.
+            let border = NSBezierPath(
+                roundedRect: listRect.insetBy(dx: -0.5, dy: -0.5),
+                xRadius: Theme.Radius.surface,
+                yRadius: Theme.Radius.surface
+            )
+            border.lineWidth = 1
+            // Третий уровень текста, а не `separatorColor`: тот рассчитан на
+            // линию внутри окна и в светлой теме на светлом поле почти
+            // пропадает, а рамке положено быть видной в обеих.
+            NSColor.tertiaryLabelColor.setStroke()
+            border.stroke()
+
+            draw(profile, in: captionRect, alignment: .left)
+            draw(systemTime(), in: captionRect, alignment: .right)
         }
-        context.cgContext.draw(image, in: bounds)
         NSGraphicsContext.restoreGraphicsState()
 
-        let result = NSImage(size: size)
+        let result = NSImage(size: total)
         result.addRepresentation(canvas)
         return result
+    }
+
+    /// Надпись шапки. Мелкая и вторым планом: она объясняет снимок, а не
+    /// соперничает с ним.
+    private static func draw(
+        _ text: String,
+        in rect: CGRect,
+        alignment: NSTextAlignment
+    ) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = alignment
+        paragraph.lineBreakMode = .byTruncatingTail
+
+        (text as NSString).draw(
+            in: rect,
+            withAttributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .paragraphStyle: paragraph,
+            ]
+        )
     }
 
     private static func withAppearance(of view: NSView, _ body: () -> Void) {
@@ -757,6 +851,8 @@ private struct HistorySnapshotArea: NSViewRepresentable {
 private struct HistorySnapshotButton: View {
 
     let anchor: HistorySnapshotAnchor
+    /// Чей это список — тем же словом, что в заголовке окна.
+    let profile: String
     let isEnabled: Bool
     let onResult: (String) -> Void
 
@@ -776,7 +872,7 @@ private struct HistorySnapshotButton: View {
     }
 
     private func copy() {
-        guard let image = anchor.image() else {
+        guard let image = anchor.image(profile: profile) else {
             onResult("Снимок не получился")
             return
         }
