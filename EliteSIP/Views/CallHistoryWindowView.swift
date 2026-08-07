@@ -28,6 +28,19 @@ struct CallHistoryWindowView: View {
 
     @EnvironmentObject private var model: AppModel
 
+    /// Область, которую снимает кнопка снимка. Ссылочный тип в `@State`, а не
+    /// `@StateObject`: тот появился в macOS 11, а публиковать здесь нечего —
+    /// якорь только держит вьюху и в перерисовках не участвует.
+    @State private var snapshot = HistorySnapshotAnchor()
+
+    /// Что сказать после снимка и сколько раз его уже делали.
+    ///
+    /// Счётчик нужен, чтобы отложенное скрытие гасило **своё** сообщение:
+    /// без него второй снимок подряд гасился бы таймером первого — то есть
+    /// через мгновение после нажатия.
+    @State private var notice: String?
+    @State private var noticeToken = 0
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
             filterBar
@@ -87,13 +100,25 @@ struct CallHistoryWindowView: View {
                 Button {
                     model.historyFilter = item
                 } label: {
-                    Text(item.title)
-                        .padding(.horizontal, Theme.Metrics.tightSpacing)
-                        .padding(.vertical, Theme.Metrics.hairSpacing)
+                    HStack(spacing: Theme.Metrics.tightSpacing) {
+                        FilterGlyph(filter: item)
+                        // Подпись фильтра не ужимается никогда: «Пропущенн…»
+                        // — это уже не название фильтра, а обещание, что за
+                        // кнопкой что-то не поместилось. Ширину под весь ряд
+                        // держит `historyMinWidth`.
+                        Text(item.title).fixedSize()
+                    }
+                    .padding(.horizontal, Theme.Metrics.tightSpacing)
+                    .padding(.vertical, Theme.Metrics.hairSpacing)
                 }
                 .compatProminentButtonStyle(model.historyFilter == item)
             }
             HistoryDayButton()
+            HistorySnapshotButton(
+                anchor: snapshot,
+                isEnabled: !model.historyRecords.isEmpty,
+                onResult: show(notice:)
+            )
             Spacer()
         }
         .font(.callout)
@@ -125,31 +150,74 @@ struct CallHistoryWindowView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .themedControlSurface(cornerRadius: Theme.Radius.surface)
+        // Якорь снимка — фоном плашки, потому что снимается ровно она.
+        .compatBackground { HistorySnapshotArea(anchor: snapshot) }
+        // Сообщение о снимке — поверх списка и снизу, где его не закроет рука с
+        // мышью, идущая к кнопке наверху. В кадр оно не попадает: снимок
+        // собирается в момент нажатия, до того как сообщение появилось.
+        .compatOverlay {
+            if let notice {
+                VStack {
+                    Spacer()
+                    Text(notice)
+                        .font(.footnote)
+                        .padding(.horizontal, Theme.Metrics.contentPadding)
+                        .padding(.vertical, Theme.Metrics.elementSpacing)
+                        .themedControlSurface(
+                            cornerRadius: Theme.Radius.capsule(height: 28)
+                        )
+                        .padding(.bottom, Theme.Metrics.contentPadding)
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .compatAnimation(.easeOut(duration: 0.15), value: notice)
+    }
+
+    /// Показывает сообщение и убирает его само.
+    ///
+    /// Своим сообщением в окне, а не системным уведомлением: последнее просит
+    /// разрешения, живёт в «Центре уведомлений» и приходит туда же, куда
+    /// приходят чужие письма, — для подтверждения нажатия, которое человек
+    /// только что сделал и видит, это несоразмерно.
+    private func show(notice text: String) {
+        noticeToken += 1
+        let token = noticeToken
+        notice = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            guard noticeToken == token else { return }
+            notice = nil
+        }
     }
 
     private var list: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(days) { day in
+                ForEach(Array(days.enumerated()), id: \.element.id) { position, day in
                     // Кеглем и цветом заголовка раздела, как в настройках, а не
                     // мелкой серой подписью. День — это то, по чему в списке
                     // ориентируются: он единственная точка опоры при прокрутке
                     // на три недели назад, и вторым планом ей стоять нельзя.
+                    //
+                    // Воздух сверху — только между группами. У первой его нет:
+                    // расстояние от края плашки задаёт сама плашка, и оно
+                    // должно совпадать с разделами настроек, а не складываться
+                    // с ним в двойное.
                     Text(day.title)
                         .font(Font.subheadline.weight(.semibold))
                         .padding(.horizontal, Theme.Metrics.sectionSpacing)
-                        .padding(.top, Theme.Metrics.contentPadding)
+                        .padding(.top, position == 0 ? 0 : Theme.Metrics.contentPadding)
                         .padding(.bottom, Theme.Metrics.tightSpacing)
 
+                    // Разделительных линий между звонками нет.
+                    //
+                    // Они появились, когда строки было нечем отделить друг от
+                    // друга, и решали задачу, которой больше нет: строка стала
+                    // двухъярусной, значок исхода задал ей чёткое начало, а дни
+                    // разделены заголовками. Линия поверх этого делит уже
+                    // разделённое и превращает список в таблицу — а таблицу
+                    // читают по колонкам, тогда как историю читают по строкам.
                     ForEach(day.records) { record in
-                        if record.id != day.records.first?.id {
-                            // Разделитель между звонками, а не под каждым:
-                            // линия под последней строкой группы отрезала бы
-                            // её от заголовка следующего дня, который и так
-                            // разделяет сильнее любой линии.
-                            Divider()
-                                .padding(.leading, Theme.Metrics.sectionSpacing)
-                        }
                         CallHistoryRow(record: record)
                     }
                 }
@@ -170,7 +238,12 @@ struct CallHistoryWindowView: View {
                     .onAppear { model.loadMoreHistory() }
                 }
             }
-            .padding(.vertical, Theme.Metrics.tightSpacing)
+            // Поле у края плашки — `sectionSpacing`, ровно как внутри разделов
+            // менеджерской страницы. Было `tightSpacing` плюс отступ первого
+            // заголовка, и вместе они давали шестнадцать точек против восьми в
+            // настройках: список начинался заметно ниже, чем всё остальное в
+            // приложении.
+            .padding(.vertical, Theme.Metrics.sectionSpacing)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         // Новый отбор — новый список, и он обязан начинаться сверху.
@@ -377,37 +450,58 @@ enum HistoryDate {
 /// резкими на любом размере. Комплект для Catalina от этого не растёт.
 struct CallOutcomeBadge: View {
 
-    let record: CallRecord
+    let isIncoming: Bool
+    let isCompleted: Bool
+    let color: Color
+    var size: CGFloat = Theme.Metrics.historyBadgeSize
+    var label: String?
+
+    init(record: CallRecord) {
+        isIncoming = record.direction == .incoming
+        isCompleted = record.isAnswered
+        color = Self.color(for: record)
+        label = Self.label(for: record)
+    }
+
+    /// Тот же значок вне списка — на кнопках фильтров.
+    ///
+    /// Отдельный инициализатор, а не поддельная `CallRecord`: подсказка на
+    /// кнопке не про конкретный звонок, и собирать под неё запись значило бы
+    /// заводить звонок, которого не было.
+    init(isIncoming: Bool, isCompleted: Bool, color: Color, size: CGFloat, label: String? = nil) {
+        self.isIncoming = isIncoming
+        self.isCompleted = isCompleted
+        self.color = color
+        self.size = size
+        self.label = label
+    }
 
     var body: some View {
         ZStack {
             if isCompleted {
                 Circle().fill(color)
             } else {
-                Circle().strokeBorder(color, lineWidth: 1.5)
+                Circle().strokeBorder(color, lineWidth: size / 14)
             }
 
-            CallDirectionArrow(isIncoming: record.direction == .incoming)
+            CallDirectionArrow(isIncoming: isIncoming)
                 .stroke(
-                    style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round)
+                    style: StrokeStyle(
+                        lineWidth: size / 14, lineCap: .round, lineJoin: .round
+                    )
                 )
                 // Внутри залитого кружка стрелка рисуется фоном окна, а не
                 // белым: в тёмной теме белая стрелка на светло-сером кружке
                 // «дозвонился» почти пропадает, а фон окна по определению
                 // контрастен своей теме.
                 .compatForeground(isCompleted ? Color(NSColor.windowBackgroundColor) : color)
-                .frame(
-                    width: Theme.Metrics.historyBadgeSize / 2,
-                    height: Theme.Metrics.historyBadgeSize / 2
-                )
+                .frame(width: size / 2, height: size / 2)
         }
-        .frame(width: Theme.Metrics.historyBadgeSize, height: Theme.Metrics.historyBadgeSize)
-        .compatAccessibilityLabel(label)
+        .frame(width: size, height: size)
+        .compatAccessibilityLabel(label ?? "")
     }
 
-    private var isCompleted: Bool { record.isAnswered }
-
-    private var color: Color {
+    private static func color(for record: CallRecord) -> Color {
         switch record.outcome {
         case .completed:
             return record.direction == .incoming
@@ -422,13 +516,282 @@ struct CallOutcomeBadge: View {
 
     /// Для VoiceOver значок обязан говорить то же, что видно глазом: цвет и
     /// форму он не читает, а состояний четыре.
-    private var label: String {
+    private static func label(for record: CallRecord) -> String {
         switch (record.direction, record.isAnswered) {
         case (.incoming, true): return "Принял"
         case (.incoming, false): return "Пропустил"
         case (.outgoing, true): return "Дозвонился"
         case (.outgoing, false): return "Не дозвонился"
         }
+    }
+}
+
+/// Подсказка на кнопке фильтра — стрелка того же вида, что в строках.
+///
+/// Смысл в том, что стрелка **та же**: кнопка учит читать список, а не заводит
+/// второй язык. Направление у неё то же, цвет у «Пропущенных» тот же красный.
+///
+/// **Кольца вокруг стрелки здесь нет, хотя в строке у пропущенного оно есть.**
+/// Живое окно показало, почему: на четырнадцати точках красное кольцо с
+/// диагональной чертой внутри читается как знак «запрещено», а не как
+/// пропущенный звонок — головку стрелки на такой доле размера уже не видно.
+/// Кольцо несёт «разговор не состоялся», и в списке это различие обязательно;
+/// на кнопке оно не нужно вовсе — рядом стоит слово «Пропущенные».
+///
+/// По той же причине здесь остаётся различие одним цветом, хотя в списке так
+/// нельзя: там значок единственный носитель смысла, а тут он подпись к подписи.
+///
+/// У «Всех» значка нет: подсказывать нечего, а четвёртая фигура ради симметрии
+/// сообщала бы, что и «Все» чем-то отбирают.
+private struct FilterGlyph: View {
+
+    let filter: CallHistoryStore.Filter
+
+    var body: some View {
+        if let direction {
+            CallDirectionArrow(isIncoming: direction)
+                .stroke(style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                .compatForeground(
+                    filter == .missed ? Theme.Palette.outcomeMissed : Theme.Palette.textSecondary
+                )
+                .frame(
+                    width: Theme.Metrics.historyFilterGlyph,
+                    height: Theme.Metrics.historyFilterGlyph
+                )
+        }
+    }
+
+    /// nil — у фильтра нет направления, значит нет и стрелки.
+    private var direction: Bool? {
+        switch filter {
+        case .all: return nil
+        case .incoming, .missed: return true
+        case .outgoing: return false
+        }
+    }
+}
+
+/// Снимок открытой части списка — в буфер обмена.
+///
+/// **Зачем.** Оператор пересказывает историю в переписке: «вот эти три звонка».
+/// Системный снимок экрана это умеет, но требует прицелиться мышью по краям
+/// списка, а промахнувшись — захватывает соседнюю CRM с чужими данными. Кнопка
+/// берёт ровно ту область, которую видно, и ничего сверх неё.
+///
+/// **Снимается плашка списка, а не окно целиком.** В кадр не попадают ни
+/// заголовок с номером профиля, ни кнопки фильтров. Это осознанное сужение:
+/// просили снимок «открытой части истории», и всё, что не строки, — контекст,
+/// который человек и так допишет словами.
+/// `@MainActor` целиком: класс живёт только внутри AppKit — держит `NSView` и
+/// рисует в графический контекст, а и то и другое существует только на главном
+/// потоке.
+@MainActor
+final class HistorySnapshotAnchor {
+
+    /// Слабо: держать вьюху здесь означало бы пережить окно, которое её
+    /// закрыло.
+    weak var view: NSView?
+
+    /// Собирает снимок области, которую занимает якорь.
+    ///
+    /// **Через `cacheDisplay` окна, а не через снимок экрана.**
+    /// `CGWindowListCreateImage` дал бы то же изображение вместе со стеклом, но
+    /// с macOS 10.15 требует разрешения на запись экрана — системный запрос,
+    /// который на рабочем месте колл-центра выглядит как «программа смотрит,
+    /// что я делаю». Ради кнопки, копирующей собственный список, такую цену
+    /// платить нельзя.
+    ///
+    /// Цена своего пути: стекло `.behindWindow` рисует не приложение, а
+    /// оконный сервер, и в `cacheDisplay` оно не попадает вовсе. Поэтому под
+    /// снимок подкладывается непрозрачный фон окна — и это к лучшему:
+    /// полупрозрачный PNG в переписке показал бы чужой рабочий стол сквозь
+    /// собственные строки.
+    func image() -> NSImage? {
+        guard let view,
+              let content = view.window?.contentView,
+              let layer = content.layer
+        else { return nil }
+
+        let area = view.convert(view.bounds, to: content)
+        let whole = content.bounds
+        guard area.width > 1, area.height > 1, whole.width > 1, whole.height > 1 else { return nil }
+
+        let scale = view.window?.backingScaleFactor ?? 2
+
+        // **Слой, а не `cacheDisplay`.** Первый заход снимал через
+        // `cacheDisplay(in:to:)`, и живая проверка показала, чем это кончается:
+        // в снимок попали только фигуры, нарисованные путями, — значки исхода,
+        // — а весь текст пропал. SwiftUI держит надписи в содержимом слоёв, и
+        // через путь рисования AppKit они не проходят вовсе. Отрисовка слоя
+        // забирает и то и другое.
+        guard let rendered = Self.render(layer: layer, size: whole.size, scale: scale) else {
+            return nil
+        }
+
+        // Обрезка в пикселях. У `CGImage` начало координат сверху слева, а у
+        // вьюхи — снизу слева, если она не перевёрнута; `NSHostingView`
+        // перевёрнута, но полагаться на это нельзя, поэтому считаются оба
+        // случая.
+        let topInset = content.isFlipped ? area.minY : whole.height - area.maxY
+        let crop = CGRect(
+            x: (area.minX * scale).rounded(),
+            y: (topInset * scale).rounded(),
+            width: (area.width * scale).rounded(),
+            height: (area.height * scale).rounded()
+        )
+        guard let cropped = rendered.cropping(to: crop) else { return nil }
+
+        return Self.opaque(cropped, size: area.size, appearanceOf: view)
+    }
+
+    /// Рисует слой целиком в свой контекст.
+    private static func render(layer: CALayer, size: CGSize, scale: CGFloat) -> CGImage? {
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: Int((size.width * scale).rounded()),
+                height: Int((size.height * scale).rounded()),
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else { return nil }
+
+        context.scaleBy(x: scale, y: scale)
+        layer.render(in: context)
+        return context.makeImage()
+    }
+
+    /// Подкладывает непрозрачный фон окна.
+    ///
+    /// Стекло `.behindWindow` рисует не приложение, а оконный сервер, и в
+    /// отрисовку слоя оно не попадает. Без подложки снимок вышел бы
+    /// полупрозрачным — то есть в переписке показал бы чужой рабочий стол
+    /// сквозь собственные строки.
+    private static func opaque(
+        _ image: CGImage,
+        size: CGSize,
+        appearanceOf view: NSView
+    ) -> NSImage? {
+        guard let canvas = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: image.width,
+            pixelsHigh: image.height,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return nil }
+        canvas.size = size
+
+        guard let context = NSGraphicsContext(bitmapImageRep: canvas) else { return nil }
+        let bounds = CGRect(origin: .zero, size: size)
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        // Фон берётся под оформлением окна, а не под текущим: тёмное окно на
+        // светлой системе иначе получило бы светлую подложку под светлым же
+        // текстом.
+        withAppearance(of: view) {
+            NSColor.windowBackgroundColor.setFill()
+            NSBezierPath.fill(bounds)
+        }
+        context.cgContext.draw(image, in: bounds)
+        NSGraphicsContext.restoreGraphicsState()
+
+        let result = NSImage(size: size)
+        result.addRepresentation(canvas)
+        return result
+    }
+
+    private static func withAppearance(of view: NSView, _ body: () -> Void) {
+        if #available(macOS 11.0, *) {
+            view.effectiveAppearance.performAsCurrentDrawingAppearance(body)
+        } else {
+            let saved = NSAppearance.current
+            NSAppearance.current = view.effectiveAppearance
+            body()
+            NSAppearance.current = saved
+        }
+    }
+}
+
+/// Пустая вьюха, которая сообщает якорю свои границы.
+private struct HistorySnapshotArea: NSViewRepresentable {
+
+    let anchor: HistorySnapshotAnchor
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        anchor.view = view
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        anchor.view = nsView
+    }
+}
+
+/// Кнопка снимка.
+private struct HistorySnapshotButton: View {
+
+    let anchor: HistorySnapshotAnchor
+    let isEnabled: Bool
+    let onResult: (String) -> Void
+
+    var body: some View {
+        Button {
+            copy()
+        } label: {
+            CameraGlyph()
+                .stroke(style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
+                .frame(width: Theme.Icon.medium, height: Theme.Icon.medium)
+                .padding(.horizontal, Theme.Metrics.tightSpacing)
+                .padding(.vertical, Theme.Metrics.hairSpacing)
+        }
+        .disabled(!isEnabled)
+        .compatHelp("Скопировать снимок списка в буфер обмена")
+        .compatAccessibilityLabel("Снимок списка")
+    }
+
+    private func copy() {
+        guard let image = anchor.image() else {
+            onResult("Снимок не получился")
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([image])
+        onResult("Снимок скопирован — вставьте в переписку")
+    }
+}
+
+/// Фотоаппарат: корпус, видоискатель и объектив.
+struct CameraGlyph: Shape {
+
+    func path(in rect: CGRect) -> Path {
+        let side = min(rect.width, rect.height)
+        var path = Path()
+
+        path.addRoundedRect(
+            in: CGRect(x: 0, y: side * 0.24, width: side, height: side * 0.64),
+            cornerSize: CGSize(width: side * 0.14, height: side * 0.14)
+        )
+
+        // Видоискатель: трапеция на крышке. Без неё корпус с кружком читается
+        // как что угодно круглое в рамке.
+        path.move(to: CGPoint(x: side * 0.28, y: side * 0.24))
+        path.addLine(to: CGPoint(x: side * 0.37, y: side * 0.09))
+        path.addLine(to: CGPoint(x: side * 0.63, y: side * 0.09))
+        path.addLine(to: CGPoint(x: side * 0.72, y: side * 0.24))
+
+        path.addEllipse(
+            in: CGRect(x: side * 0.34, y: side * 0.4, width: side * 0.32, height: side * 0.32)
+        )
+        return path
     }
 }
 

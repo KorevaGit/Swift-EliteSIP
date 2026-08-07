@@ -286,8 +286,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Ловушка с безопасной зоной, которая стоила настройкам итерации, здесь
         // не срабатывает: у окна истории размер свой и меняется мышью, а не
         // выводится из идеальной высоты содержимого. Сходиться нечему.
+        // Заводится шире своего минимума: на самом минимуме окно открывалось бы
+        // впритык к ряду фильтров, а первое, что оператор делает в истории, —
+        // читает строки, а не считает поля.
         let window = NSWindow(
-            contentRect: CGRect(origin: .zero, size: CGSize(width: 560, height: 420)),
+            contentRect: CGRect(origin: .zero, size: CGSize(width: 660, height: 460)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
