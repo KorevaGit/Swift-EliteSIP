@@ -125,17 +125,18 @@ struct IncomingCallView: View {
     /// так есть зелёная «Ответить», и якорь шаблону ничего нового не даёт; в
     /// цифровом принимающая цифра случайна, и клик по постоянному смещению
     /// попадает в цель в одном случае из четырёх.
+    /// Фигура — та же, что в истории (`CallOutcomeBadge`), а не своя картинка
+    /// из комплекта. Оператор видит эти два окна каждый день, и входящий вызов
+    /// в них должен выглядеть одинаково: залитый кружок со стрелкой внутрь.
+    /// Заодно стрелка рисуется путём и остаётся резкой на любом размере, а
+    /// комплект иконок для Catalina от неё не растёт.
     private var anchor: some View {
-        CompatSymbol(name: "phone.arrow.down.left.fill", size: Theme.Icon.medium)
-            .compatForeground(.white)
-            .frame(
-                width: Theme.Metrics.incomingAnchorSize,
-                height: Theme.Metrics.incomingAnchorSize
-            )
-            .compatBackground(
-                Theme.Palette.answer,
-                cornerRadius: Theme.Radius.capsule(height: Theme.Metrics.incomingAnchorSize)
-            )
+        CallOutcomeBadge(
+            isIncoming: true,
+            isCompleted: true,
+            color: Theme.Palette.outcomeAnswered,
+            size: Theme.Metrics.outcomeBadgeSize
+        )
     }
 
     /// Карточка вызова. Главный ярус — одна строка с ужатием, без переноса:

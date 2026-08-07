@@ -457,7 +457,7 @@ struct CallOutcomeBadge: View {
     let isIncoming: Bool
     let isCompleted: Bool
     let color: Color
-    var size: CGFloat = Theme.Metrics.historyBadgeSize
+    var size: CGFloat = Theme.Metrics.outcomeBadgeSize
     var label: String?
 
     init(record: CallRecord) {
