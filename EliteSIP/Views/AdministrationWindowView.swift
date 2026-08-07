@@ -176,24 +176,33 @@ struct AdministrationWindowView: View {
             Spacer(minLength: 0)
         }
         .padding(Theme.Metrics.elementSpacing)
-        .frame(width: Theme.Metrics.adminSidebarWidth, alignment: .leading)
-        // Плавающая панель со скруглением, как в Finder и Music на macOS 26:
-        // сайдбар не приклеен к краям окна, а лежит на его фоне отдельным
-        // слоем. На старых системах то же место занимает материал `.sidebar` —
-        // он есть с 10.11, — и разница остаётся в мягкости края, а не в
-        // раскладке.
-        //
-        // Отступ снаружи, а не внутри: панель должна отходить и от края окна, и
-        // от полосы заголовка, иначе «плавающей» она не читается.
-        .themedSidebarSurface()
-        .padding(.horizontal, Theme.Metrics.sectionSpacing)
-        .padding(.bottom, Theme.Metrics.sectionSpacing)
         // Тот же отступ сверху, что у содержимого справа и у страницы настроек:
         // не край окна, а полоса заголовка, и расстояние от светофора до первой
-        // строки везде одно. Свой `adminSidebarTopInset` был подобран на глаз и
-        // опускал панель на два десятка точек ниже правой колонки — два верхних
-        // края в одном окне.
+        // строки везде одно.
         .padding(.top, Theme.Gap.titleToStatus)
+        .frame(width: Theme.Metrics.adminSidebarWidth, alignment: .leading)
+        .frame(maxHeight: .infinity, alignment: .top)
+        // Панель уходит под светофор, как в Finder: материал накрывает полосу
+        // заголовка, а строки списка остаются под ней.
+        //
+        // Безопасную зону отдаёт **только фон и только сверху**. Само содержимое
+        // её уважает — иначе первая строка встала бы вровень со светофором и
+        // упёрлась в него, а поля слева, справа и снизу задаёт раскладка, и
+        // отдать их значило бы приклеить панель к краям окна.
+        //
+        // На Catalina это работает тем же способом, что и в трёх других окнах
+        // приложения: `.fullSizeContentView` с прозрачной полосой заголовка
+        // есть с 10.15, а `edgesIgnoringSafeArea` — замена `ignoresSafeArea` из
+        // macOS 11. Числа полосы заголовка здесь нет и не нужно: её высоту
+        // отдаёт сама безопасная зона, а она разная — замер живого окна дал 32
+        // точки на macOS 26 против 28 на прежних версиях.
+        .compatBackground {
+            Color.clear
+                .themedSidebarSurface()
+                .compatIgnoreSafeArea(.top)
+        }
+        .padding(.horizontal, Theme.Metrics.sectionSpacing)
+        .padding(.bottom, Theme.Metrics.sectionSpacing)
     }
 
     private func sidebarRow(_ item: Section) -> some View {

@@ -102,12 +102,16 @@ extension View {
     /// а SwiftUI по умолчанию отводит под полосу заголовка безопасную зону и
     /// опускает содержимое под неё. `ignoresSafeArea` — macOS 11, ниже тот же
     /// смысл даёт `edgesIgnoringSafeArea`.
+    /// - Parameter edges: какие края отдать. По умолчанию все — так этим
+    ///   пользуются фоны окон. Боковому списку «Управления» нужен только верх:
+    ///   его материал обязан уйти под светофор, как в Finder, а поля слева,
+    ///   справа и снизу остаются теми, что задала раскладка.
     @ViewBuilder
-    func compatIgnoreSafeArea() -> some View {
+    func compatIgnoreSafeArea(_ edges: Edge.Set = .all) -> some View {
         if #available(macOS 11.0, *) {
-            self.ignoresSafeArea()
+            self.ignoresSafeArea(edges: edges)
         } else {
-            self.edgesIgnoringSafeArea(.all)
+            self.edgesIgnoringSafeArea(edges)
         }
     }
 
