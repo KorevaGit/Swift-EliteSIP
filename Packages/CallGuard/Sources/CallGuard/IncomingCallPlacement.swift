@@ -35,6 +35,35 @@ public struct IncomingCallPlacement: Sendable {
         )
     }
 
+    /// Возвращает рамку, целиком лежащую внутри разрешённой области.
+    ///
+    /// Существует потому, что размер окна на момент выбора позиции — обещание,
+    /// а не факт. Высоту окну считает содержимое, и приехать она может позже
+    /// выбора точки; окно, выросшее после размещения, уезжает за край ровно на
+    /// разницу. Позиция при этом остаётся случайной: рамку не пересчитывают, а
+    /// вдвигают обратно на столько, на сколько она вылезла.
+    ///
+    /// Окно крупнее области прижимается к её левому нижнему углу — тем же
+    /// решением, что и в `origin`: лучше упереться в угол, чем разъехаться за
+    /// две границы сразу.
+    public func contained(_ frame: CGRect) -> CGRect {
+        var origin = frame.origin
+
+        if frame.width >= bounds.width {
+            origin.x = bounds.minX
+        } else {
+            origin.x = min(max(origin.x, bounds.minX), bounds.maxX - frame.width)
+        }
+
+        if frame.height >= bounds.height {
+            origin.y = bounds.minY
+        } else {
+            origin.y = min(max(origin.y, bounds.minY), bounds.maxY - frame.height)
+        }
+
+        return CGRect(origin: origin, size: frame.size)
+    }
+
     public func origin(
         forPanelSize size: CGSize,
         previous: CGPoint?,

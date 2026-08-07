@@ -78,6 +78,46 @@ struct IncomingCallPlacementTests {
         #expect(placement.bounds.contains(CGRect(origin: origin, size: panel)))
     }
 
+    @Test("Окно, выросшее после размещения, возвращается внутрь области")
+    func containsGrownWindow() {
+        let placement = placement()
+        // Позицию выбирали, пока окно было высотой в одну точку: настоящую
+        // высоту ему считает содержимое, и приехать она может позже. Ровно так
+        // окно и уезжало за нижний край.
+        var generator = SystemRandomNumberGenerator()
+        var previous: CGPoint?
+
+        for _ in 0..<500 {
+            let chosen = placement.origin(
+                forPanelSize: CGSize(width: panel.width, height: 1),
+                previous: previous,
+                using: &generator
+            )
+            previous = chosen
+
+            let corrected = placement.contained(CGRect(origin: chosen, size: panel))
+            #expect(placement.bounds.contains(corrected), "окно осталось за краем: \(corrected)")
+            #expect(corrected.size == panel, "размер трогать нельзя, двигаем только позицию")
+        }
+    }
+
+    @Test("Рамке внутри области сдвиг не нужен")
+    func leavesInnerFrameAlone() {
+        let placement = placement()
+        let inside = CGRect(x: 300, y: 300, width: panel.width, height: panel.height)
+        #expect(placement.contained(inside) == inside)
+    }
+
+    @Test("Окно крупнее области прижимается к углу, а не разъезжается")
+    func pinsOversizedWindow() {
+        let tight = IncomingCallPlacement(
+            bounds: CGRect(x: 10, y: 10, width: 200, height: 100),
+            minimumTravel: 0
+        )
+        let corrected = tight.contained(CGRect(x: 500, y: 500, width: 340, height: 228))
+        #expect(corrected.origin == CGPoint(x: 10, y: 10))
+    }
+
     @Test("Один и тот же генератор даёт одну и ту же позицию")
     func isReproducible() {
         let placement = placement()

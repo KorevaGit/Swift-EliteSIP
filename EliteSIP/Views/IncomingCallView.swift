@@ -130,12 +130,17 @@ struct IncomingCallView: View {
     /// в них должен выглядеть одинаково: залитый кружок со стрелкой внутрь.
     /// Заодно стрелка рисуется путём и остаётся резкой на любом размере, а
     /// комплект иконок для Catalina от неё не растёт.
+    ///
+    /// Размер — иконочный (`Icon.large`), а не тот, что в истории. Там значок
+    /// главный в строке и потому крупный, здесь он стоит рядом с подписью в
+    /// 11 точек, и на двадцати двух возвышался над ней, как ярлык над текстом.
+    /// Якорю хватает цвета: заметность даёт зелёное пятно, а не его площадь.
     private var anchor: some View {
         CallOutcomeBadge(
             isIncoming: true,
             isCompleted: true,
             color: Theme.Palette.outcomeAnswered,
-            size: Theme.Metrics.outcomeBadgeSize
+            size: Theme.Icon.large
         )
     }
 

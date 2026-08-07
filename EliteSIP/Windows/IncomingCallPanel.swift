@@ -30,6 +30,14 @@ final class IncomingCallPanel: ObservableObject {
     /// отличалась и оператор не привыкал жать в одну точку.
     private var lastOrigin: CGPoint?
 
+    /// Область текущего вызова: тот же экран и тот же отступ, по которым
+    /// выбрана позиция. Хранится, чтобы возврат окна на экран после изменения
+    /// размера считал границу той же, а не выбирал экран заново — курсор к
+    /// этому моменту уже уехал.
+    private var placement: IncomingCallPlacement?
+
+    private var resizeObserver: Any?
+
     /// Защита текущего вызова. Живёт ровно столько, сколько висит окно.
     @Published private var guardSession: CallGuardSession?
 
@@ -107,10 +115,38 @@ final class IncomingCallPanel: ObservableObject {
         // Размер берём у собранного окна, а не из константы: высота зависит от
         // содержимого, и посчитанное по константе размещение вылезало бы за
         // край экрана ровно на разницу.
+        //
+        // `layoutIfNeeded` окна для этого мало: высоту считает SwiftUI внутри
+        // `NSHostingController`, и до его прохода окно остаётся тем, каким его
+        // создали, — в одну точку высотой. Позиция, выбранная под такое окно,
+        // разрешает почти всю область по вертикали, и выросшее окно уходит за
+        // край ровно на свою высоту.
+        panel.contentViewController?.view.layoutSubtreeIfNeeded()
+        if let fitting = panel.contentViewController?.view.fittingSize, fitting.height > 1 {
+            panel.setContentSize(fitting)
+        }
         panel.layoutIfNeeded()
-        let origin = nextOrigin(forPanelSize: panel.frame.size, policy: policy)
+
+        let placement = placement(policy: policy)
+        self.placement = placement
+
+        let origin = nextOrigin(forPanelSize: panel.frame.size, placement: placement, policy: policy)
         panel.setFrameOrigin(origin)
         lastOrigin = origin
+
+        // Последний рубеж: любое изменение размера после размещения возвращает
+        // окно внутрь области. Высота приезжает от содержимого и может прийти
+        // позже — а окно, которое оператор не видит целиком, это не «мелкий
+        // огрех оформления», а непринятый лид.
+        resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            // Через `Task`, а не `MainActor.assumeIsolated`: тот появился в
+            // macOS 13, а срез x86_64 обязан работать на Catalina.
+            Task { @MainActor in self?.keepOnScreen() }
+        }
 
         // Именно regardless: обычный orderFront активировал бы приложение.
         panel.orderFrontRegardless()
@@ -121,6 +157,11 @@ final class IncomingCallPanel: ObservableObject {
 
     func hide() {
         stopWatchingCursor()
+        if let resizeObserver {
+            NotificationCenter.default.removeObserver(resizeObserver)
+        }
+        resizeObserver = nil
+        placement = nil
         if let guardSession {
             lastReport = guardSession.report
         }
@@ -213,21 +254,75 @@ final class IncomingCallPanel: ObservableObject {
 
     // MARK: - Позиционирование
 
-    private func nextOrigin(forPanelSize size: CGSize, policy: CallGuardPolicy) -> CGPoint {
-        // Экран под курсором, а не «главный»: оператор может работать на втором.
-        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
-            ?? NSScreen.main
-        guard let screen else { return .zero }
-
+    /// Область, в которой окну разрешено появиться на этом вызове.
+    private func placement(policy: CallGuardPolicy) -> IncomingCallPlacement {
         let policy = policy.normalized
-        let area = screen.visibleFrame.insetBy(dx: policy.screenMargin, dy: policy.screenMargin)
+        let area = Self.currentScreen().visibleFrame
+            .insetBy(dx: policy.screenMargin, dy: policy.screenMargin)
+        return IncomingCallPlacement(bounds: area, minimumTravel: policy.minimumTravel)
+    }
+
+    /// Экран, на котором работает оператор.
+    ///
+    /// Под курсором, а не «главный»: рабочее место вполне может быть на втором
+    /// мониторе, а `NSScreen.main` — это экран с ключевым окном, то есть чаще
+    /// всего тот, где стоит CRM, а не тот, куда смотрит человек.
+    ///
+    /// Поиск идёт не одним `contains`: `CGRect.contains` не считает своими
+    /// точки на верхней и правой кромке, а курсор в углу экрана — обычное дело.
+    /// Запасной вариант — экран, к которому курсор ближе всего: он всегда
+    /// осмысленнее, чем «главный».
+    private static func currentScreen() -> NSScreen {
+        let cursor = NSEvent.mouseLocation
+        let screens = NSScreen.screens
+
+        if let exact = screens.first(where: { $0.frame.contains(cursor) }) {
+            return exact
+        }
+        if let nearest = screens.min(by: {
+            distance(from: cursor, to: $0.frame) < distance(from: cursor, to: $1.frame)
+        }) {
+            return nearest
+        }
+        return NSScreen.main ?? NSScreen()
+    }
+
+    private static func distance(from point: CGPoint, to rect: CGRect) -> CGFloat {
+        let dx = max(rect.minX - point.x, 0, point.x - rect.maxX)
+        let dy = max(rect.minY - point.y, 0, point.y - rect.maxY)
+        return (dx * dx + dy * dy).squareRoot()
+    }
+
+    private func nextOrigin(
+        forPanelSize size: CGSize,
+        placement: IncomingCallPlacement,
+        policy: CallGuardPolicy
+    ) -> CGPoint {
+        let policy = policy.normalized
+        let area = placement.bounds
 
         guard policy.isEnabled, policy.isRandomPositionEnabled else {
             return CGPoint(x: area.midX - size.width / 2, y: area.midY - size.height / 2)
         }
 
         var generator = SystemRandomNumberGenerator()
-        let placement = IncomingCallPlacement(bounds: area, minimumTravel: policy.minimumTravel)
         return placement.origin(forPanelSize: size, previous: lastOrigin, using: &generator)
+    }
+
+    /// Возвращает окно внутрь области, если оно оттуда вылезло.
+    ///
+    /// Позиция при этом остаётся случайной: рамка не выбирается заново, а
+    /// вдвигается обратно ровно на столько, на сколько вылезла. Разбор — в
+    /// `IncomingCallPlacement.contained`, здесь только применение.
+    private func keepOnScreen() {
+        guard let panel, let placement else { return }
+
+        let corrected = placement.contained(panel.frame)
+        guard corrected.origin != panel.frame.origin else { return }
+
+        panel.setFrameOrigin(corrected.origin)
+        // Запоминаем поправленную точку, а не исходную: следующий вызов обязан
+        // отсчитывать смещение от того места, где окно оказалось на самом деле.
+        lastOrigin = corrected.origin
     }
 }
