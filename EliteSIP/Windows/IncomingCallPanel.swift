@@ -59,6 +59,7 @@ final class IncomingCallPanel: ObservableObject {
     func show(
         subject: IncomingCallSubject,
         policy: CallGuardPolicy,
+        log: (@MainActor (String) -> Void)? = nil,
         onAnswer: @escaping @MainActor () -> Void,
         onDecline: @escaping @MainActor () -> Void
     ) {
@@ -112,20 +113,26 @@ final class IncomingCallPanel: ObservableObject {
             .environmentObject(self)
         )
 
-        // Размер берём у собранного окна, а не из константы: высота зависит от
-        // содержимого, и посчитанное по константе размещение вылезало бы за
-        // край экрана ровно на разницу.
+        // Размер окна на этот момент — обещание, а не факт, и это стоило
+        // случайной позиции целиком.
         //
-        // `layoutIfNeeded` окна для этого мало: высоту считает SwiftUI внутри
-        // `NSHostingController`, и до его прохода окно остаётся тем, каким его
-        // создали, — в одну точку высотой. Позиция, выбранная под такое окно,
-        // разрешает почти всю область по вертикали, и выросшее окно уходит за
-        // край ровно на свою высоту.
+        // Замер живого окна: сразу после присвоения `contentViewController`
+        // рамка становится **нулевой** — 0×0, — и `layoutIfNeeded` окна её не
+        // чинит. Настоящий размер окно узнаёт только при показе, то есть уже
+        // после того, как позиция выбрана. Для расчёта это значило «окно нулевого
+        // размера»: разрешённой оказывалась вся область целиком, и окно вылезало
+        // за край ровно на свою ширину и высоту.
+        //
+        // Размер спрашивается у вёрстки напрямую (`layoutSubtreeIfNeeded` плюс
+        // `fittingSize`) и ставится окну до расчёта. Ширина при этом известна и
+        // так — окно фиксированной ширины, — но брать её константой мало:
+        // ошибка была в обеих осях сразу.
         panel.contentViewController?.view.layoutSubtreeIfNeeded()
-        if let fitting = panel.contentViewController?.view.fittingSize, fitting.height > 1 {
-            panel.setContentSize(fitting)
-        }
-        panel.layoutIfNeeded()
+        let fitting = panel.contentViewController?.view.fittingSize ?? .zero
+        panel.setContentSize(CGSize(
+            width: Theme.Metrics.incomingCallPanelWidth,
+            height: max(fitting.height, 1)
+        ))
 
         let placement = placement(policy: policy)
         self.placement = placement
@@ -133,6 +140,11 @@ final class IncomingCallPanel: ObservableObject {
         let origin = nextOrigin(forPanelSize: panel.frame.size, placement: placement, policy: policy)
         panel.setFrameOrigin(origin)
         lastOrigin = origin
+
+        // До показа, а не после: последний рубеж читает именно это свойство, и
+        // изменение размера в момент показа заставало его пустым — то есть
+        // рубеж молча пропускал ровно тот случай, ради которого заведён.
+        self.panel = panel
 
         // Последний рубеж: любое изменение размера после размещения возвращает
         // окно внутрь области. Высота приезжает от содержимого и может прийти
@@ -151,8 +163,29 @@ final class IncomingCallPanel: ObservableObject {
         // Именно regardless: обычный orderFront активировал бы приложение.
         panel.orderFrontRegardless()
 
-        self.panel = panel
+        // Показ — единственный момент, когда окно точно знает свой размер.
+        // Проверка здесь дешевле любого рассуждения о том, успела ли вёрстка.
+        keepOnScreen()
+
+        log?(placementSummary(panel: panel, placement: placement))
+
         startWatchingCursor()
+    }
+
+    /// Строка для журнала: где окно оказалось и в какой области его держали.
+    ///
+    /// Пишется на каждом вызове, потому что случайная позиция — мера защиты, а
+    /// не оформление: её поломка не видна ни по одному другому признаку, и
+    /// разбирать жалобу «окно уехало» по памяти оператора нечем.
+    private func placementSummary(panel: NSPanel, placement: IncomingCallPlacement) -> String {
+        let frame = panel.frame
+        let area = placement.bounds
+        let fits = area.contains(frame) ? "внутри" : "ВЫШЛО ЗА ОБЛАСТЬ"
+        return "окно входящего: рамка \(Self.short(frame)), область \(Self.short(area)) — \(fits)"
+    }
+
+    private static func short(_ rect: CGRect) -> String {
+        "(\(Int(rect.minX)), \(Int(rect.minY)), \(Int(rect.width))×\(Int(rect.height)))"
     }
 
     func hide() {

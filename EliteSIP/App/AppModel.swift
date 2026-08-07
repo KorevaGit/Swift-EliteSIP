@@ -1824,6 +1824,7 @@ final class AppModel: ObservableObject {
         incomingCallPanel.show(
             subject: incomingSubject(for: call),
             policy: settings.incomingCall,
+            log: { [weak self] message in self?.append(level: .debug, message: message) },
             onAnswer: { [weak self] in
                 Task { await self?.answerIncomingCall() }
             },
