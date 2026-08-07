@@ -624,9 +624,9 @@ final class HistorySnapshotAnchor {
         // — а весь текст пропал. SwiftUI держит надписи в содержимом слоёв, и
         // через путь рисования AppKit они не проходят вовсе. Отрисовка слоя
         // забирает и то и другое.
-        guard let rendered = Self.render(layer: layer, size: whole.size, scale: scale) else {
-            return nil
-        }
+        guard let rendered = Self.render(
+            layer: layer, size: whole.size, scale: scale, isFlipped: content.isFlipped
+        ) else { return nil }
 
         // Обрезка в пикселях. У `CGImage` начало координат сверху слева, а у
         // вьюхи — снизу слева, если она не перевёрнута; `NSHostingView`
@@ -645,7 +645,20 @@ final class HistorySnapshotAnchor {
     }
 
     /// Рисует слой целиком в свой контекст.
-    private static func render(layer: CALayer, size: CGSize, scale: CGFloat) -> CGImage? {
+    /// Рисует слой целиком в свой контекст.
+    ///
+    /// **Переворот обязателен для перевёрнутой вьюхи.** У `CGContext` начало
+    /// координат внизу слева, у `NSHostingView` — вверху слева, и `render(in:)`
+    /// эту разницу не сглаживает: без переворота снимок выходит вверх ногами.
+    /// Живая проверка показала это вдвойне — перевёрнутое изображение потом
+    /// резалось по координатам, отсчитанным сверху, и в кадр попадала зеркальная
+    /// область, то есть ряд кнопок вместо конца списка.
+    private static func render(
+        layer: CALayer,
+        size: CGSize,
+        scale: CGFloat,
+        isFlipped: Bool
+    ) -> CGImage? {
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(
                 data: nil,
@@ -659,6 +672,10 @@ final class HistorySnapshotAnchor {
         else { return nil }
 
         context.scaleBy(x: scale, y: scale)
+        if isFlipped {
+            context.translateBy(x: 0, y: size.height)
+            context.scaleBy(x: 1, y: -1)
+        }
         layer.render(in: context)
         return context.makeImage()
     }
