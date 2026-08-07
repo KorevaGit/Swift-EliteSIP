@@ -183,31 +183,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ),
             display: false
         )
-        restorePosition(of: window)
+        restoreFrame(
+            of: window,
+            autosaveName: Self.phoneWindowAutosaveName,
+            defaultContentSize: CGSize(
+                width: Theme.Metrics.panelWidth,
+                height: Theme.Metrics.panelInitialHeight
+            )
+        )
 
         phoneWindow = window
         window.makeKeyAndOrderFront(nil)
     }
 
-    /// Имя, под которым AppKit хранит позицию панели между запусками.
+    /// Имя, под которым AppKit хранит кадр панели между запусками.
     private static let phoneWindowAutosaveName = "EliteSIPPhonePanel"
+    /// То же для окна «Управление».
+    private static let administrationWindowAutosaveName = "EliteSIPAdministration"
 
-    /// Возвращает панель туда, где её оставили.
+    /// Возвращает окно туда, где его оставили.
     ///
-    /// Место для панели оператор выбирает один раз, а центр экрана — это место,
-    /// выбранное за него. Хранит позицию AppKit сам, от нас нужно только имя и
-    /// проверка на исчезнувший монитор.
-    private func restorePosition(of window: NSWindow) {
-        let restored = window.setFrameUsingName(Self.phoneWindowAutosaveName)
-        window.setFrameAutosaveName(Self.phoneWindowAutosaveName)
+    /// Место оператор выбирает один раз, а центр экрана — это место, выбранное
+    /// за него. Хранит кадр AppKit сам, от нас нужно только имя, размер по
+    /// умолчанию для первого запуска и проверка на исчезнувший монитор.
+    ///
+    /// Панели важна только позиция: высоту она считает сама из числа макросов и
+    /// ставит окну через `PanelHeight`. «Управлению» важны обе величины —
+    /// разделы просят от 245 до 730 точек высоты, угодить всем одним числом
+    /// нельзя, и последнее слово остаётся за человеком.
+    private func restoreFrame(
+        of window: NSWindow,
+        autosaveName: String,
+        defaultContentSize: CGSize
+    ) {
+        let restored = window.setFrameUsingName(autosaveName)
+        window.setFrameAutosaveName(autosaveName)
 
-        // Сохранённая позиция могла остаться от внешнего монитора, которого
-        // сейчас нет: ноутбук отключили от дока, и панель уехала за пределы
-        // единственного экрана — то есть исчезла. Проверяем не «попала ли она
-        // на экран целиком», а «видно ли её вообще»: частично уехавшее окно
-        // оператор дотащит сам, а полностью пропавшее — нет.
+        // Сохранённый кадр мог остаться от внешнего монитора, которого сейчас
+        // нет: ноутбук отключили от дока, и окно уехало за пределы
+        // единственного экрана — то есть исчезло. Проверяем не «попало ли оно
+        // на экран целиком», а «видно ли его вообще»: частично уехавшее окно
+        // человек дотащит сам, а полностью пропавшее — нет.
         let isVisible = NSScreen.screens.contains { $0.visibleFrame.intersects(window.frame) }
         guard restored, isVisible else {
+            window.setContentSize(defaultContentSize)
             window.center()
             return
         }
@@ -378,20 +397,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentViewController = NSHostingController(
             rootView: withEnvironment(AdministrationWindowView())
         )
-        // Размер задаётся после контроллера, а не в `contentRect`.
+        // Кадр восстанавливается после контроллера, а не задаётся в
+        // `contentRect`.
         //
         // `NSHostingController` пересчитывает окно под идеальный размер
         // содержимого, и тот равен минимуму: строки прижаты влево и растягивать
         // себя не просят. Живое окно из-за этого открывалось на 780 — то есть
         // всегда в одну колонку, и вторая контрольная ширина не показывалась
         // никому, пока окно не потянут мышью.
-        window.setContentSize(
-            CGSize(
+        //
+        // Дальше размер помнит AppKit: разделы просят от 245 до 730 точек
+        // высоты, одним числом всем не угодить, и последнее слово остаётся за
+        // тем, кто окно тянул.
+        restoreFrame(
+            of: window,
+            autosaveName: Self.administrationWindowAutosaveName,
+            defaultContentSize: CGSize(
                 width: Theme.Metrics.adminIdealWidth,
                 height: Theme.Metrics.adminIdealHeight
             )
         )
-        window.center()
         window.delegate = self
 
         administrationWindow = window

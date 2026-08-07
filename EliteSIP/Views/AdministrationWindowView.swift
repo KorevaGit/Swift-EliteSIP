@@ -79,6 +79,13 @@ struct AdministrationWindowView: View {
                 .themedPanelSurface(cornerRadius: 0)
                 .compatIgnoreSafeArea()
         }
+        // Заголовок окна — имя раздела, как у Finder имя текущей папки.
+        //
+        // Постоянное «Управление EliteSIP» отвечало на «какое это окно», но в
+        // переключателе окон и в Mission Control этого мало: разделов девять, и
+        // человек ищет тот, где он был. Тем же `WindowTitle`, что у истории с
+        // именем профиля, — второго способа менять заголовок в приложении нет.
+        .compatBackground { WindowTitle(title: section.title) }
     }
 
     /// Единственный порог перестроения, считанный от ширины окна.
@@ -151,7 +158,10 @@ struct AdministrationWindowView: View {
         var group: String? {
             switch self {
             case .account: "Рабочее место"
-            case .macros: "Обслуживание вызова"
+            // «Вызов», а не «Обслуживание вызова»: прежнее занимало 133 точки —
+            // на 44 больше самого длинного своего пункта — и в одиночку держало
+            // ширину всей панели.
+            case .macros: "Вызов"
             case .history: "Машина"
             default: nil
             }
@@ -206,26 +216,23 @@ struct AdministrationWindowView: View {
     }
 
     private func sidebarRow(_ item: Section) -> some View {
-        Button {
+        let isSelected = section == item
+        return Button {
             section = item
         } label: {
             HStack(spacing: Theme.Metrics.elementSpacing) {
-                CompatSymbol(name: item.symbol, size: Theme.Icon.large)
-                    // Значок выбранного берёт акцент, как в системном сайдбаре:
-                    // подпись при этом остаётся обычной, и строка не начинает
-                    // кричать целиком.
-                    .compatForeground(
-                        section == item ? Color.accentColor : Theme.Palette.textSecondary
-                    )
+                // Значок и подпись одного тона, как в системном сайдбаре.
+                //
+                // До этого невыбранные значки брали вторичный цвет, и половина
+                // списка читалась погашенной — будто эти разделы недоступны. У
+                // Finder и Music невыбранный значок белый наравне с подписью, а
+                // акцент достаётся только выбранному, и достаётся обоим.
+                CompatSymbol(name: item.symbol, size: Theme.Icon.sidebar)
+                    .compatForeground(isSelected ? Color.accentColor : Theme.Palette.textPrimary)
 
                 Text(item.title)
                     .lineLimit(1)
-                    // Акцент достаётся и подписи, как в системном сайдбаре:
-                    // один только цветной значок при нейтральной заливке читался
-                    // слабее, чем выбранная строка у Finder.
-                    .compatForeground(
-                        section == item ? Color.accentColor : Theme.Palette.textPrimary
-                    )
+                    .compatForeground(isSelected ? Color.accentColor : Theme.Palette.textPrimary)
 
                 Spacer(minLength: 0)
 
@@ -243,7 +250,8 @@ struct AdministrationWindowView: View {
                         )
                 }
             }
-            .padding(.horizontal, Theme.Metrics.sectionSpacing)
+            .font(.system(size: Theme.Metrics.adminSidebarFontSize))
+            .padding(.horizontal, Theme.Metrics.adminSidebarRowPadding)
             .frame(height: Theme.Metrics.adminSidebarRowHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .compatBackground {
@@ -253,7 +261,7 @@ struct AdministrationWindowView: View {
                 // цвет текста не меняет, и на светлом акценте подпись стала бы
                 // нечитаемой.
                 RoundedRectangle(cornerRadius: Theme.Metrics.adminSidebarRadius)
-                    .fill(section == item ? Theme.Palette.sidebarSelection(scheme) : .clear)
+                    .fill(isSelected ? Theme.Palette.sidebarSelection(scheme) : .clear)
             }
             // Нажатие ловит вся плашка, а не только буквы со значком.
             //
@@ -266,7 +274,7 @@ struct AdministrationWindowView: View {
         .buttonStyle(.plain)
         .hoverHighlight(
             cornerRadius: Theme.Metrics.adminSidebarRadius,
-            isEnabled: section != item
+            isEnabled: !isSelected
         )
     }
 
