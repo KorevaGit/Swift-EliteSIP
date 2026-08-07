@@ -350,6 +350,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+    /// Владелец выбранного раздела «Управления».
+    ///
+    /// Живёт у делегата, а не во вью: окно собрано `NSSplitViewController`, и
+    /// его половины — два разных `NSHostingController` с двумя деревьями
+    /// SwiftUI. Общее состояние им негде держать, кроме как снаружи.
+    private var administrationRouter: AdministrationRouter?
+
     /// Открывает «Управление». Вызывается кнопкой уже после проверки пароля.
     @objc func showAdministrationWindow(_ sender: Any?) {
         if let administrationWindow {
@@ -369,13 +376,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settingsWindow.close()
         }
 
-        // Тот же рецепт стекла, что у панели, настроек и истории. Раньше окно
-        // было единственным непрозрачным из четырёх, и это читалось как
-        // забытое, а не как решение.
+        let router = AdministrationRouter()
+        administrationRouter = router
+
+        // Сайдбар — системный, а не нарисованный нами.
         //
-        // Ловушка с безопасной зоной здесь не срабатывает по той же причине,
-        // что и у истории: размер окна свой и меняется мышью, а не выводится из
-        // идеальной высоты содержимого. Сходиться нечему.
+        // `NSSplitViewItem.sidebar` есть с 10.11, то есть работает и на
+        // Catalina, и это тот же кит, на котором стоят сайдбары Finder и Music.
+        // Он берёт на себя всё, что мы до этого повторяли руками:
+        // полупрозрачную подложку, полную высоту от полосы заголовка до низа
+        // окна, поведение при изменении размера и стекло на macOS 26. Своей
+        // подложки во вью после этого быть не должно — двойной материал даёт
+        // муть там, где обещано стекло.
+        let sidebar = NSSplitViewItem(
+            sidebarWithViewController: NSHostingController(
+                rootView: withEnvironment(AdministrationSidebarView().environmentObject(router))
+            )
+        )
+        // Ширина фиксированная: список не тянется вместе с окном, иначе на
+        // широком мониторе девять коротких названий разъезжаются по полосе в
+        // треть экрана. Схлопывание выключено — девять разделов обязаны быть
+        // видны все сразу.
+        sidebar.minimumThickness = Theme.Metrics.adminSidebarWidth
+        sidebar.maximumThickness = Theme.Metrics.adminSidebarWidth
+        sidebar.canCollapse = false
+        if #available(macOS 11.0, *) {
+            // Черты под полосой заголовка нет: содержимое и так отделено от неё
+            // воздухом, а линия поперёк стекла читается как шов.
+            sidebar.titlebarSeparatorStyle = .none
+        }
+
+        let content = NSSplitViewItem(
+            viewController: NSHostingController(
+                rootView: withEnvironment(AdministrationContentView().environmentObject(router))
+            )
+        )
+        if #available(macOS 11.0, *) {
+            content.titlebarSeparatorStyle = .none
+        }
+
+        let split = NSSplitViewController()
+        split.addSplitViewItem(sidebar)
+        split.addSplitViewItem(content)
+
+        // Тот же рецепт стекла, что у панели, настроек и истории, плюс
+        // `.fullSizeContentView`: без него сайдбар не уйдёт под полосу
+        // заголовка, и светофор повиснет над обычным фоном окна.
         let window = NSWindow(
             contentRect: CGRect(
                 origin: .zero,
@@ -391,24 +437,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.title = "Управление EliteSIP"
         window.titleVisibility = .visible
         window.titlebarAppearsTransparent = true
-        window.isOpaque = false
-        window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(
-            rootView: withEnvironment(AdministrationWindowView())
+        window.contentViewController = split
+        window.contentMinSize = CGSize(
+            width: Theme.Metrics.adminMinWidth,
+            height: Theme.Metrics.adminMinHeight
         )
-        // Кадр восстанавливается после контроллера, а не задаётся в
-        // `contentRect`.
-        //
-        // `NSHostingController` пересчитывает окно под идеальный размер
-        // содержимого, и тот равен минимуму: строки прижаты влево и растягивать
-        // себя не просят. Живое окно из-за этого открывалось на 780 — то есть
-        // всегда в одну колонку, и вторая контрольная ширина не показывалась
-        // никому, пока окно не потянут мышью.
-        //
-        // Дальше размер помнит AppKit: разделы просят от 245 до 730 точек
-        // высоты, одним числом всем не угодить, и последнее слово остаётся за
-        // тем, кто окно тянул.
+        if #available(macOS 11.0, *) {
+            window.titlebarSeparatorStyle = .none
+        }
+
+        // Кадр помнит AppKit: разделы просят от 245 до 730 точек высоты, одним
+        // числом всем не угодить, и последнее слово остаётся за тем, кто окно
+        // тянул.
         restoreFrame(
             of: window,
             autosaveName: Self.administrationWindowAutosaveName,
@@ -525,6 +566,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         if closing === administrationWindow {
             administrationWindow = nil
+            administrationRouter = nil
             // Черновик мог остаться открытым, если окно закрыли не через
             // `windowShouldClose` — например, вместе с приложением. Правки в
             // этом случае не применяются: несохранённое остаётся несохранённым.
