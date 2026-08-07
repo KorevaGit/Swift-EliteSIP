@@ -19,7 +19,7 @@ enum IncomingCallSubject: Equatable {
     /// Раздача из очереди. Номер не показывается вовсе: он один и тот же.
     case queue(title: String)
 
-    /// Обычный звонок: номер главным, имя под ним, если сервер его прислал.
+    /// Обычный звонок: имя главным, номер под ним. Имени нет — номер главным.
     case caller(number: String, name: String?)
 
     /// Разбор того, что пришло в INVITE, по словарю очередей.
@@ -156,17 +156,26 @@ struct IncomingCallView: View {
                 .minimumScaleFactor(0.6)
 
         case .caller(let number, let name):
+            // Имя главным, номер под ним. Имя отвечает на «кто звонит», номер —
+            // только на «откуда»: увидев «IT_test», оператор знает, с чем к нему
+            // идут, а «172» ему сначала нужно вспомнить. Когда имени нет,
+            // главным становится номер: пустого главного места не бывает.
             VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
-                Text(number)
-                    .font(Theme.Text.incomingTitle)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-
                 if let name, !name.isEmpty {
                     Text(name)
+                        .font(Theme.Text.incomingTitle)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+
+                    Text(number)
                         .font(Theme.Text.incomingLine)
                         .compatForeground(.secondary)
                         .lineLimit(1)
+                } else {
+                    Text(number)
+                        .font(Theme.Text.incomingTitle)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
             }
         }
