@@ -47,6 +47,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// смотрит сам, а закрыта в ней только настройка срока хранения.
     private var callHistoryWindow: NSWindow?
 
+    /// Окно живой трассы SIP.
+    ///
+    /// Своё окно с этапа 5: внутри «Диагностики» трассу нельзя было ни
+    /// растянуть под длинные строки, ни оставить открытой на время звонка — а
+    /// нужна она ровно тогда.
+    private var sipTraceWindow: NSWindow?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Тема — до первого окна: иначе панель успевает нарисоваться в
         // системном оформлении и перекрашивается уже на глазах.
@@ -211,6 +218,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// цепочке ответчиков, поэтому окно открывает один и тот же код — и пункт
     /// меню, и кнопка.
     @objc func showSettingsWindow(_ sender: Any?) {
+        // Пока открыто «Управление», менеджерских настроек нет (этап 5).
+        //
+        // Оба окна пишут в один `settings`, запись придержана для всего сразу, и
+        // «Отменить» молча откатило бы выбор, сделанный в соседнем окне. Раньше
+        // ловушку можно было обойти дублем менеджерских настроек внутри
+        // «Управления»; после удаления дублей обойти нельзя.
+        //
+        // Молчать при этом нельзя: непонятно погасшее ⌘, читается как поломка.
+        // Поэтому вместо тишины вперёд выходит то окно, которое и мешает.
+        if let administrationWindow {
+            administrationWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
         if let settingsWindow {
             settingsWindow.makeKeyAndOrderFront(nil)
             return
@@ -319,21 +340,94 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         model.beginAdministration()
 
+        // Менеджерское окно на это время закрывается: с этапа 5 его настроек в
+        // «Управлении» нет вовсе, и оставленное открытым соседнее окно правило
+        // бы тот же придержанный `settings` — а «Отменить» откатывало бы и его
+        // правки, ничего об этом не сказав.
+        if let settingsWindow {
+            self.settingsWindow = nil
+            settingsWindow.delegate = nil
+            settingsWindow.close()
+        }
+
+        // Тот же рецепт стекла, что у панели, настроек и истории. Раньше окно
+        // было единственным непрозрачным из четырёх, и это читалось как
+        // забытое, а не как решение.
+        //
+        // Ловушка с безопасной зоной здесь не срабатывает по той же причине,
+        // что и у истории: размер окна свой и меняется мышью, а не выводится из
+        // идеальной высоты содержимого. Сходиться нечему.
         let window = NSWindow(
-            contentRect: CGRect(origin: .zero, size: CGSize(width: 700, height: 540)),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: CGRect(
+                origin: .zero,
+                size: CGSize(
+                    width: Theme.Metrics.adminIdealWidth,
+                    height: Theme.Metrics.adminIdealHeight
+                )
+            ),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Управление EliteSIP"
+        window.titleVisibility = .visible
+        window.titlebarAppearsTransparent = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
             rootView: withEnvironment(AdministrationWindowView())
+        )
+        // Размер задаётся после контроллера, а не в `contentRect`.
+        //
+        // `NSHostingController` пересчитывает окно под идеальный размер
+        // содержимого, и тот равен минимуму: строки прижаты влево и растягивать
+        // себя не просят. Живое окно из-за этого открывалось на 780 — то есть
+        // всегда в одну колонку, и вторая контрольная ширина не показывалась
+        // никому, пока окно не потянут мышью.
+        window.setContentSize(
+            CGSize(
+                width: Theme.Metrics.adminIdealWidth,
+                height: Theme.Metrics.adminIdealHeight
+            )
         )
         window.center()
         window.delegate = self
 
         administrationWindow = window
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Открывает живую трассу SIP.
+    ///
+    /// Своим окном, а не разделом «Диагностики» (этап 5): трассу растягивают
+    /// под длинные строки и держат открытой во время звонка, а раздел настроек
+    /// закрывается вместе со всем черновиком.
+    @objc func showSIPTraceWindow(_ sender: Any?) {
+        if let sipTraceWindow {
+            sipTraceWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: CGSize(width: 760, height: 420)),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Трасса SIP"
+        window.titleVisibility = .visible
+        window.titlebarAppearsTransparent = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.isReleasedWhenClosed = false
+        window.contentViewController = NSHostingController(
+            rootView: withEnvironment(SIPTraceWindowView())
+        )
+        window.center()
+        window.delegate = self
+
+        sipTraceWindow = window
         window.makeKeyAndOrderFront(nil)
     }
 
@@ -410,6 +504,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // `windowShouldClose` — например, вместе с приложением. Правки в
             // этом случае не применяются: несохранённое остаётся несохранённым.
             model.cancelAdministration()
+            // Режим гасится здесь же: до этапа 5 его гасило закрытие
+            // менеджерского окна, а оно теперь закрывается раньше — при входе
+            // в «Управление». Без этого рабочее место оставалось бы открытым
+            // после того, как администратор ушёл.
+            model.lockAdministration()
+        }
+
+        // Трасса живёт сама по себе: её открывают ради звонка, а не ради
+        // настроек, и закрывать её вместе с «Управлением» незачем.
+        if closing === sipTraceWindow {
+            sipTraceWindow = nil
         }
     }
 

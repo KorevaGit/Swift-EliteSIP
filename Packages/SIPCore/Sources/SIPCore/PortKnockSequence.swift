@@ -30,7 +30,13 @@ public enum SIPPathOpenReason: Sendable, Hashable {
 /// `payloadBytes` — это `-s`, то есть данные ICMP без восьмибайтового
 /// заголовка, ровно как их считает `ping`. Именно длина и есть подпись:
 /// правило на шлюзе смотрит на размер пакета, а не на содержимое.
-public struct PortKnockStep: Sendable, Hashable, Codable {
+public struct PortKnockStep: Sendable, Hashable, Codable, Identifiable {
+
+    /// Опознаётся так же, как макрос и очередь: своим `id`, а не местом в
+    /// массиве. Редактору это нужно по существу — порядок шагов значим, и
+    /// строка, привязанная к индексу, после удаления соседа начинает править
+    /// чужой шаг.
+    public var id: UUID = UUID()
 
     /// Куда стучать. Пустая строка означает «хост сервера из профиля» — в
     /// скрипте это `crm.elitesochi.com`, но зашивать его в код нельзя: на
@@ -51,6 +57,10 @@ public struct PortKnockStep: Sendable, Hashable, Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Старый файл `id` не содержит, и это не повод его отвергать: свежий
+        // опознаватель ничем не хуже — он всё равно живёт только в памяти этого
+        // запуска.
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         host = try container.decodeIfPresent(String.self, forKey: .host) ?? ""
         payloadBytes = try container.decode(Int.self, forKey: .payloadBytes)
         count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 1

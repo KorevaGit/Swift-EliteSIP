@@ -1,11 +1,16 @@
 import AdminAccess
 import SwiftUI
 
-/// Вкладка «Доступ»: пароль администратора и то, кто управляет настройками.
+/// Раздел «Доступ»: пароль администратора и то, кто управляет настройками.
 ///
-/// Видна только в открытом режиме — то есть либо тому, кто знает пароль, либо
+/// Виден только в открытом режиме — то есть либо тому, кто знает пароль, либо
 /// на машине, где пароля ещё нет. Второе и есть обычный путь установки: свежее
 /// рабочее место настраивают целиком, а пароль ставят последним действием.
+///
+/// Состав этап 5 не менял: под файл конфигурации (M8) и обновления (M7h) место
+/// в разделе оставлено, но неактивных строк не заведено. Погашенное читается
+/// как «сломалось», а не как «будет позже», — та же причина, по которой у
+/// менеджера нет погашенных вкладок.
 struct AdministrationTab: View {
 
     @EnvironmentObject private var model: AppModel
@@ -16,12 +21,15 @@ struct AdministrationTab: View {
     @State private var confirmation: String?
 
     var body: some View {
-        Form {
-            Section(header: Text("Кто управляет настройками")) {
-                CompatLabeledContent("Режим", value: model.adminAccess.management.title)
-                Text(model.adminAccess.management.explanation)
-                    .font(.footnote)
-                    .compatForeground(.secondary)
+        SettingsSection("Кто управляет настройками") {
+            SettingsRow("Режим") {
+                Text(model.adminAccess.management.title)
+                    .compatForeground(Theme.Palette.textSecondary)
+            }
+
+            SettingsNote(model.adminAccess.management.explanation)
+
+            SettingsIndented {
                 MilestoneNote("""
                     Значение меняется само: любое сохранение в этом окне объявляет \
                     настройки локальными. Второе значение — «настройки из файла \
@@ -30,65 +38,72 @@ struct AdministrationTab: View {
                     будет только повторной загрузкой файла.
                     """)
             }
+        }
 
-            Section(header: Text("Пароль администратора")) {
+        SettingsSection("Пароль администратора") {
+            SettingsIndented {
                 if model.isAdministrationProtectedIncludingDraft {
                     CompatLabel(title: "Пароль задан, закрытая часть закрыта", symbol: "lock.shield.fill")
                         .compatForeground(Theme.Palette.registered)
                 } else {
                     CompatLabel(
-                        title: "Пароль не задан — эти вкладки видит любой, кто откроет настройки",
+                        title: "Пароль не задан — это окно откроет любой",
                         symbol: "exclamationmark.triangle.fill"
                     )
                     .compatForeground(Theme.Palette.failure)
                 }
+            }
 
-                SecureField("Новый пароль", text: $newPassword)
-                SecureField("Ещё раз", text: $repeatedPassword)
+            SettingsRow("Новый пароль") {
+                SecureField("", text: $newPassword)
+                    .labelsHidden()
+                    .frame(maxWidth: 220)
+            }
 
-                HStack {
-                    Button(model.isAdministrationProtectedIncludingDraft ? "Сменить пароль" : "Задать пароль") {
-                        applyPassword()
-                    }
-                    .compatProminentButtonStyle()
-                    .disabled(newPassword.isEmpty || newPassword != repeatedPassword)
+            SettingsRow("Ещё раз") {
+                SecureField("", text: $repeatedPassword)
+                    .labelsHidden()
+                    .frame(maxWidth: 220)
+            }
 
-                    Button("Снять пароль") { removePassword() }
-                        .disabled(!model.isAdministrationProtectedIncludingDraft)
-                        .compatHelp("Настройки станут доступны всем без вопросов")
-
-                    Spacer()
+            SettingsButtonsRow {
+                Button(model.isAdministrationProtectedIncludingDraft ? "Сменить пароль" : "Задать пароль") {
+                    applyPassword()
                 }
+                .compatProminentButtonStyle()
+                .disabled(newPassword.isEmpty || newPassword != repeatedPassword)
 
-                if model.pendingAdminPassword != nil || model.pendingAdminPasswordRemoval {
+                Button("Снять пароль") { removePassword() }
+                    .disabled(!model.isAdministrationProtectedIncludingDraft)
+                    .compatHelp("Настройки станут доступны всем без вопросов")
+            }
+
+            if model.pendingAdminPassword != nil || model.pendingAdminPasswordRemoval {
+                SettingsIndented {
                     CompatLabel(
                         title: "Применится при сохранении настроек",
                         symbol: "exclamationmark.triangle"
                     )
                     .font(.footnote)
-                    .compatForeground(.orange)
-                }
-
-                if !newPassword.isEmpty && newPassword != repeatedPassword {
-                    Text("Пароли не совпадают.")
-                        .font(.footnote)
-                        .compatForeground(Theme.Palette.failure)
-                }
-
-                if let problem {
-                    Text(problem)
-                        .font(.footnote)
-                        .compatForeground(Theme.Palette.failure)
-                }
-
-                if let confirmation {
-                    Text(confirmation)
-                        .font(.footnote)
-                        .compatForeground(.secondary)
+                    .compatForeground(Theme.Palette.unsaved)
                 }
             }
 
-            Section(header: Text("Забытый пароль")) {
+            if !newPassword.isEmpty && newPassword != repeatedPassword {
+                SettingsNote("Пароли не совпадают.", isAlarming: true)
+            }
+
+            if let problem {
+                SettingsNote(problem, isAlarming: true)
+            }
+
+            if let confirmation {
+                SettingsNote(confirmation)
+            }
+        }
+
+        SettingsSection("Забытый пароль") {
+            SettingsIndented {
                 MilestoneNote("""
                     Пароль восстанавливается кодом из \(RecoveryCode.length) цифр: в окне \
                     входа — «Ввести код восстановления». Код показывает действующий \
@@ -101,21 +116,21 @@ struct AdministrationTab: View {
                     у каждого рабочего места.
                     """)
             }
-
-            Section(header: Text("Что закрыто")) {
-                Text("""
-                    Аккаунты и профили целиком, макросы DTMF, политика защиты от \
-                    автокликеров, TLS без проверки сертификата и диагностика.
-
-                    Менеджеру остаются устройства и громкость, рингтон, выбор профиля и \
-                    переключение офис ↔ удалённо, «Исправить сеть», самопроверка голоса \
-                    и сбор логов для поддержки.
-                    """)
-                .font(.footnote)
-                .compatForeground(.secondary)
-            }
         }
-        .compatGroupedForm()
+
+        SettingsSection("Что закрыто") {
+            SettingsNote("""
+                Профили и учётная запись целиком, коды АТС, адреса площадок и стук, макросы, \
+                политика защиты от автокликеров, TLS без проверки сертификата, словарь очередей, \
+                срок хранения истории, диагностика и обслуживание машины.
+                """)
+
+            SettingsNote("""
+                Менеджеру остаются устройства и громкость, рингтон, выбор профиля и переключение \
+                офис ↔ удалённо, «Исправить сеть», самопроверка голоса, тема оформления и сбор \
+                логов для поддержки.
+                """)
+        }
     }
 
     /// Пароль уходит в черновик, а не в настройки: применит его кнопка

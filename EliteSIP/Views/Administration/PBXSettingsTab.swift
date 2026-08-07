@@ -1,0 +1,242 @@
+import SIPCore
+import SwiftUI
+
+/// Раздел «АТС»: всё, что задано не нами, а сервером заказчика.
+///
+/// Собран в этапе 5 из трёх разных мест. Коды конференции лежали в «Тонах» —
+/// рядом с длительностью тона в миллисекундах, куда попали лишь потому, что
+/// задаются DTMF-строкой. Широкая полоса лежала в «Звуке», хотя это не про
+/// наушники, а про то, что мы предлагаем серверу в SDP. Адреса площадок
+/// показывались подписью под кнопками и не правились вовсе, а последовательности
+/// стука не было в интерфейсе ни на чтение, ни на правку.
+///
+/// Общее у них одно: сверяются они не с рабочим местом, а с чужим сервером, и
+/// сверяются вместе — одним заходом к администратору Asterisk.
+struct PBXSettingsTab: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        SettingsSection("Конференция") {
+            SettingsRow("Feature-code") {
+                TextField("", text: Binding(
+                    get: { model.settings.conference.featureCode },
+                    set: { model.settings.conference.featureCode = $0 }
+                ))
+                .labelsHidden()
+                .font(.system(.body, design: .monospaced))
+                .frame(width: 90)
+            }
+
+            SettingsRow("Добавочный комнаты") {
+                TextField("", text: Binding(
+                    get: { model.settings.conference.roomExtension },
+                    set: { model.settings.conference.roomExtension = $0 }
+                ))
+                .labelsHidden()
+                .font(.system(.body, design: .monospaced))
+                .frame(width: 90)
+            }
+
+            if !model.settings.conference.isUsable {
+                SettingsNote(
+                    "Код должен содержать только DTMF-символы и хотя бы один тон.",
+                    isAlarming: true
+                )
+            }
+
+            SettingsNote("""
+                Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора \
+                в ConfBridge. В лаборатории это *3; боевой код нужно сверить с features.conf — \
+                в выводе «core show features» с боевого сервера конференции нет вовсе.
+                """)
+        }
+
+        SettingsSection("Кодеки") {
+            SettingsToggleRow("Предлагать широкую полосу (G.722)", isOn: Binding(
+                get: { model.settings.audio.prefersWideband },
+                set: { model.settings.audio.prefersWideband = $0 }
+            ))
+
+            SettingsNote("""
+                Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется \
+                со списком кодеков добавочного на АТС, а не с наушниками оператора.
+                """)
+        }
+
+        SiteAddressesSection()
+        PortKnockSection()
+    }
+}
+
+// MARK: - Адреса площадок
+
+/// Адрес АТС изнутри и снаружи.
+///
+/// До этапа 5 показывались подписью под кнопками рабочего места, только на
+/// чтение. Смена адреса у заказчика чинилась бы правкой `settings.json` руками
+/// на каждой машине — то есть выездом к каждой.
+private struct SiteAddressesSection: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        SettingsSection("Адреса площадок") {
+            SettingsRow("Офис") {
+                TextField("", text: Binding(
+                    get: { model.settings.siteAddresses.office },
+                    set: { model.settings.siteAddresses.office = $0 }
+                ))
+                .labelsHidden()
+            }
+
+            SettingsRow("Удалённо") {
+                TextField("", text: Binding(
+                    get: { model.settings.siteAddresses.remote },
+                    set: { model.settings.siteAddresses.remote = $0 }
+                ))
+                .labelsHidden()
+            }
+
+            SettingsNote("""
+                Изнутри и снаружи это один и тот же сервер, но разные адреса. По ним же \
+                приложение решает, нужен ли стук, когда рабочее место профиля определяется \
+                автоматически.
+                """)
+        }
+    }
+}
+
+// MARK: - Стук
+
+/// Последовательность ICMP-пакетов, открывающая дорогу до АТС.
+///
+/// Самый опасный редактор в окне: ошибка в одной цифре обрывает связь всем
+/// удалённым сотрудникам, и проявится она не сообщением, а тем, что регистрация
+/// перестала проходить. Поэтому здесь показано всё, что можно посчитать
+/// заранее, — число пакетов и время до первого REGISTER, — и рядом стоит
+/// «Проверить», то есть тот же ручной стук, что и «Исправить сеть».
+private struct PortKnockSection: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    private var sequence: Binding<PortKnockSequence> {
+        Binding(
+            get: { model.settings.portKnock },
+            set: { model.settings.portKnock = $0 }
+        )
+    }
+
+    var body: some View {
+        SettingsSection("Стук") {
+            SettingsOrderedList(
+                items: sequence.steps,
+                emptyNote: "Шагов нет: стучать нечем, и удалённое место не подключится.",
+                addTitle: "Добавить шаг",
+                makeElement: { PortKnockStep(payloadBytes: 100) }
+            ) { step in
+                PortKnockStepRow(step: step)
+            }
+
+            SettingsDivider()
+
+            SettingsRow("Пауза") {
+                Stepper(
+                    "\(paused) с между пакетами",
+                    value: Binding(
+                        get: { Int(model.settings.portKnock.spacingSeconds) },
+                        set: { model.settings.portKnock.spacingSeconds = Double(max(1, $0)) }
+                    ),
+                    in: 1...10
+                )
+            }
+
+            SettingsRow("Повтор") {
+                Stepper(
+                    "каждые \(repeated) мин, пока всё работает",
+                    value: Binding(
+                        get: { Int(model.settings.portKnock.repeatIntervalSeconds / 60) },
+                        set: { model.settings.portKnock.repeatIntervalSeconds = Double(max(1, $0) * 60) }
+                    ),
+                    in: 1...60
+                )
+            }
+
+            // Не украшение: это ровно та задержка, которую человек увидит перед
+            // первой регистрацией. Без неё «приложение думает» выглядит как
+            // поломка, а не как восемь пакетов с паузой в секунду.
+            SettingsResolvedValue(
+                "\(model.settings.portKnock.packetCount) \(Self.packetsWord(model.settings.portKnock.packetCount)) · "
+                + "до первой регистрации \(duration) с"
+            )
+
+            SettingsNote("""
+                Размер — это подпись: правило на шлюзе смотрит на длину пакета, а не на его \
+                содержимое. Пустой хост означает «сервер из профиля»; заполненный — стучать \
+                именно по нему.
+                """)
+
+            SettingsButtonsRow {
+                Button("Проверить стук") {
+                    Task { await model.repairNetwork() }
+                }
+                .compatHelp("Отправить последовательность прямо сейчас")
+
+                if let status = model.networkRepairStatus {
+                    Text(status)
+                        .font(.footnote)
+                        .compatForeground(Theme.Palette.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    private var paused: Int { Int(model.settings.portKnock.spacingSeconds) }
+    private var repeated: Int { Int(model.settings.portKnock.repeatIntervalSeconds / 60) }
+
+    /// Время стука целиком, как его считает сам `PortKnockSequence`: считать
+    /// второй раз здесь значило бы однажды разойтись с тем, что происходит.
+    private var duration: String {
+        String(format: "%.0f", model.settings.portKnock.estimatedDuration.seconds)
+    }
+
+    private static func packetsWord(_ count: Int) -> String {
+        let tail = count % 100
+        if (11...14).contains(tail) { return "пакетов" }
+        switch count % 10 {
+        case 1: return "пакет"
+        case 2, 3, 4: return "пакета"
+        default: return "пакетов"
+        }
+    }
+}
+
+private struct PortKnockStepRow: View {
+
+    @Binding var step: PortKnockStep
+
+    var body: some View {
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            TextField("хост из профиля", text: $step.host)
+                .labelsHidden()
+                .frame(minWidth: 120)
+
+            TextField("", value: $step.payloadBytes, formatter: IntegerFormatter.shared)
+                .labelsHidden()
+                .frame(width: 56)
+                .compatHelp("Байты данных ICMP — то же, что «ping -s»")
+
+            Text("б")
+                .compatForeground(Theme.Palette.textSecondary)
+
+            TextField("", value: $step.count, formatter: IntegerFormatter.shared)
+                .labelsHidden()
+                .frame(width: 40)
+                .compatHelp("Сколько пакетов подряд — то же, что «ping -c»")
+
+            Text("шт")
+                .compatForeground(Theme.Palette.textSecondary)
+        }
+    }
+}

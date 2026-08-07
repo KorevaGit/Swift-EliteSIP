@@ -309,13 +309,19 @@ final class AppModel: ObservableObject {
     ///
     /// Возвращает путь готового файла. Секреты в справку не попадают: маскирование
     /// журнала на неё не распространяется, и класть туда лишнее нельзя.
-    func makeSupportArchive() throws -> URL {
+    /// - Parameter destination: куда положить архив. По умолчанию — рядом с
+    ///   журналом, как делает менеджерская кнопка «Собрать логи». Раздел
+    ///   «Обслуживание» передаёт сюда место, выбранное администратором, и
+    ///   упаковка при этом остаётся одна: второй способ собрать архив означал
+    ///   бы, что однажды в поддержку уедет не то, что мы думаем.
+    func makeSupportArchive(to destination: URL? = nil) throws -> URL {
         logFile?.flush()
-        let destination = logDirectory.appendingPathComponent(SupportArchive.suggestedName())
+        let target = destination
+            ?? logDirectory.appendingPathComponent(SupportArchive.suggestedName())
         return try SupportArchive.make(
             logs: logFile?.files() ?? [],
             summary: supportSummary,
-            destination: destination
+            destination: target
         )
     }
 
