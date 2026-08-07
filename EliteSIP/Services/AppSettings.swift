@@ -93,10 +93,14 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// правится, потому что живёт на чужом шлюзе и может измениться без нас.
     var portKnock: PortKnockSequence = .production
 
-    /// Пара адресов одной АТС: изнутри и снаружи. Смена рабочего места в
-    /// профиле переписывает адрес по этой паре, иначе пометка ничего не решает.
-    /// Пока зашита, потом приедет из EliteDash — как и `portKnock`.
-    var siteAddresses: SIPSiteAddresses = .production
+    // `siteAddresses` убрана в этапе 5 вместе с кнопками «Офис/Удалённо».
+    //
+    // Пара адресов существовала ради переезда: смена рабочего места
+    // переписывала домен профиля по этой паре. Кнопок больше нет, переписывать
+    // домен некому, и читать пару стало нечему — а настройка, которую можно
+    // поменять без последствий, однажды меняется и ждёт эффекта. Адрес АТС
+    // задаётся полем «Домен АТС» в самом профиле, адреса стука — своими полями
+    // в шагах последовательности.
 
     /// Учётная запись активного профиля.
     ///
@@ -135,8 +139,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         history: CallHistorySettings = CallHistorySettings(),
         admin: AdminSettings = AdminSettings(),
         acceptsAnyTLSCertificate: Bool = false,
-        portKnock: PortKnockSequence = .production,
-        siteAddresses: SIPSiteAddresses = .production
+        portKnock: PortKnockSequence = .production
     ) {
         self.schemaVersion = schemaVersion
         self.profiles = profiles
@@ -151,7 +154,6 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.history = history
         self.admin = admin
         self.portKnock = portKnock
-        self.siteAddresses = siteAddresses
         // После `profiles`: свойство живёт в активном профиле.
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
@@ -198,8 +200,9 @@ struct AppSettings: Codable, Sendable, Equatable {
         admin = (try? container.decodeIfPresent(AdminSettings.self, forKey: .admin)) ?? AdminSettings()
         portKnock =
             try container.decodeIfPresent(PortKnockSequence.self, forKey: .portKnock) ?? .production
-        siteAddresses =
-            try container.decodeIfPresent(SIPSiteAddresses.self, forKey: .siteAddresses) ?? .production
+        // Ключ `siteAddresses` в старых файлах остаётся и просто не читается:
+        // терпимый декодер незнакомое игнорирует, и версия схемы от убранного
+        // поля не растёт — она растёт от несовместимости, а не от убыли.
 
         // Доверие к сертификату переехало в профиль. Общий ключ старого файла
         // достаётся активному профилю, а не всем: включали его ради одного

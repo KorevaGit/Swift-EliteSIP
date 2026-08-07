@@ -2338,72 +2338,13 @@ final class AppModel: ObservableObject {
         settings.profiles.rename(id, to: label)
     }
 
-    /// Офисное это рабочее место или удалённое.
-    ///
-    /// Это не пометка, а переезд: вместе с рабочим местом меняется адрес АТС —
-    /// изнутри `192.168.1.2`, снаружи внешний домен. Одно без другого
-    /// бессмысленно, потому что из дома внутренний адрес недостижим, а из
-    /// офиса внешний ведёт на тот же сервер длинной дорогой. Отсюда всё
-    /// остальное: перерегистрация и стук перед первой регистрацией снаружи.
-    ///
-    /// Адрес переписывается только у профиля, который смотрит на нашу пару
-    /// адресов: лабораторный `127.0.0.1` и чужую АТС трогать нельзя — пометка
-    /// не должна незаметно уводить профиль на другой сервер. Такой профиль
-    /// получает только пометку, и об этом сказано в журнале.
-    func setProfileSite(_ site: SIPProfileSite, for id: UUID) async {
-        guard let profile = settings.profiles[id], profile.site != site else { return }
-        // Переезд снимает регистрацию, значит запрет тот же, что у смены
-        // профиля и у отключения из M6b.
-        guard canSwitchProfile else {
-            refuseProfileChange()
-            return
-        }
-
-        let addresses = settings.siteAddresses
-        let currentHost = profile.account.domain
-        let newHost = addresses.host(for: site)
-        let movesAddress =
-            !addresses.isEmpty && addresses.recognizes(currentHost) && newHost != nil
-            && newHost != currentHost
-
-        // Перерегистрация нужна ровно из-за адреса: пометка сама по себе решает
-        // только, стучать ли перед следующим подключением, и рвать ради неё
-        // живую регистрацию незачем. Профилю, которому адрес не переписывают
-        // (лаборатория, чужая АТС), достаётся стук на следующем подключении —
-        // или кнопка «Исправить сеть», если ждать нельзя.
-        let wasConnected = agent != nil
-        if movesAddress && wasConnected { await disconnect() }
-
-        settings.profiles.setSite(site, for: id)
-
-        if movesAddress, let newHost {
-            // Пароль переносить больше не нужно: он поле профиля и переезжает
-            // вместе с ним. Раньше он лежал в связке ключей под «номер@домен»,
-            // и смена домена оставляла профиль без пароля.
-            var moved = settings.profiles[id]?.account
-            moved?.domain = newHost
-            if let moved, settings.profiles.setAccount(moved, for: id) {
-                append(
-                    level: .info,
-                    message: "профиль \(profileTitle(id)): \(site.title), адрес АТС \(currentHost) → \(newHost)"
-                )
-            }
-        } else {
-            append(
-                level: .info,
-                message: "профиль \(profileTitle(id)): \(site.title)"
-                    + (addresses.recognizes(currentHost) ? "" : ", адрес \(currentHost) оставлен как есть")
-            )
-        }
-
-        guard wasConnected, movesAddress else { return }
-        if !settings.sipPassword.isEmpty {
-            await connect()
-        } else {
-            append(level: .warning, message: "у профиля не задан пароль — подключение не восстановлено")
-            callStatus = "Профиль без пароля"
-        }
-    }
+    // `setProfileSite` убрана в этапе 5 вместе с кнопками «Офис/Удалённо».
+    //
+    // Ручное переключение перестало иметь смысл: рабочее место у машины
+    // одно и не меняется, а `PortKnockPolicy` и без него решает по адресу
+    // сервера, стучать ли перед регистрацией. Поле `site` осталось в
+    // профиле и читается стуком — записывать в него теперь некому, и
+    // значение у всех профилей `.automatic`.
 
     /// «Исправить сеть»: стук по портам один раз, прямо сейчас.
     ///

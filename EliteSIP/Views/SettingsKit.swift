@@ -273,15 +273,26 @@ struct SettingsDivider: View {
 /// «правильную» ширину нельзя, когда их бесконечно много.
 struct SettingsColumns<Element: Identifiable, Row: View>: View {
 
-    @Environment(\.settingsListColumns) private var columns
+    @Environment(\.settingsListColumns) private var environmentColumns
 
     let items: [Element]
+
+    /// Сколько столбцов вместо порога окна. `nil` — как решило окно.
+    let override: Int?
+
     @ViewBuilder let row: (Element) -> Row
 
-    init(_ items: [Element], @ViewBuilder row: @escaping (Element) -> Row) {
+    init(
+        _ items: [Element],
+        columns override: Int? = nil,
+        @ViewBuilder row: @escaping (Element) -> Row
+    ) {
         self.items = items
+        self.override = override
         self.row = row
     }
+
+    private var columns: Int { override ?? environmentColumns }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
@@ -338,6 +349,19 @@ struct SettingsOrderedList<Element: Identifiable, Row: View>: View {
 
     let addTitle: String
 
+    /// Держать список в одну колонку, даже когда окно широкое.
+    ///
+    /// Ставится там, где порядок строк значим по существу: у макросов он задаёт
+    /// раскладку кнопок на панели, у шагов стука — очерёдность пакетов. Живое
+    /// окно показало, почему это важно: в двух столбцах список читается
+    /// слева-направо, а кнопки «выше/ниже» двигают по одной позиции — и
+    /// «выше» у правой строки уводит её в левый столбец. Порядок, который
+    /// нельзя прочитать глазом, не порядок.
+    ///
+    /// Словарь очередей флага не ставит: там порядок ничего не решает, номер
+    /// ищется поиском, и ширина списку идёт на пользу.
+    var keepsSingleColumn = false
+
     /// Потолок числа строк, если он есть по существу. У макросов есть: высота
     /// панели выведена из их числа и обязана оставаться константой установки.
     var limit: Int?
@@ -375,7 +399,7 @@ struct SettingsOrderedList<Element: Identifiable, Row: View>: View {
     }
 
     private var rows: some View {
-        SettingsColumns(items) { item in
+        SettingsColumns(items, columns: keepsSingleColumn ? 1 : nil) { item in
             line(for: item)
         }
     }

@@ -1,24 +1,25 @@
 import SIPCore
 import SwiftUI
 
-/// Карточка профиля: отметка активного, название, кому и куда, правка и удаление.
+/// Карточка профиля: свёрнутая — строка списка, раскрытая — форма этого профиля.
 ///
-/// Карточка, а не строка во всю ширину: на широком окне строка из трёх слов,
-/// растянутая на девятьсот точек, — это девятьсот точек пустоты между названием
-/// и корзиной. Карточки встают в два столбца по тому же порогу, что и остальные
-/// списки окна.
+/// **Почему поля живут внутри карточки.** До этапа 5 они лежали отдельными
+/// секциями ниже списка и правили `settings.account`, то есть **активный**
+/// профиль. Выглядело это как общие настройки машины, а было настройками одного
+/// из профилей — и заполнить второй можно было, только переведя на него
+/// оператора. Теперь карточка раскрывается на месте: две коробки — два профиля,
+/// перепутать нечего, и «какой правлю» перестало значить «какой зарегистрирован».
 ///
-/// **Нажатие в любое место карточки переключает профиль.** Это главное действие
-/// списка, и требовать попасть в отметку размером 13 точек значило бы сделать
-/// его самым трудным. Переименование поэтому спрятано за карандашом: карточка,
-/// которая одновременно и кнопка, и поле ввода, не годится ни на то, ни на
-/// другое, а править название нужно куда реже, чем переключаться.
+/// **Заголовок раскрывает, а не переключает.** Переключение активного — редкое
+/// и с последствиями (перерегистрация), правка — частое; главным действием
+/// карточки стало то, ради чего её открывают. Сделать профиль рабочим можно
+/// явной кнопкой внутри.
 struct ProfileCard: View {
 
     @EnvironmentObject private var model: AppModel
-    let profile: SIPProfile
 
-    private var isActive: Bool { profile.id == model.activeProfileID }
+    let profileID: UUID
+    @Binding var expandedID: UUID?
 
     /// Правится ли название прямо сейчас. Своё у каждой карточки: два поля
     /// одновременно не нужны, а гасить чужое пришлось бы отдельным состоянием
@@ -27,11 +28,38 @@ struct ProfileCard: View {
 
     /// Спрошено ли про удаление. Своё у каждой карточки, как и правка названия.
     @State private var isConfirmingRemoval = false
+    @State private var isPasswordRevealed = false
+
+    private var isActive: Bool { profileID == model.activeProfileID }
+    private var isExpanded: Bool { expandedID == profileID }
+
+    /// Профиль по идентификатору, а не переданный значением: карточка живёт
+    /// дольше одной перерисовки, и значение в ней успело бы устареть.
+    private var profile: SIPProfile {
+        model.settings.profiles[profileID] ?? model.settings.profiles.active
+    }
+
+    private func field<Value>(
+        _ keyPath: WritableKeyPath<SIPProfile, Value>
+    ) -> Binding<Value> {
+        Binding(
+            get: { profile[keyPath: keyPath] },
+            set: { updated in
+                var copy = profile
+                copy[keyPath: keyPath] = updated
+                model.settings.profiles[profileID] = copy
+            }
+        )
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
+        VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
             header
-            details
+
+            if isExpanded {
+                SettingsDivider()
+                form
+            }
         }
         .padding(Theme.Metrics.sectionSpacing)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -48,29 +76,24 @@ struct ProfileCard: View {
                 title: Text("Удалить профиль «\(profile.title)»?"),
                 message: Text(removalWarning),
                 primaryButton: .destructive(Text("Удалить")) {
-                    Task { await model.removeProfile(profile.id) }
+                    Task { await model.removeProfile(profileID) }
                 },
                 secondaryButton: .cancel(Text("Отмена"))
             )
         }
     }
 
+    // MARK: - Шапка
+
     private var header: some View {
-        HStack(spacing: Theme.Metrics.elementSpacing) {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
             Button {
-                Task { await model.selectProfile(profile.id) }
+                expandedID = isExpanded ? nil : profileID
             } label: {
-                HStack(spacing: Theme.Metrics.elementSpacing) {
-                    // Отметка занимает место и когда её нет: иначе карточки
-                    // разъезжаются по горизонтали при смене активного профиля.
-                    // Пустого кружка в комплекте иконок для Catalina нет, а
-                    // заводить его ради одной строки незачем.
-                    if isActive {
-                        CompatSymbol(name: "checkmark.circle")
-                            .compatForeground(Theme.Palette.registered)
-                    } else {
-                        Color.clear.frame(width: 13, height: 13)
-                    }
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
+                    ChevronDown()
+                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
+                        .frame(width: Theme.Icon.medium)
 
                     if isEditingLabel {
                         // `labelsHidden` обязателен: без него первый строковый
@@ -80,32 +103,37 @@ struct ProfileCard: View {
                         // разных поля.
                         TextField("Без названия", text: Binding(
                             get: { profile.label },
-                            set: { model.renameProfile(profile.id, to: $0) }
+                            set: { model.renameProfile(profileID, to: $0) }
                         ))
                         .labelsHidden()
+                        .frame(maxWidth: 200)
                     } else {
                         Text(profile.title.isEmpty ? "Новый профиль" : profile.title)
+                            .font(Font.callout.weight(.semibold))
                             .lineLimit(1)
+                    }
+
+                    Text(subtitle)
+                        .font(.footnote)
+                        .compatForeground(Theme.Palette.textSecondary)
+                        .lineLimit(1)
+
+                    if isActive {
+                        ActiveBadge()
                     }
 
                     Spacer(minLength: 0)
                 }
+                // Нажатие ловит вся строка, а не только буквы со значком: без
+                // этого по карточке промахиваются ровно так же, как по пункту
+                // сайдбара.
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            // Активная карточка не гасится никогда: серый текст читается как
-            // «профиль недоступен», а это ровно тот, на котором работают.
-            // Нажатие на неё и так ничего не делает.
-            .disabled(!isActive && !model.canSwitchProfile)
 
-            Button {
+            Button(isEditingLabel ? "Готово" : "Изменить подпись") {
                 isEditingLabel.toggle()
-            } label: {
-                CompatSymbol(name: isEditingLabel ? "checkmark.circle" : "pencil")
             }
-            .buttonStyle(.borderless)
-            .compatForeground(Theme.Palette.textSecondary)
-            .compatHelp(isEditingLabel ? "Готово" : "Переименовать профиль")
 
             Button {
                 isConfirmingRemoval = true
@@ -120,38 +148,144 @@ struct ProfileCard: View {
 
     /// Кому и куда: номер отдельно от метки, иначе два профиля на одной АТС
     /// различимы только по слову, которое кто-то однажды вписал.
-    private var details: some View {
-        Text(subtitle)
-            .font(.footnote)
-            .compatForeground(Theme.Palette.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
     private var subtitle: String {
         let account = profile.account
         let address = account.domain.isEmpty ? "домен не задан" : account.domain
         let number = account.username.isEmpty ? "номер не задан" : account.username
-        var line = "\(number) · \(address) · \(account.transport.protocolName)"
-        // «Удалённо» — у всех, кто работает снаружи, включая тех, чьё рабочее
-        // место определилось по адресу: для читающего список важно, что этот
-        // профиль ходит через шлюз, а не то, кто именно так решил. Офисные
-        // профили не подписываются вовсе — это обычный случай, и подпись у
-        // каждой карточки не сообщала бы ничего.
-        // Проверяется настоящий домен, а не подпись `address`: у ненастроенного
-        // профиля там стоит «домен не задан», и на внутренний адрес это не
-        // похоже — такой профиль подписался бы удалённым.
-        if PortKnockPolicy.needsKnocking(serverHost: account.domain, site: profile.site) {
-            line += " · удалённо"
-        }
-        return line
+        return "\(number) · \(address) · \(account.transport.protocolName)"
     }
+
+    // MARK: - Форма профиля
+
+    @ViewBuilder
+    private var form: some View {
+        SettingsRow("Внутренний номер") {
+            TextField("", text: field(\.account.username))
+                .labelsHidden()
+        }
+        SettingsRow("Отображаемое имя") {
+            TextField("", text: field(\.account.displayName))
+                .labelsHidden()
+        }
+        SettingsRow("Домен АТС") {
+            TextField("", text: field(\.account.domain))
+                .labelsHidden()
+        }
+        SettingsRow("Логин для входа") {
+            TextField("если отличается от номера", text: Binding(
+                get: { profile.account.authUsername ?? "" },
+                set: { value in
+                    var copy = profile
+                    copy.account.authUsername = value.isEmpty ? nil : value
+                    model.settings.profiles[profileID] = copy
+                }
+            ))
+            .labelsHidden()
+        }
+
+        SettingsRow("Пароль") {
+            // Обычное поле профиля, без кнопок «Принять» и «Удалить».
+            // Придержку до «Сохранить» делает само окно «Управление»: на диск
+            // не уходит ничего, пока оно открыто, а «Отменить» возвращает
+            // снимок вместе с паролем.
+            HStack(spacing: Theme.Metrics.tightSpacing) {
+                if isPasswordRevealed {
+                    TextField("", text: field(\.password))
+                        .labelsHidden()
+                } else {
+                    SecureField("", text: field(\.password))
+                        .labelsHidden()
+                }
+                Button {
+                    isPasswordRevealed.toggle()
+                } label: {
+                    CompatSymbol(name: isPasswordRevealed ? "eye.slash" : "eye")
+                }
+                .buttonStyle(.borderless)
+                .compatAccessibilityLabel(isPasswordRevealed ? "Скрыть пароль" : "Показать пароль")
+            }
+        }
+
+        SettingsRow("Транспорт") {
+            Picker("", selection: field(\.account.transport)) {
+                Text("TLS").tag(SIPTransport.tls)
+                Text("UDP").tag(SIPTransport.udp)
+            }
+            .labelsHidden()
+            .pickerStyle(.radioGroup)
+        }
+
+        SettingsRow("Порт") {
+            TextField("по умолчанию", text: Binding(
+                get: { profile.account.serverPort.map(String.init) ?? "" },
+                set: { value in
+                    var copy = profile
+                    copy.account.serverPort = UInt16(value)
+                    model.settings.profiles[profileID] = copy
+                }
+            ))
+            .labelsHidden()
+            .frame(width: 90)
+        }
+
+        SettingsRow("Регистрация") {
+            Stepper(
+                "каждые \(profile.account.registrationExpires) с",
+                value: field(\.account.registrationExpires),
+                in: 60...3600,
+                step: 60
+            )
+        }
+
+        SettingsToggleRow("Доверять любому сертификату TLS", isOn: field(\.acceptsAnyTLSCertificate))
+
+        if profile.acceptsAnyTLSCertificate {
+            SettingsNote(
+                """
+                Проверка сертификата отключена: перехватчик сможет прочитать пароль и разговор. \
+                Только для самоподписанного сертификата лаборатории.
+                """,
+                isAlarming: true
+            )
+        }
+
+        if profile.password.isEmpty {
+            SettingsNote("Пароля нет — зарегистрироваться этим профилем нечем.", isAlarming: true)
+        }
+
+        SettingsDivider()
+
+        SettingsButtonsRow {
+            if isActive {
+                Text("Рабочий профиль этой машины")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+            } else {
+                // Отдельным действием, а не нажатием на карточку: смена
+                // активного снимает регистрацию и закрывает диалоги, и цена
+                // случайного попадания — положенная за оператора трубка.
+                Button("Сделать рабочим") {
+                    Task { await model.selectProfile(profileID) }
+                }
+                .disabled(!model.canSwitchProfile)
+
+                if !model.canSwitchProfile {
+                    Text("недоступно в разговоре")
+                        .font(.footnote)
+                        .compatForeground(Theme.Palette.textSecondary)
+                }
+            }
+        }
+    }
+
+    // MARK: - Удаление
 
     /// Что именно уйдёт вместе с профилем.
     ///
     /// История считается на месте, а не берётся из окна истории: то показывает
     /// активный профиль, а удаляют обычно не его.
     private var removalWarning: String {
-        let records = model.historyCount(ofProfile: profile.id)
+        let records = model.historyCount(ofProfile: profileID)
         guard records > 0 else {
             return "Вместе с профилем будет удалён его пароль. Истории звонков у этого профиля нет."
         }
@@ -172,5 +306,22 @@ struct ProfileCard: View {
         case 2, 3, 4: return "записи"
         default: return "записей"
         }
+    }
+}
+
+/// Отметка рабочего профиля.
+///
+/// Словом, а не одной галочкой: галочка отвечала на «выбран ли он в списке», а
+/// вопрос у смотрящего другой — «с какого профиля идут звонки». Пустого места
+/// под неё не резервируется: карточки теперь разной высоты и без того.
+private struct ActiveBadge: View {
+
+    var body: some View {
+        HStack(spacing: Theme.Metrics.hairSpacing) {
+            CompatSymbol(name: "checkmark.circle", size: Theme.Icon.small)
+            Text("рабочий")
+        }
+        .font(.footnote)
+        .compatForeground(Theme.Palette.registered)
     }
 }

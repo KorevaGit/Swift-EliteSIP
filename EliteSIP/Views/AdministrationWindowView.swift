@@ -21,6 +21,8 @@ struct AdministrationWindowView: View {
 
     @EnvironmentObject private var model: AppModel
 
+    @Environment(\.colorScheme) private var scheme
+
     @State private var section: Section = .account
     @State private var isConfirmingSave = false
 
@@ -36,9 +38,11 @@ struct AdministrationWindowView: View {
         // окно от содержимого. Тут размер задаёт человек мышью, а содержимое
         // только читает результат.
         GeometryReader { proxy in
+            // Черты между сайдбаром и содержимым нет: панель плавающая, и
+            // граница ей не нужна — её задаёт собственный край панели. Черта
+            // рядом с ним читалась бы как вторая, лишняя.
             HStack(spacing: 0) {
                 sidebar
-                Divider()
 
                 VStack(spacing: 0) {
                     content
@@ -74,13 +78,13 @@ struct AdministrationWindowView: View {
 
     /// Единственный порог перестроения, считанный от ширины окна.
     ///
-    /// Из ширины вычитается всё, что списку не достаётся: сайдбар, черта между
-    /// ним и содержимым, поля по краям и отступы плашки раздела. Иначе порог
-    /// сработал бы раньше, чем список действительно получил бы место.
+    /// Из ширины вычитается всё, что списку не достаётся: сайдбар с полями
+    /// вокруг него, поля содержимого по краям и отступы плашки раздела. Иначе
+    /// порог сработал бы раньше, чем список действительно получил бы место.
     private func columns(forWindowWidth width: CGFloat) -> Int {
         let available = width
             - Theme.Metrics.adminSidebarWidth
-            - 1
+            - Theme.Metrics.sectionSpacing * 2
             - Theme.Metrics.contentPadding * 2
             - Theme.Metrics.sectionSpacing * 2
         return available >= Theme.Metrics.adminTwoColumnThreshold ? 2 : 1
@@ -154,7 +158,7 @@ struct AdministrationWindowView: View {
             ForEach(Section.allCases) { item in
                 if let group = item.group {
                     Text(group)
-                        .font(.footnote)
+                        .font(Font.footnote.weight(.semibold))
                         .compatForeground(Theme.Palette.textSecondary)
                         .padding(.horizontal, Theme.Metrics.sectionSpacing)
                         .padding(.top, Theme.Metrics.sectionSpacing)
@@ -166,18 +170,20 @@ struct AdministrationWindowView: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, Theme.Metrics.elementSpacing)
-        .padding(.bottom, Theme.Metrics.contentPadding)
-        .padding(.top, Theme.Gap.titleToStatus)
+        .padding(Theme.Metrics.elementSpacing)
         .frame(width: Theme.Metrics.adminSidebarWidth, alignment: .leading)
-        .compatBackground {
-            // Материал `.sidebar` есть с 10.11, то есть работает и на Catalina.
-            // Разница со свежими системами будет — там у сайдбара своё
-            // скругление и плавающий край, — и она принятая: то же решение, что
-            // по остальным поверхностям приложения.
-            CompatMaterial(material: .sidebar, blending: .behindWindow, cornerRadius: 0)
-                .compatIgnoreSafeArea()
-        }
+        // Плавающая панель со скруглением, как в Finder и Music на macOS 26:
+        // сайдбар не приклеен к краям окна, а лежит на его фоне отдельным
+        // слоем. На старых системах то же место занимает материал `.sidebar` —
+        // он есть с 10.11, — и разница остаётся в мягкости края, а не в
+        // раскладке.
+        //
+        // Отступ снаружи, а не внутри: панель должна отходить и от края окна, и
+        // от полосы заголовка, иначе «плавающей» она не читается.
+        .themedSidebarSurface()
+        .padding(.horizontal, Theme.Metrics.sectionSpacing)
+        .padding(.bottom, Theme.Metrics.sectionSpacing)
+        .padding(.top, Theme.Metrics.adminSidebarTopInset)
     }
 
     private func sidebarRow(_ item: Section) -> some View {
@@ -186,6 +192,13 @@ struct AdministrationWindowView: View {
         } label: {
             HStack(spacing: Theme.Metrics.elementSpacing) {
                 CompatSymbol(name: item.symbol, size: Theme.Icon.large)
+                    // Значок выбранного берёт акцент, как в системном сайдбаре:
+                    // подпись при этом остаётся обычной, и строка не начинает
+                    // кричать целиком.
+                    .compatForeground(
+                        section == item ? Color.accentColor : Theme.Palette.textSecondary
+                    )
+
                 Text(item.title)
                     .lineLimit(1)
 
@@ -205,17 +218,25 @@ struct AdministrationWindowView: View {
                         )
                 }
             }
-            .padding(.horizontal, Theme.Metrics.elementSpacing)
+            .padding(.horizontal, Theme.Metrics.sectionSpacing)
             .frame(height: Theme.Metrics.adminSidebarRowHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .compatBackground {
-                // Выделение — заливка, а не акцентный стиль кнопки: акцентного
-                // стиля на Catalina нет вовсе, и прежний бар разделов обозначал
-                // выбранное галочкой вместо значка. С плашкой значок остаётся
-                // значком.
+                // Выделение — мягкая заливка, а не акцентный стиль кнопки и не
+                // сплошной синий. Акцентного стиля на Catalina нет вовсе, а
+                // сплошная заливка требует белой подписи поверх — `.plain`
+                // цвет текста не меняет, и на светлом акценте подпись стала бы
+                // нечитаемой.
                 RoundedRectangle(cornerRadius: Theme.Metrics.adminSidebarRadius)
-                    .fill(section == item ? Theme.Palette.sidebarSelection : .clear)
+                    .fill(section == item ? Theme.Palette.sidebarSelection(scheme) : .clear)
             }
+            // Нажатие ловит вся плашка, а не только буквы со значком.
+            //
+            // Без этого `.plain`-кнопка отдаёт под нажатие ровно нарисованное
+            // содержимое: между значком и подписью, справа от текста и по краям
+            // строки нажатие проваливалось мимо, и по пунктам сайдбара
+            // промахивались.
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .hoverHighlight(
@@ -268,7 +289,6 @@ struct AdministrationWindowView: View {
             return now.profiles != snapshot.profiles
         case .pbx:
             return now.conference != snapshot.conference
-                || now.siteAddresses != snapshot.siteAddresses
                 || now.portKnock != snapshot.portKnock
                 || now.audio.prefersWideband != snapshot.audio.prefersWideband
         case .incoming:

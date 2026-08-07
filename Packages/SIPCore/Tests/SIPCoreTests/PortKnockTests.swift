@@ -85,48 +85,6 @@ final class PortKnockTests: XCTestCase {
         )
     }
 
-    // MARK: - Пара адресов одной АТС
-
-    /// Пометка без смены адреса ничего не решает: изнутри внешний домен ведёт
-    /// на тот же сервер длинной дорогой, а снаружи внутренний адрес недостижим.
-    func testSiteAddressesGiveHostForEachSite() {
-        let addresses = SIPSiteAddresses.production
-        XCTAssertEqual(addresses.host(for: .office), "192.168.1.2")
-        XCTAssertEqual(addresses.host(for: .remote), "crm.elitesochi.com")
-        // `.automatic` решает по адресу — менять адрес было бы рассуждением
-        // по кругу.
-        XCTAssertNil(addresses.host(for: .automatic))
-    }
-
-    /// Переписывается только адрес из нашей пары. Лабораторный `127.0.0.1` и
-    /// чужая АТС остаются на месте: пометка рабочего места не должна незаметно
-    /// уводить профиль на другой сервер.
-    func testSiteAddressesRecognizeOnlyTheirOwnPair() {
-        let addresses = SIPSiteAddresses.production
-        XCTAssertTrue(addresses.recognizes("192.168.1.2"))
-        XCTAssertTrue(addresses.recognizes("CRM.EliteSochi.com"))
-        XCTAssertTrue(addresses.recognizes(" crm.elitesochi.com "))
-        XCTAssertFalse(addresses.recognizes("127.0.0.1"))
-        XCTAssertFalse(addresses.recognizes("pbx.example"))
-        XCTAssertFalse(addresses.recognizes(""))
-    }
-
-    /// Пара живёт в файле настроек и приедет из EliteDash: частично заданная
-    /// пара добирается умолчаниями, а не обнуляется.
-    func testSiteAddressesDecodePartially() throws {
-        let json = #"{"office":"10.0.0.7"}"#
-        let addresses = try JSONDecoder().decode(SIPSiteAddresses.self, from: Data(json.utf8))
-        XCTAssertEqual(addresses.office, "10.0.0.7")
-        XCTAssertEqual(addresses.remote, SIPSiteAddresses.production.remote)
-    }
-
-    /// Адрес из пары и пометка сходятся: офисный адрес не стучит, внешний
-    /// стучит и без пометки.
-    func testProductionPairAgreesWithAutomaticRule() {
-        let addresses = SIPSiteAddresses.production
-        XCTAssertFalse(PortKnockPolicy.needsKnocking(serverHost: addresses.office, site: .automatic))
-        XCTAssertTrue(PortKnockPolicy.needsKnocking(serverHost: addresses.remote, site: .automatic))
-    }
 
     /// Интерфейс показывает две кнопки, и выбранной должна быть та, по которой
     /// профиль работает на самом деле — даже если место ему ещё не задавали.

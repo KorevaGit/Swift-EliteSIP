@@ -23,6 +23,7 @@ struct DTMFSettingsTab: View {
                 items: macros,
                 emptyNote: "Макросов нет. Кнопки появятся на панели во время разговора.",
                 addTitle: "Добавить макрос",
+                keepsSingleColumn: true,
                 limit: AppSettings.DTMFSettings.maximumMacros,
                 limitNote: "больше не влезает в панель",
                 makeElement: { .init(title: "Новый", sequence: "") }

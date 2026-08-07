@@ -215,8 +215,19 @@ enum Theme {
         /// Catalina акцентного стиля нет вовсе, и прежний бар разделов
         /// обозначал выбранное галочкой вместо значка. С плашкой галочка не
         /// нужна — значок остаётся значком.
-        static let adminSidebarRowHeight: CGFloat = 26
-        static let adminSidebarRadius: CGFloat = 6
+        static let adminSidebarRowHeight: CGFloat = 28
+        static let adminSidebarRadius: CGFloat = 7
+
+        /// Скругление самой панели сайдбара. Крупнее, чем у строк внутри: так
+        /// панель читается как отдельный слой, а не как рамка вокруг списка.
+        static let adminSidebarPanelRadius: CGFloat = 10
+
+        /// Отступ панели сайдбара сверху.
+        ///
+        /// Не `Gap.titleToStatus`: под панелью полоса заголовка, и панель
+        /// должна начинаться под светофором, а не рядом с ним. Замерено по
+        /// живому окну — светофор занимает 28 точек вместе с полем.
+        static let adminSidebarTopInset: CGFloat = 36
 
         /// Точка «здесь есть несохранённое» у пункта сайдбара.
         static let adminDirtyDotDiameter: CGFloat = 6
@@ -512,15 +523,20 @@ enum Theme {
 
         /// Плашка выбранного раздела в боковом списке «Управления».
         ///
-        /// Акцентный цвет системы приглушённый, а не сплошной: сплошная заливка
-        /// требует белого текста поверх, а `.plain`-кнопка своего цвета текста
-        /// не меняет, и на светлом акценте подпись стала бы нечитаемой. При 0.25
-        /// текст остаётся системным и читается в обеих темах.
+        /// Нейтральная, а не акцентная. Первый заход брал `accentColor` — живое
+        /// окно показало синюю плашку, которая кричит громче содержимого
+        /// раздела; в системных сайдбарах (Finder, Music) выбранная строка
+        /// подсвечена серым, а акцент достаётся только значку. Так и сделано:
+        /// цвет здесь нейтральный, `accentColor` живёт на значке строки.
         ///
         /// Заливкой, а не акцентным стилем кнопки: на Catalina акцентного стиля
         /// нет вовсе, и прежний бар разделов обозначал выбранное галочкой вместо
-        /// значка.
-        static let sidebarSelection = Color.accentColor.opacity(0.25)
+        /// значка. Значение несимметрично по темам по той же причине, что и у
+        /// `themedControlSurface`: на тёмном фоне светлая плашка заметна раньше,
+        /// чем тёмная на светлом.
+        static func sidebarSelection(_ scheme: ColorScheme) -> Color {
+            scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.09)
+        }
 
         // MARK: - Три уровня текста
         //
@@ -756,6 +772,32 @@ extension View {
         isEnabled: Bool = true
     ) -> some View {
         modifier(HoverHighlight(cornerRadius: cornerRadius, isEnabled: isEnabled))
+    }
+
+    /// Плавающая панель бокового списка разделов.
+    ///
+    /// Три ступени, как у `themedSurface`, но материал другой: у сайдбара свой
+    /// системный рецепт (`.sidebar`), и он есть с 10.11 — то есть работает и на
+    /// Catalina, где ни стекла, ни SwiftUI-материалов нет вовсе.
+    ///
+    /// Отличие от `themedSurface` не косметическое. Обычная поверхность
+    /// размывает содержимое своего окна, а сайдбар обязан размывать то, что за
+    /// окном: он лежит на прозрачном фоне окна, и `withinWindow` дал бы под ним
+    /// пустоту вместо подложки.
+    @ViewBuilder
+    func themedSidebarSurface() -> some View {
+        let radius = Theme.Metrics.adminSidebarPanelRadius
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: radius))
+        } else {
+            self.background(
+                CompatMaterial(
+                    material: .sidebar,
+                    blending: .behindWindow,
+                    cornerRadius: radius
+                )
+            )
+        }
     }
 
     /// Поверхность управляющего элемента — слабый слой поверх фона панели.
