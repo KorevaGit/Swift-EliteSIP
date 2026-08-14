@@ -44,7 +44,10 @@ struct AppearanceTab: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 220)
+                // По левому краю — та же правка, что у уровней журнала в
+                // «Диагностике»: по центру сегменты уезжают правее колонки
+                // контролов.
+                .frame(maxWidth: 220, alignment: .leading)
             }
 
             SettingsDivider()

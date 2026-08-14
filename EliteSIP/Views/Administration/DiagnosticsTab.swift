@@ -64,7 +64,12 @@ struct DiagnosticsTab: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 280)
+                // Выравнивание по левому краю, а не умолчательное по центру:
+                // сегменты уже своей рамки, и в рамке шириной 280 они вставали
+                // посередине — то есть правее колонки контролов, на которой
+                // стоят кнопки и пояснения под ними. Расслоение видно только
+                // рядом с соседней строкой, поэтому и прожило долго.
+                .frame(maxWidth: 280, alignment: .leading)
             }
 
             SettingsButtonsRow {
@@ -135,7 +140,8 @@ private struct LogFileSection: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.segmented)
-                    .frame(maxWidth: 280)
+                    // По левому краю — см. пояснение у экранного уровня выше.
+                    .frame(maxWidth: 280, alignment: .leading)
                 }
 
                 SettingsRow("Хранить") {

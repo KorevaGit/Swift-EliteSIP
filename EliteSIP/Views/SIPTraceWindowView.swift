@@ -33,7 +33,9 @@ struct SIPTraceWindowView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 280)
+                // По левому краю: иначе между подписью и сегментами появляется
+                // пустота, которой нет ни в одной другой строке.
+                .frame(maxWidth: 280, alignment: .leading)
 
                 Spacer()
 
