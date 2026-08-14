@@ -547,6 +547,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // разделом (`WindowTitle` в содержимом).
         window.title = title
         window.titleVisibility = .hidden
+        // Полноэкранного режима у окон приложения нет.
+        //
+        // Не вкусовщина, а починка: замер живого окна 14 августа 2026 показал,
+        // что «Управление» на весь экран разваливается — содержимое прижимается
+        // к нижнему краю, сверху остаётся около 360 точек пустоты, а низ
+        // раздела уезжает за кромку и прокруткой не достаётся. Причина в том,
+        // что верхний отступ содержимое считает само (`contentTopInset`), а
+        // полосы заголовка, от которой он отсчитан, в полноэкранном режиме нет
+        // вовсе.
+        //
+        // Чинить сам отступ смысла нет: софтфон на весь экран не разворачивают
+        // ни разу за смену — он стоит поверх CRM, а не вместо неё. Зелёная
+        // кнопка при этом не пропадает, а возвращается к обычному разворачиванию
+        // по содержимому, где полоса заголовка остаётся на месте.
+        window.collectionBehavior.insert(.fullScreenNone)
         // Прозрачная полоса в обоих оформлениях, но по разным причинам. Под
         // стеклом — чтобы содержимое ушло под неё. Без стекла — чтобы у полосы
         // не было своего фона: с непрозрачной оставался светлый волосок на
@@ -747,6 +762,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         window.title = "История звонков"
         window.titleVisibility = .visible
+        // Полноэкранного режима нет — по той же причине, что у «Управления»
+        // и настроек, см. `makeSidebarWindow`.
+        window.collectionBehavior.insert(.fullScreenNone)
         window.titlebarAppearsTransparent = true
         window.isOpaque = false
         window.backgroundColor = .clear

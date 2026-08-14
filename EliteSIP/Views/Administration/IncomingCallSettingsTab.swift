@@ -113,6 +113,7 @@ struct IncomingCallSettingsTab: View {
                         subject: IncomingCallSubject(
                             callerNumber: "2929",
                             callerName: "AutoDialer",
+                            ownNumber: model.settings.account.username,
                             queues: model.settings.queues
                         ),
                         policy: model.settings.incomingCall,
@@ -122,7 +123,35 @@ struct IncomingCallSettingsTab: View {
                 } label: {
                     CompatLabel(title: "Показать окно для проверки", symbol: "bell.badge")
                 }
+
+                // Второй показ, а не переключатель в первом: у звонка по сделке
+                // другой заголовок и своя подсказка, и увидеть их иначе нельзя
+                // — случай приходит из Битрикса, а не из настроек. Номер
+                // подставляется настоящий, свой: так проверка заодно
+                // показывает, что добавочный вообще опознаётся.
+                Button {
+                    incomingCall.show(
+                        subject: IncomingCallSubject(
+                            callerNumber: model.settings.account.username,
+                            callerName: nil,
+                            ownNumber: model.settings.account.username,
+                            queues: model.settings.queues
+                        ),
+                        policy: model.settings.incomingCall,
+                        onAnswer: {},
+                        onDecline: {}
+                    )
+                } label: {
+                    CompatLabel(title: "Показать вызов по сделке", symbol: "phone.arrow.right")
+                }
+                .disabled(model.settings.account.username.isEmpty)
             }
+
+            SettingsNote("""
+                Вызов по сделке приходит с добавочного самого менеджера: Битрикс поднимает его \
+                и только потом набирает клиента. Настройки для этого не нужны — номер берётся \
+                из активного профиля.
+                """)
 
             if let report = model.lastGuardReport {
                 SettingsRow("Последний вызов") {

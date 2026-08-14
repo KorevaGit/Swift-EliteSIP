@@ -68,7 +68,7 @@ struct ResetConfirmation: View {
             }
         }
         .padding(Theme.Metrics.contentPadding)
-        .frame(width: 380)
+        .frame(width: Theme.Metrics.dialogWidth)
         .onAppear { countDown() }
     }
 

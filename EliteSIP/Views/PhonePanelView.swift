@@ -521,6 +521,7 @@ struct PhonePanelView: View {
             subject: IncomingCallSubject(
                 callerNumber: "2929",
                 callerName: "AutoDialer",
+                ownNumber: model.settings.account.username,
                 queues: model.settings.queues
             ),
             policy: model.settings.incomingCall,

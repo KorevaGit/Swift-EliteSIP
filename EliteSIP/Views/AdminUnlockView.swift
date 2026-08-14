@@ -30,7 +30,7 @@ struct AdminUnlockView: View {
     @State private var problem: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
             switch step {
             case .password: passwordStep
             case .recovery: recoveryStep
@@ -44,8 +44,8 @@ struct AdminUnlockView: View {
                     .compatForeground(Theme.Palette.failure)
             }
         }
-        .padding(20)
-        .frame(width: 380)
+        .padding(Theme.Metrics.contentPadding)
+        .frame(width: Theme.Metrics.dialogWidth)
         // Пароль не задан — спрашивать нечего, но предупреждение показать надо:
         // открытые настройки не делают правку менее последствийной.
         .onAppear {
@@ -160,7 +160,7 @@ struct AdminUnlockView: View {
             .compatForeground(.secondary)
 
             ZStack {
-                HStack(spacing: 8) {
+                HStack(spacing: Theme.Metrics.sectionSpacing) {
                     ForEach(0..<RecoveryCode.length, id: \.self) { index in
                         cell(isFilled: index < recoveryDraft.count)
                     }
@@ -206,7 +206,7 @@ struct AdminUnlockView: View {
     }
 
     private func cell(isFilled: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 6)
+        RoundedRectangle(cornerRadius: Theme.Radius.control)
             .strokeBorder(Color.secondary.opacity(isFilled ? 0.9 : 0.35), lineWidth: 1)
             .frame(width: 36, height: 44)
             .overlay(
