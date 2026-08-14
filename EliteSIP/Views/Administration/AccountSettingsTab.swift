@@ -145,7 +145,7 @@ struct AccountSettingsTab: View {
                 }
             }
 
-            SettingsResolvedValue(model.registrationTitle)
+            SettingsResolvedValue(verbatim: model.registrationTitle)
 
             // Единственное место раздела, которое действует немедленно, и
             // сказать об этом надо: остальное окно копит правки до «Сохранить»,

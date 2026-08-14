@@ -68,7 +68,7 @@ struct RingtoneTab: View {
             }
 
             if let soundProblem {
-                SettingsNote(soundProblem, isAlarming: true)
+                SettingsNote(verbatim: soundProblem, isAlarming: true)
             }
         }
         // Гаснет весь раздел, кроме собственного выключателя: он и есть то, чем

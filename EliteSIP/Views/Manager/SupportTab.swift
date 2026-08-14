@@ -34,11 +34,11 @@ struct SupportTab: View {
             }
 
             if let archiveResult {
-                SettingsNote(archiveResult)
+                SettingsNote(verbatim: archiveResult)
             }
 
             if let status = model.networkRepairStatus {
-                SettingsNote(status)
+                SettingsNote(verbatim: status)
             }
 
             // Строки «Площадка» здесь нет. Она была задумана как «есть что

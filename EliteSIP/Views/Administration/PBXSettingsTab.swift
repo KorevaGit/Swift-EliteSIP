@@ -127,6 +127,7 @@ private struct PortKnockSection: View {
             // первой регистрацией. Без неё «приложение думает» выглядит как
             // поломка, а не как восемь пакетов с паузой в секунду.
             SettingsResolvedValue(
+                verbatim:
                 "\(model.settings.portKnock.packetCount) \(Self.packetsWord(model.settings.portKnock.packetCount)) · "
                 + "до первой регистрации \(duration) с"
             )

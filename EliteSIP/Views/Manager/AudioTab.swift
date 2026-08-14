@@ -107,7 +107,7 @@ struct AudioTab: View {
             }
 
             if let status = selfTestStatus {
-                SettingsNote(status)
+                SettingsNote(verbatim: status)
             }
         }
         .onDisappear {

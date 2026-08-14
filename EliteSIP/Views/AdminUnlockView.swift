@@ -39,7 +39,7 @@ struct AdminUnlockView: View {
             }
 
             if let problem {
-                CompatLabel(title: problem, symbol: "exclamationmark.triangle")
+                CompatLabel(verbatim: problem, symbol: "exclamationmark.triangle")
                     .font(.footnote)
                     .compatForeground(Theme.Palette.failure)
             }

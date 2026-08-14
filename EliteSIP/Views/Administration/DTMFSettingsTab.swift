@@ -116,7 +116,7 @@ private struct MacroRow: View {
             // Негодный макрос на панели не появится, и молчать об этом нельзя:
             // оператор будет искать кнопку, которой нет.
             if let problem {
-                CompatLabel(title: problem, symbol: "exclamationmark.triangle")
+                CompatLabel(verbatim: problem, symbol: "exclamationmark.triangle")
                     .font(.footnote)
                     .compatForeground(Theme.Palette.unsaved)
             } else {

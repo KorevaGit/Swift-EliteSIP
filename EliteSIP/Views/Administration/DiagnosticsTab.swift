@@ -165,7 +165,7 @@ private struct LogFileSection: View {
                 }
 
                 if let archiveResult {
-                    SettingsNote(archiveResult)
+                    SettingsNote(verbatim: archiveResult)
                 }
             }
         }
@@ -262,7 +262,7 @@ private struct LevelMeters: View {
 /// говорить, — а не узнавал об этом от собеседника.
 private struct LevelMeter: View {
 
-    let title: String
+    let title: LocalizedStringKey
     let level: Float
 
     var body: some View {

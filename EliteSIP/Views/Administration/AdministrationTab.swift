@@ -27,7 +27,7 @@ struct AdministrationTab: View {
                     .compatForeground(Theme.Palette.textSecondary)
             }
 
-            SettingsNote(model.adminAccess.management.explanation)
+            SettingsNote(verbatim: model.adminAccess.management.explanation)
 
             SettingsIndented {
                 MilestoneNote("""
@@ -94,11 +94,11 @@ struct AdministrationTab: View {
             }
 
             if let problem {
-                SettingsNote(problem, isAlarming: true)
+                SettingsNote(verbatim: problem, isAlarming: true)
             }
 
             if let confirmation {
-                SettingsNote(confirmation)
+                SettingsNote(verbatim: confirmation)
             }
         }
 

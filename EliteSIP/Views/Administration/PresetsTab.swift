@@ -61,7 +61,7 @@ struct PresetsTab: View {
             }
 
             if let notice {
-                SettingsNote(notice)
+                SettingsNote(verbatim: notice)
             }
         }
         .alert(item: $pendingRemoval) { preset in

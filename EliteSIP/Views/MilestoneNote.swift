@@ -9,10 +9,10 @@ import SwiftUI
 /// отладочных пометок в ней больше нет — остались только настройки и админка.
 struct MilestoneNote: View {
 
-    private let text: String
+    private let text: Text
 
-    init(_ text: String) {
-        self.text = text
+    init(_ text: LocalizedStringKey) {
+        self.text = Text(text)
     }
 
     var body: some View {

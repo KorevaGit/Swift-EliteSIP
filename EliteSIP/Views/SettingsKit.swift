@@ -74,17 +74,23 @@ extension EnvironmentValues {
 /// её первая строка.
 struct SettingsSection<Content: View>: View {
 
-    let title: String
+    private let title: Text
     @ViewBuilder let content: Content
 
-    init(_ title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
+        self.title = Text(title)
+        self.content = content()
+    }
+
+    /// Заголовок, собранный в рантайме, — переводить нечего.
+    init(verbatim title: some StringProtocol, @ViewBuilder content: () -> Content) {
+        self.title = Text(title)
         self.content = content()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
-            Text(title)
+            title
                 .font(Font.subheadline.weight(.semibold))
 
             VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
@@ -112,17 +118,23 @@ struct SettingsRow<Control: View>: View {
     @Environment(\.settingsLabelColumn) private var labelColumn
     @Environment(\.settingsRowMaxWidth) private var maxWidth
 
-    let title: String
+    private let title: Text
     @ViewBuilder let control: Control
 
-    init(_ title: String, @ViewBuilder control: () -> Control) {
-        self.title = title
+    init(_ title: LocalizedStringKey, @ViewBuilder control: () -> Control) {
+        self.title = Text(title)
+        self.control = control()
+    }
+
+    /// Подпись, собранная в рантайме, — переводить нечего.
+    init(verbatim title: some StringProtocol, @ViewBuilder control: () -> Control) {
+        self.title = Text(title)
         self.control = control()
     }
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
-            Text(title)
+            title
                 .frame(width: labelColumn, alignment: .trailing)
             control
             Spacer(minLength: 0)
@@ -135,11 +147,17 @@ struct SettingsRow<Control: View>: View {
 /// подпись стояла бы дважды.
 struct SettingsToggleRow: View {
 
-    let title: String
+    private let title: Text
     @Binding var isOn: Bool
 
-    init(_ title: String, isOn: Binding<Bool>) {
-        self.title = title
+    init(_ title: LocalizedStringKey, isOn: Binding<Bool>) {
+        self.title = Text(title)
+        self._isOn = isOn
+    }
+
+    /// Подпись, собранная в рантайме, — переводить нечего.
+    init(verbatim title: some StringProtocol, isOn: Binding<Bool>) {
+        self.title = Text(title)
         self._isOn = isOn
     }
 
@@ -156,7 +174,7 @@ struct SettingsToggleRow: View {
                 // Ширину забирает подпись, а не тумблер: иначе у переносящейся
                 // подписи тумблер прижимается к ней вплотную и уезжает с той
                 // вертикали, на которой стоят остальные.
-                Text(title)
+                title
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -168,11 +186,17 @@ struct SettingsToggleRow: View {
 /// Пояснение или состояние — мелким, во второй колонке.
 struct SettingsNote: View {
 
-    let text: String
+    private let text: Text
     var isAlarming = false
 
-    init(_ text: String, isAlarming: Bool = false) {
-        self.text = text
+    init(_ text: LocalizedStringKey, isAlarming: Bool = false) {
+        self.text = Text(text)
+        self.isAlarming = isAlarming
+    }
+
+    /// Пояснение, собранное в рантайме, — переводить нечего.
+    init(verbatim text: some StringProtocol, isAlarming: Bool = false) {
+        self.text = Text(text)
         self.isAlarming = isAlarming
     }
 
@@ -185,7 +209,7 @@ struct SettingsNote: View {
     /// нужна.
     var body: some View {
         SettingsIndented {
-            Text(text)
+            text
                 .font(.footnote)
                 .compatForeground(isAlarming ? Theme.Palette.failure : Theme.Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -197,13 +221,16 @@ struct SettingsNote: View {
 /// значение, просто вычисленное, — поэтому стоит в колонке контрола.
 struct SettingsResolvedValue: View {
 
-    let text: String
+    private let text: Text
 
-    init(_ text: String) { self.text = text }
+    init(_ text: LocalizedStringKey) { self.text = Text(text) }
+
+    /// Значение, собранное в рантайме, — переводить нечего.
+    init(verbatim text: some StringProtocol) { self.text = Text(text) }
 
     var body: some View {
         SettingsIndented {
-            Text(text)
+            text
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
         }
@@ -345,9 +372,9 @@ struct SettingsOrderedList<Element: Identifiable, Row: View>: View {
 
     /// Что написано, когда список пуст. Пустое место без объяснения читается
     /// как незагрузившееся, а не как «здесь пока ничего нет».
-    let emptyNote: String
+    let emptyNote: LocalizedStringKey
 
-    let addTitle: String
+    let addTitle: LocalizedStringKey
 
     /// Держать список в одну колонку, даже когда окно широкое.
     ///
@@ -366,7 +393,7 @@ struct SettingsOrderedList<Element: Identifiable, Row: View>: View {
     /// панели выведена из их числа и обязана оставаться константой установки.
     var limit: Int?
     /// Почему потолок именно такой. Показывается, когда он достигнут.
-    var limitNote: String?
+    var limitNote: LocalizedStringKey?
 
     let makeElement: () -> Element
     @ViewBuilder let row: (Binding<Element>) -> Row

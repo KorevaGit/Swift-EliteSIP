@@ -245,12 +245,22 @@ extension View {
 /// слева, значение справа, распорка между ними.
 struct CompatLabeledContent<Content: View>: View {
 
-    let title: String
+    let title: Text
     @ViewBuilder let content: () -> Content
+
+    init(title: LocalizedStringKey, @ViewBuilder content: @escaping () -> Content) {
+        self.title = Text(title)
+        self.content = content
+    }
+
+    init(title: Text, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
 
     var body: some View {
         HStack {
-            Text(title)
+            title
             Spacer(minLength: 12)
             content()
         }
@@ -259,7 +269,9 @@ struct CompatLabeledContent<Content: View>: View {
 
 extension CompatLabeledContent where Content == Text {
 
-    init(_ title: String, value: String) {
+    /// Значение справа не переводится: это всегда посчитанная величина —
+    /// адрес, счётчик, длительность, — а не подпись приложения.
+    init(_ title: LocalizedStringKey, value: some StringProtocol) {
         self.init(title: title) { Text(value) }
     }
 }
@@ -430,15 +442,31 @@ struct ChevronDown: View {
 /// Замена `Label(_:systemImage:)`, которого нет до macOS 11.
 struct CompatLabel: View {
 
-    let title: String
+    let title: Text
     let symbol: String
     var size: CGFloat = 13
     var spacing: CGFloat = 6
 
+    init(title: LocalizedStringKey, symbol: String, size: CGFloat = 13, spacing: CGFloat = 6) {
+        self.init(title: Text(title), symbol: symbol, size: size, spacing: spacing)
+    }
+
+    /// Подпись, собранная в рантайме, — переводить нечего.
+    init(verbatim title: some StringProtocol, symbol: String, size: CGFloat = 13, spacing: CGFloat = 6) {
+        self.init(title: Text(title), symbol: symbol, size: size, spacing: spacing)
+    }
+
+    init(title: Text, symbol: String, size: CGFloat = 13, spacing: CGFloat = 6) {
+        self.title = title
+        self.symbol = symbol
+        self.size = size
+        self.spacing = spacing
+    }
+
     var body: some View {
         HStack(spacing: spacing) {
             CompatSymbol(name: symbol, size: size)
-            Text(title)
+            title
         }
     }
 }

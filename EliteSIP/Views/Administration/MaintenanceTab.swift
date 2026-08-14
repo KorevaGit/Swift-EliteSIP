@@ -96,7 +96,7 @@ struct MaintenanceTab: View {
         }
 
         if let notice {
-            SettingsNote(notice)
+            SettingsNote(verbatim: notice)
         }
 
         // Пусто, а не «сделано»: подтверждения живут на видимых вью, и вешать
