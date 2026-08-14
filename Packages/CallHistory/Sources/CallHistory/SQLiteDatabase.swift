@@ -42,6 +42,8 @@ final class SQLiteDatabase {
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         let code = sqlite3_open_v2(url.path, &handle, flags, nil)
         guard code == SQLITE_OK, let handle else {
+            // не переводится: сообщение SQLite и так английское, а рядом с
+            // ним стоит наше — оба читаются в журнале.
             let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "не удалось открыть файл"
             sqlite3_close_v2(handle)
             throw Failure(code: code, message: message)

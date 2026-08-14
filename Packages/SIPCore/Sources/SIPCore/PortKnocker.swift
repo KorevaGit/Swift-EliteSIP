@@ -2,6 +2,8 @@ import Compat
 import Darwin
 import Foundation
 
+// не переводится: отказы стука — журнал.
+
 /// Стук по портам перед регистрацией.
 ///
 /// Что это такое и почему не VPN — в [docs/remote-access.md](../../../../docs/remote-access.md).

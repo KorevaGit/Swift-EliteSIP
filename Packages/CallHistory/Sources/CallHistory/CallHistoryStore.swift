@@ -45,10 +45,10 @@ public final class CallHistoryStore: @unchecked Sendable {
 
         public var title: String {
             switch self {
-            case .all: return "Все"
-            case .incoming: return "Входящие"
-            case .outgoing: return "Исходящие"
-            case .missed: return "Пропущенные"
+            case .all: return NSLocalizedString("Все", bundle: .module, comment: "отбор в истории звонков")
+            case .incoming: return NSLocalizedString("Входящие", bundle: .module, comment: "отбор в истории звонков")
+            case .outgoing: return NSLocalizedString("Исходящие", bundle: .module, comment: "отбор в истории звонков")
+            case .missed: return NSLocalizedString("Пропущенные", bundle: .module, comment: "отбор в истории звонков")
             }
         }
 
@@ -84,7 +84,7 @@ public final class CallHistoryStore: @unchecked Sendable {
     ///
     /// Отдельной константой, потому что она попадает в глаза оператору и её
     /// нельзя менять по частям в двух местах.
-    public static let interruptedReason = "приложение завершилось"
+    public static let interruptedReason = NSLocalizedString("приложение завершилось", bundle: .module, comment: "почему звонок оборвался")
 
     private static let recordColumns = """
         id, call_id, server_call_id, direction, role, number, sip_login, display_name, \
@@ -125,7 +125,8 @@ public final class CallHistoryStore: @unchecked Sendable {
     /// из-за собственной истории, — исход хуже, чем софтфон без истории.
     private var database: SQLiteDatabase?
 
-    private var outcome: OpenOutcome = .unavailable("база ещё не открывалась")
+    // не переводится: состояние базы уходит в журнал и в диагностику.
+        private var outcome: OpenOutcome = .unavailable("база ещё не открывалась")
 
     public init(settings: Settings) {
         self.settings = settings

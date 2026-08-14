@@ -27,20 +27,30 @@ public enum AdminAccessError: Error, LocalizedError, Equatable, Sendable {
     /// чтобы не превращать отказ в молчаливый нулевой ключ.
     case derivationFailed
 
+    /// Строки берутся из каталога самого пакета (`Bundle.module`), а не из
+    /// приложения: иначе перевод отказа пришлось бы держать там, где об этих
+    /// отказах ничего не известно.
     public var errorDescription: String? {
         switch self {
         case .wrongPassword:
-            "Неверный пароль."
+            NSLocalizedString("Неверный пароль.", bundle: .module, comment: "отказ доступа")
         case .wrongRecoveryCode:
-            "Неверный код восстановления."
+            NSLocalizedString("Неверный код восстановления.", bundle: .module, comment: "отказ доступа")
         case .emptyPassword:
-            "Пароль не может быть пустым."
+            NSLocalizedString("Пароль не может быть пустым.", bundle: .module, comment: "отказ доступа")
         case .malformedRecoveryCode:
-            "Код восстановления — это \(RecoveryCode.length) цифр."
+            String.localizedStringWithFormat(
+                NSLocalizedString("Код восстановления — это %lld цифр.", bundle: .module, comment: "отказ доступа"),
+                RecoveryCode.length
+            )
         case .malformedCredential:
-            "Данные административного доступа испорчены. Задайте пароль заново."
+            NSLocalizedString(
+                "Данные административного доступа испорчены. Задайте пароль заново.",
+                bundle: .module,
+                comment: "отказ доступа"
+            )
         case .derivationFailed:
-            "Не удалось проверить пароль."
+            NSLocalizedString("Не удалось проверить пароль.", bundle: .module, comment: "отказ доступа")
         }
     }
 }

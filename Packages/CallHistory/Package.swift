@@ -20,6 +20,9 @@ import PackageDescription
 // нечего делать с диалогами и транзакциями.
 let package = Package(
     name: "CallHistory",
+    // Подписи, которые пакет показывает человеку, живут рядом с кодом,
+    // который их порождает.
+    defaultLocalization: "ru",
     platforms: [.macOS(.v10_15)],
     products: [
         .library(name: "CallHistory", targets: ["CallHistory"])
@@ -27,6 +30,7 @@ let package = Package(
     targets: [
         .target(
             name: "CallHistory",
+            resources: [.process("Resources")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

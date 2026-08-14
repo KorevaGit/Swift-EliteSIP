@@ -35,9 +35,17 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CATALOG = ROOT / "EliteSIP" / "Localizable.xcstrings"
-SOURCES = ROOT / "EliteSIP"
 SOURCE_LANGUAGE = "ru"
+
+# Каталог у приложения свой, и у каждого пакета, который что-то говорит
+# человеку, — тоже свой. Пакет остаётся самодостаточным: приложению не
+# приходится знать, какие у `AdminAccess` бывают отказы, чтобы их подписать.
+TARGETS: list[tuple[Path, Path]] = [
+    (ROOT / "EliteSIP", ROOT / "EliteSIP" / "Localizable.xcstrings"),
+]
+for package in ["AdminAccess", "CallGuard", "CallHistory", "SIPCore"]:
+    sources = ROOT / "Packages" / package / "Sources" / package
+    TARGETS.append((sources, sources / "Resources" / "Localizable.xcstrings"))
 
 # `NSLocalizedString("ключ", comment: "пояснение")` — с обычным литералом или с
 # многострочным. Оба аргумента обязаны быть литералами: переменная ключом не
@@ -45,6 +53,9 @@ SOURCE_LANGUAGE = "ru"
 NS_LOCALIZED = re.compile(
     r'NSLocalizedString\(\s*'
     r'(?:"""(?P<block>.*?)"""|"(?P<line>(?:[^"\\]|\\.)*)")\s*,\s*'
+    # Между ключом и пояснением стоят необязательные аргументы: у пакетов это
+    # `bundle: .module`, без которого строка искалась бы в приложении.
+    r'(?:(?:tableName|bundle|value):\s*[^,]+,\s*)*'
     r'comment:\s*"(?P<comment>(?:[^"\\]|\\.)*)"\s*\)',
     re.DOTALL,
 )
@@ -76,10 +87,10 @@ def multiline(body: str) -> str:
     return re.sub(r"\\\n", "", "\n".join(lines))
 
 
-def scan_sources() -> dict[str, str]:
+def scan_sources(sources: Path) -> dict[str, str]:
     """Ключи из `NSLocalizedString`: ключ → комментарий."""
     keys: dict[str, str] = {}
-    for path in sorted(SOURCES.rglob("*.swift")):
+    for path in sorted(sources.rglob("*.swift")):
         for match in NS_LOCALIZED.finditer(path.read_text()):
             if match.group("block") is not None:
                 key = multiline(match.group("block"))
@@ -125,8 +136,8 @@ def collect(build_root: Path) -> dict[str, str]:
     return keys
 
 
-def merge(found: dict[str, str]) -> tuple[int, int, int]:
-    catalog = json.loads(CATALOG.read_text()) if CATALOG.exists() else {
+def merge(catalog_path: Path, found: dict[str, str]) -> tuple[int, int, int]:
+    catalog = json.loads(catalog_path.read_text()) if catalog_path.exists() else {
         "sourceLanguage": SOURCE_LANGUAGE, "strings": {}, "version": "1.0"
     }
     strings = catalog.setdefault("strings", {})
@@ -151,7 +162,8 @@ def merge(found: dict[str, str]) -> tuple[int, int, int]:
             stale += 1
 
     catalog["strings"] = dict(sorted(strings.items()))
-    CATALOG.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n")
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n")
     return added, stale, len(strings)
 
 
@@ -165,15 +177,18 @@ def main() -> None:
         if result.returncode != 0:
             sys.exit("сборка не прошла — каталог не тронут")
 
-    found = collect(derived_data_dir())
-    # Комментарий из исходника ценнее пустого из `.stringsdata`, поэтому
-    # `NSLocalizedString` кладётся поверх.
-    found.update(scan_sources())
-    added, stale, total = merge(found)
-    print(f"ключей в коде: {len(found)}")
-    print(f"добавлено:     {added}")
-    print(f"устарело:      {stale}")
-    print(f"всего в файле: {total}")
+    # `.stringsdata` есть только у приложения: в пакетах нет SwiftUI, и все
+    # их подписи — это `NSLocalizedString`, который компилятор туда не кладёт.
+    from_compiler = collect(derived_data_dir())
+
+    for sources, catalog_path in TARGETS:
+        found = dict(from_compiler) if sources.name == "EliteSIP" else {}
+        # Комментарий из исходника ценнее пустого из `.stringsdata`, поэтому
+        # `NSLocalizedString` кладётся поверх.
+        found.update(scan_sources(sources))
+        added, stale, total = merge(catalog_path, found)
+        print(f"{catalog_path.relative_to(ROOT)}")
+        print(f"  в коде {len(found)}, добавлено {added}, устарело {stale}, всего {total}")
 
 
 if __name__ == "__main__":

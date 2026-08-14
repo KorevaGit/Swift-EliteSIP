@@ -25,6 +25,9 @@ public final class AggregateAudioDevice: @unchecked Sendable {
         case deviceMissing(uid: String)
         case creationFailed(OSStatus)
 
+        // не переводится: отказ уходит в журнал через `localizedDescription`
+        // и до интерфейса не доходит — агрегатное устройство собирается без
+        // участия человека.
         public var errorDescription: String? {
             switch self {
             case .deviceMissing(let uid):

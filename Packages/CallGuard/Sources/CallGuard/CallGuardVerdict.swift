@@ -1,3 +1,4 @@
+import Foundation
 import Compat
 import CoreGraphics
 
@@ -48,12 +49,13 @@ public enum CallGuardRejection: String, Sendable, Hashable, Codable {
     /// подбирает обход.
     public var operatorMessage: String {
         switch self {
-        case .wrongTarget: "Не та кнопка"
-        case .noCursorMovement: "Подведите курсор к окну"
-        case .synthetic: "Нажатие не принято"
+        case .wrongTarget: NSLocalizedString("Не та кнопка", bundle: .module, comment: "отказ приёма вызова")
+        case .noCursorMovement: NSLocalizedString("Подведите курсор к окну", bundle: .module, comment: "отказ приёма вызова")
+        case .synthetic: NSLocalizedString("Нажатие не принято", bundle: .module, comment: "отказ приёма вызова")
         }
     }
 
+    // не переводится: строка журнала — её сравнивают между машинами.
     /// Что об этом написать в журнал.
     public var logMessage: String {
         switch self {
@@ -130,6 +132,7 @@ public struct CallGuardReport: Codable, Sendable, Hashable {
 
     /// Строка для журнала. Короткая: в панели диагностики места мало, а
     /// подробности всё равно уедут в EliteDash целиком.
+    // не переводится: журнал и отчёт диагностики.
     public var summary: String {
         guard wasGuardEnabled else { return "защита выключена" }
 

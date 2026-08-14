@@ -30,9 +30,9 @@ public enum SIPProfileSite: String, Sendable, Hashable, Codable, CaseIterable {
     /// нужна журналу, а разъезжаться им нельзя.
     public var title: String {
         switch self {
-        case .automatic: return "по адресу сервера"
-        case .office: return "офис"
-        case .remote: return "удалённо"
+        case .automatic: return NSLocalizedString("по адресу сервера", bundle: .module, comment: "где стоит рабочее место")
+        case .office: return NSLocalizedString("офис", bundle: .module, comment: "где стоит рабочее место")
+        case .remote: return NSLocalizedString("удалённо", bundle: .module, comment: "где стоит рабочее место")
         }
     }
 }

@@ -1,5 +1,7 @@
 import Foundation
 
+// не переводится: разбор SDP — трасса протокола.
+
 public struct SDPParseError: Error, Sendable, Equatable, CustomStringConvertible {
 
     public enum Kind: Sendable, Equatable {

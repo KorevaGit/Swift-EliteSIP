@@ -1,6 +1,8 @@
 import CommonCrypto
 import Foundation
 
+// не переводится: отказы SRTP читают в журнале.
+
 /// Единственный профиль SDES, который нужен `chan_sip` Asterisk 13.
 ///
 /// Он использует AES-128 в режиме counter для шифрования и HMAC-SHA1,

@@ -145,31 +145,57 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
     func explain(_ error: NWError) -> String {
         switch error {
         case .tls(let status):
-            let base = "сервер не принял TLS (код \(status))"
+            // `String(format:)`, а не `localizedStringWithFormat`: тот
+            // расставляет разделители разрядов, и порт 5060 превращается в
+            // «5 060», а код −9816 — в «−9 816». Это не количество, а имя.
+            let base = String(
+                format: NSLocalizedString(
+                    "сервер не принял TLS (код %lld)",
+                    bundle: .module,
+                    comment: "почему не поднялось соединение"
+                ),
+                Int(status)
+            )
             guard transport == .tls else { return base }
             // Порт TLS у SIP — 5061. Всё остальное почти всегда означает, что
             // выбран порт незашифрованного SIP, а транспорт остался TLS.
             let hint = remote.port == SIPTransport.tls.defaultPort
-                ? "проверьте, включён ли TLS на сервере и подходит ли сертификат"
-                : "порт \(remote.port) — обычно это незашифрованный SIP; для TLS нужен \(SIPTransport.tls.defaultPort)"
+                ? NSLocalizedString("проверьте, включён ли TLS на сервере и подходит ли сертификат", bundle: .module, comment: "почему не поднялось соединение")
+                : String(
+                    format: NSLocalizedString("порт %1$lld — обычно это незашифрованный SIP; для TLS нужен %2$lld", bundle: .module, comment: "почему не поднялось соединение"),
+                    Int(remote.port),
+                    Int(SIPTransport.tls.defaultPort)
+                )
             return "\(base): \(hint)"
 
         case .posix(let code):
             switch code {
             case .ECONNREFUSED:
-                return "порт \(remote.port) закрыт: на нём никто не слушает"
+                return String(
+                    format: NSLocalizedString("порт %lld закрыт: на нём никто не слушает", bundle: .module, comment: "почему не поднялось соединение"),
+                    Int(remote.port)
+                )
             case .ETIMEDOUT:
-                return "\(remote.host) не отвечает"
+                return String(
+                    format: NSLocalizedString("%@ не отвечает", bundle: .module, comment: "почему не поднялось соединение"),
+                    remote.host
+                )
             case .EHOSTUNREACH, .ENETUNREACH:
-                return "нет маршрута до \(remote.host)"
+                return String(
+                    format: NSLocalizedString("нет маршрута до %@", bundle: .module, comment: "почему не поднялось соединение"),
+                    remote.host
+                )
             case .ENETDOWN:
-                return "сеть выключена"
+                return NSLocalizedString("сеть выключена", bundle: .module, comment: "почему не поднялось соединение")
             default:
                 return "сеть: \(code)"
             }
 
         case .dns:
-            return "имя \(remote.host) не разрешается"
+            return String(
+                format: NSLocalizedString("имя %@ не разрешается", bundle: .module, comment: "почему не поднялось соединение"),
+                remote.host
+            )
 
         // Обычный `default`, а не `@unknown default`: в SDK есть случаи вроде
         // `.wifiAware`, к SIP отношения не имеющие, и они не должны ломать
@@ -224,6 +250,8 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
                         continuation.yield(.received(message))
                     }
                 } catch {
+                    // не переводится: рядом стоит текст самой ошибки, и
+                    // разбирают эту пару в журнале.
                     continuation.yield(.failed(reason: "поток испорчен: \(error)"))
                     continuation.finish()
                     return

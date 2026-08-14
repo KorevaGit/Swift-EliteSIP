@@ -1,5 +1,7 @@
 import Foundation
 
+// не переводится: разбор сообщения — трасса протокола.
+
 public struct SIPParseError: Error, Sendable, Equatable, CustomStringConvertible {
 
     public enum Kind: Sendable, Equatable {

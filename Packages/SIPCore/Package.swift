@@ -6,6 +6,10 @@ import PackageDescription
 // `swift test` за секунды, без запуска приложения и без живого Asterisk.
 let package = Package(
     name: "SIPCore",
+    // Причина отказа регистрации и причина окончания звонка приходят отсюда и
+    // попадают человеку в шапку панели и в историю. Трасса протокола рядом с
+    // ними остаётся непереведённой — её читают в журнале, а не в интерфейсе.
+    defaultLocalization: "ru",
     platforms: [.macOS(.v10_15)],
     products: [
         .library(name: "SIPCore", targets: ["SIPCore"])
@@ -17,6 +21,7 @@ let package = Package(
         .target(
             name: "SIPCore",
             dependencies: [.product(name: "Compat", package: "Compat")],
+            resources: [.process("Resources")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

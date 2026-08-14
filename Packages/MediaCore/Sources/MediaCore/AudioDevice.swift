@@ -40,6 +40,9 @@ public struct AudioDevice: Sendable, Hashable, Identifiable {
         /// Открытие микрофона на таком устройстве меняет режим всей гарнитуры.
         public var switchesToHeadsetModeWhenCapturing: Bool { self == .bluetooth }
 
+        // не переводится: имя типа подключения существует ради `summary`, а
+        // тот по своему же описанию обязан читаться одинаково в приложении и
+        // в `audioprobe` — иначе два отчёта перестанут сравниваться глазами.
         public var name: String {
             switch self {
             case .builtIn: "встроенное"
@@ -96,6 +99,7 @@ public struct AudioDevice: Sendable, Hashable, Identifiable {
     /// Строка для журнала. Формат один и тот же в приложении и в `audioprobe`,
     /// чтобы отчёты можно было сравнивать глазами.
     public var summary: String {
+        // не переводится: строка журнала и отчёта диагностики.
         var parts = ["\(name) [\(transport.name)]"]
         if isInput { parts.append("вход \(inputChannels) кан.") }
         if isOutput { parts.append("выход \(outputChannels) кан.") }

@@ -66,7 +66,9 @@ public struct SIPIncomingCall: Sendable {
 
     /// Что показать в окне крупным шрифтом.
     public var displayNumber: String {
-        callerNumber.isEmpty ? "неизвестный номер" : callerNumber
+        callerNumber.isEmpty
+            ? NSLocalizedString("неизвестный номер", bundle: .module, comment: "входящий без номера")
+            : callerNumber
     }
 }
 
@@ -111,11 +113,15 @@ public enum SIPCallError: Error, Sendable, Equatable, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .notRegistered: "нет регистрации на сервере"
-        case .alreadyInCall: "звонок уже идёт"
-        case .tooManyLines(let maximum): "заняты все линии (\(maximum))"
-        case .emptyTarget: "не задан номер"
-        case .noIncomingCall: "входящего звонка больше нет"
+        case .notRegistered: NSLocalizedString("нет регистрации на сервере", bundle: .module, comment: "почему звонок не начался")
+        case .alreadyInCall: NSLocalizedString("звонок уже идёт", bundle: .module, comment: "почему звонок не начался")
+        case .tooManyLines(let maximum):
+            String.localizedStringWithFormat(
+                NSLocalizedString("заняты все линии (%lld)", bundle: .module, comment: "почему звонок не начался"),
+                maximum
+            )
+        case .emptyTarget: NSLocalizedString("не задан номер", bundle: .module, comment: "почему звонок не начался")
+        case .noIncomingCall: NSLocalizedString("входящего звонка больше нет", bundle: .module, comment: "почему звонок не начался")
         }
     }
 }
@@ -139,8 +145,10 @@ public enum SIPRenegotiationError: Error, Sendable, Equatable, CustomStringConve
     public var description: String {
         switch self {
         case .noActiveCall: "разговора нет"
-        case .alreadyRenegotiating: "пересогласование уже идёт"
-        case .requestPending: "собеседник пересогласовывает первым (491)"
+        case .alreadyRenegotiating:
+            NSLocalizedString("пересогласование уже идёт", bundle: .module, comment: "почему пересогласование не пошло")
+        case .requestPending:
+            NSLocalizedString("собеседник пересогласовывает первым (491)", bundle: .module, comment: "почему пересогласование не пошло")
         case .rejected(let status, let reason): "отказ \(status) \(reason)"
         case .timeout: "сервер не ответил"
         case .transportFailed(let reason): "сеть: \(reason)"
@@ -167,13 +175,18 @@ public typealias SIPMediaRenegotiator = @Sendable (String, Data) async -> Data?
 /// «занято» говорит всё.
 func describeCallFailure(status: Int, reason: String) -> String {
     switch status {
-    case 486, 600: "занято"
-    case 408: "не отвечает"
-    case 480: "недоступен"
-    case 404: "такого номера нет"
-    case 403: "звонок запрещён"
-    case 487: "звонок отменён"
-    case 603: "отклонён"
-    default: "отказ \(status) \(reason)"
+    case 486, 600: NSLocalizedString("занято", bundle: .module, comment: "чем кончился звонок")
+    case 408: NSLocalizedString("не отвечает", bundle: .module, comment: "чем кончился звонок")
+    case 480: NSLocalizedString("недоступен", bundle: .module, comment: "чем кончился звонок")
+    case 404: NSLocalizedString("такого номера нет", bundle: .module, comment: "чем кончился звонок")
+    case 403: NSLocalizedString("звонок запрещён", bundle: .module, comment: "чем кончился звонок")
+    case 487: NSLocalizedString("звонок отменён", bundle: .module, comment: "чем кончился звонок")
+    case 603: NSLocalizedString("отклонён", bundle: .module, comment: "чем кончился звонок")
+    default:
+        String(
+            format: NSLocalizedString("отказ %1$lld %2$@", bundle: .module, comment: "чем кончился звонок"),
+            status,
+            reason
+        )
     }
 }

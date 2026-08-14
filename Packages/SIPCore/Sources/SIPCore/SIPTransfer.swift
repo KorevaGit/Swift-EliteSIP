@@ -55,13 +55,20 @@ public enum SIPTransferError: Error, Sendable, Equatable, CustomStringConvertibl
 
     public var description: String {
         switch self {
-        case .noActiveCall: "разговора нет"
-        case .emptyTarget: "не задан номер перевода"
-        case .invalidTarget: "номер перевода содержит недопустимые символы"
-        case .alreadyTransferring: "перевод уже выполняется"
-        case .rejected(let status, let reason): "отказ \(status) \(reason)"
-        case .timeout: "сервер не ответил"
-        case .transportFailed(let reason): "сеть: \(reason)"
+        case .noActiveCall: NSLocalizedString("разговора нет", bundle: .module, comment: "почему перевод не состоялся")
+        case .emptyTarget: NSLocalizedString("не задан номер перевода", bundle: .module, comment: "почему перевод не состоялся")
+        case .invalidTarget:
+            NSLocalizedString("номер перевода содержит недопустимые символы", bundle: .module, comment: "почему перевод не состоялся")
+        case .alreadyTransferring: NSLocalizedString("перевод уже выполняется", bundle: .module, comment: "почему перевод не состоялся")
+        case .rejected(let status, let reason):
+            String(
+                format: NSLocalizedString("отказ %1$lld %2$@", bundle: .module, comment: "почему перевод не состоялся"),
+                status,
+                reason
+            )
+        case .timeout: NSLocalizedString("сервер не ответил", bundle: .module, comment: "почему перевод не состоялся")
+        case .transportFailed(let reason):
+            String(format: NSLocalizedString("сеть: %@", bundle: .module, comment: "почему перевод не состоялся"), reason)
         }
     }
 }

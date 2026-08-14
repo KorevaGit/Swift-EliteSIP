@@ -508,7 +508,7 @@ public actor SIPUserAgent {
                 guard let minimum = response.headers.integer(SIPHeaderName.minExpires),
                       minimum > requestedExpires
                 else {
-                    throw RegistrationError.rejected(status: 423, reason: "Interval Too Brief без Min-Expires")
+                    throw RegistrationError.rejected(status: 423, reason: NSLocalizedString("Interval Too Brief без Min-Expires", bundle: .module, comment: "причина, которую видит оператор"))
                 }
                 log(.info, "сервер требует минимум \(minimum) с")
                 requestedExpires = minimum
@@ -756,7 +756,7 @@ public actor SIPUserAgent {
                 guard let branch = request.topVia?.branch else {
                     finishCall(
                         callID: callID,
-                        with: .failed(status: 0, reason: "не удалось собрать запрос"),
+                        with: .failed(status: 0, reason: NSLocalizedString("не удалось собрать запрос", bundle: .module, comment: "причина, которую видит оператор")),
                         continuation: continuation
                     )
                     return
@@ -833,7 +833,7 @@ public actor SIPUserAgent {
                     case .timeout:
                         finishCall(
                             callID: callID,
-                            with: .failed(status: 408, reason: "сервер не ответил"),
+                            with: .failed(status: 408, reason: NSLocalizedString("сервер не ответил", bundle: .module, comment: "причина, которую видит оператор")),
                             continuation: continuation
                         )
                         return
@@ -851,7 +851,7 @@ public actor SIPUserAgent {
                 guard needsRetry else {
                     finishCall(
                         callID: callID,
-                        with: .failed(status: 0, reason: "звонок прерван"),
+                        with: .failed(status: 0, reason: NSLocalizedString("звонок прерван", bundle: .module, comment: "причина, которую видит оператор")),
                         continuation: continuation
                     )
                     return
@@ -868,7 +868,7 @@ public actor SIPUserAgent {
 
         finishCall(
             callID: callID,
-            with: .failed(status: 401, reason: "сервер не принял авторизацию"),
+            with: .failed(status: 401, reason: NSLocalizedString("сервер не принял авторизацию", bundle: .module, comment: "причина, которую видит оператор")),
             continuation: continuation
         )
     }
@@ -885,7 +885,7 @@ public actor SIPUserAgent {
             log(.error, "в 200 OK нет Contact — диалог собрать невозможно")
             finishCall(
                 callID: callID,
-                with: .failed(status: 0, reason: "ответ без Contact"),
+                with: .failed(status: 0, reason: NSLocalizedString("ответ без Contact", bundle: .module, comment: "причина, которую видит оператор")),
                 continuation: call.continuation
             )
             return
@@ -1161,7 +1161,7 @@ public actor SIPUserAgent {
             }
         }
 
-        throw SIPRenegotiationError.rejected(status: 401, reason: "сервер не принял авторизацию")
+        throw SIPRenegotiationError.rejected(status: 401, reason: NSLocalizedString("сервер не принял авторизацию", bundle: .module, comment: "причина, которую видит оператор"))
     }
 
     private func setRenegotiating(_ value: Bool, callID: String) {
@@ -1370,7 +1370,7 @@ public actor SIPUserAgent {
                 case .transportFailed(let reason): .transportFailed(reason)
                 case .cancelled: .transportFailed("соединение закрыто")
                 case .notReady: .transportFailed("транспорт не готов")
-                case .unknownTransaction: .transportFailed("транзакция потеряна")
+                case .unknownTransaction: .transportFailed(NSLocalizedString("транзакция потеряна", bundle: .module, comment: "причина, которую видит оператор"))
                 }
                 finishTransfer(
                     callID: callID,
@@ -1392,7 +1392,7 @@ public actor SIPUserAgent {
                 status: 401,
                 reason: SIPTransferError.rejected(
                     status: 401,
-                    reason: "сервер не принял авторизацию"
+                    reason: NSLocalizedString("сервер не принял авторизацию", bundle: .module, comment: "причина, которую видит оператор")
                 ).description
             )
         )
@@ -1430,7 +1430,7 @@ public actor SIPUserAgent {
     private func expireTransfer(callID: String) {
         finishTransfer(
             callID: callID,
-            event: .failed(status: 408, reason: "сервер не сообщил результат перевода")
+            event: .failed(status: 408, reason: NSLocalizedString("сервер не сообщил результат перевода", bundle: .module, comment: "причина, которую видит оператор"))
         )
     }
 
@@ -1463,13 +1463,13 @@ public actor SIPUserAgent {
             if let local = try? await transactions.waitUntilReady() {
                 await sendBye(dialog: updated, sequence: sequence, local: local)
             }
-            finishCall(callID: callID, with: .ended(reason: "завершён"), continuation: call.continuation)
+            finishCall(callID: callID, with: .ended(reason: NSLocalizedString("завершён", bundle: .module, comment: "причина, которую видит оператор")), continuation: call.continuation)
         } else {
             // Диалога ещё нет: собеседник не ответил, значит отменяем INVITE.
             emitCallState(.ending, of: callID)
             _ = try? await transactions.cancelInvite(branch: call.branch)
             log(.info, "-> CANCEL")
-            finishCall(callID: callID, with: .ended(reason: "отменён"), continuation: call.continuation)
+            finishCall(callID: callID, with: .ended(reason: NSLocalizedString("отменён", bundle: .module, comment: "причина, которую видит оператор")), continuation: call.continuation)
         }
     }
 
@@ -1613,7 +1613,7 @@ public actor SIPUserAgent {
         }
         if let transfer = transferSubscriptions.removeValue(forKey: callID) {
             transferTimeoutTasks.removeValue(forKey: callID)?.cancel()
-            transfer.yield(.failed(status: 0, reason: "разговор завершился во время перевода"))
+            transfer.yield(.failed(status: 0, reason: NSLocalizedString("разговор завершился во время перевода", bundle: .module, comment: "причина, которую видит оператор")))
             transfer.finish()
         }
         removeCall(callID)
@@ -1891,7 +1891,7 @@ public actor SIPUserAgent {
             log(.error, "не удалось отправить 200 OK: \(Self.describe(error))")
             finishCall(
                 callID: call.callID,
-                with: .failed(status: 0, reason: "ответ не ушёл"),
+                with: .failed(status: 0, reason: NSLocalizedString("ответ не ушёл", bundle: .module, comment: "причина, которую видит оператор")),
                 continuation: call.continuation
             )
             return false
@@ -1924,7 +1924,7 @@ public actor SIPUserAgent {
         try? await transactions.respondToInvite(to: invite, with: response)
 
         log(.info, "-> \(status), звонок отклонён")
-        finishCall(callID: call.callID, with: .ended(reason: "отклонён"), continuation: call.continuation)
+        finishCall(callID: call.callID, with: .ended(reason: NSLocalizedString("отклонён", bundle: .module, comment: "причина, которую видит оператор")), continuation: call.continuation)
     }
 
     /// Судьба нашего 200 OK на входящий звонок.
@@ -1975,7 +1975,7 @@ public actor SIPUserAgent {
             log(.info, "<- BYE, собеседник завершил звонок")
             finishCall(
                 callID: call.callID,
-                with: .ended(reason: "собеседник завершил звонок"),
+                with: .ended(reason: NSLocalizedString("собеседник завершил звонок", bundle: .module, comment: "причина, которую видит оператор")),
                 continuation: call.continuation
             )
 
@@ -2012,7 +2012,7 @@ public actor SIPUserAgent {
             try? await transactions.respondToInvite(to: invite, with: terminated)
 
             log(.info, "<- CANCEL, вызов отменён до ответа")
-            finishCall(callID: callID, with: .ended(reason: "отменён вызывающим"), continuation: call.continuation)
+            finishCall(callID: callID, with: .ended(reason: NSLocalizedString("отменён вызывающим", bundle: .module, comment: "причина, которую видит оператор")), continuation: call.continuation)
 
         case .notify:
             // REFER создаёт неявную подписку. Результат нового INVITE сервер
@@ -2060,7 +2060,7 @@ public actor SIPUserAgent {
                 log(.warning, "<- NOTIFY: подписка закрыта без результата перевода")
                 finishTransfer(
                     callID: call.callID,
-                    event: .failed(status: 500, reason: "сервер завершил перевод без результата")
+                    event: .failed(status: 500, reason: NSLocalizedString("сервер завершил перевод без результата", bundle: .module, comment: "причина, которую видит оператор"))
                 )
             }
 
@@ -2192,11 +2192,13 @@ public actor SIPUserAgent {
         case let error as RegistrationError: error.description
         case let error as SIPTransactionLayer.TransactionError:
             switch error {
-            case .timeout: "сервер не ответил"
-            case .transportFailed(let reason): "сеть: \(reason)"
-            case .cancelled: "соединение закрыто"
-            case .notReady: "транспорт не готов"
-            case .unknownTransaction: "ответ не относится ни к одному запросу"
+            case .timeout: NSLocalizedString("сервер не ответил", bundle: .module, comment: "почему регистрация не удалась")
+            case .transportFailed(let reason):
+                String(format: NSLocalizedString("сеть: %@", bundle: .module, comment: "почему регистрация не удалась"), reason)
+            case .cancelled: NSLocalizedString("соединение закрыто", bundle: .module, comment: "почему регистрация не удалась")
+            case .notReady: NSLocalizedString("транспорт не готов", bundle: .module, comment: "почему регистрация не удалась")
+            case .unknownTransaction:
+                NSLocalizedString("ответ не относится ни к одному запросу", bundle: .module, comment: "почему регистрация не удалась")
             }
         default: "\(error)"
         }
@@ -2221,14 +2223,19 @@ public actor SIPUserAgent {
             switch self {
             case .rejected(let status, let reason):
                 switch status {
-                case 403: "неверный логин или пароль (403)"
-                case 404: "такого номера нет на сервере (404)"
-                default: "сервер ответил \(status) \(reason)"
+                case 403: NSLocalizedString("неверный логин или пароль (403)", bundle: .module, comment: "почему регистрация не удалась")
+                case 404: NSLocalizedString("такого номера нет на сервере (404)", bundle: .module, comment: "почему регистрация не удалась")
+                default:
+                    String(
+                        format: NSLocalizedString("сервер ответил %1$lld %2$@", bundle: .module, comment: "почему регистрация не удалась"),
+                        status,
+                        reason
+                    )
                 }
             case .authenticationFailed:
-                "неверный логин или пароль"
+                NSLocalizedString("неверный логин или пароль", bundle: .module, comment: "почему регистрация не удалась")
             case .tooManyAttempts:
-                "слишком много попыток подряд"
+                NSLocalizedString("слишком много попыток подряд", bundle: .module, comment: "почему регистрация не удалась")
             }
         }
     }

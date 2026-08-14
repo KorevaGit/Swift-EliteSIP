@@ -20,17 +20,31 @@ public enum AdminManagement: String, Codable, Sendable, Equatable, CaseIterable 
 
     public var title: String {
         switch self {
-        case .local: "Локальный режим"
-        case .configFile: "Настройки из файла конфигурации"
+        case .local:
+            NSLocalizedString("Локальный режим", bundle: .module, comment: "режим управления машиной")
+        case .configFile:
+            NSLocalizedString(
+                "Настройки из файла конфигурации",
+                bundle: .module,
+                comment: "режим управления машиной"
+            )
         }
     }
 
     public var explanation: String {
         switch self {
         case .local:
-            "Профили, макросы и политику защиты задаёт администратор этой машины."
+            NSLocalizedString(
+                "Профили, макросы и политику защиты задаёт администратор этой машины.",
+                bundle: .module,
+                comment: "режим управления машиной"
+            )
         case .configFile:
-            "Профили, макросы и политику защиты принёс файл конфигурации."
+            NSLocalizedString(
+                "Профили, макросы и политику защиты принёс файл конфигурации.",
+                bundle: .module,
+                comment: "режим управления машиной"
+            )
         }
     }
 }

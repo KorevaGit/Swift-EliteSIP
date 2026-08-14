@@ -13,6 +13,10 @@ import PackageDescription
 // приходят снаружи, чтобы тест мог их задать.
 let package = Package(
     name: "AdminAccess",
+    // Отказы пакета показываются человеку, поэтому язык у него свой: строки
+    // живут рядом с кодом, который их порождает, а не в приложении, которому
+    // пришлось бы повторять разбор ошибок ради подписи.
+    defaultLocalization: "ru",
     platforms: [.macOS(.v10_15)],
     products: [
         .library(name: "AdminAccess", targets: ["AdminAccess"])
@@ -20,6 +24,7 @@ let package = Package(
     targets: [
         .target(
             name: "AdminAccess",
+            resources: [.process("Resources")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

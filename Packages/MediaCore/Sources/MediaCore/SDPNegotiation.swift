@@ -1,5 +1,7 @@
 import Foundation
 
+// не переводится: согласование SDP — трасса протокола.
+
 /// Итог согласования: всё, что нужно медиа-слою, чтобы начать говорить.
 public struct NegotiatedMedia: Sendable, Hashable {
     public var codec: AudioCodec

@@ -14,6 +14,8 @@
     остаётся техническим и не переводится: его сравнивают между машинами, а
     перевод сделал бы одно и то же событие двумя разными строками;
   * `verbatim:` у своих компонентов — текст собран в рантайме;
+  * `precondition`, `assert`, `fatalError` — сообщение читает тот, кто правит
+    этот же код, а не человек за телефоном;
   * комментарий `// не переводится: причина`. Он действует до конца блока, в
     котором стоит, — иначе список из восьми отладочных макросов пришлось бы
     помечать восемь раз, и семь пометок из восьми были бы шумом.
@@ -29,18 +31,37 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CATALOG = ROOT / "EliteSIP" / "Localizable.xcstrings"
-SOURCES = [ROOT / "EliteSIP"]
+# Приложение и пакеты сразу: пакет со своим каталогом проверяется по нему, а
+# пакет без каталога — по пустому списку ключей, то есть каждая его русская
+# строка обязана быть помечена как непереводимая.
+TARGETS: list[tuple[Path, Path]] = [
+    (ROOT / "EliteSIP", ROOT / "EliteSIP" / "Localizable.xcstrings"),
+]
+for package in ["AdminAccess", "CallGuard", "CallHistory", "MediaCore", "SIPCore", "Diagnostics"]:
+    sources = ROOT / "Packages" / package / "Sources" / package
+    TARGETS.append((sources, sources / "Resources" / "Localizable.xcstrings"))
 
 CYRILLIC = re.compile(r"[А-Яа-яЁё]")
 EXEMPT = re.compile(r"//\s*не переводится")
-# Строка журнала: `append(level: .info, message: "…")`. Скобки в хвосте не
-# допускаются намеренно — иначе выражение накрыло бы соседний вызов, стоящий
-# следом за закрытой скобкой журнала. Между `message:` и литералом при этом
-# бывает тернар, и его пропустить надо.
-JOURNAL = re.compile(r"append\(\s*level:[^()]*message:[^()]*$")
+# Строка журнала. Форм три — по одной на слой:
+#
+#   `append(level: .info, message: "…")`  — приложение;
+#   `log(.info, "…")` / `log(level, "…")` — SIPCore;
+#   `onDiagnostic?("…")`                  — MediaCore.
+#
+# Скобки в хвосте не допускаются намеренно: иначе выражение накрыло бы
+# соседний вызов, стоящий следом за закрытой скобкой журнала. Между началом
+# вызова и литералом при этом бывает тернар, и его пропустить надо.
+JOURNAL = re.compile(
+    r"(append\(\s*level:[^()]*message:[^()]*"
+    r"|\blog\(\s*(?:\.\w+|level)\s*,[^()]*"
+    r"|onDiagnostic\??\([^()]*)$"
+)
 # Пояснение переводчику в самом `NSLocalizedString` — не подпись приложения.
 COMMENT_ARGUMENT = re.compile(r"comment:\s*$")
+# Сообщение проверки в коде. Его читает тот, кто правит этот же код, и увидеть
+# его можно только уронив сборку: до человека за телефоном оно не доходит.
+ASSERTION = re.compile(r"\b(precondition|preconditionFailure|assert|assertionFailure|fatalError)\([^()]*$")
 # Форматные вставки, которыми компилятор заменяет интерполяцию в ключе.
 FORMAT = re.compile(r"%(?:\d+\$)?[-+ #0]*[\d.*]*(?:l{0,2}|h{0,2}|z|j|t|L|q)[@dioux XeEfgGcsp%]")
 INTERPOLATION = re.compile(r"\\\([^()]*(?:\([^()]*\)[^()]*)*\)")
@@ -171,14 +192,16 @@ def literals(source: str) -> list[Literal]:
 
 
 def main() -> None:
-    catalog = json.loads(CATALOG.read_text())
-    keys = {normalize(key) for key in catalog.get("strings", {})}
-
     show_all = "--all" in sys.argv
     debt: dict[Path, list[Literal]] = {}
     exempt_count = 0
 
-    for root in SOURCES:
+    for root, catalog_path in TARGETS:
+        keys = set()
+        if catalog_path.exists():
+            catalog = json.loads(catalog_path.read_text())
+            keys = {normalize(key) for key in catalog.get("strings", {})}
+
         for path in sorted(root.rglob("*.swift")):
             source = path.read_text()
             lines = source.splitlines()
@@ -192,6 +215,7 @@ def main() -> None:
                 if (item.exempt
                         or JOURNAL.search(item.before)
                         or COMMENT_ARGUMENT.search(item.before)
+                        or ASSERTION.search(item.before)
                         or "verbatim:" in context):
                     exempt_count += 1
                     if not show_all:

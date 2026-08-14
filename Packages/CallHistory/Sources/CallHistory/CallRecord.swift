@@ -67,12 +67,12 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
         public var title: String? {
             switch self {
             case .completed: return nil
-            case .missed: return "пропущен"
-            case .busy: return "занято"
-            case .noAnswer: return "не ответил"
-            case .unknownNumber: return "нет номера"
-            case .declined: return "отклонён"
-            case .failed: return "отказ"
+            case .missed: return NSLocalizedString("пропущен", bundle: .module, comment: "исход звонка")
+            case .busy: return NSLocalizedString("занято", bundle: .module, comment: "исход звонка")
+            case .noAnswer: return NSLocalizedString("не ответил", bundle: .module, comment: "исход звонка")
+            case .unknownNumber: return NSLocalizedString("нет номера", bundle: .module, comment: "исход звонка")
+            case .declined: return NSLocalizedString("отклонён", bundle: .module, comment: "исход звонка")
+            case .failed: return NSLocalizedString("отказ", bundle: .module, comment: "исход звонка")
             }
         }
 
@@ -221,7 +221,9 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
     /// Что показать в строке вместо номера, когда есть что.
     public var title: String {
         if let displayName, !displayName.isEmpty { return displayName }
-        return number.isEmpty ? "неизвестный номер" : number
+        return number.isEmpty
+            ? NSLocalizedString("неизвестный номер", bundle: .module, comment: "звонок без номера")
+            : number
     }
 
     /// Исход, как его показывает история.
