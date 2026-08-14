@@ -53,9 +53,12 @@ struct SupportTab: View {
         do {
             let url = try model.makeSupportArchive()
             NSWorkspace.shared.activateFileViewerSelecting([url])
-            archiveResult = "Готово: \(url.lastPathComponent)"
+            archiveResult = String(format: NSLocalizedString("Готово: %@", comment: "архив для поддержки собран"), url.lastPathComponent)
         } catch {
-            archiveResult = "Не удалось собрать архив: \(error.localizedDescription)"
+            archiveResult = String(
+                format: NSLocalizedString("Не удалось собрать архив: %@", comment: "архив для поддержки не собрался"),
+                error.localizedDescription
+            )
         }
     }
 }

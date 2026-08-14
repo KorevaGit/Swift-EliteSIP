@@ -167,12 +167,17 @@ struct PresetsTab: View {
         let account = preset.snapshot.profiles.active.account
         let macros = preset.snapshot.dtmf.macros.count
         let queues = preset.snapshot.queues.queues.count
-        return "\(account.domain) · \(macros) макр. · \(queues) очер."
+        return String(
+            format: NSLocalizedString("%1$@ · %2$lld макр. · %3$lld очер.", comment: "что внутри предустановки"),
+            account.domain,
+            macros,
+            queues
+        )
     }
 
     private func title(of profile: SIPProfile) -> String {
         let label = profile.label.isEmpty ? profile.account.username : profile.label
-        return label.isEmpty ? "без номера" : label
+        return label.isEmpty ? NSLocalizedString("без номера", comment: "профиль без добавочного") : label
     }
 
     /// Выгрузка предустановки файлом.
@@ -184,7 +189,7 @@ struct PresetsTab: View {
     private func export(_ preset: SettingsPreset) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "\(preset.name).elitesip-preset.json"
-        panel.prompt = "Выгрузить"
+        panel.prompt = NSLocalizedString("Выгрузить", comment: "кнопка в окне сохранения файла")
         // Рабочий стол: оттуда файл переносят на флешку или прикладывают к
         // письму. Тот же выбор, что у выгрузки настроек в «Обслуживании».
         panel.directoryURL = FileManager.default
@@ -195,9 +200,9 @@ struct PresetsTab: View {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(preset).write(to: url, options: .atomic)
-            notice = "Предустановка выгружена в \(url.lastPathComponent)."
+            notice = String(format: NSLocalizedString("Предустановка выгружена в %@.", comment: "итог выгрузки предустановки"), url.lastPathComponent)
         } catch {
-            notice = "Не удалось выгрузить: \(error.localizedDescription)"
+            notice = String(format: NSLocalizedString("Не удалось выгрузить: %@", comment: "выгрузка предустановки не удалась"), error.localizedDescription)
         }
     }
 

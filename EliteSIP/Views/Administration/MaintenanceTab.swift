@@ -113,7 +113,10 @@ struct MaintenanceTab: View {
                         """),
                     primaryButton: .destructive(Text("Очистить")) {
                         let removed = model.clearHistory()
-                        show("История очищена: записей — \(removed).")
+                        show(String.localizedStringWithFormat(
+                            NSLocalizedString("История очищена: записей — %lld.", comment: "итог очистки истории"),
+                            removed
+                        ))
                     },
                     secondaryButton: .cancel(Text("Отмена"))
                 )
@@ -132,7 +135,7 @@ struct MaintenanceTab: View {
 
         ResetConfirmation(isPresented: $isConfirmingReset) {
             model.resetMachine()
-            show("Машина сброшена.")
+            show(NSLocalizedString("Машина сброшена.", comment: "итог сброса машины"))
         }
     }
 
@@ -142,9 +145,9 @@ struct MaintenanceTab: View {
         guard let url = save(name: "elitesip-settings.json") else { return }
         do {
             try model.exportSettings(to: url)
-            show("Настройки выгружены в \(url.lastPathComponent).")
+            show(String(format: NSLocalizedString("Настройки выгружены в %@.", comment: "итог выгрузки настроек"), url.lastPathComponent))
         } catch {
-            show("Не удалось выгрузить настройки: \(error.localizedDescription)")
+            show(String(format: NSLocalizedString("Не удалось выгрузить настройки: %@", comment: "выгрузка настроек не удалась"), error.localizedDescription))
         }
     }
 
@@ -152,9 +155,9 @@ struct MaintenanceTab: View {
         guard let url = save(name: SupportArchive.suggestedName()) else { return }
         do {
             try model.exportLog(to: url)
-            show("Журнал выгружен в \(url.lastPathComponent).")
+            show(String(format: NSLocalizedString("Журнал выгружен в %@.", comment: "итог выгрузки журнала"), url.lastPathComponent))
         } catch {
-            show("Не удалось выгрузить журнал: \(error.localizedDescription)")
+            show(String(format: NSLocalizedString("Не удалось выгрузить журнал: %@", comment: "выгрузка журнала не удалась"), error.localizedDescription))
         }
     }
 
@@ -173,16 +176,16 @@ struct MaintenanceTab: View {
 
     private func importWarning(_ url: URL) -> String {
         var lines = [
-            """
-            Все закрытые настройки в окне будут заменены содержимым файла, включая пароль \
-            добавочного и пароль администратора. На диск это уйдёт только по «Сохранить».
-            """
+            NSLocalizedString("""
+                Все закрытые настройки в окне будут заменены содержимым файла, включая пароль \
+                добавочного и пароль администратора. На диск это уйдёт только по «Сохранить».
+                """, comment: "предупреждение перед загрузкой настроек из файла")
         ]
         if model.importWouldRemoveAdminPassword(url) {
-            lines.append("""
+            lines.append(NSLocalizedString("""
                 В файле нет пароля администратора: после сохранения закрытые настройки \
                 этой машины будут открыты всем.
-                """)
+                """, comment: "предупреждение перед загрузкой настроек из файла"))
         }
         return lines.joined(separator: "\n\n")
     }
@@ -190,11 +193,11 @@ struct MaintenanceTab: View {
     private func performImport(_ url: URL) {
         do {
             try model.importSettings(from: url)
-            show("Настройки загружены. Проверьте разделы и нажмите «Сохранить».")
+            show(NSLocalizedString("Настройки загружены. Проверьте разделы и нажмите «Сохранить».", comment: "итог загрузки настроек"))
         } catch let failure as AppModel.SettingsImportFailure {
             show(failure.title)
         } catch {
-            show("Не удалось прочитать файл: \(error.localizedDescription)")
+            show(String(format: NSLocalizedString("Не удалось прочитать файл: %@", comment: "файл настроек не прочитался"), error.localizedDescription))
         }
         pendingImport = nil
     }
@@ -202,7 +205,7 @@ struct MaintenanceTab: View {
     private func save(name: String) -> URL? {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = name
-        panel.prompt = "Выгрузить"
+        panel.prompt = NSLocalizedString("Выгрузить", comment: "кнопка в окне сохранения файла")
         // Рабочий стол по умолчанию: это то место, откуда файл переносят на
         // флешку или прикладывают к письму. Каталог журнала предлагать нельзя —
         // туда администратор как раз и не должен ходить.

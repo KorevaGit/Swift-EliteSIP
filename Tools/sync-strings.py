@@ -56,15 +56,33 @@ def unescape(text: str) -> str:
                 .replace("\\t", "\t").replace("\\\\", "\\"))
 
 
+def multiline(body: str) -> str:
+    """Многострочный литерал так, как его видит компилятор.
+
+    Порядок важен и повторяет язык: сперва снимается отступ, заданный строкой с
+    закрывающими кавычками, и только потом склеиваются переносы по обратному
+    слэшу. Наоборот — и ключ разойдётся с тем, что окажется в `.stringsdata`,
+    на один пробел или на пустую строку в конце.
+    """
+    lines = body.split("\n")
+    if lines and not lines[0].strip():
+        lines = lines[1:]
+    if not lines:
+        return ""
+    closing = lines[-1]
+    indent = closing[:len(closing) - len(closing.lstrip())]
+    lines = [line[len(indent):] if line.startswith(indent) else line.lstrip()
+             for line in lines[:-1]]
+    return re.sub(r"\\\n", "", "\n".join(lines))
+
+
 def scan_sources() -> dict[str, str]:
     """Ключи из `NSLocalizedString`: ключ → комментарий."""
     keys: dict[str, str] = {}
     for path in sorted(SOURCES.rglob("*.swift")):
         for match in NS_LOCALIZED.finditer(path.read_text()):
             if match.group("block") is not None:
-                # Перенос обратным слэшем склеивает строку — как в Swift.
-                key = re.sub(r"\\\n\s*", "", match.group("block")).strip("\n")
-                key = "\n".join(line.strip() for line in key.split("\n"))
+                key = multiline(match.group("block"))
             else:
                 key = unescape(match.group("line"))
             if key:

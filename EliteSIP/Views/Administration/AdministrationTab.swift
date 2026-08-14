@@ -119,7 +119,7 @@ struct AdministrationTab: View {
         newPassword = ""
         repeatedPassword = ""
         problem = nil
-        confirmation = "Принято. Пароль начнёт действовать после сохранения настроек."
+        confirmation = NSLocalizedString("Принято. Пароль начнёт действовать после сохранения настроек.", comment: "пароль администратора принят в черновик")
     }
 
     private func removePassword() {
@@ -127,6 +127,6 @@ struct AdministrationTab: View {
         newPassword = ""
         repeatedPassword = ""
         problem = nil
-        confirmation = "Принято. После сохранения «Управление» откроется без пароля."
+        confirmation = NSLocalizedString("Принято. После сохранения «Управление» откроется без пароля.", comment: "снятие пароля принято в черновик")
     }
 }

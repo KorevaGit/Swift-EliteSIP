@@ -44,10 +44,13 @@ COMMENT_ARGUMENT = re.compile(r"comment:\s*$")
 # Форматные вставки, которыми компилятор заменяет интерполяцию в ключе.
 FORMAT = re.compile(r"%(?:\d+\$)?[-+ #0]*[\d.*]*(?:l{0,2}|h{0,2}|z|j|t|L|q)[@dioux XeEfgGcsp%]")
 INTERPOLATION = re.compile(r"\\\([^()]*(?:\([^()]*\)[^()]*)*\)")
+# `\u{203A}` — та же «›», что и в ключе: компилятор escape уже развернул.
+UNICODE_ESCAPE = re.compile(r"\\u\{([0-9A-Fa-f]+)\}")
 
 
 def normalize(text: str) -> str:
     """Ключ и литерал сходятся, если совпадают вне переменной части."""
+    text = UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), text)
     text = INTERPOLATION.sub("\0", text)
     text = FORMAT.sub("\0", text)
     return re.sub(r"\s+", " ", text).strip()
@@ -127,6 +130,24 @@ def literals(source: str) -> list[Literal]:
             start_line = line
             j, body = i + 1, []
             while j < length and source[j] != '"':
+                if source.startswith("\\(", j):
+                    nesting, k = 0, j + 1
+                    while k < length:
+                        if source[k] == "(":
+                            nesting += 1
+                        elif source[k] == ")":
+                            nesting -= 1
+                            if nesting == 0:
+                                break
+                        elif source[k] == '"':
+                            # Вложенный литерал целиком, вместе с кавычками.
+                            k += 1
+                            while k < length and source[k] != '"':
+                                k += 2 if source[k] == "\\" else 1
+                        k += 1
+                    body.append(source[j:k + 1])
+                    j = k + 1
+                    continue
                 if source[j] == "\\" and j + 1 < length:
                     body.append(source[j:j + 2])
                     j += 2

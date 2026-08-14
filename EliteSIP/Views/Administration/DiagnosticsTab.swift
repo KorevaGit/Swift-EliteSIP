@@ -30,8 +30,8 @@ struct DiagnosticsTab: View {
 
     private var glassAvailability: String {
         isGlassAvailable
-            ? "Liquid Glass доступен"
-            : "Liquid Glass недоступен, используются материалы"
+            ? NSLocalizedString("Liquid Glass доступен", comment: "есть ли стекло в системе")
+            : NSLocalizedString("Liquid Glass недоступен, используются материалы", comment: "есть ли стекло в системе")
     }
 
     var body: some View {
@@ -177,9 +177,15 @@ private struct LogFileSection: View {
         do {
             let url = try model.makeSupportArchive()
             NSWorkspace.shared.activateFileViewerSelecting([url])
-            archiveResult = "Готово: \(url.lastPathComponent)"
+            archiveResult = String(
+                format: NSLocalizedString("Готово: %@", comment: "архив для поддержки собран"),
+                url.lastPathComponent
+            )
         } catch {
-            archiveResult = "Не удалось собрать архив: \(error.localizedDescription)"
+            archiveResult = String(
+                format: NSLocalizedString("Не удалось собрать архив: %@", comment: "архив для поддержки не собрался"),
+                error.localizedDescription
+            )
         }
     }
 }
@@ -206,7 +212,7 @@ private struct AudioProbeSection: View {
 
                 if let codec = model.negotiatedCodec {
                     SettingsRow("Кодек") {
-                        Text(codec.sdpName + (codec.isWideband ? " — широкая полоса" : ""))
+                        Text(codec.sdpName + (codec.isWideband ? NSLocalizedString(" — широкая полоса", comment: "пометка у широкополосного кодека") : ""))
                             .compatForeground(Theme.Palette.textSecondary)
                     }
                 }

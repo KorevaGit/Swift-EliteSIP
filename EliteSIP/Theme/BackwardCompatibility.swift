@@ -380,7 +380,7 @@ struct CompatSpinner: NSViewRepresentable {
 /// звонка требует мыши в момент, когда оператор уже держит руки на клавиатуре.
 struct CompatTextField: View {
 
-    let title: String
+    let title: LocalizedStringKey
     @Binding var text: String
     var onSubmit: () -> Void = {}
 

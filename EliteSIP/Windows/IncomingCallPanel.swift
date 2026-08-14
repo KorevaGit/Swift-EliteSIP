@@ -177,6 +177,7 @@ final class IncomingCallPanel: ObservableObject {
     /// Пишется на каждом вызове, потому что случайная позиция — мера защиты, а
     /// не оформление: её поломка не видна ни по одному другому признаку, и
     /// разбирать жалобу «окно уехало» по памяти оператора нечем.
+    // не переводится: строка уходит в журнал, а он остаётся техническим.
     private func placementSummary(panel: NSPanel, placement: IncomingCallPlacement) -> String {
         let frame = panel.frame
         let area = placement.bounds

@@ -681,7 +681,9 @@ struct LineField: View {
         guard let connectedAt = line.connectedAt else { return line.status }
         let seconds = max(Int(now.timeIntervalSince(connectedAt)), 0)
         let timer = String(format: "%02d:%02d", seconds / 60, seconds % 60)
-        return line.isOnHold ? "\(timer) · удержание" : "\(timer) · разговор"
+        return line.isOnHold
+            ? String(format: NSLocalizedString("%@ · удержание", comment: "линия на удержании"), timer)
+            : String(format: NSLocalizedString("%@ · разговор", comment: "линия в разговоре"), timer)
     }
 }
 
@@ -776,7 +778,7 @@ struct CallControls: View {
     }
 
     private func controlButton(
-        title: String,
+        title: LocalizedStringKey,
         symbol: String,
         isOn: Bool,
         isEnabled: Bool,
@@ -925,7 +927,7 @@ struct TransferEntry: View {
     }
 
     private func button(
-        _ title: String,
+        _ title: LocalizedStringKey,
         isProminent: Bool,
         action: @escaping () -> Void
     ) -> some View {

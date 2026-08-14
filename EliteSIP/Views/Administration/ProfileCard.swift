@@ -150,8 +150,12 @@ struct ProfileCard: View {
     /// различимы только по слову, которое кто-то однажды вписал.
     private var subtitle: String {
         let account = profile.account
-        let address = account.domain.isEmpty ? "домен не задан" : account.domain
-        let number = account.username.isEmpty ? "номер не задан" : account.username
+        let address = account.domain.isEmpty
+            ? NSLocalizedString("домен не задан", comment: "профиль без домена")
+            : account.domain
+        let number = account.username.isEmpty
+            ? NSLocalizedString("номер не задан", comment: "профиль без добавочного")
+            : account.username
         return "\(number) · \(address) · \(account.transport.protocolName)"
     }
 

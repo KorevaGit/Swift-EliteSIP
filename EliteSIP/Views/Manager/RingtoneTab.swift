@@ -88,7 +88,8 @@ struct RingtoneTab: View {
         let name = URL(fileURLWithPath: path).lastPathComponent
         // Пропавший файл называется прямо: рингтон в этом случае молча вернётся
         // к стандартному, и человек должен понимать почему, а не слышать не то.
-        return model.settings.ringtone.customSoundURL == nil ? "\(name) — файл не найден" : name
+        guard model.settings.ringtone.customSoundURL == nil else { return name }
+        return String(format: NSLocalizedString("%@ — файл не найден", comment: "рингтона нет на диске"), name)
     }
 
     /// Выбор файла.
@@ -100,14 +101,14 @@ struct RingtoneTab: View {
         model.stopRingtonePreview()
 
         let panel = NSOpenPanel()
-        panel.title = "Звук входящего вызова"
+        panel.title = NSLocalizedString("Звук входящего вызова", comment: "заголовок окна выбора файла")
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedFileTypes = ["wav", "aiff", "aif", "caf", "m4a", "mp3"]
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard Ringtone.isPlayable(url: url) else {
-            soundProblem = "Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3."
+            soundProblem = NSLocalizedString("Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3.", comment: "выбранный файл не годится в рингтоны")
             return
         }
         soundProblem = nil

@@ -81,7 +81,12 @@ struct CallHistoryWindowView: View {
     /// обязан совпадать с тем, что оператор выбрал, слово в слово.
     private var windowTitle: String {
         let profile = model.profileMenuTitle(model.settings.profiles.active)
-        return profile.isEmpty ? "История звонков" : "История звонков — \(profile)"
+        return profile.isEmpty
+            ? NSLocalizedString("История звонков", comment: "заголовок окна истории")
+            : String(
+                format: NSLocalizedString("История звонков — %@", comment: "заголовок окна истории с профилем"),
+                profile
+            )
     }
 
     // MARK: - Верх
@@ -316,15 +321,19 @@ struct CallHistoryWindowView: View {
 
     private var emptyTitle: String {
         guard model.settings.history.isEnabled else {
-            return "История звонков выключена"
+            return NSLocalizedString("История звонков выключена", comment: "пустой список истории")
         }
-        guard isFilteredOut else { return "Звонков пока не было" }
-        if model.historySelectedDay != nil { return "В этот день звонков не было" }
+        guard isFilteredOut else {
+            return NSLocalizedString("Звонков пока не было", comment: "пустой список истории")
+        }
+        if model.historySelectedDay != nil {
+            return NSLocalizedString("В этот день звонков не было", comment: "пустой список истории")
+        }
         switch model.historyFilter {
-        case .all: return "Звонков пока не было"
-        case .incoming: return "Входящих в истории нет"
-        case .outgoing: return "Исходящих в истории нет"
-        case .missed: return "Пропущенных нет"
+        case .all: return NSLocalizedString("Звонков пока не было", comment: "пустой список истории")
+        case .incoming: return NSLocalizedString("Входящих в истории нет", comment: "пустой список истории")
+        case .outgoing: return NSLocalizedString("Исходящих в истории нет", comment: "пустой список истории")
+        case .missed: return NSLocalizedString("Пропущенных нет", comment: "пустой список истории")
         }
     }
 
@@ -332,12 +341,15 @@ struct CallHistoryWindowView: View {
         guard model.settings.history.isEnabled else {
             // Куда идти, а не только что случилось: выключатель закрытый, и
             // менеджер до него не дойдёт сам.
-            return "Включается в «Управлении». Пока она выключена, звонки нигде не записываются."
+            return NSLocalizedString("Включается в «Управлении». Пока она выключена, звонки нигде не записываются.", comment: "пустой список истории")
         }
         guard isFilteredOut else {
-            return "Здесь появятся входящие и исходящие — вместе с тем, чем они кончились."
+            return NSLocalizedString("Здесь появятся входящие и исходящие — вместе с тем, чем они кончились.", comment: "пустой список истории")
         }
-        return "Под этот отбор не попал ни один звонок из \(model.historyTotalCountUnfiltered)."
+        return String.localizedStringWithFormat(
+            NSLocalizedString("Под этот отбор не попал ни один звонок из %lld.", comment: "пустой список истории после отбора"),
+            model.historyTotalCountUnfiltered
+        )
     }
 
     // Подвала у окна нет.
@@ -402,9 +414,9 @@ enum HistoryDate {
     static func dayTitle(_ day: Date, now: Date = Date()) -> String {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
-        if day == today { return "Сегодня" }
+        if day == today { return NSLocalizedString("Сегодня", comment: "заголовок дня в истории") }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: today), day == yesterday {
-            return "Вчера"
+            return NSLocalizedString("Вчера", comment: "заголовок дня в истории")
         }
         return dayFormatter.string(from: day)
     }
@@ -874,12 +886,12 @@ private struct HistorySnapshotButton: View {
 
     private func copy() {
         guard let image = anchor.image(profile: profile) else {
-            onResult("Снимок не получился")
+            onResult(NSLocalizedString("Снимок не получился", comment: "снимок списка истории"))
             return
         }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects([image])
-        onResult("Снимок скопирован — вставьте в переписку")
+        onResult(NSLocalizedString("Снимок скопирован — вставьте в переписку", comment: "снимок списка истории"))
     }
 }
 
@@ -1092,13 +1104,13 @@ private struct CallHistoryRow: View {
             parts.append(record.number)
         }
         if record.role == .consultation {
-            parts.append("консультация")
+            parts.append(NSLocalizedString("консультация", comment: "пометка звонка в истории"))
         }
         if record.wasTransferred {
-            parts.append("перевод")
+            parts.append(NSLocalizedString("перевод", comment: "пометка звонка в истории"))
         }
         if record.wasConference {
-            parts.append("конференция")
+            parts.append(NSLocalizedString("конференция", comment: "пометка звонка в истории"))
         }
         return parts.joined(separator: " · ")
     }
@@ -1109,7 +1121,7 @@ private struct CallHistoryRow: View {
             return Self.duration(duration)
         }
         if record.endedAt == nil {
-            return "идёт"
+            return NSLocalizedString("идёт", comment: "звонок ещё не кончился")
         }
         return record.outcome.title ?? ""
     }
@@ -1251,9 +1263,20 @@ private struct HistoryCalendar: View {
         }
     }
 
+    /// Сокращения дней в том порядке, в каком их показывает система.
+    private static var weekdayTitles: [String] {
+        let calendar = Calendar.current
+        let symbols = calendar.veryShortWeekdaySymbols
+        let first = calendar.firstWeekday - 1
+        return Array(symbols[first...] + symbols[..<first])
+    }
+
     private var weekdays: some View {
         HStack(spacing: 0) {
-            ForEach(["пн", "вт", "ср", "чт", "пт", "сб", "вс"], id: \.self) { title in
+            // Дни берутся у календаря, а не переводом: от языка зависят и
+            // сами сокращения, и то, с какого дня начинается неделя, — список
+            // из семи строк знал бы только первое.
+            ForEach(Self.weekdayTitles, id: \.self) { title in
                 Text(title)
                     .font(.footnote)
                     .compatForeground(Theme.Palette.textSecondary)

@@ -125,7 +125,9 @@ struct AudioTab: View {
     /// больше нет, а «кнопка серая и молчит» — худший вид отказа.
     private var selfTestStatus: String? {
         if let status = model.selfTestStatus { return status }
-        if model.isInCall { return "Во время разговора микрофон занят." }
+        if model.isInCall {
+            return NSLocalizedString("Во время разговора микрофон занят.", comment: "почему самопроверка недоступна")
+        }
         return nil
     }
 

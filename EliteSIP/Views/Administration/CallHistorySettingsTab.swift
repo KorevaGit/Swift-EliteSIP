@@ -71,15 +71,25 @@ struct CallHistorySettingsTab: View {
     /// Про повреждённую базу администратор должен узнать здесь, а не из
     /// журнала: он единственный, кто может что-то с этим сделать.
     private var storageState: String {
-        guard model.settings.history.isEnabled else { return "выключена" }
-        guard let store = model.historyStore else { return "не открыта" }
+        guard model.settings.history.isEnabled else {
+            return NSLocalizedString("выключена", comment: "состояние базы истории")
+        }
+        guard let store = model.historyStore else {
+            return NSLocalizedString("не открыта", comment: "состояние базы истории")
+        }
         switch store.openOutcome {
         case .ready:
-            return "в порядке"
+            return NSLocalizedString("в порядке", comment: "состояние базы истории")
         case .replacedDamaged(let damaged):
-            return "была повреждена, отставлена в \(damaged.lastPathComponent)"
+            return String(
+                format: NSLocalizedString("была повреждена, отставлена в %@", comment: "состояние базы истории"),
+                damaged.lastPathComponent
+            )
         case .unavailable(let reason):
-            return "недоступна: \(reason)"
+            return String(
+                format: NSLocalizedString("недоступна: %@", comment: "состояние базы истории"),
+                reason
+            )
         }
     }
 }

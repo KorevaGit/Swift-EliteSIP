@@ -40,7 +40,7 @@ enum IncomingCallSubject: Equatable {
     /// приложение и так знает из активного профиля. Требовать вписать его
     /// руками значило бы оставить случай выключенным на каждой установке, где
     /// про него забыли, и молча сломать его при смене добавочного.
-    static let dealTitle = "Вызов по сделке"
+    static let dealTitle = NSLocalizedString("Вызов по сделке", comment: "заголовок окна входящего по сделке")
 
     /// Разбор того, что пришло в INVITE.
     ///
@@ -134,7 +134,7 @@ struct IncomingCallView: View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
             anchor
 
-            Text(panel.refusal ?? "Входящий вызов")
+            Text(panel.refusal ?? NSLocalizedString("Входящий вызов", comment: "подпись в окне входящего"))
                 .font(Theme.Text.incomingCaption)
                 .compatForeground(panel.refusal == nil ? Color.secondary : Theme.Palette.decline)
                 .animation(.easeOut(duration: 0.15), value: panel.refusal)
@@ -318,7 +318,7 @@ struct IncomingCallView: View {
         HStack(spacing: Theme.Metrics.sectionSpacing) {
             // Кнопка активна с первого кадра: локальной задержки активации нет.
             FilledCallButton(
-                title: "Ответить",
+                title: NSLocalizedString("Ответить", comment: "кнопка в окне входящего"),
                 icon: "phone.fill",
                 fill: Theme.Palette.answer
             ) {

@@ -26,7 +26,7 @@ struct DTMFSettingsTab: View {
                 keepsSingleColumn: true,
                 limit: AppSettings.DTMFSettings.maximumMacros,
                 limitNote: "больше не влезает в панель",
-                makeElement: { .init(title: "Новый", sequence: "") }
+                makeElement: { .init(title: NSLocalizedString("Новый", comment: "подпись только что заведённого макроса"), sequence: "") }
             ) { macro in
                 MacroRow(macro: macro)
             }
@@ -91,13 +91,16 @@ private struct MacroRow: View {
     private var problem: String? {
         let unsupported = DTMFSequence.unsupportedCharacters(in: macro.sequence)
         if !unsupported.isEmpty {
-            return "не тоны: \(String(unsupported))"
+            return String(
+                format: NSLocalizedString("не тоны: %@", comment: "почему макрос негоден"),
+                String(unsupported)
+            )
         }
         if !DTMFSequence(macro.sequence).hasTones {
-            return "нет ни одного тона"
+            return NSLocalizedString("нет ни одного тона", comment: "почему макрос негоден")
         }
         if macro.title.trimmingCharacters(in: .whitespaces).isEmpty {
-            return "нет подписи"
+            return NSLocalizedString("нет подписи", comment: "почему макрос негоден")
         }
         return nil
     }
