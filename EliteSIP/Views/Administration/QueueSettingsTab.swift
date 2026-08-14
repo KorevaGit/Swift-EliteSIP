@@ -137,23 +137,23 @@ private struct UnnamedNumbersSection: View {
     }
 
     private func subtitle(_ sighting: NumberSighting) -> String {
-        "\(sighting.count) \(Self.callsWord(sighting.count)) · \(Self.formatter.string(from: sighting.lastCall))"
+        String(
+            format: NSLocalizedString("%1$@ · %2$@", comment: "сколько вызовов из очереди и когда последний"),
+            String.localizedStringWithFormat(
+                NSLocalizedString("%lld вызовов", comment: "сколько вызовов пришло из очереди"),
+                sighting.count
+            ),
+            Self.formatter.string(from: sighting.lastCall)
+        )
     }
 
     private static let formatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "d MMMM"
-        formatter.locale = Locale(identifier: "ru_RU")
+        // Язык приложения, а не зашитый русский: иначе дата в английском
+        // интерфейсе осталась бы «14 августа».
+        formatter.locale = .autoupdatingCurrent
         return formatter
     }()
 
-    private static func callsWord(_ count: Int) -> String {
-        let tail = count % 100
-        if (11...14).contains(tail) { return "вызовов" }
-        switch count % 10 {
-        case 1: return "вызов"
-        case 2, 3, 4: return "вызова"
-        default: return "вызовов"
-        }
-    }
 }

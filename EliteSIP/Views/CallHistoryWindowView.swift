@@ -434,7 +434,8 @@ enum HistoryDate {
 
     private static func make(_ format: String) -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ru_RU")
+        // Язык приложения, а не зашитый русский.
+        formatter.locale = .autoupdatingCurrent
         formatter.dateFormat = format
         return formatter
     }
@@ -1201,7 +1202,9 @@ private struct HistoryCalendar: View {
 
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: "ru_RU")
+        // Язык приложения, а не зашитый русский: от него зависит и первый
+        // день недели, а он у русской и английской раскладок разный.
+        calendar.locale = .autoupdatingCurrent
         // Неделя с понедельника: воскресенье первым — это чужая привычка, и
         // рабочая неделя в такой сетке разрывается пополам.
         calendar.firstWeekday = 2

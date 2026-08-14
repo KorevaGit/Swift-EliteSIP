@@ -287,26 +287,20 @@ struct ProfileCard: View {
     private var removalWarning: String {
         let records = model.historyCount(ofProfile: profileID)
         guard records > 0 else {
-            return "Вместе с профилем будет удалён его пароль. Истории звонков у этого профиля нет."
+            return NSLocalizedString(
+                "Вместе с профилем будет удалён его пароль. Истории звонков у этого профиля нет.",
+                comment: "предупреждение перед удалением профиля"
+            )
         }
-        return """
-            Вместе с профилем будут удалены его пароль и \(records) \(Self.recordsWord(records)) \
-            истории звонков. Вернуть их «Отменой» будет нельзя.
-            """
+        return String.localizedStringWithFormat(
+            NSLocalizedString("""
+                Вместе с профилем будут удалены его пароль и %lld записей \
+                истории звонков. Вернуть их «Отменой» будет нельзя.
+                """, comment: "предупреждение перед удалением профиля"),
+            records
+        )
     }
 
-    /// Число записей произносится по-русски: «1 запись», «2 записи»,
-    /// «5 записей». Иначе предупреждение о необратимом действии выглядит
-    /// небрежно ровно там, где к нему должно быть больше всего доверия.
-    private static func recordsWord(_ count: Int) -> String {
-        let tail = count % 100
-        if (11...14).contains(tail) { return "записей" }
-        switch count % 10 {
-        case 1: return "запись"
-        case 2, 3, 4: return "записи"
-        default: return "записей"
-        }
-    }
 }
 
 /// Отметка рабочего профиля.

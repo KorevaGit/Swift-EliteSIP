@@ -1,8 +1,120 @@
 {
   "sourceLanguage": "ru",
   "strings": {
+    "%1$@ · %2$@": {
+      "comment": "сколько вызовов из очереди и когда последний"
+    },
+    "%1$@ · до первой регистрации %2$@ с": {
+      "comment": "сколько пакетов стука и сколько это займёт"
+    },
     "%lld": {},
+    "%lld вызовов": {
+      "comment": "сколько вызовов пришло из очереди",
+      "localizations": {
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld вызов"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld вызова"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld вызовов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld вызова"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld call"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld calls"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld дн.": {},
+    "%lld пакетов": {
+      "comment": "сколько пакетов в последовательности стука",
+      "localizations": {
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld пакет"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld пакета"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld пакетов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld пакета"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld packet"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld packets"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld с между пакетами": {},
     "%lld цифр. Код покажет действующий пароль этой машины — он не сбрасывается, потому что совпадает с паролем в конфигурации.": {},
     "CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет.": {},
@@ -41,6 +153,12 @@
     "Версия": {},
     "Вести журнал в файле": {},
     "Вести историю звонков": {},
+    "Вместе с профилем будет удалён его пароль. Истории звонков у этого профиля нет.": {
+      "comment": "предупреждение перед удалением профиля"
+    },
+    "Вместе с профилем будут удалены его пароль и %lld записей истории звонков. Вернуть их «Отменой» будет нельзя.\n": {
+      "comment": "предупреждение перед удалением профиля"
+    },
     "Вместо кнопки «Ответить» показывается ряд цифр, и вызов принимает только одна из них — названная в подписи. Ломает кликер, который ищет кнопку по картинке. Выключено по умолчанию: это внимание оператора на каждом вызове, а случайная позиция окна обходится ему бесплатно.": {},
     "Внутренний номер": {},
     "Возврат…": {
@@ -587,7 +705,60 @@
     "хост из профиля": {},
     "шт": {},
     "‹": {},
-    "›": {}
+    "›": {},
+    "Вместе с профилем будут удалены его пароль и %lld записей истории звонков. Вернуть их «Отменой» будет нельзя.": {
+      "comment": "",
+      "localizations": {
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вместе с профилем будут удалены его пароль и %lld запись истории звонков. Вернуть их «Отменой» будет нельзя."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вместе с профилем будут удалены его пароль и %lld записи истории звонков. Вернуть их «Отменой» будет нельзя."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вместе с профилем будут удалены его пароль и %lld записей истории звонков. Вернуть их «Отменой» будет нельзя."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вместе с профилем будут удалены его пароль и %lld записи истории звонков. Вернуть их «Отменой» будет нельзя."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Deleting this profile also deletes its password and %lld call history record. This cannot be undone."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Deleting this profile also deletes its password and %lld call history records. This cannot be undone."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   },
   "version": "1.0"
 }

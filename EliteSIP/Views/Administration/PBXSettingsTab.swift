@@ -127,9 +127,14 @@ private struct PortKnockSection: View {
             // первой регистрацией. Без неё «приложение думает» выглядит как
             // поломка, а не как восемь пакетов с паузой в секунду.
             SettingsResolvedValue(
-                verbatim:
-                "\(model.settings.portKnock.packetCount) \(Self.packetsWord(model.settings.portKnock.packetCount)) · "
-                + "до первой регистрации \(duration) с"
+                verbatim: String(
+                    format: NSLocalizedString(
+                        "%1$@ · до первой регистрации %2$@ с",
+                        comment: "сколько пакетов стука и сколько это займёт"
+                    ),
+                    packets,
+                    duration
+                )
             )
 
             SettingsNote("""
@@ -163,14 +168,16 @@ private struct PortKnockSection: View {
         String(format: "%.0f", model.settings.portKnock.estimatedDuration.seconds)
     }
 
-    private static func packetsWord(_ count: Int) -> String {
-        let tail = count % 100
-        if (11...14).contains(tail) { return "пакетов" }
-        switch count % 10 {
-        case 1: return "пакет"
-        case 2, 3, 4: return "пакета"
-        default: return "пакетов"
-        }
+    /// Число пакетов вместе с существительным.
+    ///
+    /// Формы даёт каталог, а не своя функция на остатки от деления: у русского
+    /// их три, у английского две, и правило, написанное под один язык, второму
+    /// не годится ни при какой правке.
+    private var packets: String {
+        String.localizedStringWithFormat(
+            NSLocalizedString("%lld пакетов", comment: "сколько пакетов в последовательности стука"),
+            model.settings.portKnock.packetCount
+        )
     }
 }
 
