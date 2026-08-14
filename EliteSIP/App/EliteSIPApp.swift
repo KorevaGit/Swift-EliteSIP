@@ -54,6 +54,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// нужна она ровно тогда.
     private var sipTraceWindow: NSWindow?
 
+    /// Значок в строке меню. Заводится при запуске и живёт до выхода.
+    private var statusItemController: StatusItemController?
+
+    /// Меню телефона в строке меню и под правой кнопкой значка. Ссылки нужны
+    /// сильные: `NSMenu.delegate` слабый, и без них меню перестало бы
+    /// обновляться сразу после запуска.
+    private var phoneMenuInBar: PhoneMenuController?
+    private var phoneMenuInStatusItem: PhoneMenuController?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Тема — до первого окна: иначе панель успевает нарисоваться в
         // системном оформлении и перекрашивается уже на глазах.
@@ -87,7 +96,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // «Звук» обязан открываться с готовым списком, а не досчитывать его на
         // глазах у человека. См. `AppModel.startWatchingAudioDevices`.
         model.startWatchingAudioDevices()
+        makePhoneMenus()
         NSApp.mainMenu = makeMainMenu()
+        makeStatusItem()
         showPhoneWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         #if DEBUG
@@ -148,9 +159,162 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return true
     }
 
+    // MARK: - Меню телефона
+
+    /// Что умеет меню телефона — одинаково для обоих его мест.
+    private func phoneMenuActions() -> PhoneMenuController.Actions {
+        PhoneMenuController.Actions(
+            isPanelVisible: { [weak self] in self?.phoneWindow?.isVisible == true },
+            togglePanel: { [weak self] in self?.togglePhoneWindow(nil) },
+            showHistory: { [weak self] in self?.showCallHistoryWindow(nil) },
+            showSettings: { [weak self] in self?.showSettingsWindow(nil) },
+            toggleOffline: { [weak self] in self?.toggleOffline() }
+        )
+    }
+
+    /// Меню телефона заводится дважды одним кодом: заголовком в строке меню и
+    /// под правой кнопкой значка.
+    ///
+    /// Два экземпляра, а не один на два места: `NSMenu` нельзя показать в двух
+    /// местах одновременно, и разница в составе всё равно есть — «Завершить»
+    /// нужен только значку (в строке меню он стоит в меню приложения).
+    private func makePhoneMenus() {
+        phoneMenuInBar = PhoneMenuController(
+            title: "Телефон",
+            model: model,
+            actions: phoneMenuActions(),
+            showsQuit: false
+        )
+        phoneMenuInStatusItem = PhoneMenuController(
+            title: "EliteSIP",
+            model: model,
+            actions: phoneMenuActions(),
+            showsQuit: true
+        )
+    }
+
+    // MARK: - Значок в строке меню
+
+    private func makeStatusItem() {
+        guard let menu = phoneMenuInStatusItem?.menu else { return }
+
+        statusItemController = StatusItemController(
+            model: model,
+            menu: menu,
+            onLeftClick: { [weak self] in self?.togglePhoneWindow(nil) }
+        )
+        observeWindowsForActivationPolicy()
+    }
+
+    /// Уход с линии и возврат — то же, что пункт в капсуле панели.
+    ///
+    /// Возврат идёт через активный профиль, а не через «просто подключиться»:
+    /// `goOnline` отвечает на «под каким номером работать», и другого ответа у
+    /// значка нет — списка профилей в его меню нет намеренно.
+    private func toggleOffline() {
+        Task { @MainActor in
+            if model.isOfflineByChoice {
+                await model.goOnline(profile: model.activeProfileID)
+            } else {
+                await model.goOffline()
+            }
+        }
+    }
+
+    // MARK: - Форма приложения
+
+    /// Окна, по которым считается форма приложения.
+    ///
+    /// Окна входящего звонка здесь нет намеренно: считай оно за окно — иконка
+    /// появлялась бы в Dock на каждый звонок и уходила после него, то есть
+    /// мигала бы в углу экрана несколько раз в час.
+    private var windowsCountedForPolicy: [NSWindow?] {
+        [phoneWindow, settingsWindow, administrationWindow, callHistoryWindow, sipTraceWindow]
+    }
+
+    /// Приложение обычное, пока открыто хоть одно окно, и живёт в строке меню,
+    /// когда не открыто ни одного.
+    ///
+    /// **Строка меню и иконка в Dock — одно состояние, а не два.** `.regular`
+    /// даёт и то и другое, `.accessory` не даёт ничего: приложения со строкой
+    /// меню, но без иконки в Dock, не существует. Поэтому `LSUIElement` в
+    /// `Info.plist` не ставится вовсе — он задал бы стартовую политику, а
+    /// стартуем мы с открытой панелью, то есть уже обычным приложением.
+    ///
+    /// Панель в счёт входит: панель на экране и есть «приложение развёрнуто»,
+    /// со всеми признаками обычного — Dock, ⌘Tab и настоящая строка меню, в
+    /// которой работает ⌘V в поле перевода. Значок при этом способ свернуться
+    /// туда, где приложение не мешает.
+    private func updateActivationPolicy() {
+        // Свёрнутое окно считается открытым: `isVisible` у него false, а
+        // развернуть его можно только из Dock — уйдя в `.accessory`, мы
+        // забрали бы у человека единственную дорогу назад.
+        let hasWindow = windowsCountedForPolicy.contains { window in
+            guard let window else { return false }
+            return window.isVisible || window.isMiniaturized
+        }
+
+        let policy: NSApplication.ActivationPolicy = hasWindow ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else { return }
+
+        NSApp.setActivationPolicy(policy)
+
+        // Переход в обычное приложение не выводит его вперёд сам: без этого
+        // окно открывается за чужим, и человек, нажавший «Настройки», видит
+        // прежнюю программу.
+        if policy == .regular {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    /// Закрытие любого окна пересчитывает форму.
+    ///
+    /// Открытие пересчитывается явно, в самих методах показа. Первый заход
+    /// ловил и открытие тоже — по `didBecomeKey`, — и на этом сломался:
+    /// показ панели из `.accessory` не активирует приложение, окно ключевым не
+    /// становится, уведомление не приходит. Панель оказывалась на экране, а
+    /// приложение оставалось без Dock и без строки меню, то есть без ⌘V в поле
+    /// перевода.
+    private func observeWindowsForActivationPolicy() {
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            // Через очередь: в `willClose` окно ещё видимо, и счёт, сделанный
+            // сразу, нашёл бы закрывающееся окно открытым.
+            Task { @MainActor [weak self] in self?.updateActivationPolicy() }
+        }
+    }
+
     // MARK: - Окна
 
+    /// Левый щелчок по значку.
+    ///
+    /// Переключатель считает не «открыта ли панель», а «видно ли её»:
+    /// заслонённая чужим окном панель сперва выходит вперёд и прячется только
+    /// следующим щелчком. Иначе человек, у которого панель лежит под браузером,
+    /// жмёт значок — и панель исчезает, то есть кнопка «показать» её спрятала.
+    @objc private func togglePhoneWindow(_ sender: Any?) {
+        guard let phoneWindow, phoneWindow.isVisible else {
+            showPhoneWindow(nil)
+            return
+        }
+
+        if NSApp.isActive, phoneWindow.isKeyWindow {
+            phoneWindow.close()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            phoneWindow.makeKeyAndOrderFront(nil)
+        }
+    }
+
     @objc private func showPhoneWindow(_ sender: Any?) {
+        // Форма приложения пересчитывается на выходе, на всех путях сразу:
+        // у методов показа есть ранние возвраты, и вызов в конце тела
+        // пропустил бы как раз тот случай, когда окно уже заведено.
+        defer { updateActivationPolicy() }
+
         if let phoneWindow {
             phoneWindow.makeKeyAndOrderFront(nil)
             return
@@ -168,7 +332,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // полоса остаётся без фона — светофор и название повисают над
             // рабочим столом, оторванные от панели. С ним поверхность панели
             // идёт под полосу, и стекло получается сплошным.
-            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+            // Без `.miniaturizable`: свёрнутая в Dock панель — всё ещё
+            // открытое окно, то есть иконка из Dock не уходит. Рядом оказались
+            // бы два похожих жеста с разным результатом — «свернуть» и
+            // «закрыть, уйдя в строку меню», — и разницу человек узнавал бы
+            // только опытом. Убрана жёлтая, а не красная: у панели остаётся
+            // ровно один способ убраться с глаз, и он же сворачивает
+            // приложение в строку меню.
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -446,6 +617,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// цепочке ответчиков, поэтому окно открывает один и тот же код — и пункт
     /// меню, и кнопка.
     @objc func showSettingsWindow(_ sender: Any?) {
+        // Форма приложения пересчитывается на выходе, на всех путях сразу:
+        // у методов показа есть ранние возвраты, и вызов в конце тела
+        // пропустил бы как раз тот случай, когда окно уже заведено.
+        defer { updateActivationPolicy() }
+
         // Пока открыто «Управление», менеджерских настроек нет (этап 5).
         //
         // Оба окна пишут в один `settings`, запись придержана для всего сразу, и
@@ -528,6 +704,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// шлёт кнопка на панели через цепочку ответчиков, и второго кода,
     /// умеющего открывать это окно, в приложении нет.
     @objc func showCallHistoryWindow(_ sender: Any?) {
+        // Форма приложения пересчитывается на выходе, на всех путях сразу:
+        // у методов показа есть ранние возвраты, и вызов в конце тела
+        // пропустил бы как раз тот случай, когда окно уже заведено.
+        defer { updateActivationPolicy() }
+
         // Срез перечитывается до показа, и оба раза — и когда окно заводится, и
         // когда его открывают снова. Причина у первого случая не та же, что у
         // второго, и стоила она живого прогона: пока список обновлялся из
@@ -588,6 +769,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Открывает «Управление». Вызывается кнопкой уже после проверки пароля.
     @objc func showAdministrationWindow(_ sender: Any?) {
+        // Форма приложения пересчитывается на выходе, на всех путях сразу:
+        // у методов показа есть ранние возвраты, и вызов в конце тела
+        // пропустил бы как раз тот случай, когда окно уже заведено.
+        defer { updateActivationPolicy() }
+
         if let administrationWindow {
             administrationWindow.makeKeyAndOrderFront(nil)
             return
@@ -647,6 +833,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// под длинные строки и держат открытой во время звонка, а раздел настроек
     /// закрывается вместе со всем черновиком.
     @objc func showSIPTraceWindow(_ sender: Any?) {
+        // Форма приложения пересчитывается на выходе, на всех путях сразу:
+        // у методов показа есть ранние возвраты, и вызов в конце тела
+        // пропустил бы как раз тот случай, когда окно уже заведено.
+        defer { updateActivationPolicy() }
+
         if let sipTraceWindow {
             sipTraceWindow.makeKeyAndOrderFront(nil)
             return
@@ -869,6 +1060,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         editItem.submenu = editMenu
         mainMenu.addItem(editItem)
 
+        // «Телефон» — свой раздел между системными «Правкой» и «Окном». До него
+        // история пряталась в «Окне», а настройки — в меню приложения: оба
+        // места системные и правильные, но человек, ищущий их глазами, доходил
+        // туда не с первого раза.
+        if let phoneMenu = phoneMenuInBar?.menu {
+            let phoneItem = NSMenuItem()
+            phoneItem.submenu = phoneMenu
+            mainMenu.addItem(phoneItem)
+        }
+
         let windowItem = NSMenuItem()
         let windowMenu = NSMenu(title: "Окно")
         windowMenu.addItem(
@@ -880,17 +1081,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             withTitle: "Закрыть",
             action: #selector(NSWindow.performClose(_:)),
             keyEquivalent: "w"
-        )
-        windowMenu.addItem(.separator())
-        windowMenu.addItem(
-            withTitle: "Панель EliteSIP",
-            action: #selector(showPhoneWindow(_:)),
-            keyEquivalent: "0"
-        )
-        windowMenu.addItem(
-            withTitle: "История звонков",
-            action: #selector(showCallHistoryWindow(_:)),
-            keyEquivalent: "y"
         )
         windowItem.submenu = windowMenu
         mainMenu.addItem(windowItem)

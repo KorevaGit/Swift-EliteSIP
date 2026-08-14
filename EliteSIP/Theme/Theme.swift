@@ -663,10 +663,26 @@ enum Theme {
         static let outcomeAnswered = Color.green
         /// Пропустил: входящий без ответа.
         static let outcomeMissed = Color.red
-        static let registered = Color.green
-        static let connecting = Color.orange
-        static let offline = Color.secondary
-        static let failure = Color.red
+        // Состояние телефона. Один словарь на два места: капсула панели
+        // рисуется SwiftUI, значок в строке меню — AppKit, и завести им разные
+        // наборы значило бы объяснять одно состояние двумя способами.
+        //
+        // Основой взяты `NSColor`, а не `Color`: обратного перевода нет —
+        // `Color(nsColor:)` появился в macOS 12, а `Color(_:)` от `NSColor`
+        // есть с Catalina.
+        static let statusRegistered = NSColor.systemGreen
+        static let statusConnecting = NSColor.systemOrange
+        static let statusOffline = NSColor.secondaryLabelColor
+        static let statusFailure = NSColor.systemRed
+        /// Идёт разговор. Только у значка: в панели про разговор говорит сама
+        /// панель, а значок при спрятанной панели — единственный признак того,
+        /// что микрофон живой.
+        static let statusInCall = NSColor.systemBlue
+
+        static let registered = Color(statusRegistered)
+        static let connecting = Color(statusConnecting)
+        static let offline = Color(statusOffline)
+        static let failure = Color(statusFailure)
 
         /// Несохранённые правки: значок внизу «Управления» и точка у раздела.
         ///
