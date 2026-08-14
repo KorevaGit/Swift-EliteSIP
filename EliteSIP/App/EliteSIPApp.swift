@@ -58,6 +58,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Тема — до первого окна: иначе панель успевает нарисоваться в
         // системном оформлении и перекрашивается уже на глазах.
         NSApp.appearance = model.settings.appearance.appKitAppearance
+        // То же и с корпусом «Управления»: дальше зеркало держит `AppModel`, но
+        // первое значение `didSet` не приносит — он срабатывает на изменение, а
+        // не на загрузку.
+        Theme.Chrome.prefersPlain = model.settings.plainChrome
+        #if DEBUG
+        // Тот же режим ключом — посмотреть его, не трогая чужие настройки и не
+        // перезапуская приложение из «Управления». Ставится в то же зеркало, а
+        // не проверяется отдельно внутри `Chrome`: иначе ключ включал бы «не
+        // совсем» обычный вариант, и проверяли бы мы не то, что увидит человек.
+        //   EliteSIP.app/Contents/MacOS/EliteSIP --legacy-chrome
+        if ProcessInfo.processInfo.arguments.contains("--legacy-chrome") {
+            Theme.Chrome.prefersPlain = true
+        }
+        #endif
         #if DEBUG
         // Снимок обеих тем нужен для сверки контраста, а тема — настройка
         // менеджера: без ключа проверяющему пришлось бы лезть в чужие
@@ -69,9 +83,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApp.appearance = NSAppearance(named: name == "light" ? .aqua : .darkAqua)
         }
         #endif
+        // Каталог устройств — до первого окна и на всё время работы: раздел
+        // «Звук» обязан открываться с готовым списком, а не досчитывать его на
+        // глазах у человека. См. `AppModel.startWatchingAudioDevices`.
+        model.startWatchingAudioDevices()
         NSApp.mainMenu = makeMainMenu()
         showPhoneWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+        #if DEBUG
+        // Снимок «Управления» — по ключу, а не пятью щелчками через панель,
+        // настройки и предупреждение на входе. Сверять вид сайдбара приходится
+        // каждый раз в обеих темах, и путь до окна дороже самой сверки.
+        //   EliteSIP.app/Contents/MacOS/EliteSIP --administration
+        if ProcessInfo.processInfo.arguments.contains("--administration") {
+            showAdministrationWindow(nil)
+        }
+        #endif
         #if DEBUG
         // До автоподключения: сетка макросов должна быть на экране с первого
         // кадра, а не появляться после первой записи настроек.
@@ -200,6 +227,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private static let phoneWindowAutosaveName = "EliteSIPPhonePanel"
     /// То же для окна «Управление».
     private static let administrationWindowAutosaveName = "EliteSIPAdministration"
+    /// То же для окна настроек. Появилось вместе с боковым списком: до него
+    /// окно было фиксированной ширины и высоты по содержимому — запоминать было
+    /// нечего.
+    private static let settingsWindowAutosaveName = "EliteSIPSettings"
 
     /// Возвращает окно туда, где его оставили.
     ///
@@ -232,6 +263,184 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    /// Собирает окно с боковым списком разделов.
+    ///
+    /// Таких окна два — «Управление» и настройки менеджера, — и рецепт у них
+    /// один. Он был выведен для «Управления» и стоил нескольких итераций на
+    /// живом окне; когда тот же вид понадобился настройкам, копия означала бы,
+    /// что половину этих итераций рано или поздно пройдут заново и придут к
+    /// другому ответу.
+    ///
+    /// Оформления два, и выбирается оно один раз — вызывающей стороной:
+    /// `Theme.Chrome.usesLiquidGlass`. Половинчатого стекла не бывает — см. тот
+    /// же `Chrome`, там записано, из чего оно складывается и почему без одной
+    /// части получается не «почти стекло», а сломанное окно.
+    ///
+    /// - Parameters:
+    ///   - isGlass: собирать ли стеклянный корпус. Приходит снаружи и тем же
+    ///     значением уходит половинам в окружение: настройку «Без стекла»
+    ///     правят в самом окне, и вёрстка не должна перестраиваться под уже
+    ///     собранной рамкой.
+    ///   - toolbarIdentifier: имя пустой панели инструментов. Своё у каждого
+    ///     окна — AppKit хранит по нему состояние панели.
+    private func makeSidebarWindow<Sidebar: View, Content: View>(
+        title: String,
+        isGlass: Bool,
+        toolbarIdentifier: String,
+        contentMinSize: CGSize,
+        sidebar sidebarView: Sidebar,
+        content contentView: Content
+    ) -> NSWindow {
+        let sidebarController = NSHostingController(rootView: sidebarView)
+        let contentController = NSHostingController(rootView: contentView)
+
+        // Безопасная зона обеих половин — своя, не системная.
+        //
+        // Только в стеклянном варианте: там системная зона меряется по всей
+        // полосе заголовка вместе с панелью инструментов и даёт 66 точек, а
+        // панель пустая и стоит ради размытия. В обычном варианте окно под
+        // полосу не заходит, системной зоны нет вовсе, и снимать нечего.
+        if isGlass, #available(macOS 13.3, *) {
+            sidebarController.safeAreaRegions = []
+            contentController.safeAreaRegions = []
+        }
+
+        // Слева — сайдбар со стеклом или обычная половина с разделителем.
+        //
+        // `NSSplitViewItem.sidebar` даёт материал и плавающую вставку; без
+        // стекла материал превращается в блёклую подложку без границы, и список
+        // сливается с содержимым. Обычная половина вместо него отделена той же
+        // чертой, что делит любое системное окно надвое.
+        let sidebar = isGlass
+            ? NSSplitViewItem(sidebarWithViewController: sidebarController)
+            : NSSplitViewItem(viewController: sidebarController)
+        // Ширина фиксированная: список не тянется вместе с окном, иначе на
+        // широком мониторе короткие названия разъезжаются по полосе в треть
+        // экрана. Схлопывание выключено — разделы обязаны быть видны все сразу.
+        sidebar.minimumThickness = Theme.Metrics.sidebarWidth
+        sidebar.maximumThickness = Theme.Metrics.sidebarWidth
+        sidebar.canCollapse = false
+        if #available(macOS 11.0, *) {
+            // Черта под полосой заголовка есть, и только в обычном оформлении.
+            //
+            // Под стеклом её быть не может: содержимое уходит под полосу, и
+            // линия резала бы его пополам. Без стекла — наоборот: полоса
+            // прозрачная, своего фона у неё нет, и без черты верх окна
+            // расплывается, а светофор повисает над содержимым.
+            //
+            // Ставится обеим половинам одинаково — иначе линия рисуется над
+            // одной и обрывается на середине окна. Ровно это и было видно, пока
+            // сайдбар был стеклянной вставкой, а содержимое обычным.
+            sidebar.titlebarSeparatorStyle = isGlass ? .none : .line
+        }
+        if isGlass, #available(macOS 11.0, *) {
+            // Сайдбар идёт от самого верха окна, а не от низа полосы заголовка:
+            // светофор обязан стоять внутри него, а строки — уходить под
+            // светофор, а не обрываться выше него.
+            //
+            // Значение стоит по умолчанию, но записано явно: от него зависит
+            // всё остальное в этом окне, и молчаливое значение по умолчанию —
+            // плохая опора для того, что при его смене развалится.
+            sidebar.allowsFullHeightLayout = true
+        }
+
+        let content = NSSplitViewItem(viewController: contentController)
+        if #available(macOS 11.0, *) {
+            content.titlebarSeparatorStyle = isGlass ? .none : .line
+        }
+
+        let split = NSSplitViewController()
+        split.addSplitViewItem(sidebar)
+        split.addSplitViewItem(content)
+
+        // `.fullSizeContentView` — только под стекло: он и есть то, чем
+        // содержимое заводится под полосу заголовка. В обычном варианте он
+        // означал бы прозрачную полосу без фона, под которую резко ныряет
+        // список, — там нужна ровно обычная полоса, а содержимое под ней.
+        var styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+        if isGlass { styleMask.insert(.fullSizeContentView) }
+
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: contentMinSize),
+            styleMask: styleMask,
+            backing: .buffered,
+            defer: false
+        )
+        // Название у окна есть, но не показывается.
+        //
+        // Имя открытого раздела в полосе заголовка повторяло выбранную строку
+        // сайдбара в полутора сантиметрах от неё и при этом занимало верх
+        // содержимого целиком. Имя нужно там, где сайдбара не видно, —
+        // в переключателе окон и в Mission Control, — и `title` его туда даёт
+        // и без `titleVisibility`. Сам заголовок по-прежнему меняется вместе с
+        // разделом (`WindowTitle` в содержимом).
+        window.title = title
+        window.titleVisibility = .hidden
+        // Прозрачная полоса в обоих оформлениях, но по разным причинам. Под
+        // стеклом — чтобы содержимое ушло под неё. Без стекла — чтобы у полосы
+        // не было своего фона: с непрозрачной оставался светлый волосок на
+        // стыке с содержимым, и он тянулся только над правой половиной, потому
+        // что левая своим фоном его перекрывала. Полоса без фона показывает фон
+        // окна, стыка нет вовсе.
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        window.contentViewController = split
+        window.contentMinSize = contentMinSize
+        if #available(macOS 11.0, *) {
+            window.titlebarSeparatorStyle = isGlass ? .none : .line
+        }
+
+        // Пустая панель инструментов — ради двух вещей, которых без неё нет.
+        //
+        // Своих кнопок в полосе заголовка у этих окон нет и не будет: и
+        // сохранение с отменой, и дверь в «Управление» живут внизу, у
+        // содержимого. Но полоса с панелью инструментов — это не только место
+        // под кнопки:
+        //
+        // 1. **Размытие на кромке прокрутки.** Содержимое, уезжающее под
+        //    светофор, macOS размывает не само по себе — размытие даёт полоса.
+        //    Без панели прозрачная полоса остаётся дыркой, и строки проезжают
+        //    под светофором резкими.
+        // 2. **Полная высота сайдбара.** Замер живого окна: без панели сайдбар
+        //    получает высоту окна за вычетом полосы, с `.unifiedCompact` —
+        //    тоже, и только с `.unified` он идёт во всю высоту, как в Finder.
+        //    То есть стиль здесь не про вид панели, а про то, где кончается
+        //    сайдбар.
+        //
+        // Полоса при этом остаётся пустой и высокой, но её высоту содержимое не
+        // отдаёт: безопасную зону обе половины считают сами (см.
+        // `Theme.Metrics.sidebarTopInset`), а полоса им нужна как источник
+        // размытия.
+        //
+        // В обычном оформлении панели нет вовсе, и это не потеря, а отказ от
+        // вреда: оба довода выше существуют только под стекло, а без него пустая
+        // `NSToolbar` даёт ровно то, чем и является, — пустую полосу поперёк
+        // окна.
+        if isGlass, #available(macOS 11.0, *) {
+            let toolbar = NSToolbar(identifier: toolbarIdentifier)
+            toolbar.allowsUserCustomization = false
+            toolbar.showsBaselineSeparator = false
+            window.toolbar = toolbar
+            window.toolbarStyle = .unified
+        }
+
+        // Ещё раз после показа, и это не суеверие: `NSSplitViewController`
+        // выставляет стиль черты сам во время раскладки, по своим половинам, и
+        // делает это уже после того, как окно собрано. Значение, проставленное
+        // при сборке, он затирает — черта над содержимым возвращалась именно
+        // так. Блок асинхронный, поэтому выполнится после того, как вызывающая
+        // сторона окно покажет.
+        if #available(macOS 11.0, *) {
+            DispatchQueue.main.async {
+                let style: NSTitlebarSeparatorStyle = isGlass ? .none : .line
+                window.titlebarSeparatorStyle = style
+                split.splitViewItems.forEach { $0.titlebarSeparatorStyle = style }
+            }
+        }
+
+        return window
+    }
+
     /// Не `private`: то же действие посылает кнопка на панели через
     /// `NSApp.sendAction(_:to:from:)` с пустой целью. Делегат приложения стоит в
     /// цепочке ответчиков, поэтому окно открывает один и тот же код — и пункт
@@ -256,42 +465,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        // Тот же рецепт, что у панели, и по тем же причинам:
+        // С 14 августа 2026 окно собрано тем же рецептом, что «Управление»:
+        // боковой список разделов, полоса низа под действием над всем окном и
+        // те же два оформления. Прежняя раскладка — одна страница фиксированной
+        // ширины с высотой по содержимому — держалась ровно до тех пор, пока
+        // страница оставалась короткой; после самопроверки голоса и разбора
+        // рингтона на три кнопки нижние разделы стали уходить за край экрана
+        // ноутбука.
         //
-        //   - `.fullSizeContentView` с прозрачной полосой заголовка — иначе у
-        //     прозрачного окна полоса остаётся без материала, и светофор с
-        //     названием повисают над чужим окном;
-        //   - название рисует окно, а не вёрстка: под полосу заголовка у нас
-        //     заходит только фон, поэтому системная надпись ложится на
-        //     материал, а не повисает над чужим окном;
-        //   - непрозрачным окно быть не должно, иначе размывать нечего.
-        //
-        // Не `.resizable`: ширина задана вёрсткой, высоту считает содержимое, и
-        // тянуть окно не за что — страница одна и целиком видна.
-        let window = NSWindow(
-            contentRect: CGRect(origin: .zero, size: CGSize(width: 560, height: 600)),
-            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        // Видимость задана явно: она была выставлена в `.hidden`, пока
-        // название рисовала вёрстка, и после возврата к системному заголовку
-        // полоса осталась пустой — светофор без единой надписи рядом.
-        window.title = "Настройки EliteSIP"
-        window.titleVisibility = .visible
-        window.titlebarAppearsTransparent = true
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: withEnvironment(SettingsView()))
+        // Ушло вместе с ней и прозрачное окно с материалом под всей вёрсткой:
+        // под стеклом материал даёт сайдбарная половина сплита, а рисовать
+        // второй поверх — тот самый двойной материал, из-за которого стекло
+        // выходит мутным. Ловушка с безопасной зоной, стоившая той раскладке
+        // итерации, здесь не срабатывает: размер у окна свой и меняется мышью, а
+        // не выводится из идеальной высоты содержимого.
+        let router = ManagerRouter()
+        settingsRouter = router
 
-        window.center()
+        let isGlass = Theme.Chrome.usesLiquidGlass
+
+        let window = makeSidebarWindow(
+            title: "Настройки EliteSIP",
+            isGlass: isGlass,
+            toolbarIdentifier: "EliteSIPSettings",
+            contentMinSize: CGSize(
+                width: Theme.Metrics.settingsMinWidth,
+                height: Theme.Metrics.settingsMinHeight
+            ),
+            sidebar: withEnvironment(ManagerSidebarView().environmentObject(router))
+                .environment(\.windowUsesGlass, isGlass),
+            content: withEnvironment(ManagerContentView().environmentObject(router))
+                .environment(\.windowUsesGlass, isGlass)
+        )
+
+        // Кадр помнит AppKit — по тем же доводам, что у «Управления»: окно
+        // стало растяжимым, а разделы просят разной высоты.
+        restoreFrame(
+            of: window,
+            autosaveName: Self.settingsWindowAutosaveName,
+            defaultContentSize: CGSize(
+                width: Theme.Metrics.settingsMinWidth,
+                height: Theme.Metrics.settingsMinHeight
+            )
+        )
         // Ради одного: закрытие окна гасит административный режим (M7c).
         window.delegate = self
 
         settingsWindow = window
         window.makeKeyAndOrderFront(nil)
     }
+
+    /// Владелец выбранного раздела настроек.
+    ///
+    /// Живёт у делегата по той же причине, что и `administrationRouter`: окно
+    /// собрано `NSSplitViewController`, и его половины — два разных
+    /// `NSHostingController` с двумя деревьями SwiftUI.
+    private var settingsRouter: ManagerRouter?
 
     /// Открывает историю звонков.
     ///
@@ -379,73 +608,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let router = AdministrationRouter()
         administrationRouter = router
 
-        // Сайдбар — системный, а не нарисованный нами.
-        //
-        // `NSSplitViewItem.sidebar` есть с 10.11, то есть работает и на
-        // Catalina, и это тот же кит, на котором стоят сайдбары Finder и Music.
-        // Он берёт на себя всё, что мы до этого повторяли руками:
-        // полупрозрачную подложку, полную высоту от полосы заголовка до низа
-        // окна, поведение при изменении размера и стекло на macOS 26. Своей
-        // подложки во вью после этого быть не должно — двойной материал даёт
-        // муть там, где обещано стекло.
-        let sidebar = NSSplitViewItem(
-            sidebarWithViewController: NSHostingController(
-                rootView: withEnvironment(AdministrationSidebarView().environmentObject(router))
-            )
-        )
-        // Ширина фиксированная: список не тянется вместе с окном, иначе на
-        // широком мониторе девять коротких названий разъезжаются по полосе в
-        // треть экрана. Схлопывание выключено — девять разделов обязаны быть
-        // видны все сразу.
-        sidebar.minimumThickness = Theme.Metrics.adminSidebarWidth
-        sidebar.maximumThickness = Theme.Metrics.adminSidebarWidth
-        sidebar.canCollapse = false
-        if #available(macOS 11.0, *) {
-            // Черты под полосой заголовка нет: содержимое и так отделено от неё
-            // воздухом, а линия поперёк стекла читается как шов.
-            sidebar.titlebarSeparatorStyle = .none
-        }
+        let isGlass = Theme.Chrome.usesLiquidGlass
 
-        let content = NSSplitViewItem(
-            viewController: NSHostingController(
-                rootView: withEnvironment(AdministrationContentView().environmentObject(router))
-            )
-        )
-        if #available(macOS 11.0, *) {
-            content.titlebarSeparatorStyle = .none
-        }
-
-        let split = NSSplitViewController()
-        split.addSplitViewItem(sidebar)
-        split.addSplitViewItem(content)
-
-        // Тот же рецепт стекла, что у панели, настроек и истории, плюс
-        // `.fullSizeContentView`: без него сайдбар не уйдёт под полосу
-        // заголовка, и светофор повиснет над обычным фоном окна.
-        let window = NSWindow(
-            contentRect: CGRect(
-                origin: .zero,
-                size: CGSize(
-                    width: Theme.Metrics.adminIdealWidth,
-                    height: Theme.Metrics.adminIdealHeight
-                )
+        let window = makeSidebarWindow(
+            title: "Управление EliteSIP",
+            isGlass: isGlass,
+            toolbarIdentifier: "EliteSIPAdministration",
+            contentMinSize: CGSize(
+                width: Theme.Metrics.adminMinWidth,
+                height: Theme.Metrics.adminMinHeight
             ),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
+            sidebar: withEnvironment(AdministrationSidebarView().environmentObject(router))
+                .environment(\.windowUsesGlass, isGlass),
+            content: withEnvironment(AdministrationContentView().environmentObject(router))
+                .environment(\.windowUsesGlass, isGlass)
         )
-        window.title = "Управление EliteSIP"
-        window.titleVisibility = .visible
-        window.titlebarAppearsTransparent = true
-        window.isReleasedWhenClosed = false
-        window.contentViewController = split
-        window.contentMinSize = CGSize(
-            width: Theme.Metrics.adminMinWidth,
-            height: Theme.Metrics.adminMinHeight
-        )
-        if #available(macOS 11.0, *) {
-            window.titlebarSeparatorStyle = .none
-        }
 
         // Кадр помнит AppKit: разделы просят от 245 до 730 точек высоты, одним
         // числом всем не угодить, и последнее слово остаётся за тем, кто окно
@@ -502,6 +679,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Не `private`: вызывается из SwiftUI через цепочку ответчиков, как и
     /// открытие. Решение уже принято к этому моменту, поэтому вопрос о
     /// несохранённом не задаётся — его задаёт `windowShouldClose`.
+    /// Перезапуск приложения — единственный способ сменить оформление целиком.
+    ///
+    /// Стекло выбирается при сборке каждого окна и при первой отрисовке каждой
+    /// поверхности. Панель софтфона висит открытой весь рабочий день, окно
+    /// входящего создаётся заранее, а корпус «Управления» задан рамкой окна —
+    /// перекрасить это на лету значит пересобрать всё, что сейчас на экране,
+    /// вместе с несохранёнными правками внутри. Перезапуск делает то же самое
+    /// честно и за одну секунду.
+    ///
+    /// Согласие спрашивает вызывающая сторона, до того как позвать сюда: здесь
+    /// решение уже принято. Настройки к этому моменту обязаны быть на диске —
+    /// иначе перезапуск вернёт приложение к прежнему оформлению и потеряет
+    /// правку, ради которой его и затеяли.
+    ///
+    /// `open -n` запускается **до** завершения: после `terminate` процесса уже
+    /// нет и запускать новый некому. Регистрация при этом снимается и
+    /// поднимается заново — цена перезапуска, о которой сказано в
+    /// предупреждении.
+    @objc func relaunchApplication(_ sender: Any?) {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-n", Bundle.main.bundleURL.path]
+        do {
+            try task.run()
+        } catch {
+            // Не молчим: без нового процесса «перезапуск» превратился бы в
+            // выход, а оператор остался бы без софтфона на линии.
+            model.append(level: .error, message: "не удалось перезапустить приложение: \(error)")
+            return
+        }
+        NSApp.terminate(nil)
+    }
+
     @objc func closeAdministrationWindow(_ sender: Any?) {
         guard let administrationWindow else { return }
         self.administrationWindow = nil
@@ -554,6 +764,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let closing = notification.object as? NSWindow else { return }
 
         if closing === settingsWindow {
+            // Раздел не сбрасывается: окно живёт между показами
+            // (`isReleasedWhenClosed = false`), и открывший настройки застаёт
+            // тот раздел, на котором закрыл, — как в любом окне с сайдбаром.
             // «Управление» закрывается вместе с настройками: держать открытым
             // окно с черновиком, к которому нет дороги, незачем.
             if administrationWindow != nil {

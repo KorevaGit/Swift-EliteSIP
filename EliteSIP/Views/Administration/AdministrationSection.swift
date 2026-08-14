@@ -8,7 +8,7 @@ import SwiftUI
 /// как снаружи.
 enum AdministrationSection: String, CaseIterable, Identifiable {
 
-    case account, pbx, incoming
+    case account, presets, pbx, incoming
     case macros, queues
     case history, diagnostics, access, maintenance
 
@@ -17,6 +17,7 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .account: "Аккаунт"
+        case .presets: "Предустановки"
         case .pbx: "АТС"
         case .incoming: "Входящие"
         case .macros: "Макросы"
@@ -33,6 +34,10 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .account: "person.crop.circle"
+        // Своего значка у предустановок в комплекте нет, и новый этап не
+        // рисует (долг этапа 7). `person.badge.plus` ближе прочего по смыслу:
+        // предустановкой заводят рабочее место.
+        case .presets: "person.badge.plus"
         case .pbx: "phone.arrow.right"
         case .incoming: "bell"
         case .macros: "square.grid.3x3"
@@ -46,7 +51,7 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
 
     /// Заголовок группы, если раздел её открывает.
     ///
-    /// Группы отвечают на «про что этот раздел»: без них девять пунктов
+    /// Группы отвечают на «про что этот раздел»: без них десять пунктов
     /// читаются одним списком, в котором «Очереди» стоят рядом с «Историей» без
     /// всякой причины.
     ///
@@ -64,6 +69,33 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
         case .history: "Машина"
         default: nil
         }
+    }
+
+    /// Те же разделы, но уже разложенные по группам.
+    ///
+    /// Раскладку делает модель, а не вью: системный список складывается из
+    /// `Section`, и порядок «заголовок — его пункты» ему нужен готовым, а не
+    /// восстановленным по ходу перебора.
+    static var groups: [Group] {
+        var result: [Group] = []
+        for item in allCases {
+            if let title = item.group {
+                result.append(Group(title: title, items: [item]))
+            } else if result.isEmpty {
+                result.append(Group(title: nil, items: [item]))
+            } else {
+                result[result.count - 1].items.append(item)
+            }
+        }
+        return result
+    }
+
+    /// Пачка разделов под общим заголовком. У первой заголовка нет — см.
+    /// `group`.
+    struct Group: Identifiable {
+        var title: String?
+        var items: [AdministrationSection]
+        var id: String { title ?? "" }
     }
 }
 

@@ -23,12 +23,15 @@ struct DiagnosticsTab: View {
         return "\(version) (\(build))"
     }
 
+    private var isGlassAvailable: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
+
     private var glassAvailability: String {
-        if #available(macOS 26.0, *) {
-            "Liquid Glass доступен"
-        } else {
-            "Liquid Glass недоступен, используются материалы"
-        }
+        isGlassAvailable
+            ? "Liquid Glass доступен"
+            : "Liquid Glass недоступен, используются материалы"
     }
 
     var body: some View {
@@ -36,6 +39,17 @@ struct DiagnosticsTab: View {
             SettingsRow("Версия") { value(appVersion) }
             SettingsRow("macOS") { value(ProcessInfo.processInfo.operatingSystemVersionString) }
             SettingsRow("Оформление") { value(glassAvailability) }
+
+            // Сам выключатель «Без стекла» стоит у менеджера, в «Оформлении»
+            // рядом с темой. Строка выше от этого не лишняя: она отвечает на
+            // «почему выключатель серый» — стекла может не быть в самой
+            // системе, — и это сведения о сборке, которым здесь и место.
+            //
+            // Дубля здесь не будет: одна настройка в двух окнах — это два
+            // текста про один выключатель, и разойдутся они на первой же
+            // правке. Разбор, почему выбран менеджер, а не администратор, — в
+            // `AppearanceTab`.
+            SettingsNote("Выключается в «Настройках», раздел «Оформление»: там же, где тема.")
         }
 
         SettingsSection("Журнал") {

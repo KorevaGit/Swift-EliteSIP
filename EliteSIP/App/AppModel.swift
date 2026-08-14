@@ -39,6 +39,14 @@ final class AppModel: ObservableObject {
             if settings.appearance != oldValue.appearance {
                 NSApp.appearance = settings.appearance.appKitAppearance
             }
+            // Оформление окна «Управления» — тем же зеркалом. Уже открытое окно
+            // от этого не перестроится: корпус выбирается при сборке, а
+            // пересобрать окно под курсором значило бы закрыть его вместе с
+            // несохранёнными правками. Новый вид — со следующего открытия, и
+            // так сказано у самого переключателя.
+            if settings.plainChrome != oldValue.plainChrome {
+                Theme.Chrome.prefersPlain = settings.plainChrome
+            }
             // Журнал пересобирается только при смене его собственных настроек:
             // переоткрывать файл на каждое движение ползунка громкости незачем.
             if settings.logFile != oldValue.logFile {
@@ -2115,18 +2123,68 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Микрофоны, доступные для выбора.
-    var inputDevices: [AudioDevice] {
-        AudioDeviceCatalog.devices()
-            .filter(\.isInput)
-            .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+    /// Что показать в «Звуке»: устройства и то, во что обращается «системное по
+    /// умолчанию».
+    ///
+    /// Снимок, а не четыре вычисляемых свойства, и это правка задержки, которую
+    /// было видно глазом. Раньше раздел спрашивал CoreAudio из своего
+    /// `onAppear`: окно успевало нарисоваться с пустыми списками и без строк «в
+    /// звонке: …», а через мгновение строки появлялись — и оба выключателя
+    /// съезжали вниз уже на глазах у человека. Опрос стоит десятки миллисекунд
+    /// на главном потоке (перечисление устройств плюс несколько свойств у
+    /// каждого), и звал его раздел четыре раза за одно открытие.
+    ///
+    /// Теперь ответ уже есть к первой отрисовке: снимок снимается один раз при
+    /// запуске и обновляется по извещению CoreAudio — тому же, по которому
+    /// список менялся и раньше.
+    struct AudioCatalog {
+
+        var inputs: [AudioDevice] = []
+        var outputs: [AudioDevice] = []
+        /// Во что обращается «системный по умолчанию» на этой машине. Правило —
+        /// не устройство, и ответ у него меняется вместе с наушниками.
+        var defaultInputName: String?
+        var defaultOutputName: String?
     }
 
+    @Published private(set) var audioCatalog = AudioCatalog()
+
+    /// Наблюдатель за сменой устройств. Один на всё приложение: раздел
+    /// «Звук» заводил своего на каждое открытие окна и снимал на закрытие.
+    private var audioCatalogObservation: AudioDeviceCatalog.Observation?
+
+    /// Микрофоны, доступные для выбора.
+    var inputDevices: [AudioDevice] { audioCatalog.inputs }
+
     /// Устройства вывода, доступные для выбора.
-    var outputDevices: [AudioDevice] {
-        AudioDeviceCatalog.devices()
-            .filter(\.isOutput)
-            .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+    var outputDevices: [AudioDevice] { audioCatalog.outputs }
+
+    /// Перечитать каталог. `devices()` зовётся **один раз**: прежние четыре
+    /// вызова за открытие и были той самой задержкой.
+    func refreshAudioCatalog() {
+        let all = AudioDeviceCatalog.devices()
+        let byName: (AudioDevice, AudioDevice) -> Bool = {
+            $0.name.localizedCompare($1.name) == .orderedAscending
+        }
+        audioCatalog = AudioCatalog(
+            inputs: all.filter(\.isInput).sorted(by: byName),
+            outputs: all.filter(\.isOutput).sorted(by: byName),
+            defaultInputName: AudioDeviceCatalog.defaultInput?.name,
+            defaultOutputName: AudioDeviceCatalog.defaultOutput?.name
+        )
+    }
+
+    /// Начинает следить за устройствами. Зовётся один раз, при запуске.
+    ///
+    /// Слежка живёт всё время работы приложения, а не пока открыт раздел: снимок
+    /// обязан быть готов **до** первой отрисовки, а значит не может заводиться
+    /// вместе с ней.
+    func startWatchingAudioDevices() {
+        guard audioCatalogObservation == nil else { return }
+        refreshAudioCatalog()
+        audioCatalogObservation = AudioDeviceCatalog.observe { _ in
+            Task { @MainActor [weak self] in self?.refreshAudioCatalog() }
+        }
     }
 
     // MARK: - Набор номера

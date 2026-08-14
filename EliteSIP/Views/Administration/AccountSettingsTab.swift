@@ -19,6 +19,49 @@ struct AccountSettingsTab: View {
     /// возвращают ровно ту путаницу, ради которой карточки и заводились.
     @State private var expandedID: UUID?
 
+    /// Предустановка, из которой заводят следующий профиль. `nil` — вручную.
+    @State private var newProfilePresetID: UUID?
+
+    /// Номер для него: в предустановке номера нет и быть не может, он у каждого
+    /// рабочего места свой.
+    @State private var newProfileNumber = ""
+
+    /// Пароль от него. Заводить место без пароля можно — регистрироваться ему
+    /// будет нечем, и приложение об этом скажет само.
+    @State private var newProfilePassword = ""
+
+    /// Заводит профиль: из предустановки, если она выбрана, иначе пустой.
+    ///
+    /// Пустые поля — не ошибка, а «заполню в карточке»: она и так раскрывается
+    /// следом. Поэтому кнопка не запрещена, а незаполненное просто не
+    /// применяется.
+    private func addProfile() {
+        defer {
+            newProfileNumber = ""
+            newProfilePassword = ""
+        }
+
+        guard
+            let id = newProfilePresetID,
+            let preset = model.settings.presets.first(where: { $0.id == id })
+        else {
+            model.addProfile()
+            model.settings.profiles.active.account.username = trimmedNumber
+            model.settings.profiles.active.password = newProfilePassword
+            return
+        }
+        model.applyPreset(
+            preset,
+            number: trimmedNumber,
+            password: newProfilePassword,
+            to: nil
+        )
+    }
+
+    private var trimmedNumber: String {
+        newProfileNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var body: some View {
         SettingsSection("Профили") {
             if model.profiles.isEmpty {
@@ -34,9 +77,34 @@ struct AccountSettingsTab: View {
                 }
             }
 
+            // Заведение профиля — одной строкой.
+            //
+            // Номер, пароль и предустановка стояли по разным строкам, и это
+            // читалось как три отдельные настройки, хотя они — один ввод для
+            // одного действия. Теперь строка ровно одна и заканчивается той
+            // кнопкой, ради которой её заполняли. «Вручную» остаётся первым
+            // пунктом списка: место, для которого шаблона нет, не должно
+            // заводиться труднее, чем до предустановок.
             SettingsButtonsRow {
+                TextField("добавочный", text: $newProfileNumber)
+                    .frame(maxWidth: 110)
+
+                SecureField("пароль", text: $newProfilePassword)
+                    .frame(maxWidth: 130)
+
+                if !model.settings.presets.isEmpty {
+                    Picker("", selection: $newProfilePresetID) {
+                        Text("Вручную").tag(UUID?.none)
+                        ForEach(model.settings.presets) { preset in
+                            Text(preset.name).tag(UUID?.some(preset.id))
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 160)
+                }
+
                 Button("Добавить профиль") {
-                    model.addProfile()
+                    addProfile()
                     // Новый профиль сразу раскрыт: его завели затем, чтобы
                     // заполнить, и требовать второго нажатия незачем.
                     expandedID = model.activeProfileID
@@ -89,39 +157,10 @@ struct AccountSettingsTab: View {
                 """)
         }
 
-        // Лаборатория живёт только в отладочной сборке.
-        //
-        // Кнопка заводит лабораторный профиль и делает его активным — то есть
-        // снимает оператора со связи между звонками, — а рядом открытым текстом
-        // стояли пароли пиров. На боевой машине этому места нет, и `#if DEBUG`
-        // убирает из выпускаемого бинарника заодно и пароли: `strings` их там не
-        // найдёт.
-        #if DEBUG
-        LabPresetsSection()
-        #endif
+        // «Лаборатория» из раздела убрана: стендовые пиры заводятся профилем, а
+        // отдельная плашка с их паролями открытым текстом висела над рабочим
+        // разделом. Пресеты (`AppSettings.LabPreset`, `AppModel.applyLabPreset`)
+        // остались — вызывать их теперь неоткуда, кроме отладчика, и это ровно
+        // то место, где они нужны.
     }
 }
-
-#if DEBUG
-private struct LabPresetsSection: View {
-
-    @EnvironmentObject private var model: AppModel
-
-    var body: some View {
-        SettingsSection("Лаборатория") {
-            SettingsButtonsRow {
-                // Пресет заводит профиль и делает его активным, то есть это та
-                // же смена профиля со всеми её последствиями.
-                Button("Пир 100 · UDP") { model.applyLabPreset(.labUDP) }
-                    .disabled(!model.canSwitchProfile)
-                Button("Пир 200 · TLS + SRTP") { model.applyLabPreset(.labTLS) }
-                    .disabled(!model.canSwitchProfile)
-            }
-            SettingsNote("""
-                Пароли лабораторных пиров: elite100 и elite200. Блока нет в выпускаемой сборке — \
-                вместе с этими паролями.
-                """)
-        }
-    }
-}
-#endif

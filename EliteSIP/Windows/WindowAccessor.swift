@@ -167,6 +167,77 @@ struct TitleBarInsetReader: NSViewRepresentable {
     }
 }
 
+/// Сообщает вёрстке, насколько сайдбар отступает от краёв окна сверху и снизу.
+///
+/// На macOS 26 сайдбар — не колонка во всю высоту, а плавающая вставка со
+/// скруглёнными углами и полями вокруг. Содержимое рядом с ней таких полей не
+/// получает и начинается у самого края окна: на глаз правая половина оказывается
+/// и выше, и ниже левой. Выравнивать надо по вставке, а не по окну.
+///
+/// Величину полей спрашиваем у самой вставки, а не держим числом: своё число
+/// означало бы, что на системе с другими полями — а до Tahoe их нет вовсе —
+/// содержимое разъедется ровно на разницу. Замер повторяется на каждой
+/// раскладке, а не однажды: поля переживают изменение размера окна.
+///
+/// Спрашиваем у половины сплита, а не у того, что нарисовано: сама вставка —
+/// приватная вью нового оформления, и искать её по имени класса значило бы
+/// сломаться на первом же обновлении системы. Зато вью сайдбара она кладёт
+/// внутрь себя, и его рамка — замер `{{8, 8}, {160, 394}}` в окне высотой 410 —
+/// и есть искомая вставка, полученная публичным `splitViewItems`.
+final class SidebarInsetView: NSView {
+
+    var report: ((CGFloat, CGFloat) -> Void)?
+
+    private var reported: (top: CGFloat, bottom: CGFloat)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        measure()
+    }
+
+    override func layout() {
+        super.layout()
+        measure()
+    }
+
+    private func measure() {
+        guard
+            let window,
+            let root = window.contentView,
+            let split = window.contentViewController as? NSSplitViewController,
+            let sidebar = split.splitViewItems.first?.viewController.view
+        else { return }
+
+        let frame = sidebar.convert(sidebar.bounds, to: root)
+        let top = root.bounds.maxY - frame.maxY
+        let bottom = frame.minY - root.bounds.minY
+
+        // Отрицательного не бывает, а нули означают раскладку до Tahoe: там
+        // сайдбар занимает свою половину целиком, вставки нет и выравнивать
+        // нечего.
+        guard top >= 0, bottom >= 0 else { return }
+        guard reported?.top != top || reported?.bottom != bottom else { return }
+        reported = (top, bottom)
+        report?(top, bottom)
+    }
+
+}
+
+struct SidebarInsetReader: NSViewRepresentable {
+
+    let report: (CGFloat, CGFloat) -> Void
+
+    func makeNSView(context: Context) -> SidebarInsetView {
+        let view = SidebarInsetView()
+        view.report = report
+        return view
+    }
+
+    func updateNSView(_ nsView: SidebarInsetView, context: Context) {
+        nsView.report = report
+    }
+}
+
 /// Задаёт окну высоту и переносит её при изменении, сохраняя верхний левый угол.
 ///
 /// Отдельно от `WindowAccessor`, потому что тот настраивает окно однократно, а

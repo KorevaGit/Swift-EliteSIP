@@ -1,110 +1,156 @@
+import AppKit
 import SwiftUI
 
 /// Боковой список разделов «Управления».
 ///
-/// **Материал рисует система, а не мы.** Вью живёт внутри
-/// `NSSplitViewItem.sidebar` — того же кита, на котором стоят сайдбары Finder и
-/// Music, — и он берёт на себя всё, что мы до этого повторяли руками:
-/// полупрозрачную подложку, полную высоту под полосой заголовка, поведение при
-/// изменении размера окна и стекло на macOS 26. Есть с 10.11, то есть работает и
-/// на Catalina.
+/// **Список рисует система, а не мы.** Вью — это `List` со стилем
+/// `SidebarListStyle` внутри `NSSplitViewItem.sidebar`: тот же кит, на котором
+/// стоят сайдбары Finder и Music. Оба яруса системные, и оба берут на себя то,
+/// что здесь раньше повторялось руками:
 ///
-/// Отсюда и правило: **фон здесь прозрачный**. Своя подложка поверх системной
-/// дала бы двойной материал — мутный там, где должно быть стекло.
+/// - половина сплита — материал и, под стеклом, плавающая вставка на всю высоту
+///   окна со светофором внутри;
+/// - `List` со стилем сайдбара — шаг строки, поля, заголовки групп, вид
+///   выбранной строки, реакцию на курсор и прокрутку, которая уходит под
+///   светофор с размытием на кромке.
+///
+/// Сам список одинаков в обоих оформлениях окна (`Theme.Chrome`): разный только
+/// корпус вокруг него — стеклянная вставка на macOS 26 и обычная половина с
+/// разделителем ниже. Здесь эта разница видна ровно в одном месте — подложке.
+///
+/// Отсюда три правила, каждое из которых до этого нарушалось:
+///
+/// 1. **Фона здесь нет.** Своя подложка поверх системной дала бы двойной
+///    материал — мутный там, где обещано стекло.
+/// 2. **Своей плашки выделения нет.** Её рисует список, и на macOS 26 это
+///    акцентная капсула из нового набора, а не наша серая заливка.
+/// 3. **Своей подсветки под курсором нет.** Системный сайдбар на наведение не
+///    отвечает вовсе — подсвечивается только то, что нажимают. `hoverHighlight`
+///    здесь читался как чужой элемент, потому что чужим и был.
+///
+/// Свои остались две вещи, которых у системы нет: значки из собственного
+/// комплекта (SF Symbols нет на Catalina) и точка несохранённого.
 struct AdministrationSidebarView: View {
 
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var router: AdministrationRouter
 
-    @Environment(\.colorScheme) private var scheme
+    /// Корпус, в котором собрана эта половина. Не `Theme.Chrome`: см.
+    /// `windowUsesGlass`.
+    @Environment(\.windowUsesGlass) private var usesGlass
 
+    /// Под стеклом у списка нет **никакой** подложки, и это не то же самое, что
+    /// прозрачная.
+    ///
+    /// Первый заход ставил `Color.clear` в обеих ветках, чтобы не городить
+    /// развилку, — и живое окно его отвергло: сам факт `background` на списке
+    /// сбивает системную раскладку вставки. Замер: первая строка уехала на семь
+    /// точек вниз, девять пунктов перестали влезать в минимальную высоту окна, и
+    /// у списка вылез полноразмерный скроллер, отрезавший «Обслуживание» до
+    /// «Обслужива…». Поэтому ветки две, и под стеклом модификатора нет вовсе.
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(AdministrationSection.allCases) { item in
-                if let group = item.group {
-                    Text(group)
-                        .font(Font.footnote.weight(.semibold))
-                        .compatForeground(Theme.Palette.textSecondary)
-                        .padding(.horizontal, Theme.Metrics.adminSidebarRowPadding)
-                        .padding(.top, Theme.Metrics.sectionSpacing)
-                        .padding(.bottom, Theme.Metrics.hairSpacing)
-                }
-
-                row(item)
-            }
-
-            Spacer(minLength: 0)
+        if usesGlass {
+            list
+        } else {
+            // Без стекла список остаётся полупрозрачным и сливается с
+            // содержимым: сайдбарной половины сплита, которая раньше давала
+            // подложку, в этом варианте нет. Цвет системный, а не подобранный —
+            // свой пришлось бы держать в двух темах и всё равно разойтись с
+            // системой на следующей версии.
+            list
+                // Своя подложка снизу — и снятая подложка списка сверху.
+                //
+                // Одного `background` мало: `List` со стилем сайдбара рисует
+                // собственный полупрозрачный фон **поверх** него, и список
+                // оставался стеклянным при выключенном стекле. Убрать его
+                // умеет только `scrollContentBackground`, и он с macOS 13 —
+                // ниже список останется полупрозрачным, но там это и есть
+                // системный вид.
+                .compatHiddenScrollBackground()
+                .compatBackground { Color(NSColor.controlBackgroundColor) }
         }
-        .padding(.horizontal, Theme.Metrics.elementSpacing)
-        .padding(.bottom, Theme.Metrics.elementSpacing)
-        // Сверху — ровно столько же, сколько у содержимого справа: под полосой
-        // заголовка начинаются оба, и первая строка списка встаёт на одну линию
-        // с первым заголовком раздела.
-        .padding(.top, Theme.Gap.titleToStatus)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var list: some View {
+        List(selection: selection) {
+            ForEach(AdministrationSection.groups) { group in
+                if let title = group.title {
+                    Section(header: Text(title)) {
+                        rows(group.items)
+                    }
+                } else {
+                    Section {
+                        rows(group.items)
+                    }
+                }
+            }
+        }
+        .listStyle(SidebarListStyle())
+        // Отступ сверху — свой, а не системный. Под стеклом системный меряется
+        // по всей полосе заголовка вместе с панелью инструментов, и первая
+        // строка уезжала от светофора на 66 точек вместо тех четырёх, на которые
+        // от него отступает строка состояния панели. В обычном оформлении это
+        // просто поле от края, см. `Theme.Metrics.sidebarTopInset`.
+        .compatOwnTopInset(Theme.Metrics.sidebarTopInset(glass: usesGlass))
+    }
+
+    /// Выбранный раздел глазами списка.
+    ///
+    /// Списку нужен необязательный выбор — он умеет снимать его целиком, —
+    /// а окну пустой раздел показывать нечем. Поэтому `nil` от списка
+    /// отбрасывается: щелчок мимо строки оставляет открытым тот раздел, что
+    /// был.
+    private var selection: Binding<AdministrationSection?> {
+        Binding(
+            get: { router.section },
+            set: { if let new = $0 { router.section = new } }
+        )
+    }
+
+    private func rows(_ items: [AdministrationSection]) -> some View {
+        ForEach(items) { item in
+            row(item).tag(item)
+        }
     }
 
     private func row(_ item: AdministrationSection) -> some View {
-        let isSelected = router.section == item
-        return Button {
-            router.section = item
-        } label: {
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                // Значок и подпись одного тона, как в системном сайдбаре.
-                //
-                // До этого невыбранные значки брали вторичный цвет, и половина
-                // списка читалась погашенной — будто эти разделы недоступны. У
-                // Finder и Music невыбранный значок белый наравне с подписью, а
-                // акцент достаётся только выбранному, и достаётся обоим.
-                CompatSymbol(name: item.symbol, size: Theme.Icon.sidebar)
-                    .compatForeground(isSelected ? Color.accentColor : Theme.Palette.textPrimary)
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            icon(item)
 
-                Text(item.title)
-                    .lineLimit(1)
-                    .compatForeground(isSelected ? Color.accentColor : Theme.Palette.textPrimary)
+            Text(item.title)
+                .lineLimit(1)
 
-                Spacer(minLength: 0)
+            Spacer(minLength: 0)
 
-                // Точка «здесь есть несохранённое».
-                //
-                // При семи вкладках хватало общего значка внизу окна. При девяти
-                // разделах человек видит «есть несохранённое» и идёт искать, где
-                // именно, — а перед «Отменить» он должен понимать, что теряет.
-                if isDirty(item) {
-                    Circle()
-                        .fill(Theme.Palette.unsaved)
-                        .frame(
-                            width: Theme.Metrics.adminDirtyDotDiameter,
-                            height: Theme.Metrics.adminDirtyDotDiameter
-                        )
-                }
-            }
-            .font(.system(size: Theme.Metrics.adminSidebarFontSize))
-            .padding(.horizontal, Theme.Metrics.adminSidebarRowPadding)
-            .frame(height: Theme.Metrics.adminSidebarRowHeight)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .compatBackground {
-                // Выделение — мягкая заливка, а не акцентный стиль кнопки и не
-                // сплошной синий. Акцентного стиля на Catalina нет вовсе, а
-                // сплошная заливка требует белой подписи поверх — `.plain`
-                // цвет текста не меняет, и на светлом акценте подпись стала бы
-                // нечитаемой.
-                RoundedRectangle(cornerRadius: Theme.Metrics.adminSidebarRadius)
-                    .fill(isSelected ? Theme.Palette.sidebarSelection(scheme) : .clear)
-            }
-            // Нажатие ловит вся плашка, а не только буквы со значком.
+            // Точка «здесь есть несохранённое».
             //
-            // Без этого `.plain`-кнопка отдаёт под нажатие ровно нарисованное
-            // содержимое: между значком и подписью, справа от текста и по краям
-            // строки нажатие проваливалось мимо, и по пунктам сайдбара
-            // промахивались.
-            .contentShape(Rectangle())
+            // При семи вкладках хватало общего значка внизу окна. При девяти
+            // разделах человек видит «есть несохранённое» и идёт искать, где
+            // именно, — а перед «Отменить» он должен понимать, что теряет.
+            if isDirty(item) {
+                Circle()
+                    .fill(Theme.Palette.unsaved)
+                    .frame(
+                        width: Theme.Metrics.adminDirtyDotDiameter,
+                        height: Theme.Metrics.adminDirtyDotDiameter
+                    )
+            }
         }
-        .buttonStyle(.plain)
-        .hoverHighlight(
-            cornerRadius: Theme.Metrics.adminSidebarRadius,
-            isEnabled: !isSelected
-        )
+    }
+
+    /// Значок раздела.
+    ///
+    /// Акцентного цвета, как в системных сайдбарах, — но только у невыбранной
+    /// строки. У выбранной цвет задаёт список: на её капсуле и значок, и
+    /// подпись становятся белыми, а наш акцент остался бы синим по синему.
+    @ViewBuilder
+    private func icon(_ item: AdministrationSection) -> some View {
+        let symbol = CompatSymbol(name: item.symbol, size: Theme.Icon.sidebar)
+        if router.section == item {
+            symbol
+        } else {
+            symbol.compatForeground(Color.accentColor)
+        }
     }
 
     /// Разошлось ли содержимое раздела со снимком, снятым при входе.
@@ -121,6 +167,8 @@ struct AdministrationSidebarView: View {
         switch item {
         case .account:
             return now.profiles != snapshot.profiles
+        case .presets:
+            return now.presets != snapshot.presets
         case .pbx:
             return now.conference != snapshot.conference
                 || now.portKnock != snapshot.portKnock
@@ -134,6 +182,9 @@ struct AdministrationSidebarView: View {
         case .history:
             return now.history != snapshot.history
         case .diagnostics:
+            // `plainChrome` здесь больше не проверяется: выключатель уехал к
+            // менеджеру, в этом окне его нет, и разойтись со снимком он может
+            // только вместе с перезапуском приложения.
             return now.minimumLogLevel != snapshot.minimumLogLevel
                 || now.logFile != snapshot.logFile
         case .access:
