@@ -28,7 +28,10 @@ extension AppModel {
 
         Task { @MainActor in
             guard await VoiceSelfTest.requestMicrophoneAccess() else {
-                selfTestPhase = .failed("Нет доступа к микрофону. Разрешите его в «Защите и безопасности».")
+                selfTestPhase = .failed(NSLocalizedString(
+                    "Нет доступа к микрофону. Разрешите его в «Защите и безопасности».",
+                    comment: "самопроверка голоса"
+                ))
                 return
             }
 
@@ -73,13 +76,22 @@ extension AppModel {
         case .idle:
             nil
         case .recording(let remaining):
-            "Говорите — запись, осталось \(remaining) с"
+            String(
+                format: NSLocalizedString("Говорите — запись, осталось %lld с", comment: "самопроверка голоса"),
+                remaining
+            )
         case .playing:
-            "Воспроизведение записанного"
+            NSLocalizedString("Воспроизведение записанного", comment: "самопроверка голоса")
         case .finished:
-            "Проверка закончена. Если вы себя услышали — микрофон и наушники работают."
+            NSLocalizedString(
+                "Проверка закончена. Если вы себя услышали — микрофон и наушники работают.",
+                comment: "самопроверка голоса"
+            )
         case .failed(let reason):
-            "Не удалось: \(reason)"
+            String(
+                format: NSLocalizedString("Не удалось: %@", comment: "самопроверка голоса"),
+                reason
+            )
         }
     }
 

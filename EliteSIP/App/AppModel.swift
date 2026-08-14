@@ -334,6 +334,8 @@ final class AppModel: ObservableObject {
     }
 
     private var supportSummary: String {
+        // не переводится: шапка архива для поддержки — то же техническое
+        // свидетельство, что и журнал под ней, и читают их вместе.
         let bundle = Bundle.main
         let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
         let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
@@ -383,17 +385,21 @@ final class AppModel: ObservableObject {
     /// того, кто сел за машину, приложение не должно: он его не знает.
     var setupHint: String? {
         guard case .idle = registration else { return nil }
-        if !settings.account.isUsable { return "Нет учётной записи" }
-        if settings.sipPassword.isEmpty { return "Профиль без пароля" }
+        if !settings.account.isUsable {
+            return NSLocalizedString("Нет учётной записи", comment: "подсказка в шапке панели")
+        }
+        if settings.sipPassword.isEmpty {
+            return NSLocalizedString("Профиль без пароля", comment: "подсказка в шапке панели")
+        }
         return nil
     }
 
     var registrationTitle: String {
         switch registration {
-        case .idle: setupHint ?? "Не подключено"
-        case .registering: "Подключение…"
-        case .registered: "На линии"
-        case .unregistering: "Отключение…"
+        case .idle: setupHint ?? NSLocalizedString("Не подключено", comment: "состояние регистрации")
+        case .registering: NSLocalizedString("Подключение…", comment: "состояние регистрации")
+        case .registered: NSLocalizedString("На линии", comment: "состояние регистрации")
+        case .unregistering: NSLocalizedString("Отключение…", comment: "состояние регистрации")
         case .failed(let reason, _): reason
         }
     }
@@ -403,9 +409,17 @@ final class AppModel: ObservableObject {
     var registrationDetail: String? {
         switch registration {
         case .registered(let expiresAt, _):
-            "до \(TimeText.short.string(from: expiresAt))"
+            String(
+                format: NSLocalizedString("до %@", comment: "срок продления регистрации"),
+                TimeText.short.string(from: expiresAt)
+            )
         case .failed(_, let retryAt):
-            retryAt.map { "повтор в \(TimeText.short.string(from: $0))" }
+            retryAt.map {
+                String(
+                    format: NSLocalizedString("повтор в %@", comment: "время следующей попытки"),
+                    TimeText.short.string(from: $0)
+                )
+            }
         default:
             nil
         }
@@ -527,7 +541,7 @@ final class AppModel: ObservableObject {
     func disconnect(force: Bool = false) async {
         guard force || canDisconnect else {
             append(level: .warning, message: "отключение недоступно: идёт разговор")
-            callStatus = "Сначала завершите разговор"
+            callStatus = NSLocalizedString("Сначала завершите разговор", comment: "состояние линии")
             return
         }
 
@@ -550,7 +564,7 @@ final class AppModel: ObservableObject {
     func reconnect() async {
         guard canDisconnect else {
             append(level: .warning, message: "переподключение недоступно: идёт разговор")
-            callStatus = "Сначала завершите разговор"
+            callStatus = NSLocalizedString("Сначала завершите разговор", comment: "состояние линии")
             return
         }
         await disconnect()
@@ -673,7 +687,9 @@ final class AppModel: ObservableObject {
         var remoteAudioView: RTCPSession.RemoteView?
 
         /// Короткая подпись для списка линий.
-        var title: String { peer.isEmpty ? "линия" : peer }
+        var title: String {
+            peer.isEmpty ? NSLocalizedString("линия", comment: "линия без номера в списке") : peer
+        }
     }
 
     /// Линии в порядке появления. Первая — разговор, дальше консультация и
@@ -859,7 +875,7 @@ final class AppModel: ObservableObject {
         // отклонённый звонок успевает занять пару портов RTP.
         guard await agent.hasFreeLine else {
             append(level: .warning, message: "все линии заняты — новую не завести")
-            callStatus = "Заняты все линии"
+            callStatus = NSLocalizedString("Заняты все линии", comment: "состояние линии")
             return false
         }
 
@@ -868,7 +884,7 @@ final class AppModel: ObservableObject {
         // тишина, а причину по звуку не понять.
         guard await VoiceAudioEngine.requestMicrophoneAccess() else {
             append(level: .error, message: "нет доступа к микрофону — разрешите его в настройках системы")
-            callStatus = "Нет доступа к микрофону"
+            callStatus = NSLocalizedString("Нет доступа к микрофону", comment: "состояние линии")
             return false
         }
 
@@ -902,12 +918,12 @@ final class AppModel: ObservableObject {
             isOutgoing: true,
             peer: number,
             phase: .dialing,
-            status: "Набор…",
+            status: NSLocalizedString("Набор…", comment: "состояние линии"),
             consultsLine: origin,
             localDescription: prepared.offer
         ))
         activeLineID = call.callID
-        callStatus = "Набор…"
+        callStatus = NSLocalizedString("Набор…", comment: "состояние линии")
         applyAudioOwnership()
         append(level: .info, message: "звоню на \(number), RTP-порт \(prepared.port)")
 
@@ -947,7 +963,7 @@ final class AppModel: ObservableObject {
 
     func hangUp(lineID: String) async {
         guard let agent, line(lineID) != nil else { return }
-        setStatus("Завершение…", on: lineID)
+        setStatus(NSLocalizedString("Завершение…", comment: "состояние линии"), on: lineID)
         mutate(lineID) { $0.phase = .ending }
         await agent.hangUp(callID: lineID)
     }
@@ -996,15 +1012,15 @@ final class AppModel: ObservableObject {
             switch state {
             case .dialing:
                 mutate(lineID) { $0.phase = .dialing }
-                setStatus("Набор…", on: lineID)
+                setStatus(NSLocalizedString("Набор…", comment: "состояние линии"), on: lineID)
             case .ringing:
                 mutate(lineID) { $0.phase = .ringing }
-                setStatus("Гудки", on: lineID)
+                setStatus(NSLocalizedString("Гудки", comment: "состояние линии"), on: lineID)
             case .answered:
                 mutate(lineID) { $0.phase = .active }
             case .ending:
                 mutate(lineID) { $0.phase = .ending }
-                setStatus("Завершение…", on: lineID)
+                setStatus(NSLocalizedString("Завершение…", comment: "состояние линии"), on: lineID)
             // Исходящий звонок входящим не бывает: это состояние принадлежит
             // другому потоку событий.
             case .incoming, .ended: break
@@ -1043,7 +1059,7 @@ final class AppModel: ObservableObject {
             startMedia(negotiated: negotiated, reservation: reservation, on: lineID)
         } catch {
             append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
-            setStatus("Ошибка звука", on: lineID)
+            setStatus(NSLocalizedString("Ошибка звука", comment: "состояние линии"), on: lineID)
             Task { await hangUp(lineID: lineID) }
         }
     }
@@ -1126,10 +1142,10 @@ final class AppModel: ObservableObject {
             }
             applyAudioOwnership()
             startLevelPolling()
-            setStatus("Разговор", on: lineID)
+            setStatus(NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
         } catch {
             append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
-            setStatus("Ошибка звука", on: lineID)
+            setStatus(NSLocalizedString("Ошибка звука", comment: "состояние линии"), on: lineID)
             Task { await hangUp(lineID: lineID) }
         }
     }
@@ -1179,7 +1195,7 @@ final class AppModel: ObservableObject {
         let target = normalizedTransferTarget
 
         mutate(lineID) { $0.isTransferring = true }
-        setStatus("Перевод…", on: lineID)
+        setStatus(NSLocalizedString("Перевод…", comment: "состояние линии"), on: lineID)
         append(level: .info, message: "слепой перевод на \(target)")
 
         let events = await agent.transfer(callID: lineID, to: target)
@@ -1224,7 +1240,7 @@ final class AppModel: ObservableObject {
         }
 
         mutate(origin) { $0.isTransferring = true }
-        setStatus("Соединение…", on: origin, echo: true)
+        setStatus(NSLocalizedString("Соединение…", comment: "состояние линии"), on: origin, echo: true)
         append(level: .info, message: "консультационный перевод на \(consultation.peer)")
 
         let events = await agent.transfer(
@@ -1262,11 +1278,14 @@ final class AppModel: ObservableObject {
         for await event in events {
             switch event {
             case .accepted:
-                setStatus("Сервер переводит…", on: lineID, echo: echo)
+                setStatus(NSLocalizedString("Сервер переводит…", comment: "состояние линии"), on: lineID, echo: echo)
 
             case .succeeded:
                 append(level: .info, message: "разговор переведён на \(target)")
-                let outcome = "Переведён на \(target)"
+                let outcome = String(
+                    format: NSLocalizedString("Переведён на %@", comment: "состояние линии"),
+                    target
+                )
                 mutate(lineID) {
                     $0.isTransferring = false
                     $0.transferOutcome = outcome
@@ -1304,7 +1323,13 @@ final class AppModel: ObservableObject {
                 // неизвестна, и объявлять отказ было бы неправдой. На экране в
                 // этом случае остаётся причина окончания звонка.
                 if line(lineID)?.phase == .active {
-                    setStatus("Не переведён: \(reason)", on: lineID)
+                    setStatus(
+                        String(
+                            format: NSLocalizedString("Не переведён: %@", comment: "состояние линии"),
+                            reason
+                        ),
+                        on: lineID
+                    )
                 }
                 return
             }
@@ -1314,7 +1339,7 @@ final class AppModel: ObservableObject {
         // разговор при этом никуда не делся.
         mutate(lineID) { $0.isTransferring = false }
         if let line = line(lineID), line.phase == .active {
-            setStatus(line.isOnHold ? "На удержании" : "Разговор", on: lineID)
+            setStatus(line.isOnHold ? NSLocalizedString("На удержании", comment: "состояние линии") : NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
         }
     }
 
@@ -1332,7 +1357,7 @@ final class AppModel: ObservableObject {
         let timing = settings.dtmf.timing
 
         mutate(lineID) { $0.isConferenceCommandPending = true }
-        setStatus("Отправка команды конференции…", on: lineID)
+        setStatus(NSLocalizedString("Отправка команды конференции…", comment: "состояние линии"), on: lineID)
 
         Task { [weak self, weak media] in
             guard let self, let media else { return }
@@ -1344,7 +1369,7 @@ final class AppModel: ObservableObject {
             self.mutate(lineID) { $0.isConferenceCommandPending = false }
 
             guard sent else {
-                self.setStatus("Конференция недоступна", on: lineID)
+                self.setStatus(NSLocalizedString("Конференция недоступна", comment: "состояние линии"), on: lineID)
                 self.append(
                     level: .warning,
                     message: "конференция: DTMF-команда не вышла в RTP"
@@ -1356,7 +1381,7 @@ final class AppModel: ObservableObject {
                 $0.sentDTMF += command.displayText
                 $0.isConferenceCommandSent = true
             }
-            self.setStatus("Команда конференции отправлена", on: lineID)
+            self.setStatus(NSLocalizedString("Команда конференции отправлена", comment: "состояние линии"), on: lineID)
             self.append(
                 level: .info,
                 message: "конференция: отправлен серверный код \(command.displayText)"
@@ -1391,7 +1416,7 @@ final class AppModel: ObservableObject {
         defer { mutate(lineID) { $0.isRenegotiating = false } }
 
         let reoffer = SDPNegotiator.makeReoffer(from: local, direction: hold ? .sendonly : .sendrecv)
-        setStatus(hold ? "Удержание…" : "Возврат…", on: lineID)
+        setStatus(hold ? NSLocalizedString("Удержание…", comment: "состояние линии") : NSLocalizedString("Возврат…", comment: "состояние линии"), on: lineID)
 
         do {
             let answerBody = try await agent.reinvite(callID: lineID, offer: reoffer.encodedData)
@@ -1414,14 +1439,14 @@ final class AppModel: ObservableObject {
             }
 
             applyAudioState(on: lineID)
-            setStatus(hold ? "На удержании" : "Разговор", on: lineID)
+            setStatus(hold ? NSLocalizedString("На удержании", comment: "состояние линии") : NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
             append(level: .info, message: hold ? "разговор на удержании" : "возврат с удержания")
         } catch {
             // Разговор продолжается на прежних параметрах — и это надо сказать
             // вслух, иначе оператор решит, что собеседник его не слышит.
             append(level: .error, message: "удержание не удалось: \(describe(error))")
             applyAudioState(on: lineID)
-            setStatus(line.isOnHold ? "На удержании" : "Разговор", on: lineID)
+            setStatus(line.isOnHold ? NSLocalizedString("На удержании", comment: "состояние линии") : NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
         }
     }
 
@@ -1455,7 +1480,7 @@ final class AppModel: ObservableObject {
                 // об этом нельзя — оператор будет говорить в пустоту и решит,
                 // что собеседник его игнорирует.
                 append(level: .error, message: "звук не вернулся на линию: \(describe(error))")
-                setStatus("Звук не вернулся", on: activeLineID)
+                setStatus(NSLocalizedString("Звук не вернулся", comment: "состояние линии"), on: activeLineID)
             }
         }
         for line in lines { applyAudioState(on: line.id) }
@@ -1522,10 +1547,10 @@ final class AppModel: ObservableObject {
             applyAudioState(on: lineID)
 
             if negotiated.media.isHeld {
-                setStatus("Вас поставили на удержание", on: lineID)
+                setStatus(NSLocalizedString("Вас поставили на удержание", comment: "состояние линии"), on: lineID)
                 append(level: .info, message: "собеседник поставил разговор на удержание")
             } else {
-                setStatus(line.isOnHold ? "На удержании" : "Разговор", on: lineID)
+                setStatus(line.isOnHold ? NSLocalizedString("На удержании", comment: "состояние линии") : NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
                 append(level: .info, message: "собеседник вернулся к разговору")
             }
             if outcome == .streamRebuilt {
@@ -1555,7 +1580,7 @@ final class AppModel: ObservableObject {
             // Молча проглотить нельзя: оператор будет думать, что попал в меню,
             // а на той стороне не произошло ничего.
             append(level: .warning, message: "собеседник не подтвердил telephone-event — тоны отправить нечем")
-            setStatus("DTMF не поддерживается", on: lineID)
+            setStatus(NSLocalizedString("DTMF не поддерживается", comment: "состояние линии"), on: lineID)
             return false
         }
         mutate(lineID) { $0.sentDTMF.append(character) }
@@ -1572,7 +1597,7 @@ final class AppModel: ObservableObject {
         }
         guard media.send(dtmf: sequence, timing: settings.dtmf.timing) else {
             append(level: .warning, message: "собеседник не подтвердил telephone-event — макрос не отправлен")
-            setStatus("DTMF не поддерживается", on: lineID)
+            setStatus(NSLocalizedString("DTMF не поддерживается", comment: "состояние линии"), on: lineID)
             return
         }
         mutate(lineID) { $0.sentDTMF += sequence.displayText }
@@ -1737,7 +1762,10 @@ final class AppModel: ObservableObject {
             retire(line.media)
             // Отключение от сервера рвёт разговор, и назвать это как-то иначе
             // нельзя: линия снимается не потому, что собеседник положил трубку.
-            finishHistory(lineID: line.id, reason: "Отключение от сервера")
+            finishHistory(
+                lineID: line.id,
+                reason: NSLocalizedString("Отключение от сервера", comment: "причина окончания звонка")
+            )
         }
         callTasks.values.forEach { $0.cancel() }
         callTasks.removeAll()
@@ -1800,10 +1828,10 @@ final class AppModel: ObservableObject {
             peer: call.displayNumber,
             displayName: call.callerName,
             phase: .incoming,
-            status: "Входящий"
+            status: NSLocalizedString("Входящий", comment: "состояние линии")
         ))
         activeLineID = call.callID
-        callStatus = "Входящий"
+        callStatus = NSLocalizedString("Входящий", comment: "состояние линии")
         didLogGuardReport = false
 
         // Номер и SIP-логин пишутся как пришли, без нормализации — решение
@@ -1866,12 +1894,12 @@ final class AppModel: ObservableObject {
             switch state {
             case .incoming:
                 mutate(lineID) { $0.phase = .incoming }
-                setStatus("Входящий", on: lineID)
+                setStatus(NSLocalizedString("Входящий", comment: "состояние линии"), on: lineID)
             case .answered:
                 mutate(lineID) { $0.phase = .active }
             case .ending:
                 mutate(lineID) { $0.phase = .ending }
-                setStatus("Завершение…", on: lineID)
+                setStatus(NSLocalizedString("Завершение…", comment: "состояние линии"), on: lineID)
             case .dialing, .ringing, .ended: break
             }
 
@@ -1908,11 +1936,11 @@ final class AppModel: ObservableObject {
         let lineID = call.callID
 
         ringtone.stop()
-        setStatus("Соединение…", on: lineID)
+        setStatus(NSLocalizedString("Соединение…", comment: "состояние линии"), on: lineID)
 
         guard await VoiceAudioEngine.requestMicrophoneAccess() else {
             append(level: .error, message: "нет доступа к микрофону — вызов отклонён")
-            setStatus("Нет доступа к микрофону", on: lineID)
+            setStatus(NSLocalizedString("Нет доступа к микрофону", comment: "состояние линии"), on: lineID)
             await agent.rejectIncomingCall(callID: lineID, status: 486)
             return
         }
@@ -1942,7 +1970,7 @@ final class AppModel: ObservableObject {
             // 488 — это «предложение не подходит», ровно наш случай: нет общего
             // кодека или сервер не предложил SRTP на защищённом профиле.
             append(level: .error, message: "не удалось ответить на предложение: \(error.localizedDescription)")
-            setStatus("Несовместимое медиа", on: lineID)
+            setStatus(NSLocalizedString("Несовместимое медиа", comment: "состояние линии"), on: lineID)
             await agent.rejectIncomingCall(callID: lineID, status: 488)
             return
         }
@@ -1968,7 +1996,7 @@ final class AppModel: ObservableObject {
             answer: prepared.answer.encodedData
         ) else {
             append(level: .warning, message: "ответить не удалось: вызова уже нет")
-            teardown(lineID: lineID, status: "вызова уже нет")
+            teardown(lineID: lineID, status: NSLocalizedString("вызова уже нет", comment: "состояние линии"))
             return
         }
 
@@ -1978,7 +2006,7 @@ final class AppModel: ObservableObject {
     private func declineIncomingCall() async {
         guard let agent, let lineID = activeLineID, callPhase == .incoming else { return }
         ringtone.stop()
-        setStatus("Отклонение…", on: lineID)
+        setStatus(NSLocalizedString("Отклонение…", comment: "состояние линии"), on: lineID)
         await agent.rejectIncomingCall(callID: lineID, status: 486)
     }
 
@@ -2060,17 +2088,17 @@ final class AppModel: ObservableObject {
                 message: "от собеседника не пришло ни одного пакета за \(Int(seconds)) с"
                     + " — звук в трубке будет молчать, и дело не в устройстве"
             )
-            setStatus("Нет потока от собеседника", on: lineID)
+            setStatus(NSLocalizedString("Нет потока от собеседника", comment: "состояние линии"), on: lineID)
 
         case .stalled(let seconds):
             append(level: .warning, message: "поток от собеседника прервался \(Int(seconds)) с назад")
-            setStatus("Поток прервался", on: lineID)
+            setStatus(NSLocalizedString("Поток прервался", comment: "состояние линии"), on: lineID)
 
         case .flowing:
             guard previous != .flowing else { return }
             append(level: .info, message: "поток от собеседника пошёл")
             if let line = line(lineID), Self.streamWarningStatuses.contains(line.status) {
-                setStatus(line.isOnHold ? "На удержании" : "Разговор", on: lineID)
+                setStatus(line.isOnHold ? NSLocalizedString("На удержании", comment: "состояние линии") : NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
             }
         }
     }
@@ -2079,7 +2107,8 @@ final class AppModel: ObservableObject {
     /// список нужен затем, чтобы не затереть чужую подпись — например
     /// «Восстанавливаю звук…» от пересборки тракта.
     private static let streamWarningStatuses: Set<String> = [
-        "Нет потока от собеседника", "Поток прервался",
+        NSLocalizedString("Нет потока от собеседника", comment: "состояние линии"),
+        NSLocalizedString("Поток прервался", comment: "состояние линии"),
     ]
 
     /// Гарнитура в двустороннем режиме: у всей системы приглушён звук, и
@@ -2089,7 +2118,10 @@ final class AppModel: ObservableObject {
     /// Подпись линии, пока тракт пересобирается после неудачи. Вынесена в
     /// константу, потому что её ставит один обработчик, а снимает другой:
     /// разъехавшиеся строки означали бы надпись, которая никогда не гаснет.
-    static let audioRecoveringStatus = "Восстанавливаю звук…"
+    static let audioRecoveringStatus = NSLocalizedString(
+        "Восстанавливаю звук…",
+        comment: "состояние линии, пока пересобирается звуковой тракт"
+    )
 
     private func handle(audio event: VoiceAudioEngine.Event, on lineID: String) {
         switch event {
@@ -2107,7 +2139,7 @@ final class AppModel: ObservableObject {
             // того, как всё починилось, врёт ровно так же, как её отсутствие
             // во время поломки.
             if let line = line(lineID), line.status == Self.audioRecoveringStatus {
-                setStatus(line.isOnHold ? "На удержании" : "Разговор", on: lineID)
+                setStatus(line.isOnHold ? NSLocalizedString("На удержании", comment: "состояние линии") : NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
             }
 
         case .restarting(let reason, let attempt):
@@ -2124,7 +2156,7 @@ final class AppModel: ObservableObject {
             // хуже, чем завершённый: оператор будет говорить в пустоту, а лид —
             // слушать тишину.
             append(level: .error, message: "звук пропал: \(reason)")
-            setStatus("Звук пропал", on: lineID)
+            setStatus(NSLocalizedString("Звук пропал", comment: "состояние линии"), on: lineID)
             Task { [weak self] in await self?.hangUp(lineID: lineID) }
         }
     }
@@ -2324,7 +2356,7 @@ final class AppModel: ObservableObject {
 
     private func refuseProfileChange() {
         append(level: .warning, message: "смена профиля недоступна: идёт разговор")
-        callStatus = "Сначала завершите разговор"
+        callStatus = NSLocalizedString("Сначала завершите разговор", comment: "состояние линии")
     }
 
     /// Делает профиль активным: снимает регистрацию со старого и, если у нового
@@ -2356,7 +2388,7 @@ final class AppModel: ObservableObject {
             await connect()
         } else {
             append(level: .warning, message: "у профиля не задан пароль — подключение не восстановлено")
-            callStatus = "Профиль без пароля"
+            callStatus = NSLocalizedString("Профиль без пароля", comment: "состояние линии")
         }
     }
 
@@ -2421,7 +2453,7 @@ final class AppModel: ObservableObject {
     /// что-то уже не работает, и спорить с человеком в этот момент неуместно.
     func repairNetwork() async {
         guard !settings.portKnock.isEmpty else {
-            networkRepairStatus = "Стук выключен в настройках"
+            networkRepairStatus = NSLocalizedString("Стук выключен в настройках", comment: "«Исправить сеть»")
             return
         }
         let host = settings.account.signalingEndpoint.host
@@ -2434,22 +2466,32 @@ final class AppModel: ObservableObject {
             sequence: settings.portKnock,
             log: log
         ) else {
-            networkRepairStatus = "Стучать некуда"
+            networkRepairStatus = NSLocalizedString("Стучать некуда", comment: "«Исправить сеть»")
             return
         }
 
-        networkRepairStatus = "Открываем дорогу до \(host)…"
+        networkRepairStatus = String(
+            format: NSLocalizedString("Открываем дорогу до %@…", comment: "«Исправить сеть»"),
+            host
+        )
         append(level: .info, message: "«Исправить сеть»: стук по требованию, адрес \(host)")
         await knocker.openPath(reason: .retry)
         // Успех здесь недоказуем: правило срабатывает на исходящий пакет, а
         // ответа может не быть вовсе. Единственная настоящая проверка — это
         // прошедшая следом регистрация, и её делает не эта кнопка.
-        networkRepairStatus = "Готово. Если не помогло — переподключитесь"
+        networkRepairStatus = NSLocalizedString(
+            "Готово. Если не помогло — переподключитесь",
+            comment: "«Исправить сеть»"
+        )
     }
 
     /// Подпись профиля для списка и журнала.
     func profileTitle(_ id: UUID) -> String {
-        guard let profile = settings.profiles[id] else { return "профиль" }
-        return profile.title.isEmpty ? "новый профиль" : profile.title
+        guard let profile = settings.profiles[id] else {
+            return NSLocalizedString("профиль", comment: "профиль, которого уже нет")
+        }
+        return profile.title.isEmpty
+            ? NSLocalizedString("новый профиль", comment: "профиль без подписи")
+            : profile.title
     }
 }

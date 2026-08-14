@@ -136,10 +136,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if model.isInCall {
             let alert = NSAlert()
-            alert.messageText = "Идёт разговор"
-            alert.informativeText = "Выход завершит его и снимет регистрацию."
-            alert.addButton(withTitle: "Завершить и выйти")
-            alert.addButton(withTitle: "Отмена")
+            alert.messageText = NSLocalizedString("Идёт разговор", comment: "вопрос при выходе во время разговора")
+            alert.informativeText = NSLocalizedString(
+                "Выход завершит его и снимет регистрацию.",
+                comment: "вопрос при выходе во время разговора"
+            )
+            alert.addButton(withTitle: NSLocalizedString("Завершить и выйти", comment: "кнопка выхода во время разговора"))
+            alert.addButton(withTitle: NSLocalizedString("Отмена", comment: "кнопка"))
             guard alert.runModal() == .alertFirstButtonReturn else {
                 return .terminateCancel
             }
@@ -180,7 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// нужен только значку (в строке меню он стоит в меню приложения).
     private func makePhoneMenus() {
         phoneMenuInBar = PhoneMenuController(
-            title: "Телефон",
+            title: NSLocalizedString("Телефон", comment: "меню приложения"),
             model: model,
             actions: phoneMenuActions(),
             showsQuit: false
@@ -350,7 +353,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // «Экран вызова», а не «EliteSIP»: имя приложения и так стоит в меню, а
         // окон у него несколько, и заголовок должен отвечать на «какое это
         // окно», а не повторять, чьё оно.
-        window.title = "Экран вызова"
+        window.title = NSLocalizedString("Экран вызова", comment: "заголовок окна панели")
         window.titlebarAppearsTransparent = true
 
         // Без этой пары никакая прозрачность не работает: под материалом
@@ -676,7 +679,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let isGlass = Theme.Chrome.usesLiquidGlass
 
         let window = makeSidebarWindow(
-            title: "Настройки EliteSIP",
+            title: NSLocalizedString("Настройки EliteSIP", comment: "заголовок окна настроек"),
             isGlass: isGlass,
             toolbarIdentifier: "EliteSIPSettings",
             contentMinSize: CGSize(
@@ -815,7 +818,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let isGlass = Theme.Chrome.usesLiquidGlass
 
         let window = makeSidebarWindow(
-            title: "Управление EliteSIP",
+            title: NSLocalizedString("Управление EliteSIP", comment: "заголовок окна «Управление»"),
             isGlass: isGlass,
             toolbarIdentifier: "EliteSIPAdministration",
             contentMinSize: CGSize(
@@ -867,7 +870,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Трасса SIP"
+        window.title = NSLocalizedString("Трасса SIP", comment: "заголовок окна трассировки")
         window.titleVisibility = .visible
         window.titlebarAppearsTransparent = true
         window.isOpaque = false
@@ -939,13 +942,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         let alert = NSAlert()
-        alert.messageText = "Настройки изменены"
-        alert.informativeText = """
+        alert.messageText = NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»")
+        alert.informativeText = NSLocalizedString("""
             Сохранение объявит настройки этой машины локальными: их задаёт \
             администратор, а не файл конфигурации. Это будет записано в журнал.
-            """
-        alert.addButton(withTitle: "Сохранить")
-        alert.addButton(withTitle: "Не сохранять")
+            """, comment: "вопрос при закрытии «Управления»")
+        alert.addButton(withTitle: NSLocalizedString("Сохранить", comment: "кнопка"))
+        alert.addButton(withTitle: NSLocalizedString("Не сохранять", comment: "кнопка"))
         alert.addButton(withTitle: "Отмена")
 
         switch alert.runModal() {
@@ -1029,36 +1032,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // никто не находит.
         let appMenu = NSMenu(title: "EliteSIP")
         appMenu.addItem(
-            withTitle: "О программе EliteSIP",
+            withTitle: NSLocalizedString("О программе EliteSIP", comment: "пункт меню приложения"),
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
         appMenu.addItem(.separator())
         appMenu.addItem(
-            withTitle: "Настройки…",
+            withTitle: NSLocalizedString("Настройки…", comment: "пункт меню приложения"),
             action: #selector(showSettingsWindow(_:)),
             keyEquivalent: ","
         )
         appMenu.addItem(.separator())
         appMenu.addItem(
-            withTitle: "Скрыть EliteSIP",
+            withTitle: NSLocalizedString("Скрыть EliteSIP", comment: "пункт меню приложения"),
             action: #selector(NSApplication.hide(_:)),
             keyEquivalent: "h"
         )
         let hideOthers = appMenu.addItem(
-            withTitle: "Скрыть остальные",
+            withTitle: NSLocalizedString("Скрыть остальные", comment: "пункт меню приложения"),
             action: #selector(NSApplication.hideOtherApplications(_:)),
             keyEquivalent: "h"
         )
         hideOthers.keyEquivalentModifierMask = [.command, .option]
         appMenu.addItem(
-            withTitle: "Показать все",
+            withTitle: NSLocalizedString("Показать все", comment: "пункт меню приложения"),
             action: #selector(NSApplication.unhideAllApplications(_:)),
             keyEquivalent: ""
         )
         appMenu.addItem(.separator())
         appMenu.addItem(
-            withTitle: "Завершить EliteSIP",
+            withTitle: NSLocalizedString("Завершить EliteSIP", comment: "пункт меню приложения"),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )
@@ -1066,15 +1069,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainMenu.addItem(appItem)
 
         let editItem = NSMenuItem()
-        let editMenu = NSMenu(title: "Правка")
-        editMenu.addItem(withTitle: "Отменить", action: Selector(("undo:")), keyEquivalent: "z")
-        let redo = editMenu.addItem(withTitle: "Повторить", action: Selector(("redo:")), keyEquivalent: "z")
+        let editMenu = NSMenu(title: NSLocalizedString("Правка", comment: "меню"))
+        editMenu.addItem(
+            withTitle: NSLocalizedString("Отменить", comment: "пункт меню «Правка»"),
+            action: Selector(("undo:")),
+            keyEquivalent: "z"
+        )
+        let redo = editMenu.addItem(
+            withTitle: NSLocalizedString("Повторить", comment: "пункт меню «Правка»"),
+            action: Selector(("redo:")),
+            keyEquivalent: "z"
+        )
         redo.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "Вырезать", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "Скопировать", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "Вставить", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "Выбрать все", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(
+            withTitle: NSLocalizedString("Вырезать", comment: "пункт меню «Правка»"),
+            action: #selector(NSText.cut(_:)),
+            keyEquivalent: "x"
+        )
+        editMenu.addItem(
+            withTitle: NSLocalizedString("Скопировать", comment: "пункт меню «Правка»"),
+            action: #selector(NSText.copy(_:)),
+            keyEquivalent: "c"
+        )
+        editMenu.addItem(
+            withTitle: NSLocalizedString("Вставить", comment: "пункт меню «Правка»"),
+            action: #selector(NSText.paste(_:)),
+            keyEquivalent: "v"
+        )
+        editMenu.addItem(
+            withTitle: NSLocalizedString("Выбрать все", comment: "пункт меню «Правка»"),
+            action: #selector(NSText.selectAll(_:)),
+            keyEquivalent: "a"
+        )
         editItem.submenu = editMenu
         mainMenu.addItem(editItem)
 
@@ -1089,14 +1116,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         let windowItem = NSMenuItem()
-        let windowMenu = NSMenu(title: "Окно")
+        let windowMenu = NSMenu(title: NSLocalizedString("Окно", comment: "меню"))
         windowMenu.addItem(
-            withTitle: "Свернуть",
+            withTitle: NSLocalizedString("Свернуть", comment: "пункт меню «Окно»"),
             action: #selector(NSWindow.performMiniaturize(_:)),
             keyEquivalent: "m"
         )
         windowMenu.addItem(
-            withTitle: "Закрыть",
+            withTitle: NSLocalizedString("Закрыть", comment: "пункт меню «Окно»"),
             action: #selector(NSWindow.performClose(_:)),
             keyEquivalent: "w"
         )

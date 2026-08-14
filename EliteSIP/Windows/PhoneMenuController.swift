@@ -65,7 +65,9 @@ final class PhoneMenuController: NSObject, NSMenuDelegate {
     /// вопросом «телефон работает?», и время следующего REGISTER отвечает не на
     /// него.
     private var statusTitle: String {
-        guard !model.isOfflineByChoice else { return "Отключён" }
+        guard !model.isOfflineByChoice else {
+            return NSLocalizedString("Отключён", comment: "состояние в меню значка")
+        }
 
         let number = model.settings.account.username
         let state = model.registrationTitle
@@ -84,24 +86,26 @@ final class PhoneMenuController: NSObject, NSMenuDelegate {
         // «Показать» и «Скрыть» — один пункт с двумя подписями: два отдельных,
         // из которых один всегда погашен, читаются как поломка.
         add(
-            title: actions.isPanelVisible() ? "Скрыть панель" : "Показать панель",
+            title: actions.isPanelVisible()
+                ? NSLocalizedString("Скрыть панель", comment: "пункт меню значка")
+                : NSLocalizedString("Показать панель", comment: "пункт меню значка"),
             key: "0"
         ) { [weak self] in self?.actions.togglePanel() }
 
-        add(title: "История звонков", key: "y") { [weak self] in self?.actions.showHistory() }
+        add(title: NSLocalizedString("История звонков", comment: "пункт меню значка"), key: "y") { [weak self] in self?.actions.showHistory() }
 
         // Без клавиши: ⌘, стоит на «Настройках…» в меню приложения, где их и
         // ищут по системной привычке. Две одинаковые клавиши в одной строке
         // меню — это не два входа, а один: система находит первый и до второго
         // не доходит.
-        add(title: "Настройки…", key: "") { [weak self] in self?.actions.showSettings() }
+        add(title: NSLocalizedString("Настройки…", comment: "пункт меню значка"), key: "") { [weak self] in self?.actions.showSettings() }
 
         menu.addItem(.separator())
 
         // Уход с линии — единственное здесь, что меняет состояние телефона.
         // Держится в меню потому, что сняться на обед надо каждый день, а ради
         // этого иначе приходится разворачивать панель.
-        let offline = add(title: "Не беспокоить", key: "") { [weak self] in
+        let offline = add(title: NSLocalizedString("Не беспокоить", comment: "пункт меню значка"), key: "") { [weak self] in
             self?.actions.toggleOffline()
         }
         offline.state = model.isOfflineByChoice ? .on : .off
@@ -112,7 +116,7 @@ final class PhoneMenuController: NSObject, NSMenuDelegate {
         guard showsQuit else { return }
 
         menu.addItem(.separator())
-        add(title: "Завершить EliteSIP", key: "") { NSApp.terminate(nil) }
+        add(title: NSLocalizedString("Завершить EliteSIP", comment: "пункт меню значка"), key: "") { NSApp.terminate(nil) }
     }
 
     @discardableResult

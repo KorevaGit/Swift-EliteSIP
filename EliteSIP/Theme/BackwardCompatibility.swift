@@ -37,7 +37,7 @@ extension View {
 
     /// `help` появился в macOS 11. На Catalina всплывающей подсказки не будет.
     @ViewBuilder
-    func compatHelp(_ text: String) -> some View {
+    func compatHelp(_ text: LocalizedStringKey) -> some View {
         if #available(macOS 11.0, *) {
             self.help(text)
         } else {
@@ -45,11 +45,36 @@ extension View {
         }
     }
 
-    /// `accessibilityLabel` появился в macOS 11.
+    /// Подсказка, собранная в рантайме, — переводить нечего.
     @ViewBuilder
-    func compatAccessibilityLabel(_ label: String) -> some View {
+    func compatHelp(verbatim text: some StringProtocol) -> some View {
         if #available(macOS 11.0, *) {
-            self.accessibilityLabel(label)
+            self.help(Text(text))
+        } else {
+            self
+        }
+    }
+
+    /// `accessibilityLabel` появился в macOS 11.
+    ///
+    /// Подпись берётся ключом, а не строкой: голос VoiceOver — такая же
+    /// подпись приложения, как надпись на кнопке, и остаться непереведённой
+    /// она не имеет права. Тем более что чаще всего это единственный текст
+    /// у кнопки, на которой нарисована одна иконка.
+    @ViewBuilder
+    func compatAccessibilityLabel(_ label: LocalizedStringKey) -> some View {
+        if #available(macOS 11.0, *) {
+            self.accessibilityLabel(Text(label))
+        } else {
+            self
+        }
+    }
+
+    /// Подпись, собранная в рантайме, — переводить нечего.
+    @ViewBuilder
+    func compatAccessibilityLabel(verbatim label: some StringProtocol) -> some View {
+        if #available(macOS 11.0, *) {
+            self.accessibilityLabel(Text(label))
         } else {
             self
         }

@@ -457,7 +457,7 @@ struct SettingsOrderedList<Element: Identifiable, Row: View>: View {
         _ item: Element,
         by offset: Int,
         symbol: Direction,
-        hint: String
+        hint: LocalizedStringKey
     ) -> some View {
         let index = items.firstIndex { $0.id == item.id }
         let target = index.map { $0 + offset }

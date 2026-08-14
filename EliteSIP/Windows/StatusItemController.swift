@@ -129,7 +129,9 @@ final class StatusItemController: NSObject {
         let glyphColor: NSColor = isDark ? .white : .black
 
         button.image = Self.makeImage(glyph: glyphColor, dot: dotColor)
-        button.toolTip = model.isOfflineByChoice ? "Отключён" : model.registrationTitle
+        button.toolTip = model.isOfflineByChoice
+            ? NSLocalizedString("Отключён", comment: "подсказка на значке в строке меню")
+            : model.registrationTitle
     }
 
     /// Цвет точки. Словарь тот же, что в капсуле панели, плюс разговор.

@@ -41,9 +41,9 @@ extension AppModel {
         var text: String {
             switch self {
             case .setup(let hint): hint
-            case .noNetwork: "Нет сети"
+            case .noNetwork: NSLocalizedString("Нет сети", comment: "состояние в шапке панели")
             case .failed(let reason): reason
-            case .connecting: "Подключение…"
+            case .connecting: NSLocalizedString("Подключение…", comment: "состояние в шапке панели")
             }
         }
 
@@ -115,7 +115,9 @@ extension AppModel {
     /// Не `profileTitle`: тот показывает пометку **вместо** номера, и в списке
     /// из трёх профилей одного добавочного номера не было бы видно вовсе.
     func profileMenuTitle(_ profile: SIPProfile) -> String {
-        let number = profile.account.username.isEmpty ? "без номера" : profile.account.username
+        let number = profile.account.username.isEmpty
+            ? NSLocalizedString("без номера", comment: "профиль без добавочного в списке")
+            : profile.account.username
         return profile.label.isEmpty ? number : "\(number) · \(profile.label)"
     }
 

@@ -17,6 +17,8 @@ extension AppModel {
     func seedDebugMacrosIfNeeded() {
         guard settings.dtmf.macros.isEmpty else { return }
 
+        // не переводится: подпись макроса вводит администратор, а эти восемь
+        // — отладочная заглушка, которой в сборке продукта нет вовсе.
         settings.dtmf.macros = [
             .init(title: "Перевод", sequence: "*2"),
             .init(title: "Отдел продаж", sequence: "101"),

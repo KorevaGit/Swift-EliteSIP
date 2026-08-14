@@ -137,13 +137,20 @@ extension AppModel {
         var title: String {
             switch self {
             case .newerSchema(let version):
-                return """
-                    Файл от более новой версии приложения (схема \(version), \
-                    эта сборка знает \(AppSettings.currentSchemaVersion)). \
-                    Часть настроек в ней была бы потеряна.
-                    """
+                return String(
+                    format: NSLocalizedString("""
+                        Файл от более новой версии приложения (схема %1$lld, \
+                        эта сборка знает %2$lld). \
+                        Часть настроек в ней была бы потеряна.
+                        """, comment: "загрузка настроек из файла"),
+                    version,
+                    AppSettings.currentSchemaVersion
+                )
             case .unreadable:
-                return "Файл не похож на настройки EliteSIP."
+                return NSLocalizedString(
+                    "Файл не похож на настройки EliteSIP.",
+                    comment: "загрузка настроек из файла"
+                )
             }
         }
     }

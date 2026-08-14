@@ -14,18 +14,21 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// `NSLocalizedString`, а не литерал: раздел — это `String`, а не вью, и
+    /// ключом он сам по себе не станет. `String(localized:)` подошёл бы лучше,
+    /// но он с macOS 12, а нижняя планка проекта — Catalina.
     var title: String {
         switch self {
-        case .account: "Аккаунт"
-        case .presets: "Предустановки"
-        case .pbx: "АТС"
-        case .incoming: "Входящие"
-        case .macros: "Макросы"
-        case .queues: "Очереди"
-        case .history: "История"
-        case .diagnostics: "Диагностика"
-        case .access: "Доступ"
-        case .maintenance: "Обслуживание"
+        case .account: NSLocalizedString("Аккаунт", comment: "раздел «Управления»")
+        case .presets: NSLocalizedString("Предустановки", comment: "раздел «Управления»")
+        case .pbx: NSLocalizedString("АТС", comment: "раздел «Управления»")
+        case .incoming: NSLocalizedString("Входящие", comment: "раздел «Управления»")
+        case .macros: NSLocalizedString("Макросы", comment: "раздел «Управления»")
+        case .queues: NSLocalizedString("Очереди", comment: "раздел «Управления»")
+        case .history: NSLocalizedString("История", comment: "раздел «Управления»")
+        case .diagnostics: NSLocalizedString("Диагностика", comment: "раздел «Управления»")
+        case .access: NSLocalizedString("Доступ", comment: "раздел «Управления»")
+        case .maintenance: NSLocalizedString("Обслуживание", comment: "раздел «Управления»")
         }
     }
 
@@ -65,8 +68,8 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
         // «Вызов», а не «Обслуживание вызова»: прежнее занимало 133 точки — на
         // 44 больше самого длинного своего пункта — и в одиночку держало ширину
         // всей панели.
-        case .macros: "Вызов"
-        case .history: "Машина"
+        case .macros: NSLocalizedString("Вызов", comment: "группа разделов «Управления»")
+        case .history: NSLocalizedString("Машина", comment: "группа разделов «Управления»")
         default: nil
         }
     }

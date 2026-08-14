@@ -458,7 +458,7 @@ struct CallOutcomeBadge: View {
     let isCompleted: Bool
     let color: Color
     var size: CGFloat = Theme.Metrics.outcomeBadgeSize
-    var label: String?
+    var label: LocalizedStringKey?
 
     init(record: CallRecord) {
         isIncoming = record.direction == .incoming
@@ -472,7 +472,7 @@ struct CallOutcomeBadge: View {
     /// Отдельный инициализатор, а не поддельная `CallRecord`: подсказка на
     /// кнопке не про конкретный звонок, и собирать под неё запись значило бы
     /// заводить звонок, которого не было.
-    init(isIncoming: Bool, isCompleted: Bool, color: Color, size: CGFloat, label: String? = nil) {
+    init(isIncoming: Bool, isCompleted: Bool, color: Color, size: CGFloat, label: LocalizedStringKey? = nil) {
         self.isIncoming = isIncoming
         self.isCompleted = isCompleted
         self.color = color
@@ -520,7 +520,7 @@ struct CallOutcomeBadge: View {
 
     /// Для VoiceOver значок обязан говорить то же, что видно глазом: цвет и
     /// форму он не читает, а состояний четыре.
-    private static func label(for record: CallRecord) -> String {
+    private static func label(for record: CallRecord) -> LocalizedStringKey {
         switch (record.direction, record.isAnswered) {
         case (.incoming, true): return "Принял"
         case (.incoming, false): return "Пропустил"

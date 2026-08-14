@@ -783,6 +783,9 @@ struct AppSettings: Codable, Sendable, Equatable {
 /// читался по месту вызова без имени типа.
 extension AppSettings.LabPreset {
 
+    // не переводится: вызывать пресеты неоткуда, кроме отладчика, — в
+    // интерфейсе их не осталось (см. `AccountSettingsTab`).
+
     static let labUDP = Self(
         label: "Лаборатория · UDP",
         account: SIPAccount(
@@ -884,9 +887,9 @@ enum AppearanceSetting: String, Codable, Sendable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .system: return "Системная"
-        case .light: return "Светлая"
-        case .dark: return "Тёмная"
+        case .system: return NSLocalizedString("Системная", comment: "тема оформления")
+        case .light: return NSLocalizedString("Светлая", comment: "тема оформления")
+        case .dark: return NSLocalizedString("Тёмная", comment: "тема оформления")
         }
     }
 

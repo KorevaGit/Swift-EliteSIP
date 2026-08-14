@@ -10,6 +10,17 @@
 проверка на CI — каталог не трогает вовсе. Этот скрипт делает ту же работу
 воспроизводимо.
 
+Ключи собираются из двух мест, потому что компилятор видит не всё:
+
+  * `.stringsdata` — литералы SwiftUI, то есть всё, что попадает в
+    `LocalizedStringKey`;
+  * сами исходники — вызовы `NSLocalizedString`. Их компилятор в
+    `.stringsdata` не кладёт: он извлекает `String(localized:)`, а тот
+    появился в macOS 12 и нижней планке проекта не годится. Для строк, у
+    которых вью нет вовсе — пункты меню AppKit, заголовки разделов,
+    вычисленные состояния, — остаётся `NSLocalizedString`, и его разбирает
+    этот скрипт, как когда-то `genstrings`.
+
 Что важно: скрипт не выбрасывает переводы. Ключ, пропавший из кода, помечается
 `extractionState: stale` и остаётся в файле — иначе переименование подписи
 молча стирало бы английский перевод, а заметили бы это на чужой машине.
@@ -18,13 +29,47 @@
 """
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "EliteSIP" / "Localizable.xcstrings"
+SOURCES = ROOT / "EliteSIP"
 SOURCE_LANGUAGE = "ru"
+
+# `NSLocalizedString("ключ", comment: "пояснение")` — с обычным литералом или с
+# многострочным. Оба аргумента обязаны быть литералами: переменная ключом не
+# станет ни здесь, ни в Xcode.
+NS_LOCALIZED = re.compile(
+    r'NSLocalizedString\(\s*'
+    r'(?:"""(?P<block>.*?)"""|"(?P<line>(?:[^"\\]|\\.)*)")\s*,\s*'
+    r'comment:\s*"(?P<comment>(?:[^"\\]|\\.)*)"\s*\)',
+    re.DOTALL,
+)
+
+
+def unescape(text: str) -> str:
+    """То же, что делает компилятор с литералом."""
+    return (text.replace('\\"', '"').replace("\\n", "\n")
+                .replace("\\t", "\t").replace("\\\\", "\\"))
+
+
+def scan_sources() -> dict[str, str]:
+    """Ключи из `NSLocalizedString`: ключ → комментарий."""
+    keys: dict[str, str] = {}
+    for path in sorted(SOURCES.rglob("*.swift")):
+        for match in NS_LOCALIZED.finditer(path.read_text()):
+            if match.group("block") is not None:
+                # Перенос обратным слэшем склеивает строку — как в Swift.
+                key = re.sub(r"\\\n\s*", "", match.group("block")).strip("\n")
+                key = "\n".join(line.strip() for line in key.split("\n"))
+            else:
+                key = unescape(match.group("line"))
+            if key:
+                keys.setdefault(key, unescape(match.group("comment")))
+    return keys
 
 
 def derived_data_dir() -> Path:
@@ -103,6 +148,9 @@ def main() -> None:
             sys.exit("сборка не прошла — каталог не тронут")
 
     found = collect(derived_data_dir())
+    # Комментарий из исходника ценнее пустого из `.stringsdata`, поэтому
+    # `NSLocalizedString` кладётся поверх.
+    found.update(scan_sources())
     added, stale, total = merge(found)
     print(f"ключей в коде: {len(found)}")
     print(f"добавлено:     {added}")

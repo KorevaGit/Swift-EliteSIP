@@ -368,7 +368,7 @@ struct PhonePanelView: View {
 
     private func iconButton(
         _ symbol: String,
-        label: String,
+        label: LocalizedStringKey,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
