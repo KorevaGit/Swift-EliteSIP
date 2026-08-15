@@ -4,8 +4,16 @@
 
 Критерий этапа 8 — «ни одной русской подписи, не имеющей перевода» — глазами не
 проверяется: строк под тысячу, и разбросаны они по сотне файлов. Скрипт
-сравнивает два списка: русские литералы, которые есть в исходниках, и ключи,
-которые лежат в `Localizable.xcstrings`. Разница — это либо забытая подпись,
+проверяет каждый русский литерал по его собственному месту в коде: локализован
+ли он **здесь**, а не нашёлся ли такой же текст где-то в каталоге. Разница
+существенная. `NumberField(placeholder: "Номер")` — обычная строка AppKit,
+переводом она не станет никогда, но ключ «Номер» в каталоге есть от соседнего
+`TextField("Номер")`, и проверка по каталогу такую подпись пропускает. Живой
+английский прогон её и нашёл.
+
+Литерал считается локализованным, если он либо стоит ключом в
+`NSLocalizedString`, либо его строку назвал сам компилятор в `.stringsdata` —
+то есть он попал в `LocalizedStringKey`. Всё остальное — либо забытая подпись,
 либо строка, которую переводить не надо; второе помечается в самом коде.
 
 Помечается тремя способами, все видны на месте:
@@ -20,13 +28,17 @@
     котором стоит, — иначе список из восьми отладочных макросов пришлось бы
     помечать восемь раз, и семь пометок из восьми были бы шумом.
 
-Всё, что не помечено и не найдено в каталоге, скрипт печатает как долг.
+Всё, что не помечено и не найдено в каталоге, скрипт печатает как долг. Вторым
+списком идут ключи, у которых нет английского перевода: ключ без перевода
+закрывает первую половину критерия этапа и не закрывает вторую — переключение
+языка такую подпись оставит русской.
 
 Запуск: Tools/check-strings.py [--all]   (--all показывает и помеченные)
 """
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -38,10 +50,14 @@ TARGETS: list[tuple[Path, Path]] = [
     (ROOT / "EliteSIP", ROOT / "EliteSIP" / "Localizable.xcstrings"),
 ]
 for package in ["AdminAccess", "CallGuard", "CallHistory", "MediaCore", "SIPCore", "Diagnostics"]:
-    sources = ROOT / "Packages" / package / "Sources" / package
-    TARGETS.append((sources, sources / "Resources" / "Localizable.xcstrings"))
+    # Каталог пакета лежит вне ресурсов: SwiftPM `.xcstrings` не компилирует,
+    # и в ресурсы едут собранные из него `.lproj` — см. `sync-strings.py`.
+    TARGETS.append((ROOT / "Packages" / package / "Sources" / package,
+                    ROOT / "Packages" / package / "Localizable.xcstrings"))
 
 CYRILLIC = re.compile(r"[А-Яа-яЁё]")
+# Литерал стоит ключом в `NSLocalizedString` — значит, переводится.
+LOCALIZED_KEY = re.compile(r"NSLocalizedString\(\s*$")
 EXEMPT = re.compile(r"//\s*не переводится")
 # Строка журнала. Форм три — по одной на слой:
 #
@@ -191,24 +207,62 @@ def literals(source: str) -> list[Literal]:
     return found
 
 
+def extracted_lines() -> dict[str, set[int]]:
+    """Строки исходников, литералы которых компилятор счёл ключами.
+
+    Единственный надёжный ответ на вопрос «локализован ли этот литерал»:
+    компилятор знает про `LocalizedStringKey` то, чего не знает регулярное
+    выражение, — какого типа параметр, в который литерал попал.
+    """
+    output = subprocess.run(
+        ["xcodebuild", "-project", str(ROOT / "EliteSIP.xcodeproj"),
+         "-scheme", "EliteSIP", "-configuration", "Debug", "-showBuildSettings"],
+        capture_output=True, text=True, cwd=ROOT,
+    ).stdout
+    build_root = next(
+        (Path(line.split("BUILD_ROOT = ", 1)[1].strip())
+         for line in output.splitlines() if "BUILD_ROOT = " in line),
+        None,
+    )
+    if build_root is None:
+        sys.exit("не удалось определить каталог сборки: нет BUILD_ROOT")
+
+    intermediates = build_root.parent / "Intermediates.noindex"
+    if not intermediates.is_dir():
+        sys.exit(f"нет промежуточных файлов сборки: {intermediates}")
+
+    lines: dict[str, set[int]] = {}
+    for path in intermediates.rglob("*.stringsdata"):
+        if "/EliteSIP.build/" not in str(path):
+            continue
+        data = json.loads(path.read_text())
+        source = data.get("source", "")
+        for entry in data.get("tables", {}).get("Localizable", []):
+            location = entry.get("location", {})
+            if "startingLine" in location:
+                lines.setdefault(source, set()).add(location["startingLine"])
+    return lines
+
+
 def main() -> None:
     show_all = "--all" in sys.argv
+    from_compiler = extracted_lines()
     debt: dict[Path, list[Literal]] = {}
     exempt_count = 0
 
-    for root, catalog_path in TARGETS:
-        keys = set()
-        if catalog_path.exists():
-            catalog = json.loads(catalog_path.read_text())
-            keys = {normalize(key) for key in catalog.get("strings", {})}
-
+    for root, _ in TARGETS:
         for path in sorted(root.rglob("*.swift")):
             source = path.read_text()
             lines = source.splitlines()
+            # Многострочный литерал компилятор относит к строке вызова, а разбор
+            # — к строке с кавычками; между ними бывает перенос, отсюда допуск.
+            known = from_compiler.get(str(path), set())
             for item in literals(source):
                 if not CYRILLIC.search(item.text):
                     continue
-                if normalize(item.text) in keys:
+                if LOCALIZED_KEY.search(item.before):
+                    continue
+                if any(item.line + shift in known for shift in (-1, 0, 1)):
                     continue
 
                 context = "\n".join(lines[max(0, item.line - 2):item.line])
@@ -223,6 +277,17 @@ def main() -> None:
 
                 debt.setdefault(path.relative_to(ROOT), []).append(item)
 
+    # Ключ есть, перевода нет — подпись останется русской при английском языке.
+    untranslated: list[tuple[Path, str]] = []
+    for _, catalog_path in TARGETS:
+        if not catalog_path.exists():
+            continue
+        catalog = json.loads(catalog_path.read_text())
+        for key, entry in catalog.get("strings", {}).items():
+            english = entry.get("localizations", {}).get("en")
+            if english is None:
+                untranslated.append((catalog_path.relative_to(ROOT), key))
+
     total = 0
     for path, items in debt.items():
         print(f"\n{path}")
@@ -231,9 +296,16 @@ def main() -> None:
             print(f"  {item.line:>4}: {shown!r}")
             total += 1
 
-    print(f"\nбез перевода:  {total}")
-    print(f"помечено:      {exempt_count}")
-    sys.exit(1 if total else 0)
+    if untranslated:
+        print("\nключи без английского перевода:")
+        for path, key in untranslated:
+            shown = key if len(key) <= 60 else key[:57] + "…"
+            print(f"  {path}: {shown!r}")
+
+    print(f"\nбез ключа:            {total}")
+    print(f"помечено:             {exempt_count}")
+    print(f"без перевода на en:   {len(untranslated)}")
+    sys.exit(1 if total or untranslated else 0)
 
 
 if __name__ == "__main__":

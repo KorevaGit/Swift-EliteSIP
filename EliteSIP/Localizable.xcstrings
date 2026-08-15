@@ -2,27 +2,92 @@
   "sourceLanguage": "ru",
   "strings": {
     " — широкая полоса": {
-      "comment": "пометка у широкополосного кодека"
+      "comment": "пометка у широкополосного кодека",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " — wideband"
+          }
+        }
+      }
     },
     "%1$@ · %2$@": {
-      "comment": "сколько вызовов из очереди и когда последний"
+      "comment": "сколько вызовов из очереди и когда последний",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
     },
     "%1$@ · %2$lld макр. · %3$lld очер.": {
-      "comment": "что внутри предустановки"
+      "comment": "что внутри предустановки",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$lld macros · %3$lld queues"
+          }
+        }
+      }
     },
     "%1$@ · до первой регистрации %2$@ с": {
-      "comment": "сколько пакетов стука и сколько это займёт"
+      "comment": "сколько пакетов стука и сколько это займёт",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ s before first registration"
+          }
+        }
+      }
     },
     "%@ · разговор": {
-      "comment": "линия в разговоре"
+      "comment": "линия в разговоре",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · on call"
+          }
+        }
+      }
     },
     "%@ · удержание": {
-      "comment": "линия на удержании"
+      "comment": "линия на удержании",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · on hold"
+          }
+        }
+      }
     },
     "%@ — файл не найден": {
-      "comment": "рингтона нет на диске"
+      "comment": "рингтона нет на диске",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — file not found"
+          }
+        }
+      }
     },
-    "%lld": {},
+    "%lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        }
+      }
+    },
     "%lld вызовов": {
       "comment": "сколько вызовов пришло из очереди",
       "localizations": {
@@ -76,7 +141,16 @@
         }
       }
     },
-    "%lld дн.": {},
+    "%lld дн.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld d"
+          }
+        }
+      }
+    },
     "%lld пакетов": {
       "comment": "сколько пакетов в последовательности стука",
       "localizations": {
@@ -130,62 +204,385 @@
         }
       }
     },
-    "%lld с между пакетами": {},
-    "%lld цифр. Код покажет действующий пароль этой машины — он не сбрасывается, потому что совпадает с паролем в конфигурации.": {},
-    "CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет.": {},
-    "DTMF не поддерживается": {
-      "comment": "состояние линии"
+    "%lld с между пакетами": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld s between packets"
+          }
+        }
+      }
     },
-    "Feature-code": {},
+    "%lld цифр. Код покажет действующий пароль этой машины — он не сбрасывается, потому что совпадает с паролем в конфигурации.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld digits. The code reveals this machine’s current password — it does not reset it, because the password matches the one in the configuration."
+          }
+        }
+      }
+    },
+    "CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CGEvent.post places the pointer with a single event — such a move leaves no path."
+          }
+        }
+      }
+    },
+    "DTMF не поддерживается": {
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DTMF not supported"
+          }
+        }
+      }
+    },
+    "Feature-code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Feature code"
+          }
+        }
+      }
+    },
     "Liquid Glass доступен": {
-      "comment": "есть ли стекло в системе"
+      "comment": "есть ли стекло в системе",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liquid Glass is available"
+          }
+        }
+      }
     },
     "Liquid Glass недоступен, используются материалы": {
-      "comment": "есть ли стекло в системе"
+      "comment": "есть ли стекло в системе",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liquid Glass is unavailable; materials are used instead"
+          }
+        }
+      }
     },
-    "TLS": {},
-    "UDP": {},
-    "macOS": {},
-    "·": {},
+    "TLS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TLS"
+          }
+        }
+      }
+    },
+    "UDP": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UDP"
+          }
+        }
+      }
+    },
+    "macOS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS"
+          }
+        }
+      }
+    },
+    "·": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "·"
+          }
+        }
+      }
+    },
     "АТС": {
-      "comment": "раздел «Управления»"
+      "comment": "раздел «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PBX"
+          }
+        }
+      }
     },
-    "Автокликер принимает лид быстрее коллег, не находясь за рабочим местом, и лид уходит в тишину.": {},
-    "Автоматическая регулировка усиления": {},
+    "Автокликер принимает лид быстрее коллег, не находясь за рабочим местом, и лид уходит в тишину.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An auto-clicker takes a lead faster than colleagues without anyone at the desk, and the lead goes to silence."
+          }
+        }
+      }
+    },
+    "Автоматическая регулировка усиления": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic gain control"
+          }
+        }
+      }
+    },
     "Аккаунт": {
-      "comment": "раздел «Управления»"
+      "comment": "раздел «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account"
+          }
+        }
+      }
     },
-    "Аккаунты, макросы, защита от автокликеров и диагностика.": {},
-    "Архив с журналом и сведениями о системе: по нему в поддержке разбирают, что случилось со звонком.": {},
-    "Байты данных ICMP — то же, что «ping -s»": {},
-    "Без названия": {},
-    "Без паузы две одинаковые цифры подряд слышны как одна длинная.": {},
-    "Без стекла": {},
-    "Будут стёрты настройки, история звонков и журнал. Профили, пароли, макросы, очереди и последовательность стука исчезнут; пароля администратора на машине не останется, и закрытые настройки будут открыты всем.": {},
-    "Будут удалены записи всех профилей этой машины. Вернуть их «Отменой» нельзя. В журнал уйдёт строка с числом записей.": {},
-    "В истории лежат номера лидов и SIP-логины — как пришли, без маскирования. В архив для поддержки она не попадает: там только журнал.": {},
+    "Аккаунты, макросы, защита от автокликеров и диагностика.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts, macros, auto-clicker protection and diagnostics."
+          }
+        }
+      }
+    },
+    "Архив с журналом и сведениями о системе: по нему в поддержке разбирают, что случилось со звонком.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An archive with the log and system details: support uses it to work out what happened to a call."
+          }
+        }
+      }
+    },
+    "Байты данных ICMP — то же, что «ping -s»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICMP payload bytes — the same as “ping -s”"
+          }
+        }
+      }
+    },
+    "Без названия": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Untitled"
+          }
+        }
+      }
+    },
+    "Без паузы две одинаковые цифры подряд слышны как одна длинная.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Without a gap, two identical digits in a row are heard as one long one."
+          }
+        }
+      }
+    },
+    "Без стекла": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No glass"
+          }
+        }
+      }
+    },
+    "Будут стёрты настройки, история звонков и журнал. Профили, пароли, макросы, очереди и последовательность стука исчезнут; пароля администратора на машине не останется, и закрытые настройки будут открыты всем.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings, call history and the log will be erased. Profiles, passwords, macros, queues and the port knock sequence will be gone; no administrator password will remain on the machine, and the protected settings will be open to everyone."
+          }
+        }
+      }
+    },
+    "Будут удалены записи всех профилей этой машины. Вернуть их «Отменой» нельзя. В журнал уйдёт строка с числом записей.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records of every profile on this machine will be deleted. “Cancel” will not bring them back. A line with the record count goes to the log."
+          }
+        }
+      }
+    },
+    "В истории лежат номера лидов и SIP-логины — как пришли, без маскирования. В архив для поддержки она не попадает: там только журнал.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The history holds lead numbers and SIP logins exactly as they arrived, unmasked. It is not included in the support archive: that contains only the log."
+          }
+        }
+      }
+    },
     "В файле нет пароля администратора: после сохранения закрытые настройки этой машины будут открыты всем.": {
-      "comment": "предупреждение перед загрузкой настроек из файла"
+      "comment": "предупреждение перед загрузкой настроек из файла",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file contains no administrator password: after saving, this machine’s protected settings will be open to everyone."
+          }
+        }
+      }
     },
     "В этот день звонков не было": {
-      "comment": "пустой список истории"
+      "comment": "пустой список истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No calls on this day"
+          }
+        }
+      }
     },
     "Вас поставили на удержание": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You were put on hold"
+          }
+        }
+      }
     },
-    "Ввести код восстановления": {},
-    "Вернуть": {},
-    "Вернуть настройки к тому, что было при входе": {},
-    "Вернуть стекло?": {},
-    "Вернуть это нельзя ни «Отменой», ни из архива для поддержки: он собирается из журнала, а журнал стирается вместе со всем остальным.": {},
-    "Версия": {},
-    "Вести журнал в файле": {},
-    "Вести историю звонков": {},
+    "Ввести код восстановления": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter recovery code"
+          }
+        }
+      }
+    },
+    "Вернуть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "Вернуть настройки к тому, что было при входе": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore the settings to what they were on entry"
+          }
+        }
+      }
+    },
+    "Вернуть стекло?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn glass back on?"
+          }
+        }
+      }
+    },
+    "Вернуть это нельзя ни «Отменой», ни из архива для поддержки: он собирается из журнала, а журнал стирается вместе со всем остальным.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This cannot be undone by “Cancel” or from the support archive: the archive is built from the log, and the log is erased along with everything else."
+          }
+        }
+      }
+    },
+    "Версия": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        }
+      }
+    },
+    "Вести журнал в файле": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write the log to a file"
+          }
+        }
+      }
+    },
+    "Вести историю звонков": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep call history"
+          }
+        }
+      }
+    },
     "Включается в «Управлении». Пока она выключена, звонки нигде не записываются.": {
-      "comment": "пустой список истории"
+      "comment": "пустой список истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turned on in Administration. While it is off, calls are not recorded anywhere."
+          }
+        }
+      }
     },
     "Вместе с профилем будет удалён его пароль. Истории звонков у этого профиля нет.": {
-      "comment": "предупреждение перед удалением профиля"
+      "comment": "предупреждение перед удалением профиля",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleting this profile also deletes its password. This profile has no call history."
+          }
+        }
+      }
     },
     "Вместе с профилем будут удалены его пароль и %lld записей истории звонков. Вернуть их «Отменой» будет нельзя.": {
       "comment": "",
@@ -240,703 +637,4335 @@
         }
       }
     },
-    "Вместо кнопки «Ответить» показывается ряд цифр, и вызов принимает только одна из них — названная в подписи. Ломает кликер, который ищет кнопку по картинке. Выключено по умолчанию: это внимание оператора на каждом вызове, а случайная позиция окна обходится ему бесплатно.": {},
-    "Внутренний номер": {},
+    "Вместо кнопки «Ответить» показывается ряд цифр, и вызов принимает только одна из них — названная в подписи. Ломает кликер, который ищет кнопку по картинке. Выключено по умолчанию: это внимание оператора на каждом вызове, а случайная позиция окна обходится ему бесплатно.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instead of an Answer button, a row of digits is shown, and only one of them — the one named in the caption — accepts the call. This breaks a clicker that finds the button by its image. Off by default: it costs the operator attention on every call, whereas a random window position costs nothing."
+          }
+        }
+      }
+    },
+    "Внутренний номер": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extension"
+          }
+        }
+      }
+    },
     "Во время разговора микрофон занят.": {
-      "comment": "почему самопроверка недоступна"
+      "comment": "почему самопроверка недоступна",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The microphone is busy during a call."
+          }
+        }
+      }
     },
     "Возврат…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resuming…"
+          }
+        }
+      }
     },
-    "Войти": {},
+    "Войти": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in"
+          }
+        }
+      }
+    },
     "Воспроизведение записанного": {
-      "comment": "самопроверка голоса"
+      "comment": "самопроверка голоса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing the recording"
+          }
+        }
+      }
     },
     "Восстанавливаю звук…": {
-      "comment": "состояние линии, пока пересобирается звуковой тракт"
+      "comment": "состояние линии, пока пересобирается звуковой тракт",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring audio…"
+          }
+        }
+      }
     },
-    "Вручную": {},
+    "Вручную": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manually"
+          }
+        }
+      }
+    },
     "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль добавочного и пароль администратора. На диск это уйдёт только по «Сохранить».": {
-      "comment": "предупреждение перед загрузкой настроек из файла"
+      "comment": "предупреждение перед загрузкой настроек из файла",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every protected setting in this window will be replaced by the contents of the file, including the extension password and the administrator password. Nothing reaches the disk until you press Save."
+          }
+        }
+      }
     },
     "Вставить": {
-      "comment": "пункт меню «Правка»"
+      "comment": "пункт меню «Правка»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste"
+          }
+        }
+      }
     },
     "Входящие": {
-      "comment": "раздел «Управления»"
+      "comment": "раздел «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming"
+          }
+        }
+      }
     },
     "Входящий": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming"
+          }
+        }
+      }
     },
     "Входящий вызов": {
-      "comment": "подпись в окне входящего"
+      "comment": "подпись в окне входящего",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming call"
+          }
+        }
+      }
     },
     "Входящих в истории нет": {
-      "comment": "пустой список истории"
+      "comment": "пустой список истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No incoming calls in the history"
+          }
+        }
+      }
     },
     "Вчера": {
-      "comment": "заголовок дня в истории"
+      "comment": "заголовок дня в истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yesterday"
+          }
+        }
+      }
     },
-    "Вы звоните по сделке — примите звонок для начала вызова клиенту.": {},
+    "Вы звоните по сделке — примите звонок для начала вызова клиенту.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are calling from a deal — accept the call to start dialling the client."
+          }
+        }
+      }
+    },
     "Выбрать все": {
-      "comment": "пункт меню «Правка»"
+      "comment": "пункт меню «Правка»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select All"
+          }
+        }
+      }
     },
-    "Выбрать файл…": {},
+    "Выбрать файл…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose file…"
+          }
+        }
+      }
+    },
     "Выгрузить": {
-      "comment": "кнопка в окне сохранения файла"
+      "comment": "кнопка в окне сохранения файла",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
+          }
+        }
+      }
     },
-    "Выгрузить журнал…": {},
-    "Выгрузить настройки…": {},
-    "Выгрузить…": {},
-    "Выгрузка": {},
+    "Выгрузить журнал…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export log…"
+          }
+        }
+      }
+    },
+    "Выгрузить настройки…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export settings…"
+          }
+        }
+      }
+    },
+    "Выгрузить…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export…"
+          }
+        }
+      }
+    },
+    "Выгрузка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
+          }
+        }
+      }
+    },
     "Вызов": {
-      "comment": "группа разделов «Управления»"
+      "comment": "группа разделов «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call"
+          }
+        }
+      }
     },
     "Вызов по сделке": {
-      "comment": "заголовок окна входящего по сделке"
+      "comment": "заголовок окна входящего по сделке",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deal call"
+          }
+        }
+      }
     },
-    "Вызов по сделке приходит с добавочного самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля.": {},
-    "Выключается в «Настройках», раздел «Оформление»: там же, где тема.": {},
-    "Выключение фиксируется в журнале, а в M8 уедет в EliteDash.": {},
-    "Выключить стекло?": {},
+    "Вызов по сделке приходит с добавочного самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A deal call arrives from the manager’s own extension: Bitrix picks it up first and only then dials the client. No setup is needed — the number comes from the active profile."
+          }
+        }
+      }
+    },
+    "Выключается в «Настройках», раздел «Оформление»: там же, где тема.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turned off in Settings, under Appearance — the same place as the theme."
+          }
+        }
+      }
+    },
+    "Выключение фиксируется в журнале, а в M8 уедет в EliteDash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turning it off is recorded in the log, and in M8 it will go to EliteDash."
+          }
+        }
+      }
+    },
+    "Выключить стекло?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn glass off?"
+          }
+        }
+      }
+    },
     "Вырезать": {
-      "comment": "пункт меню «Правка»"
+      "comment": "пункт меню «Правка»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cut"
+          }
+        }
+      }
     },
     "Выход завершит его и снимет регистрацию.": {
-      "comment": "вопрос при выходе во время разговора"
+      "comment": "вопрос при выходе во время разговора",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitting will end it and drop the registration."
+          }
+        }
+      }
     },
-    "Выше": {},
-    "Гарнитуру на столе не слышно — тогда звонить должны колонки.": {},
+    "Выше": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move up"
+          }
+        }
+      }
+    },
+    "Гарнитуру на столе не слышно — тогда звонить должны колонки.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A headset lying on the desk cannot be heard — then the speakers should ring."
+          }
+        }
+      }
+    },
     "Говорите — запись, осталось %lld с": {
-      "comment": "самопроверка голоса"
+      "comment": "самопроверка голоса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speak — recording, %lld s left"
+          }
+        }
+      }
     },
-    "Готово": {},
+    "Готово": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
     "Готово. Если не помогло — переподключитесь": {
-      "comment": "«Исправить сеть»"
+      "comment": "«Исправить сеть»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done. If it did not help, reconnect"
+          }
+        }
+      }
     },
     "Готово: %@": {
-      "comment": "архив для поддержки собран"
+      "comment": "архив для поддержки собран",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done: %@"
+          }
+        }
+      }
     },
-    "Громкость": {},
+    "Громкость": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
+          }
+        }
+      }
+    },
     "Гудки": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ringing"
+          }
+        }
+      }
     },
-    "Действует сразу, в обход «Сохранить»: переподключение берёт настройки с диска. Правки профиля дойдут до АТС после сохранения.": {},
-    "Действующий пароль": {},
+    "Действует сразу, в обход «Сохранить»: переподключение берёт настройки с диска. Правки профиля дойдут до АТС после сохранения.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takes effect at once, bypassing Save: reconnecting reads the settings from disk. Profile edits reach the PBX after saving."
+          }
+        }
+      }
+    },
+    "Действующий пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current password"
+          }
+        }
+      }
+    },
     "Диагностика": {
-      "comment": "раздел «Управления»"
+      "comment": "раздел «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics"
+          }
+        }
+      }
     },
-    "Длина паузы": {},
-    "Длительность": {},
-    "Добавить": {},
-    "Добавить макрос": {},
-    "Добавить очередь": {},
-    "Добавить профиль": {},
-    "Добавить шаг": {},
-    "Добавочный": {},
-    "Добавочный комнаты": {},
-    "Доверять любому сертификату TLS": {},
-    "Дозвонился": {},
-    "Домен АТС": {},
+    "Длина паузы": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gap length"
+          }
+        }
+      }
+    },
+    "Длительность": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duration"
+          }
+        }
+      }
+    },
+    "Добавить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        }
+      }
+    },
+    "Добавить макрос": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add macro"
+          }
+        }
+      }
+    },
+    "Добавить очередь": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add queue"
+          }
+        }
+      }
+    },
+    "Добавить профиль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add profile"
+          }
+        }
+      }
+    },
+    "Добавить шаг": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add step"
+          }
+        }
+      }
+    },
+    "Добавочный": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extension"
+          }
+        }
+      }
+    },
+    "Добавочный комнаты": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room extension"
+          }
+        }
+      }
+    },
+    "Доверять любому сертификату TLS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trust any TLS certificate"
+          }
+        }
+      }
+    },
+    "Дозвонился": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answered"
+          }
+        }
+      }
+    },
+    "Домен АТС": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PBX domain"
+          }
+        }
+      }
+    },
     "Доступ": {
-      "comment": "раздел «Управления»"
+      "comment": "раздел «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access"
+          }
+        }
+      }
     },
-    "Есть несохранённые изменения": {},
-    "Ещё раз": {},
-    "Журнал": {},
-    "Журнал в файл выключен — собирать нечего. Включается в «Управлении».": {},
-    "Журнал в файле": {},
+    "Есть несохранённые изменения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There are unsaved changes"
+          }
+        }
+      }
+    },
+    "Ещё раз": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Again"
+          }
+        }
+      }
+    },
+    "Журнал": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log"
+          }
+        }
+      }
+    },
+    "Журнал в файл выключен — собирать нечего. Включается в «Управлении».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logging to a file is off — there is nothing to collect. Turned on in Administration."
+          }
+        }
+      }
+    },
+    "Журнал в файле": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log file"
+          }
+        }
+      }
+    },
     "Журнал выгружен в %@.": {
-      "comment": "итог выгрузки журнала"
+      "comment": "итог выгрузки журнала",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log exported to %@."
+          }
+        }
+      }
     },
     "Завершение…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ending…"
+          }
+        }
+      }
     },
-    "Завершить": {},
+    "Завершить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hang up"
+          }
+        }
+      }
+    },
     "Завершить EliteSIP": {
-      "comment": "пункт меню приложения"
+      "comment": "пункт меню приложения",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit EliteSIP"
+          }
+        }
+      }
     },
     "Завершить и выйти": {
-      "comment": "кнопка выхода во время разговора"
+      "comment": "кнопка выхода во время разговора",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End call and quit"
+          }
+        }
+      }
     },
-    "Загружаются более старые звонки": {},
-    "Загрузить": {},
-    "Загрузить настройки из файла?": {},
-    "Загрузить настройки из файла…": {},
-    "Загрузка настроек": {},
-    "Задать пароль": {},
+    "Загружаются более старые звонки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading older calls"
+          }
+        }
+      }
+    },
+    "Загрузить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load"
+          }
+        }
+      }
+    },
+    "Загрузить настройки из файла?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load settings from a file?"
+          }
+        }
+      }
+    },
+    "Загрузить настройки из файла…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load settings from a file…"
+          }
+        }
+      }
+    },
+    "Загрузка настроек": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading settings"
+          }
+        }
+      }
+    },
+    "Задать пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set password"
+          }
+        }
+      }
+    },
     "Закрыть": {
-      "comment": "пункт меню «Окно»"
+      "comment": "пункт меню «Окно»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
     },
     "Заняты все линии": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All lines are busy"
+          }
+        }
+      }
     },
-    "Записать и прослушать": {},
-    "Записей": {},
-    "Записи старше срока удаляются: при запуске, раз в сутки и сразу после того, как срок уменьшили. Уменьшение применяется по «Сохранить» — «Отменить» удалённые записи не вернёт.": {},
-    "Запись": {},
-    "Зарегистрирован всегда ровно один профиль — отмеченный «рабочий». У каждого свой пароль; удаление профиля стирает и его. Настройки открываются нажатием на карточку и правятся у любого профиля, а не только у рабочего.": {},
-    "Защита": {},
-    "Защита от автокликеров": {},
-    "Защита от автокликеров включена": {},
+    "Записать и прослушать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record and play back"
+          }
+        }
+      }
+    },
+    "Записей": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records"
+          }
+        }
+      }
+    },
+    "Записи старше срока удаляются: при запуске, раз в сутки и сразу после того, как срок уменьшили. Уменьшение применяется по «Сохранить» — «Отменить» удалённые записи не вернёт.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records older than the retention period are deleted: at launch, once a day, and immediately after the period is shortened. Shortening takes effect on Save — “Cancel” will not bring deleted records back."
+          }
+        }
+      }
+    },
+    "Запись": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record"
+          }
+        }
+      }
+    },
+    "Зарегистрирован всегда ровно один профиль — отмеченный «рабочий». У каждого свой пароль; удаление профиля стирает и его. Настройки открываются нажатием на карточку и правятся у любого профиля, а не только у рабочего.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exactly one profile is registered at a time — the one marked active. Each has its own password; deleting a profile erases it too. Settings open by clicking the card and can be edited for any profile, not just the active one."
+          }
+        }
+      }
+    },
+    "Защита": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protection"
+          }
+        }
+      }
+    },
+    "Защита от автокликеров": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-clicker protection"
+          }
+        }
+      }
+    },
+    "Защита от автокликеров включена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-clicker protection is on"
+          }
+        }
+      }
+    },
     "Звонков пока не было": {
-      "comment": "пустой список истории"
+      "comment": "пустой список истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No calls yet"
+          }
+        }
+      }
     },
-    "Звонок": {},
-    "Звук": {},
+    "Звонок": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call"
+          }
+        }
+      }
+    },
+    "Звук": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio"
+          }
+        }
+      }
+    },
     "Звук входящего вызова": {
-      "comment": "заголовок окна выбора файла"
+      "comment": "заголовок окна выбора файла",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming call sound"
+          }
+        }
+      }
     },
     "Звук не вернулся": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio did not come back"
+          }
+        }
+      }
     },
     "Звук пропал": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio is gone"
+          }
+        }
+      }
     },
     "Здесь появятся входящие и исходящие — вместе с тем, чем они кончились.": {
-      "comment": "пустой список истории"
+      "comment": "пустой список истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming and outgoing calls will appear here, together with how they ended."
+          }
+        }
+      }
     },
-    "Здесь правки не применяются на ходу: они копятся, пока вы не нажмёте «Сохранить». Закрыть окно без сохранения можно в любой момент.\n\nСохранение объявит настройки этой машины локальными — их задаёт администратор, а не файл конфигурации, — и запишет это в журнал.": {},
-    "Значение меняется само: любое сохранение в этом окне объявляет настройки локальными. Второе значение — «настройки из файла конфигурации» — заработает в M8, когда появится сама загрузка конфига. Вернуть машину под конфиг после локальной правки можно будет только повторной загрузкой файла.": {},
-    "Значением управляет EliteDash.": {},
-    "Играть в": {},
+    "Здесь правки не применяются на ходу: они копятся, пока вы не нажмёте «Сохранить». Закрыть окно без сохранения можно в любой момент.\n\nСохранение объявит настройки этой машины локальными — их задаёт администратор, а не файл конфигурации, — и запишет это в журнал.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edits here are not applied as you go: they accumulate until you press Save. You can close the window without saving at any time.\n\nSaving declares this machine’s settings local — set by an administrator rather than by a configuration file — and records that in the log."
+          }
+        }
+      }
+    },
+    "Значение меняется само: любое сохранение в этом окне объявляет настройки локальными. Второе значение — «настройки из файла конфигурации» — заработает в M8, когда появится сама загрузка конфига. Вернуть машину под конфиг после локальной правки можно будет только повторной загрузкой файла.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The value changes on its own: any save in this window declares the settings local. The second value — settings from a configuration file — starts working in M8, once loading a config exists at all. After a local edit, a machine can be put back under the config only by loading the file again."
+          }
+        }
+      }
+    },
+    "Значением управляет EliteDash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The value is managed by EliteDash."
+          }
+        }
+      }
+    },
+    "Играть в": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play through"
+          }
+        }
+      }
+    },
     "Идёт разговор": {
-      "comment": "вопрос при выходе во время разговора"
+      "comment": "вопрос при выходе во время разговора",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A call is in progress"
+          }
+        }
+      }
     },
-    "Изменений нет": {},
-    "Изменить подпись": {},
-    "Исправить сеть": {},
-    "История": {},
-    "История звонков": {},
+    "Изменений нет": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No changes"
+          }
+        }
+      }
+    },
+    "Изменить подпись": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit label"
+          }
+        }
+      }
+    },
+    "Исправить сеть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fix network"
+          }
+        }
+      }
+    },
+    "История": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "History"
+          }
+        }
+      }
+    },
+    "История звонков": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call history"
+          }
+        }
+      }
+    },
     "История звонков выключена": {
-      "comment": "пустой список истории"
+      "comment": "пустой список истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call history is off"
+          }
+        }
+      }
     },
-    "История звонков не выгружается: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.": {},
+    "История звонков не выгружается: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call history is not exported: it holds lead numbers and SIP logins unmasked. That decision was made in stage 4 and still stands."
+          }
+        }
+      }
+    },
     "История звонков — %@": {
-      "comment": "заголовок окна истории с профилем"
+      "comment": "заголовок окна истории с профилем",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call history — %@"
+          }
+        }
+      }
     },
     "История очищена: записей — %lld.": {
-      "comment": "итог очистки истории"
+      "comment": "итог очистки истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "History cleared: %lld records."
+          }
+        }
+      }
     },
     "Исходящих в истории нет": {
-      "comment": "пустой список истории"
+      "comment": "пустой список истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No outgoing calls in the history"
+          }
+        }
+      }
     },
-    "Код восстановления": {},
-    "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. В лаборатории это *3; боевой код нужно сверить с features.conf — в выводе «core show features» с боевого сервера конференции нет вовсе.": {},
-    "Код должен содержать только DTMF-символы и хотя бы один тон.": {},
-    "Кодек": {},
-    "Кодеки": {},
+    "Код восстановления": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovery code"
+          }
+        }
+      }
+    },
+    "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. В лаборатории это *3; боевой код нужно сверить с features.conf — в выводе «core show features» с боевого сервера конференции нет вовсе.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code runs an Asterisk dynamic feature and moves both legs of the current call into ConfBridge. In the lab it is *3; the production code has to be checked against features.conf — the “core show features” output from the production server has no conference at all."
+          }
+        }
+      }
+    },
+    "Код должен содержать только DTMF-символы и хотя бы один тон.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code may contain only DTMF characters and must contain at least one tone."
+          }
+        }
+      }
+    },
+    "Кодек": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codec"
+          }
+        }
+      }
+    },
+    "Кодеки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codecs"
+          }
+        }
+      }
+    },
     "Команда конференции отправлена": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conference command sent"
+          }
+        }
+      }
     },
-    "Конференция": {},
+    "Конференция": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conference"
+          }
+        }
+      }
+    },
     "Конференция недоступна": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conference is unavailable"
+          }
+        }
+      }
     },
-    "Кто управляет настройками": {},
-    "Логин для входа": {},
-    "Локальная история звонков": {},
-    "Ломает кликеры, которые бьют по постоянным координатам.": {},
-    "Макросов нет. Кнопки появятся на панели во время разговора.": {},
-    "Макросы": {},
-    "Маршрут": {},
+    "Кто управляет настройками": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who manages the settings"
+          }
+        }
+      }
+    },
+    "Логин для входа": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in login"
+          }
+        }
+      }
+    },
+    "Локальная история звонков": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local call history"
+          }
+        }
+      }
+    },
+    "Ломает кликеры, которые бьют по постоянным координатам.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Breaks clickers that hit fixed coordinates."
+          }
+        }
+      }
+    },
+    "Макросов нет. Кнопки появятся на панели во время разговора.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No macros. The buttons will appear on the panel during a call."
+          }
+        }
+      }
+    },
+    "Макросы": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Macros"
+          }
+        }
+      }
+    },
+    "Маршрут": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route"
+          }
+        }
+      }
+    },
     "Машина": {
-      "comment": "группа разделов «Управления»"
+      "comment": "группа разделов «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machine"
+          }
+        }
+      }
     },
     "Машина сброшена.": {
-      "comment": "итог сброса машины"
+      "comment": "итог сброса машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The machine has been reset."
+          }
+        }
+      }
     },
-    "Микрофон": {},
-    "Минимальное смещение": {},
-    "Минимум по RFC 4733 — 40 мс. Глухие голосовые меню лучше слышат 120.": {},
+    "Микрофон": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone"
+          }
+        }
+      }
+    },
+    "Минимальное смещение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimum offset"
+          }
+        }
+      }
+    },
+    "Минимум по RFC 4733 — 40 мс. Глухие голосовые меню лучше слышат 120.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RFC 4733 sets the minimum at 40 ms. Deaf voice menus hear 120 better."
+          }
+        }
+      }
+    },
     "На линии": {
-      "comment": "состояние регистрации"
+      "comment": "состояние регистрации",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registered"
+          }
+        }
+      }
     },
     "На удержании": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On hold"
+          }
+        }
+      }
     },
-    "Набор, например 2,,101#": {},
+    "Набор, например 2,,101#": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sequence, for example 2,,101#"
+          }
+        }
+      }
+    },
     "Набор…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dialling…"
+          }
+        }
+      }
     },
-    "Назад": {},
-    "Название": {},
-    "Название встаёт в окне входящего на главное место — по нему оператор решает, как здороваться. Номер сверяется с тем, что приходит в вызове; пробелы, скобки и дефисы значения не имеют.": {},
-    "Название раздачи": {},
-    "Например: Менеджер": {},
-    "Настройки": {},
+    "Назад": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back"
+          }
+        }
+      }
+    },
+    "Название": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "Название встаёт в окне входящего на главное место — по нему оператор решает, как здороваться. Номер сверяется с тем, что приходит в вызове; пробелы, скобки и дефисы значения не имеют.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The name takes pride of place in the incoming call window — the operator decides how to greet from it. The number is matched against what arrives with the call; spaces, brackets and hyphens do not matter."
+          }
+        }
+      }
+    },
+    "Название раздачи": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queue name"
+          }
+        }
+      }
+    },
+    "Например: Менеджер": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For example: Manager"
+          }
+        }
+      }
+    },
+    "Настройки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        }
+      }
+    },
     "Настройки EliteSIP": {
-      "comment": "заголовок окна настроек"
+      "comment": "заголовок окна настроек",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EliteSIP Settings"
+          }
+        }
+      }
     },
-    "Настройки выгружаются такими, какими они видны в окне, — включая несохранённое. Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы.": {},
+    "Настройки выгружаются такими, какими они видны в окне, — включая несохранённое. Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings are exported exactly as they appear in the window, including unsaved edits. The log goes out in the same archive as the manager’s “Collect logs”: build and system details inside, secrets masked."
+          }
+        }
+      }
+    },
     "Настройки выгружены в %@.": {
-      "comment": "итог выгрузки настроек"
+      "comment": "итог выгрузки настроек",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings exported to %@."
+          }
+        }
+      }
     },
     "Настройки загружены. Проверьте разделы и нажмите «Сохранить».": {
-      "comment": "итог загрузки настроек"
+      "comment": "итог загрузки настроек",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings loaded. Review the sections and press Save."
+          }
+        }
+      }
     },
     "Настройки изменены": {
-      "comment": "вопрос при закрытии «Управления»"
+      "comment": "вопрос при закрытии «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings have changed"
+          }
+        }
+      }
     },
-    "Настройки машин, заведённых по ней, останутся как есть.": {},
-    "Настройки станут доступны всем без вопросов": {},
-    "Настройки этой машины станут локальными: их задаёт администратор, а не файл конфигурации. Сохранение будет записано в журнал.": {},
-    "Настройки этой машины: %@.": {},
+    "Настройки машин, заведённых по ней, останутся как есть.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machines already set up from it keep their settings."
+          }
+        }
+      }
+    },
+    "Настройки станут доступны всем без вопросов": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings will be open to everyone, no questions asked"
+          }
+        }
+      }
+    },
+    "Настройки этой машины станут локальными: их задаёт администратор, а не файл конфигурации. Сохранение будет записано в журнал.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This machine’s settings become local: set by an administrator rather than by a configuration file. The save will be recorded in the log."
+          }
+        }
+      }
+    },
+    "Настройки этой машины: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This machine’s settings: %@."
+          }
+        }
+      }
+    },
     "Настройки…": {
-      "comment": "пункт меню приложения"
+      "comment": "пункт меню приложения",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
+          }
+        }
+      }
     },
-    "Наушники": {},
+    "Наушники": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headphones"
+          }
+        }
+      }
+    },
     "Не беспокоить": {
-      "comment": "пункт меню значка"
+      "comment": "пункт меню значка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do Not Disturb"
+          }
+        }
+      }
     },
-    "Не дозвонился": {},
+    "Не дозвонился": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No answer"
+          }
+        }
+      }
+    },
     "Не переведён: %@": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not transferred: %@"
+          }
+        }
+      }
     },
     "Не подключено": {
-      "comment": "состояние регистрации"
+      "comment": "состояние регистрации",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not connected"
+          }
+        }
+      }
     },
-    "Не применять": {},
-    "Не сохранять": {},
+    "Не применять": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don’t apply"
+          }
+        }
+      }
+    },
+    "Не сохранять": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don’t Save"
+          }
+        }
+      }
+    },
     "Не удалось выгрузить журнал: %@": {
-      "comment": "выгрузка журнала не удалась"
+      "comment": "выгрузка журнала не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not export the log: %@"
+          }
+        }
+      }
     },
     "Не удалось выгрузить настройки: %@": {
-      "comment": "выгрузка настроек не удалась"
+      "comment": "выгрузка настроек не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not export the settings: %@"
+          }
+        }
+      }
     },
     "Не удалось выгрузить: %@": {
-      "comment": "выгрузка предустановки не удалась"
+      "comment": "выгрузка предустановки не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not export: %@"
+          }
+        }
+      }
     },
     "Не удалось прочитать файл: %@": {
-      "comment": "файл настроек не прочитался"
+      "comment": "файл настроек не прочитался",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read the file: %@"
+          }
+        }
+      }
     },
     "Не удалось собрать архив: %@": {
-      "comment": "архив для поддержки не собрался"
+      "comment": "архив для поддержки не собрался",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not build the archive: %@"
+          }
+        }
+      }
     },
     "Не удалось: %@": {
-      "comment": "самопроверка голоса"
+      "comment": "самопроверка голоса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed: %@"
+          }
+        }
+      }
     },
-    "Неназванных номеров нет. Либо словарь полон, либо на эту машину ещё не приходило вызовов с коротких номеров.": {},
+    "Неназванных номеров нет. Либо словарь полон, либо на эту машину ещё не приходило вызовов с коротких номеров.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No unnamed numbers. Either the dictionary is complete, or no calls from short numbers have reached this machine yet."
+          }
+        }
+      }
+    },
     "Несовместимое медиа": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incompatible media"
+          }
+        }
+      }
     },
     "Нет доступа к микрофону": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No microphone access"
+          }
+        }
+      }
     },
     "Нет доступа к микрофону. Разрешите его в «Защите и безопасности».": {
-      "comment": "самопроверка голоса"
+      "comment": "самопроверка голоса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No microphone access. Allow it in Privacy & Security."
+          }
+        }
+      }
     },
     "Нет потока от собеседника": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No stream from the other party"
+          }
+        }
+      }
     },
     "Нет сети": {
-      "comment": "состояние в шапке панели"
+      "comment": "состояние в шапке панели",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No network"
+          }
+        }
+      }
     },
     "Нет учётной записи": {
-      "comment": "подсказка в шапке панели"
+      "comment": "подсказка в шапке панели",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No account"
+          }
+        }
+      }
     },
-    "Ниже": {},
+    "Ниже": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move down"
+          }
+        }
+      }
+    },
     "Новый": {
-      "comment": "подпись только что заведённого макроса"
+      "comment": "подпись только что заведённого макроса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New"
+          }
+        }
+      }
     },
-    "Новый пароль": {},
-    "Новый пароль — необязательно": {},
-    "Новый профиль": {},
-    "Номер": {},
-    "Номер перевода": {},
-    "Нужный путь курсора": {},
+    "Новый пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New password"
+          }
+        }
+      }
+    },
+    "Новый пароль — необязательно": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New password — optional"
+          }
+        }
+      }
+    },
+    "Новый профиль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New profile"
+          }
+        }
+      }
+    },
+    "Номер": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number"
+          }
+        }
+      }
+    },
+    "Номер перевода": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer number"
+          }
+        }
+      }
+    },
+    "Нужный путь курсора": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required pointer path"
+          }
+        }
+      }
+    },
     "О программе EliteSIP": {
-      "comment": "пункт меню приложения"
+      "comment": "пункт меню приложения",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About EliteSIP"
+          }
+        }
+      }
     },
     "Обслуживание": {
-      "comment": "раздел «Управления»"
+      "comment": "раздел «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintenance"
+          }
+        }
+      }
     },
-    "Обычно он совпадает с паролем в конфигурации. Меняйте его здесь только если знаете, что делаете: до появления файла конфигурации (M8) смена разведёт эту машину с остальными.": {},
+    "Обычно он совпадает с паролем в конфигурации. Меняйте его здесь только если знаете, что делаете: до появления файла конфигурации (M8) смена разведёт эту машину с остальными.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It normally matches the password in the configuration. Change it here only if you know what you are doing: until the configuration file arrives (M8), a change will set this machine apart from the rest."
+          }
+        }
+      }
+    },
     "Окно": {
-      "comment": "меню"
+      "comment": "меню",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Window"
+          }
+        }
+      }
     },
-    "Оставить": {},
-    "Оставить как есть": {},
-    "Остановить": {},
+    "Оставить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep"
+          }
+        }
+      }
+    },
+    "Оставить как есть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave as is"
+          }
+        }
+      }
+    },
+    "Остановить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop"
+          }
+        }
+      }
+    },
     "Ответить": {
-      "comment": "кнопка в окне входящего"
+      "comment": "кнопка в окне входящего",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answer"
+          }
+        }
+      }
     },
     "Отклонение…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Declining…"
+          }
+        }
+      }
     },
-    "Отклонить": {},
-    "Отклонить вызов": {},
-    "Отклонять синтетические нажатия": {},
+    "Отклонить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decline"
+          }
+        }
+      }
+    },
+    "Отклонить вызов": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decline call"
+          }
+        }
+      }
+    },
+    "Отклонять синтетические нажатия": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reject synthetic clicks"
+          }
+        }
+      }
+    },
     "Отключение от сервера": {
-      "comment": "причина окончания звонка"
+      "comment": "причина окончания звонка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnected from the server"
+          }
+        }
+      }
     },
     "Отключение…": {
-      "comment": "состояние регистрации"
+      "comment": "состояние регистрации",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnecting…"
+          }
+        }
+      }
     },
-    "Отключить": {},
+    "Отключить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect"
+          }
+        }
+      }
+    },
     "Отключён": {
-      "comment": "состояние в меню значка"
+      "comment": "состояние в меню значка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline"
+          }
+        }
+      }
     },
     "Открываем дорогу до %@…": {
-      "comment": "«Исправить сеть»"
+      "comment": "«Исправить сеть»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opening the path to %@…"
+          }
+        }
+      }
     },
-    "Открыть «Управление»": {},
-    "Отмена": {},
-    "Отменить": {},
-    "Отображаемое имя": {},
-    "Отправить последовательность прямо сейчас": {},
+    "Открыть «Управление»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Administration"
+          }
+        }
+      }
+    },
+    "Отмена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Отменить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Отображаемое имя": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display name"
+          }
+        }
+      }
+    },
+    "Отправить последовательность прямо сейчас": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send the sequence right now"
+          }
+        }
+      }
+    },
     "Отправка команды конференции…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending the conference command…"
+          }
+        }
+      }
     },
-    "Отпускать наушники между звонками": {},
-    "Отступ от краёв": {},
-    "Оформление": {},
-    "Оформление меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся.": {},
+    "Отпускать наушники между звонками": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release the headphones between calls"
+          }
+        }
+      }
+    },
+    "Отступ от краёв": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Margin from the edges"
+          }
+        }
+      }
+    },
+    "Оформление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        }
+      }
+    },
+    "Оформление меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The appearance changes for every window at once, and the app restarts to do it: the registration is dropped and raised again. If a call is in progress, it will be cut off."
+          }
+        }
+      }
+    },
     "Очереди": {
-      "comment": "раздел «Управления»"
+      "comment": "раздел «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queues"
+          }
+        }
+      }
     },
-    "Очистить": {},
-    "Очистить журнал": {},
-    "Очистить историю": {},
-    "Очистить историю звонков?": {},
-    "Очистить номер": {},
-    "Очистка истории стирает записи всех профилей целиком — выборочного удаления нет намеренно — и пишет в журнал, сколько их было. Стереть можно, бесследно нельзя.": {},
+    "Очистить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "Очистить журнал": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear log"
+          }
+        }
+      }
+    },
+    "Очистить историю": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear history"
+          }
+        }
+      }
+    },
+    "Очистить историю звонков?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear the call history?"
+          }
+        }
+      }
+    },
+    "Очистить номер": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear number"
+          }
+        }
+      }
+    },
+    "Очистка истории стирает записи всех профилей целиком — выборочного удаления нет намеренно — и пишет в журнал, сколько их было. Стереть можно, бесследно нельзя.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clearing the history erases the records of every profile at once — selective deletion is deliberately absent — and writes to the log how many there were. You can erase, but not without a trace."
+          }
+        }
+      }
+    },
     "Ошибка звука": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio error"
+          }
+        }
+      }
     },
-    "Пароли не совпадают.": {},
-    "Пароль": {},
-    "Пароль администратора": {},
-    "Пароль задан, закрытая часть закрыта": {},
-    "Пароль не задан — это окно откроет любой": {},
-    "Пароля нет — зарегистрироваться этим профилем нечем.": {},
-    "Пауза": {},
-    "Пауза между тонами": {},
+    "Пароли не совпадают.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The passwords do not match."
+          }
+        }
+      }
+    },
+    "Пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password"
+          }
+        }
+      }
+    },
+    "Пароль администратора": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrator password"
+          }
+        }
+      }
+    },
+    "Пароль задан, закрытая часть закрыта": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password set, the protected part is closed"
+          }
+        }
+      }
+    },
+    "Пароль не задан — это окно откроет любой": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No password set — anyone can open this window"
+          }
+        }
+      }
+    },
+    "Пароля нет — зарегистрироваться этим профилем нечем.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No password — there is nothing to register this profile with."
+          }
+        }
+      }
+    },
+    "Пауза": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gap"
+          }
+        }
+      }
+    },
+    "Пауза между тонами": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gap between tones"
+          }
+        }
+      }
+    },
     "Переведён на %@": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transferred to %@"
+          }
+        }
+      }
     },
-    "Перевести": {},
+    "Перевести": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer"
+          }
+        }
+      }
+    },
     "Перевод…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transferring…"
+          }
+        }
+      }
     },
-    "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин добавочного приравнивается к номеру.": {},
-    "Перезапустить": {},
-    "Переключать нечего: стекла нет в самой системе, и приложение уже показано обычным. Включить стекло там, где его нет, оно не может.": {},
-    "Переключение перезапускает приложение: регистрация снимется и поднимется заново, а звонок в этот момент оборвётся.": {},
-    "Переподключить": {},
-    "Писать от": {},
-    "Повтор": {},
+    "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин добавочного приравнивается к номеру.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overwrites everything the preset covers — both the machine settings and the selected profile. Left alone: numbers and passwords of the other profiles, the selected profile’s password and the administrator password. The extension login is set equal to the number."
+          }
+        }
+      }
+    },
+    "Перезапустить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart"
+          }
+        }
+      }
+    },
+    "Переключать нечего: стекла нет в самой системе, и приложение уже показано обычным. Включить стекло там, где его нет, оно не может.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is nothing to switch: the system itself has no glass, and the app is already shown plain. It cannot turn on glass that does not exist."
+          }
+        }
+      }
+    },
+    "Переключение перезапускает приложение: регистрация снимется и поднимется заново, а звонок в этот момент оборвётся.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching restarts the app: the registration is dropped and raised again, and a call in progress will be cut off."
+          }
+        }
+      }
+    },
+    "Переподключить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect"
+          }
+        }
+      }
+    },
+    "Писать от": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write from"
+          }
+        }
+      }
+    },
+    "Повтор": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat"
+          }
+        }
+      }
+    },
     "Повторить": {
-      "comment": "пункт меню «Правка»"
+      "comment": "пункт меню «Правка»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redo"
+          }
+        }
+      }
     },
     "Под этот отбор не попал ни один звонок из %lld.": {
-      "comment": "пустой список истории после отбора"
+      "comment": "пустой список истории после отбора",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None of the %lld calls match this filter."
+          }
+        }
+      }
     },
     "Подключение…": {
-      "comment": "состояние в шапке панели"
+      "comment": "состояние в шапке панели",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting…"
+          }
+        }
+      }
     },
-    "Подключить": {},
-    "Подпись": {},
-    "Подтверждение цифрой": {},
-    "Позвонить": {},
-    "Позвонить ещё раз": {},
-    "Позвонить на %@": {},
-    "Пока не нажато «Сохранить», на диск не записано ничего.": {},
-    "Пока ни одной. Настройте это рабочее место как образцовое и снимите с него предустановку — дальше её хватит, чтобы завести такое же место одним номером.": {},
-    "Показаны короткие номера — раздачи и внутренние добавочные: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками.": {},
-    "Показать все": {},
-    "Показать все дни": {},
-    "Показать вызов по сделке": {},
-    "Показать звонки за один день": {},
-    "Показать окно для проверки": {},
+    "Подключить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect"
+          }
+        }
+      }
+    },
+    "Подпись": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Label"
+          }
+        }
+      }
+    },
+    "Подтверждение цифрой": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Digit confirmation"
+          }
+        }
+      }
+    },
+    "Позвонить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call"
+          }
+        }
+      }
+    },
+    "Позвонить ещё раз": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call again"
+          }
+        }
+      }
+    },
+    "Позвонить на %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call %@"
+          }
+        }
+      }
+    },
+    "Пока не нажато «Сохранить», на диск не записано ничего.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Until Save is pressed, nothing has been written to disk."
+          }
+        }
+      }
+    },
+    "Пока ни одной. Настройте это рабочее место как образцовое и снимите с него предустановку — дальше её хватит, чтобы завести такое же место одним номером.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None yet. Set this workstation up as the reference one and capture a preset from it — after that the preset is enough to set up an identical workstation with a single number."
+          }
+        }
+      }
+    },
+    "Показаны короткие номера — раздачи и внутренние добавочные: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short numbers are shown — queues and internal extensions: a queue is never a full phone number, and a list of client numbers has no place in a settings window. A long number can still be typed in by hand."
+          }
+        }
+      }
+    },
+    "Показать все": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show All"
+          }
+        }
+      }
+    },
+    "Показать все дни": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all days"
+          }
+        }
+      }
+    },
+    "Показать вызов по сделке": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show a deal call"
+          }
+        }
+      }
+    },
+    "Показать звонки за один день": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show calls for a single day"
+          }
+        }
+      }
+    },
+    "Показать окно для проверки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the window for a test"
+          }
+        }
+      }
+    },
     "Показать панель": {
-      "comment": "пункт меню значка"
+      "comment": "пункт меню значка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show panel"
+          }
+        }
+      }
     },
-    "Показать пароль": {},
-    "Показать трассу…": {},
-    "Показывает приложение целиком так, как оно выглядит на macOS до 26: матовые поверхности вместо стекла, а в окнах с боковым списком — список слева на системном фоне с разделителем вместо плавающей вставки.": {},
-    "Показывать от": {},
-    "Порт": {},
-    "Порядок кнопок на панели — этот. Оператор целится в место, а не читает подписи каждый раз, поэтому менять его стоит один раз при настройке, а не по ходу работы.": {},
-    "Последний вызов": {},
+    "Показать пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show password"
+          }
+        }
+      }
+    },
+    "Показать трассу…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show trace…"
+          }
+        }
+      }
+    },
+    "Показывает приложение целиком так, как оно выглядит на macOS до 26: матовые поверхности вместо стекла, а в окнах с боковым списком — список слева на системном фоне с разделителем вместо плавающей вставки.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the whole app as it looks on macOS before 26: matte surfaces instead of glass, and in windows with a sidebar, a list on the left on the system background with a divider instead of a floating inset."
+          }
+        }
+      }
+    },
+    "Показывать от": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show from"
+          }
+        }
+      }
+    },
+    "Порт": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Port"
+          }
+        }
+      }
+    },
+    "Порядок кнопок на панели — этот. Оператор целится в место, а не читает подписи каждый раз, поэтому менять его стоит один раз при настройке, а не по ходу работы.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the order of the buttons on the panel. The operator aims at a position rather than reading the labels every time, so it is worth changing once during setup, not while working."
+          }
+        }
+      }
+    },
+    "Последний вызов": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last call"
+          }
+        }
+      }
+    },
     "Поток прервался": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The stream stopped"
+          }
+        }
+      }
     },
     "Правка": {
-      "comment": "меню"
+      "comment": "меню",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
     },
-    "Предлагать широкую полосу (G.722)": {},
-    "Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется со списком кодеков добавочного на АТС, а не с наушниками оператора.": {},
+    "Предлагать широкую полосу (G.722)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offer wideband (G.722)"
+          }
+        }
+      }
+    },
+    "Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется со списком кодеков добавочного на АТС, а не с наушниками оператора.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An offer, not a demand: the server picks from what is offered. Check it against the extension’s codec list on the PBX, not against the operator’s headphones."
+          }
+        }
+      }
+    },
     "Предустановка выгружена в %@.": {
-      "comment": "итог выгрузки предустановки"
+      "comment": "итог выгрузки предустановки",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preset exported to %@."
+          }
+        }
+      }
     },
-    "Предустановки": {},
-    "Предыдущий месяц": {},
-    "Прежде чем открыть «Управление»": {},
-    "Признак подделывается, поэтому по умолчанию он только пишется в отчёт.": {},
-    "Признаки живого человека": {},
-    "Применится при сохранении настроек": {},
-    "Применить": {},
-    "Применить…": {},
-    "Принял": {},
+    "Предустановки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presets"
+          }
+        }
+      }
+    },
+    "Предыдущий месяц": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous month"
+          }
+        }
+      }
+    },
+    "Прежде чем открыть «Управление»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before you open Administration"
+          }
+        }
+      }
+    },
+    "Признак подделывается, поэтому по умолчанию он только пишется в отчёт.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The marker can be forged, so by default it is only written to the report."
+          }
+        }
+      }
+    },
+    "Признаки живого человека": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signs of a live person"
+          }
+        }
+      }
+    },
+    "Применится при сохранении настроек": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Will take effect when the settings are saved"
+          }
+        }
+      }
+    },
+    "Применить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        }
+      }
+    },
+    "Применить…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply…"
+          }
+        }
+      }
+    },
+    "Принял": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answered"
+          }
+        }
+      }
+    },
     "Принято. Пароль начнёт действовать после сохранения настроек.": {
-      "comment": "пароль администратора принят в черновик"
+      "comment": "пароль администратора принят в черновик",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepted. The password takes effect once the settings are saved."
+          }
+        }
+      }
     },
     "Принято. После сохранения «Управление» откроется без пароля.": {
-      "comment": "снятие пароля принято в черновик"
+      "comment": "снятие пароля принято в черновик",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepted. After saving, Administration will open without a password."
+          }
+        }
+      }
     },
-    "Приходили, но не названы": {},
-    "Приём": {},
-    "Проверить": {},
-    "Проверить стук": {},
-    "Проверка": {},
+    "Приходили, но не названы": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seen but unnamed"
+          }
+        }
+      }
+    },
+    "Приём": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answering"
+          }
+        }
+      }
+    },
+    "Проверить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check"
+          }
+        }
+      }
+    },
+    "Проверить стук": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test port knock"
+          }
+        }
+      }
+    },
+    "Проверка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test"
+          }
+        }
+      }
+    },
     "Проверка закончена. Если вы себя услышали — микрофон и наушники работают.": {
-      "comment": "самопроверка голоса"
+      "comment": "самопроверка голоса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The test is over. If you heard yourself, the microphone and headphones work."
+          }
+        }
+      }
     },
-    "Проверка сертификата отключена: перехватчик сможет прочитать пароль и разговор. Только для самоподписанного сертификата лаборатории.": {},
-    "Проигрывать рингтон": {},
-    "Пропустил": {},
+    "Проверка сертификата отключена: перехватчик сможет прочитать пароль и разговор. Только для самоподписанного сертификата лаборатории.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certificate checking is off: an interceptor will be able to read the password and the conversation. For a self-signed lab certificate only."
+          }
+        }
+      }
+    },
+    "Проигрывать рингтон": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play a ringtone"
+          }
+        }
+      }
+    },
+    "Пропустил": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed"
+          }
+        }
+      }
+    },
     "Пропущенных нет": {
-      "comment": "пустой список истории"
+      "comment": "пустой список истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No missed calls"
+          }
+        }
+      }
     },
-    "Прослушать": {},
-    "Профилей нет. Пока не заведён хотя бы один, звонить не с чего.": {},
-    "Профили": {},
-    "Профиль": {},
-    "Профиль %@": {},
+    "Прослушать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play back"
+          }
+        }
+      }
+    },
+    "Профилей нет. Пока не заведён хотя бы один, звонить не с чего.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No profiles. Until at least one exists, there is nothing to call from."
+          }
+        }
+      }
+    },
+    "Профили": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiles"
+          }
+        }
+      }
+    },
+    "Профиль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile"
+          }
+        }
+      }
+    },
+    "Профиль %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile %@"
+          }
+        }
+      }
+    },
     "Профиль без пароля": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile without a password"
+          }
+        }
+      }
     },
-    "Пусто. Нажмите «Подключить».": {},
-    "Пять секунд записи и сразу воспроизведение — тем же трактом, что и разговор.": {},
-    "Рабочий профиль этой машины": {},
+    "Пусто. Нажмите «Подключить».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty. Press Connect."
+          }
+        }
+      }
+    },
+    "Пять секунд записи и сразу воспроизведение — тем же трактом, что и разговор.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Five seconds of recording and immediate playback, through the same path as a call."
+          }
+        }
+      }
+    },
+    "Рабочий профиль этой машины": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This machine’s active profile"
+          }
+        }
+      }
+    },
     "Разговор": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On call"
+          }
+        }
+      }
     },
-    "Размер — это подпись: правило на шлюзе смотрит на длину пакета, а не на его содержимое. Пустой хост означает «сервер из профиля»; заполненный — стучать именно по нему.": {},
-    "Разные устройства: системного эхоподавления не будет. На колонках собеседник услышит себя, в наушниках — нет.": {},
-    "Регистрация": {},
-    "Режим": {},
-    "Режим администратора": {},
-    "Сборка": {},
-    "Сброс": {},
-    "Сбросить": {},
-    "Сбросить (%lld)": {},
-    "Сбросить машину?": {},
-    "Сбросить машину…": {},
+    "Размер — это подпись: правило на шлюзе смотрит на длину пакета, а не на его содержимое. Пустой хост означает «сервер из профиля»; заполненный — стучать именно по нему.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The size is the signature: the rule on the gateway looks at the packet length, not at its contents. An empty host means “the server from the profile”; a filled-in one means knock on that host."
+          }
+        }
+      }
+    },
+    "Разные устройства: системного эхоподавления не будет. На колонках собеседник услышит себя, в наушниках — нет.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Different devices: there will be no system echo cancellation. Through speakers the other party will hear themselves; through headphones they will not."
+          }
+        }
+      }
+    },
+    "Регистрация": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration"
+          }
+        }
+      }
+    },
+    "Режим": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode"
+          }
+        }
+      }
+    },
+    "Режим администратора": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrator mode"
+          }
+        }
+      }
+    },
+    "Сборка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Build"
+          }
+        }
+      }
+    },
+    "Сброс": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        }
+      }
+    },
+    "Сбросить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        }
+      }
+    },
+    "Сбросить (%lld)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset (%lld)"
+          }
+        }
+      }
+    },
+    "Сбросить машину?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset the machine?"
+          }
+        }
+      }
+    },
+    "Сбросить машину…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset machine…"
+          }
+        }
+      }
+    },
     "Свернуть": {
-      "comment": "пункт меню «Окно»"
+      "comment": "пункт меню «Окно»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimize"
+          }
+        }
+      }
     },
     "Светлая": {
-      "comment": "тема оформления"
+      "comment": "тема оформления",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light"
+          }
+        }
+      }
     },
-    "Сделать рабочим": {},
+    "Сделать рабочим": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make active"
+          }
+        }
+      }
+    },
     "Сегодня": {
-      "comment": "заголовок дня в истории"
+      "comment": "заголовок дня в истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        }
+      }
     },
-    "Сейчас позвонить нельзя": {},
-    "Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. Номера и SIP-логины остаются — по ним и разбирают звонок.": {},
+    "Сейчас позвонить нельзя": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calling is not possible right now"
+          }
+        }
+      }
+    },
+    "Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. Номера и SIP-логины остаются — по ним и разбирают звонок.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secrets do not reach the file: the Digest response and SRTP keys are masked as they are written. Numbers and SIP logins remain — that is what a call is traced by."
+          }
+        }
+      }
+    },
     "Сервер переводит…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server is transferring…"
+          }
+        }
+      }
     },
     "Системная": {
-      "comment": "тема оформления"
+      "comment": "тема оформления",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        }
+      }
     },
-    "Системное устройство": {},
-    "Системные по умолчанию": {},
-    "Системный по умолчанию": {},
-    "Сколько пакетов подряд — то же, что «ping -c»": {},
-    "Скопировать": {},
-    "Скопировать снимок списка в буфер обмена": {},
+    "Системное устройство": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System device"
+          }
+        }
+      }
+    },
+    "Системные по умолчанию": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System defaults"
+          }
+        }
+      }
+    },
+    "Системный по умолчанию": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System default"
+          }
+        }
+      }
+    },
+    "Сколько пакетов подряд — то же, что «ping -c»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How many packets in a row — the same as “ping -c”"
+          }
+        }
+      }
+    },
+    "Скопировать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        }
+      }
+    },
+    "Скопировать снимок списка в буфер обмена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy a snapshot of the list to the clipboard"
+          }
+        }
+      }
+    },
     "Скрыть EliteSIP": {
-      "comment": "пункт меню приложения"
+      "comment": "пункт меню приложения",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide EliteSIP"
+          }
+        }
+      }
     },
     "Скрыть остальные": {
-      "comment": "пункт меню приложения"
+      "comment": "пункт меню приложения",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide Others"
+          }
+        }
+      }
     },
     "Скрыть панель": {
-      "comment": "пункт меню значка"
+      "comment": "пункт меню значка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide panel"
+          }
+        }
+      }
     },
-    "Скрыть пароль": {},
-    "Следующий месяц": {},
-    "Словарь": {},
-    "Словарь пуст: все вызовы выглядят обычными, и оператор не видит, из какой раздачи пришёл лид.": {},
-    "Случайная позиция окна": {},
-    "Случайность": {},
-    "Сменить пароль": {},
+    "Скрыть пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide password"
+          }
+        }
+      }
+    },
+    "Следующий месяц": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next month"
+          }
+        }
+      }
+    },
+    "Словарь": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictionary"
+          }
+        }
+      }
+    },
+    "Словарь пуст: все вызовы выглядят обычными, и оператор не видит, из какой раздачи пришёл лид.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The dictionary is empty: every call looks ordinary, and the operator cannot see which queue a lead came from."
+          }
+        }
+      }
+    },
+    "Случайная позиция окна": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Random window position"
+          }
+        }
+      }
+    },
+    "Случайность": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Randomness"
+          }
+        }
+      }
+    },
+    "Сменить пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change password"
+          }
+        }
+      }
+    },
     "Сначала завершите разговор": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End the call first"
+          }
+        }
+      }
     },
-    "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера добавочного, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт.": {},
+    "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера добавочного, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The snapshot is taken from what is in the window right now, including unsaved edits. It covers everything except the extension number, the SIP password and the administrator password: a preset travels between machines, each machine has its own number, and a password copied from a template stops being a password."
+          }
+        }
+      }
+    },
     "Снимок не получился": {
-      "comment": "снимок списка истории"
+      "comment": "снимок списка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The snapshot failed"
+          }
+        }
+      }
     },
     "Снимок скопирован — вставьте в переписку": {
-      "comment": "снимок списка истории"
+      "comment": "снимок списка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snapshot copied — paste it into the chat"
+          }
+        }
+      }
     },
-    "Снимок списка": {},
-    "Снять отбор по дню": {},
-    "Снять пароль": {},
-    "Снять предустановку": {},
-    "Снять с этой машины": {},
-    "Собрать архив для поддержки": {},
-    "Собрать логи": {},
+    "Снимок списка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "List snapshot"
+          }
+        }
+      }
+    },
+    "Снять отбор по дню": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear the day filter"
+          }
+        }
+      }
+    },
+    "Снять пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove password"
+          }
+        }
+      }
+    },
+    "Снять предустановку": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capture preset"
+          }
+        }
+      }
+    },
+    "Снять с этой машины": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capture from this machine"
+          }
+        }
+      }
+    },
+    "Собрать архив для поддержки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Build a support archive"
+          }
+        }
+      }
+    },
+    "Собрать логи": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collect logs"
+          }
+        }
+      }
+    },
     "Соединение…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting…"
+          }
+        }
+      }
     },
-    "Состояние": {},
+    "Состояние": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "State"
+          }
+        }
+      }
+    },
     "Сохранение объявит настройки этой машины локальными: их задаёт администратор, а не файл конфигурации. Это будет записано в журнал.": {
-      "comment": "вопрос при закрытии «Управления»"
+      "comment": "вопрос при закрытии «Управления»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving declares this machine’s settings local: set by an administrator rather than by a configuration file. This will be recorded in the log."
+          }
+        }
+      }
     },
-    "Сохранить": {},
-    "Сохранить настройки?": {},
-    "Сохранить файл предустановки — перенести её на другую машину": {},
-    "Стандартный": {},
-    "Стирает настройки, историю и журнал — машина станет такой же, как сразу после установки, и пароля администратора на ней не будет. Готовится к передаче рабочего места другому сотруднику.": {},
-    "Стук": {},
+    "Сохранить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "Сохранить настройки?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save the settings?"
+          }
+        }
+      }
+    },
+    "Сохранить файл предустановки — перенести её на другую машину": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save the preset file — to carry it to another machine"
+          }
+        }
+      }
+    },
+    "Стандартный": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default"
+          }
+        }
+      }
+    },
+    "Стирает настройки, историю и журнал — машина станет такой же, как сразу после установки, и пароля администратора на ней не будет. Готовится к передаче рабочего места другому сотруднику.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erases the settings, the history and the log — the machine becomes exactly as it was right after installation, with no administrator password. Use it when handing the workstation over to another employee."
+          }
+        }
+      }
+    },
+    "Стук": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Port knock"
+          }
+        }
+      }
+    },
     "Стук выключен в настройках": {
-      "comment": "«Исправить сеть»"
+      "comment": "«Исправить сеть»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Port knocking is off in the settings"
+          }
+        }
+      }
     },
     "Стучать некуда": {
-      "comment": "«Исправить сеть»"
+      "comment": "«Исправить сеть»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowhere to knock"
+          }
+        }
+      }
     },
-    "Текущий разговор": {},
+    "Текущий разговор": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current call"
+          }
+        }
+      }
+    },
     "Телефон": {
-      "comment": "меню приложения"
+      "comment": "меню приложения",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone"
+          }
+        }
+      }
     },
-    "Тема": {},
-    "Техподдержка": {},
-    "Тон": {},
-    "Транспорт": {},
+    "Тема": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theme"
+          }
+        }
+      }
+    },
+    "Техподдержка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support"
+          }
+        }
+      }
+    },
+    "Тон": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tone"
+          }
+        }
+      }
+    },
+    "Транспорт": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transport"
+          }
+        }
+      }
+    },
     "Трасса SIP": {
-      "comment": "заголовок окна трассировки"
+      "comment": "заголовок окна трассировки",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIP Trace"
+          }
+        }
+      }
     },
-    "Трасса открывается своим окном: её держат открытой во время звонка, а раздел настроек для этого не годится — он закрывается вместе с «Управлением».": {},
-    "Требовать движения курсора": {},
-    "Требуется пароль": {},
+    "Трасса открывается своим окном: её держат открытой во время звонка, а раздел настроек для этого не годится — он закрывается вместе с «Управлением».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The trace opens in its own window: it is kept open during a call, and a settings section is no good for that — it closes together with Administration."
+          }
+        }
+      }
+    },
+    "Требовать движения курсора": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Require pointer movement"
+          }
+        }
+      }
+    },
+    "Требуется пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password required"
+          }
+        }
+      }
+    },
     "Тёмная": {
-      "comment": "тема оформления"
+      "comment": "тема оформления",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark"
+          }
+        }
+      }
     },
-    "У собеседника": {},
-    "Удалить": {},
-    "Удалить «%@»?": {},
-    "Удалить предустановку": {},
-    "Удалить профиль «%@»?": {},
-    "Удалить профиль вместе с его паролем и историей звонков": {},
+    "У собеседника": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the other end"
+          }
+        }
+      }
+    },
+    "Удалить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "Удалить «%@»?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete “%@”?"
+          }
+        }
+      }
+    },
+    "Удалить предустановку": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete preset"
+          }
+        }
+      }
+    },
+    "Удалить профиль «%@»?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete profile “%@”?"
+          }
+        }
+      }
+    },
+    "Удалить профиль вместе с его паролем и историей звонков": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete the profile along with its password and call history"
+          }
+        }
+      }
+    },
     "Удержание…": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Holding…"
+          }
+        }
+      }
     },
-    "Удержать": {},
+    "Удержать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold"
+          }
+        }
+      }
+    },
     "Управление EliteSIP": {
-      "comment": "заголовок окна «Управление»"
+      "comment": "заголовок окна «Управление»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EliteSIP Administration"
+          }
+        }
+      }
     },
-    "Управление настройками": {},
-    "Управление ›": {},
-    "Устройство разговора": {},
-    "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, макросы, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {},
+    "Управление настройками": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings administration"
+          }
+        }
+      }
+    },
+    "Управление ›": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administration ›"
+          }
+        }
+      }
+    },
+    "Устройство разговора": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call device"
+          }
+        }
+      }
+    },
+    "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, макросы, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file fills the whole window — profiles, the SIP password, the administrator password, macros, queues, the port knock. Nothing reaches the disk before Save, and “Cancel” restores what was there."
+          }
+        }
+      }
+    },
     "Файл не похож на настройки EliteSIP.": {
-      "comment": "загрузка настроек из файла"
+      "comment": "загрузка настроек из файла",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file does not look like EliteSIP settings."
+          }
+        }
+      }
     },
     "Файл от более новой версии приложения (схема %1$lld, эта сборка знает %2$lld). Часть настроек в ней была бы потеряна.": {
-      "comment": "загрузка настроек из файла"
+      "comment": "загрузка настроек из файла",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file comes from a newer version of the app (schema %1$lld, this build knows %2$lld). Some of its settings would be lost."
+          }
+        }
+      }
     },
-    "Хранилище": {},
-    "Хранить": {},
-    "Целей на выбор": {},
-    "Цифровое подтверждение": {},
-    "Цифры, «*», «#» и A–D отправляются как тоны. Запятая — пауза; несколько запятых подряд складываются. Пробелы и дефисы ни на что не влияют и нужны только для читаемости.": {},
-    "Чистка": {},
-    "Чтобы ответить, нажмите": {},
-    "Шагов нет: стучать нечем, и удалённое место не подключится.": {},
+    "Хранилище": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storage"
+          }
+        }
+      }
+    },
+    "Хранить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep for"
+          }
+        }
+      }
+    },
+    "Целей на выбор": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Targets to choose from"
+          }
+        }
+      }
+    },
+    "Цифровое подтверждение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Digit confirmation"
+          }
+        }
+      }
+    },
+    "Цифры, «*», «#» и A–D отправляются как тоны. Запятая — пауза; несколько запятых подряд складываются. Пробелы и дефисы ни на что не влияют и нужны только для читаемости.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Digits, “*”, “#” and A–D are sent as tones. A comma is a pause; several commas in a row add up. Spaces and hyphens affect nothing and are there only for readability."
+          }
+        }
+      }
+    },
+    "Чистка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cleanup"
+          }
+        }
+      }
+    },
+    "Чтобы ответить, нажмите": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To answer, press"
+          }
+        }
+      }
+    },
+    "Шагов нет: стучать нечем, и удалённое место не подключится.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No steps: there is nothing to knock with, and a remote workstation will not connect."
+          }
+        }
+      }
+    },
     "Экран вызова": {
-      "comment": "заголовок окна панели"
+      "comment": "заголовок окна панели",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call Screen"
+          }
+        }
+      }
     },
     "Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3.": {
-      "comment": "выбранный файл не годится в рингтоны"
+      "comment": "выбранный файл не годится в рингтоны",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file cannot be read as audio. WAV, AIFF, CAF, M4A and MP3 will do."
+          }
+        }
+      }
     },
-    "Эхоподавление": {},
-    "б": {},
+    "Эхоподавление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Echo cancellation"
+          }
+        }
+      }
+    },
+    "б": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "B"
+          }
+        }
+      }
+    },
     "без номера": {
-      "comment": "профиль без добавочного в списке"
+      "comment": "профиль без добавочного в списке",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no number"
+          }
+        }
+      }
     },
-    "больше не влезает в панель": {},
+    "больше не влезает в панель": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "any more will not fit on the panel"
+          }
+        }
+      }
+    },
     "была повреждена, отставлена в %@": {
-      "comment": "состояние базы истории"
+      "comment": "состояние базы истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "was damaged, set aside as %@"
+          }
+        }
+      }
     },
-    "в звонке: %@": {},
+    "в звонке: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in call: %@"
+          }
+        }
+      }
+    },
     "в порядке": {
-      "comment": "состояние базы истории"
+      "comment": "состояние базы истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "healthy"
+          }
+        }
+      }
     },
     "вызова уже нет": {
-      "comment": "состояние линии"
+      "comment": "состояние линии",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the call is already gone"
+          }
+        }
+      }
     },
     "выключена": {
-      "comment": "состояние базы истории"
+      "comment": "состояние базы истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "off"
+          }
+        }
+      }
     },
-    "выключено": {},
+    "выключено": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "off"
+          }
+        }
+      }
+    },
     "до %@": {
-      "comment": "срок продления регистрации"
+      "comment": "срок продления регистрации",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "until %@"
+          }
+        }
+      }
     },
-    "добавочный": {},
+    "добавочный": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "extension"
+          }
+        }
+      }
+    },
     "домен не задан": {
-      "comment": "профиль без домена"
+      "comment": "профиль без домена",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no domain set"
+          }
+        }
+      }
     },
-    "если отличается от номера": {},
+    "если отличается от номера": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "if different from the number"
+          }
+        }
+      }
+    },
     "идёт": {
-      "comment": "звонок ещё не кончился"
+      "comment": "звонок ещё не кончился",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in progress"
+          }
+        }
+      }
     },
-    "каждые %lld мин, пока всё работает": {},
-    "каждые %lld с": {},
+    "каждые %lld мин, пока всё работает": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "every %lld min while all is well"
+          }
+        }
+      }
+    },
+    "каждые %lld с": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "every %lld s"
+          }
+        }
+      }
+    },
     "консультация": {
-      "comment": "пометка звонка в истории"
+      "comment": "пометка звонка в истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "consultation"
+          }
+        }
+      }
     },
     "конференция": {
-      "comment": "пометка звонка в истории"
+      "comment": "пометка звонка в истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "conference"
+          }
+        }
+      }
     },
     "линия": {
-      "comment": "линия без номера в списке"
+      "comment": "линия без номера в списке",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "line"
+          }
+        }
+      }
     },
     "не открыта": {
-      "comment": "состояние базы истории"
+      "comment": "состояние базы истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not opened"
+          }
+        }
+      }
     },
     "не тоны: %@": {
-      "comment": "почему макрос негоден"
+      "comment": "почему макрос негоден",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not tones: %@"
+          }
+        }
+      }
     },
     "недоступна: %@": {
-      "comment": "состояние базы истории"
+      "comment": "состояние базы истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unavailable: %@"
+          }
+        }
+      }
     },
-    "недоступно в разговоре": {},
+    "недоступно в разговоре": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unavailable during a call"
+          }
+        }
+      }
+    },
     "нет ни одного тона": {
-      "comment": "почему макрос негоден"
+      "comment": "почему макрос негоден",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not a single tone"
+          }
+        }
+      }
     },
     "нет подписи": {
-      "comment": "почему макрос негоден"
+      "comment": "почему макрос негоден",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no label"
+          }
+        }
+      }
     },
     "новый профиль": {
-      "comment": "профиль без подписи"
+      "comment": "профиль без подписи",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "new profile"
+          }
+        }
+      }
     },
-    "номер": {},
+    "номер": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "number"
+          }
+        }
+      }
+    },
     "номер не задан": {
-      "comment": "профиль без добавочного"
+      "comment": "профиль без добавочного",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no number set"
+          }
+        }
+      }
     },
-    "пароль": {},
+    "пароль": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "password"
+          }
+        }
+      }
+    },
     "перевод": {
-      "comment": "пометка звонка в истории"
+      "comment": "пометка звонка в истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "transfer"
+          }
+        }
+      }
     },
-    "по умолчанию": {},
+    "по умолчанию": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "default"
+          }
+        }
+      }
+    },
     "повтор в %@": {
-      "comment": "время следующей попытки"
+      "comment": "время следующей попытки",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "retry at %@"
+          }
+        }
+      }
     },
     "профиль": {
-      "comment": "профиль, которого уже нет"
+      "comment": "профиль, которого уже нет",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "profile"
+          }
+        }
+      }
     },
-    "работает": {},
-    "рабочий": {},
-    "смена профиля недоступна в разговоре": {},
-    "хост из профиля": {},
-    "шт": {},
-    "‹": {},
-    "›": {}
+    "работает": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "working"
+          }
+        }
+      }
+    },
+    "рабочий": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "active"
+          }
+        }
+      }
+    },
+    "смена профиля недоступна в разговоре": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "profile cannot be changed during a call"
+          }
+        }
+      }
+    },
+    "хост из профиля": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "host from the profile"
+          }
+        }
+      }
+    },
+    "шт": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pcs"
+          }
+        }
+      }
+    },
+    "‹": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‹"
+          }
+        }
+      }
+    },
+    "›": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "›"
+          }
+        }
+      }
+    }
   },
   "version": "1.0"
 }

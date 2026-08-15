@@ -83,7 +83,7 @@ struct RingtoneTab: View {
 
     private var soundName: String {
         guard let path = model.settings.ringtone.customSoundPath, !path.isEmpty else {
-            return "Стандартный"
+            return NSLocalizedString("Стандартный", comment: "рингтон по умолчанию")
         }
         let name = URL(fileURLWithPath: path).lastPathComponent
         // Пропавший файл называется прямо: рингтон в этом случае молча вернётся

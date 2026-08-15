@@ -108,7 +108,9 @@ struct ProfileCard: View {
                         .labelsHidden()
                         .frame(maxWidth: 200)
                     } else {
-                        Text(profile.title.isEmpty ? "Новый профиль" : profile.title)
+                        Text(profile.title.isEmpty
+                            ? NSLocalizedString("Новый профиль", comment: "профиль без подписи")
+                            : profile.title)
                             .font(Font.callout.weight(.semibold))
                             .lineLimit(1)
                     }

@@ -42,7 +42,9 @@ struct TransportDiagnosticsTests {
         let reason = transport(.tls, port: 5061).explain(tlsClosedNoNotify)
 
         #expect(reason.contains("TLS"))
-        #expect(reason.contains("сертификат") || reason.contains("включён"))
+        #expect(reason.contains(
+            PackageText.localized("проверьте, включён ли TLS на сервере и подходит ли сертификат")
+        ))
         #expect(!reason.contains("нужен 5061"))
     }
 
@@ -51,7 +53,10 @@ struct TransportDiagnosticsTests {
         let reason = transport(.udp, port: 5070).explain(.posix(.ECONNREFUSED))
 
         #expect(reason.contains("5070"))
-        #expect(reason.contains("закрыт"))
+        #expect(reason == String(
+            format: PackageText.localized("порт %lld закрыт: на нём никто не слушает"),
+            5070
+        ))
     }
 
     @Test("Недоступный адрес и неразрешимое имя различаются")
@@ -59,8 +64,14 @@ struct TransportDiagnosticsTests {
         let unreachable = transport(.udp, port: 5060).explain(.posix(.EHOSTUNREACH))
         let dns = transport(.udp, port: 5060).explain(.dns(-65554))
 
-        #expect(unreachable.contains("маршрут"))
-        #expect(dns.contains("не разрешается"))
+        #expect(unreachable == String(
+            format: PackageText.localized("нет маршрута до %@"),
+            "192.168.1.2"
+        ))
+        #expect(dns == String(
+            format: PackageText.localized("имя %@ не разрешается"),
+            "192.168.1.2"
+        ))
         #expect(unreachable != dns)
     }
 

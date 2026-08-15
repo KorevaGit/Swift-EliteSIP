@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Нажатие не принято</key>
+	<string>Нажатие не принято</string>
+	<key>Не та кнопка</key>
+	<string>Не та кнопка</string>
+	<key>Подведите курсор к окну</key>
+	<string>Подведите курсор к окну</string>
+</dict>
+</plist>

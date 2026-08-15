@@ -841,7 +841,13 @@ public actor SIPUserAgent {
                     case .transportFailed(let reason):
                         finishCall(
                             callID: callID,
-                            with: .failed(status: 0, reason: "сеть: \(reason)"),
+                            with: .failed(
+                                status: 0,
+                                reason: String(
+                                    format: NSLocalizedString("сеть: %@", bundle: .module, comment: "причина, которую видит оператор"),
+                                    reason
+                                )
+                            ),
                             continuation: continuation
                         )
                         return
@@ -1368,8 +1374,8 @@ public actor SIPUserAgent {
                 let transferError: SIPTransferError = switch error {
                 case .timeout: .timeout
                 case .transportFailed(let reason): .transportFailed(reason)
-                case .cancelled: .transportFailed("соединение закрыто")
-                case .notReady: .transportFailed("транспорт не готов")
+                case .cancelled: .transportFailed(NSLocalizedString("соединение закрыто", bundle: .module, comment: "причина, которую видит оператор"))
+                case .notReady: .transportFailed(NSLocalizedString("транспорт не готов", bundle: .module, comment: "причина, которую видит оператор"))
                 case .unknownTransaction: .transportFailed(NSLocalizedString("транзакция потеряна", bundle: .module, comment: "причина, которую видит оператор"))
                 }
                 finishTransfer(
@@ -1621,7 +1627,7 @@ public actor SIPUserAgent {
         let reason = switch event {
         case .failed(_, let text): text
         case .ended(let text): text
-        default: "завершён"
+        default: NSLocalizedString("завершён", bundle: .module, comment: "причина, которую видит оператор")
         }
 
         continuation.yield(.state(.ended(reason: reason)))

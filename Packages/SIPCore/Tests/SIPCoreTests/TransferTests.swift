@@ -182,7 +182,10 @@ struct TransferTests {
 
         let result = await collector.value
         #expect(result.first == .accepted)
-        #expect(result.last == .failed(status: 486, reason: "занято"))
+        #expect(result.last == .failed(
+            status: 486,
+            reason: describeCallFailure(status: 486, reason: "Busy Here")
+        ))
         await agent.stop()
     }
 
@@ -348,7 +351,10 @@ struct TransferTests {
         for await event in events { result.append(event) }
 
         #expect(result.first == .accepted)
-        #expect(result.last == .failed(status: 408, reason: "сервер не сообщил результат перевода"))
+        #expect(result.last == .failed(
+            status: 408,
+            reason: PackageText.localized("сервер не сообщил результат перевода")
+        ))
         #expect(await agent.callState == .answered, "истёкший перевод не завершает разговор")
         await agent.stop()
     }

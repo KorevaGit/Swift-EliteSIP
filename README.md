@@ -78,6 +78,8 @@ Lab/                    стенд в Docker: FreePBX 15 на Asterisk 13.38.3,
 
 Текущее состояние и грабли — [docs/STATE.md](docs/STATE.md). Согласованные
 продуктовые решения и следующие работы — [docs/ROADMAP.md](docs/ROADMAP.md).
+Два языка интерфейса и то, что переводится, а что намеренно нет, —
+[docs/localization.md](docs/localization.md).
 
 ## Сборка и тесты
 
@@ -105,6 +107,15 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
   && (cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test) \
   && (cd Packages/CallGuard && swift test) && (cd Packages/AdminAccess && swift test) \
   && (cd Packages/CallHistory && swift test)
+```
+
+Подписи проверяются отдельно от кода: каталог собирается из того, что извлёк
+компилятор, а проверка печатает русские строки без перевода и ключи без
+английского. Ноль в обеих графах — условие выпуска, подробнее в
+[docs/localization.md](docs/localization.md).
+
+```bash
+Tools/sync-strings.py && Tools/check-strings.py
 ```
 
 Разговор со звуком против живой АТС и замеры аудиотракта:

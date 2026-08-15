@@ -763,7 +763,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "История звонков"
+        window.title = NSLocalizedString("История звонков", comment: "заголовок окна истории")
         window.titleVisibility = .visible
         // Полноэкранного режима нет — по той же причине, что у «Управления»
         // и настроек, см. `makeSidebarWindow`.
@@ -949,7 +949,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             """, comment: "вопрос при закрытии «Управления»")
         alert.addButton(withTitle: NSLocalizedString("Сохранить", comment: "кнопка"))
         alert.addButton(withTitle: NSLocalizedString("Не сохранять", comment: "кнопка"))
-        alert.addButton(withTitle: "Отмена")
+        alert.addButton(withTitle: NSLocalizedString("Отмена", comment: "кнопка"))
 
         switch alert.runModal() {
         case .alertFirstButtonReturn:

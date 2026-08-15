@@ -160,7 +160,10 @@ struct RegistrationTests {
         }
         await agent.stop()
 
-        #expect(reason.contains("логин") || reason.contains("пароль"), "получили: \(reason)")
+        #expect(
+            reason == SIPUserAgent.RegistrationError.rejected(status: 403, reason: "Forbidden").description,
+            "получили: \(reason)"
+        )
     }
 
     @Test("Повторный 401 на уже подписанный запрос — это неверный пароль")
@@ -186,7 +189,10 @@ struct RegistrationTests {
         }
         await agent.stop()
 
-        #expect(reason.contains("пароль"), "получили: \(reason)")
+        #expect(
+            reason == SIPUserAgent.RegistrationError.authenticationFailed.description,
+            "получили: \(reason)"
+        )
         #expect(server.receivedRequests.count <= 3, "не должно долбить сервер по кругу")
     }
 
@@ -270,7 +276,7 @@ struct RegistrationTests {
         }
         await agent.stop()
 
-        #expect(reason.contains("не ответил"), "получили: \(reason)")
+        #expect(reason == PackageText.localized("сервер не ответил"), "получили: \(reason)")
     }
 
     @Test("Обрыв транспорта не оставляет регистрацию в подвешенном состоянии")

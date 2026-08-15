@@ -125,7 +125,7 @@ struct CallTests {
         server.inject(response: ScriptedSIPServer.response(to: invite, status: 486))
 
         // «Сервер ответил 486» оператору не говорит ничего, «занято» — говорит всё.
-        #expect(await collector.value == "занято")
+        #expect(await collector.value == describeCallFailure(status: 486, reason: "Busy Here"))
         #expect(await agent.callState == nil, "после отказа звонок не должен считаться активным")
 
         await agent.stop()
@@ -204,7 +204,7 @@ struct CallTests {
 
         // Ответить обязаны: иначе Asterisk повторяет BYE и держит диалог.
         #expect(await waitUntil { server.sentResponses.contains { $0.cseq?.method == .bye && $0.statusCode == 200 } })
-        #expect(await collector.value == "собеседник завершил звонок")
+        #expect(await collector.value == PackageText.localized("собеседник завершил звонок"))
         #expect(await agent.callState == nil)
 
         await agent.stop()
@@ -271,7 +271,7 @@ struct CallTests {
         for await event in extra.events {
             if case .failed(_, let text) = event { reason = text }
         }
-        #expect(reason == "заняты все линии (3)")
+        #expect(reason == SIPCallError.tooManyLines(maximum: 3).description)
         #expect(await agent.lines.count == 3)
 
         // Считаем не запросы, а линии, до которых они дошли: каждая шлёт по два
@@ -297,7 +297,7 @@ struct CallTests {
         for await event in events {
             if case .failed(_, let text) = event { reason = text }
         }
-        #expect(reason == "не задан номер")
+        #expect(reason == SIPCallError.emptyTarget.description)
         #expect(server.receivedRequests.filter { $0.method == .invite }.count == before)
 
         await agent.stop()

@@ -21,6 +21,13 @@
     вычисленные состояния, — остаётся `NSLocalizedString`, и его разбирает
     этот скрипт, как когда-то `genstrings`.
 
+У пакетов есть лишний шаг. SwiftPM `.xcstrings` компилировать не умеет:
+`swift build` копирует каталог сырым, а Xcode выбрасывает его молча — и то и
+другое означает, что `NSLocalizedString` в пакете не находит ничего. Поэтому
+каталог пакета лежит вне ресурсов, а в ресурсы едут собранные им `.lproj`,
+которые пакет и несёт. Собирает их тот же `xcstringstool`, что и у
+приложения, — вызывает его этот скрипт.
+
 Что важно: скрипт не выбрасывает переводы. Ключ, пропавший из кода, помечается
 `extractionState: stale` и остаётся в файле — иначе переименование подписи
 молча стирало бы английский перевод, а заметили бы это на чужой машине.
@@ -30,6 +37,7 @@
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -43,9 +51,10 @@ SOURCE_LANGUAGE = "ru"
 TARGETS: list[tuple[Path, Path]] = [
     (ROOT / "EliteSIP", ROOT / "EliteSIP" / "Localizable.xcstrings"),
 ]
-for package in ["AdminAccess", "CallGuard", "CallHistory", "SIPCore"]:
-    sources = ROOT / "Packages" / package / "Sources" / package
-    TARGETS.append((sources, sources / "Resources" / "Localizable.xcstrings"))
+PACKAGES = ["AdminAccess", "CallGuard", "CallHistory", "SIPCore"]
+for package in PACKAGES:
+    TARGETS.append((ROOT / "Packages" / package / "Sources" / package,
+                    ROOT / "Packages" / package / "Localizable.xcstrings"))
 
 # `NSLocalizedString("ключ", comment: "пояснение")` — с обычным литералом или с
 # многострочным. Оба аргумента обязаны быть литералами: переменная ключом не
@@ -167,6 +176,29 @@ def merge(catalog_path: Path, found: dict[str, str]) -> tuple[int, int, int]:
     return added, stale, len(strings)
 
 
+def compile_packages() -> None:
+    """Собрать `.lproj` пакетов из их каталогов.
+
+    Результат кладётся в ресурсы и попадает в репозиторий: пакет должен
+    собираться `swift build` у того, кто не запускал этот скрипт.
+    """
+    for package in PACKAGES:
+        catalog = ROOT / "Packages" / package / "Localizable.xcstrings"
+        resources = ROOT / "Packages" / package / "Sources" / package / "Resources"
+        for stale in resources.glob("*.lproj"):
+            shutil.rmtree(stale)
+        resources.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(
+            ["xcrun", "xcstringstool", "compile",
+             "--output-directory", str(resources), str(catalog)],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            sys.exit(f"{package}: xcstringstool не собрал каталог\n{result.stderr}")
+        built = sorted(path.name for path in resources.glob("*.lproj"))
+        print(f"  {package}: {', '.join(built)}")
+
+
 def main() -> None:
     if "--build" in sys.argv:
         result = subprocess.run(
@@ -189,6 +221,9 @@ def main() -> None:
         added, stale, total = merge(catalog_path, found)
         print(f"{catalog_path.relative_to(ROOT)}")
         print(f"  в коде {len(found)}, добавлено {added}, устарело {stale}, всего {total}")
+
+    print("собраны ресурсы пакетов:")
+    compile_packages()
 
 
 if __name__ == "__main__":

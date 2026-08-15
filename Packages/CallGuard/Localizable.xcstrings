@@ -1,0 +1,57 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "Нажатие не принято": {
+      "comment": "отказ приёма вызова",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click not accepted"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажатие не принято"
+          }
+        }
+      }
+    },
+    "Не та кнопка": {
+      "comment": "отказ приёма вызова",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrong button"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не та кнопка"
+          }
+        }
+      }
+    },
+    "Подведите курсор к окну": {
+      "comment": "отказ приёма вызова",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move the pointer to the window"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подведите курсор к окну"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

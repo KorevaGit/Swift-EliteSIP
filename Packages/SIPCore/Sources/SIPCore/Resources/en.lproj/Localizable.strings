@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%@ не отвечает</key>
+	<string>%@ is not answering</string>
+	<key>Interval Too Brief без Min-Expires</key>
+	<string>Interval Too Brief without Min-Expires</string>
+	<key>входящего звонка больше нет</key>
+	<string>the incoming call is gone</string>
+	<key>завершён</key>
+	<string>ended</string>
+	<key>занято</key>
+	<string>busy</string>
+	<key>заняты все линии (%lld)</key>
+	<string>all lines are busy (%lld)</string>
+	<key>звонок запрещён</key>
+	<string>the call is forbidden</string>
+	<key>звонок отменён</key>
+	<string>the call was cancelled</string>
+	<key>звонок прерван</key>
+	<string>the call was interrupted</string>
+	<key>звонок уже идёт</key>
+	<string>a call is already in progress</string>
+	<key>имя %@ не разрешается</key>
+	<string>the name %@ does not resolve</string>
+	<key>не задан номер</key>
+	<string>no number set</string>
+	<key>не задан номер перевода</key>
+	<string>no transfer number set</string>
+	<key>не отвечает</key>
+	<string>no answer</string>
+	<key>не удалось собрать запрос</key>
+	<string>could not build the request</string>
+	<key>неверный логин или пароль</key>
+	<string>wrong login or password</string>
+	<key>неверный логин или пароль (403)</key>
+	<string>wrong login or password (403)</string>
+	<key>недоступен</key>
+	<string>unavailable</string>
+	<key>неизвестный номер</key>
+	<string>unknown number</string>
+	<key>нет маршрута до %@</key>
+	<string>no route to %@</string>
+	<key>нет регистрации на сервере</key>
+	<string>not registered on the server</string>
+	<key>номер перевода содержит недопустимые символы</key>
+	<string>the transfer number contains invalid characters</string>
+	<key>ответ без Contact</key>
+	<string>response without Contact</string>
+	<key>ответ не относится ни к одному запросу</key>
+	<string>the response matches no request</string>
+	<key>ответ не ушёл</key>
+	<string>the response was not sent</string>
+	<key>отказ %1$lld %2$@</key>
+	<string>rejected %1$lld %2$@</string>
+	<key>отклонён</key>
+	<string>declined</string>
+	<key>отменён</key>
+	<string>cancelled</string>
+	<key>отменён вызывающим</key>
+	<string>cancelled by the caller</string>
+	<key>офис</key>
+	<string>office</string>
+	<key>перевод уже выполняется</key>
+	<string>a transfer is already under way</string>
+	<key>пересогласование уже идёт</key>
+	<string>a renegotiation is already under way</string>
+	<key>по адресу сервера</key>
+	<string>by server address</string>
+	<key>порт %1$lld — обычно это незашифрованный SIP; для TLS нужен %2$lld</key>
+	<string>port %1$lld is normally unencrypted SIP; TLS needs %2$lld</string>
+	<key>порт %lld закрыт: на нём никто не слушает</key>
+	<string>port %lld is closed: nothing is listening on it</string>
+	<key>проверьте, включён ли TLS на сервере и подходит ли сертификат</key>
+	<string>check that TLS is enabled on the server and that the certificate is right</string>
+	<key>разговор завершился во время перевода</key>
+	<string>the call ended during the transfer</string>
+	<key>разговора нет</key>
+	<string>there is no call</string>
+	<key>сервер завершил перевод без результата</key>
+	<string>the server ended the transfer with no result</string>
+	<key>сервер не ответил</key>
+	<string>the server did not answer</string>
+	<key>сервер не принял TLS (код %lld)</key>
+	<string>the server rejected TLS (code %lld)</string>
+	<key>сервер не принял авторизацию</key>
+	<string>the server rejected the authorisation</string>
+	<key>сервер не сообщил результат перевода</key>
+	<string>the server did not report the transfer result</string>
+	<key>сервер ответил %1$lld %2$@</key>
+	<string>the server answered %1$lld %2$@</string>
+	<key>сеть выключена</key>
+	<string>the network is off</string>
+	<key>сеть: %@</key>
+	<string>network: %@</string>
+	<key>слишком много попыток подряд</key>
+	<string>too many attempts in a row</string>
+	<key>собеседник завершил звонок</key>
+	<string>the other party ended the call</string>
+	<key>собеседник пересогласовывает первым (491)</key>
+	<string>the other party is renegotiating first (491)</string>
+	<key>соединение закрыто</key>
+	<string>the connection was closed</string>
+	<key>такого номера нет</key>
+	<string>no such number</string>
+	<key>такого номера нет на сервере (404)</key>
+	<string>no such number on the server (404)</string>
+	<key>транзакция потеряна</key>
+	<string>the transaction was lost</string>
+	<key>транспорт не готов</key>
+	<string>the transport is not ready</string>
+	<key>удалённо</key>
+	<string>remote</string>
+</dict>
+</plist>

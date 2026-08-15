@@ -184,7 +184,7 @@ struct IncomingCallTests {
         let ended = awaitEnd(of: call)
 
         await agent.rejectIncomingCall()
-        #expect(await ended.value == "отклонён")
+        #expect(await ended.value == PackageText.localized("отклонён"))
 
         let response = try #require(server.sentResponses.last { $0.cseq?.method == .invite })
         #expect(response.statusCode == 486)
@@ -323,7 +323,7 @@ struct IncomingCallTests {
         cancel.headers.append(SIPHeaderName.cseq, "102 CANCEL")
         server.inject(request: cancel)
 
-        #expect(await ended.value == "отменён вызывающим")
+        #expect(await ended.value == PackageText.localized("отменён вызывающим"))
         await agent.stop()
 
         let cancelResponse = try #require(server.sentResponses.first { $0.cseq?.method == .cancel })
@@ -360,7 +360,7 @@ struct IncomingCallTests {
         bye.headers.append(SIPHeaderName.cseq, "103 BYE")
         server.inject(request: bye)
 
-        #expect(await ended.value == "собеседник завершил звонок")
+        #expect(await ended.value == PackageText.localized("собеседник завершил звонок"))
         await agent.stop()
 
         let response = try #require(server.sentResponses.last { $0.cseq?.method == .bye })

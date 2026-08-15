@@ -298,7 +298,11 @@ struct PhonePanelView: View {
 
         menu.addItem(.separator())
 
-        let offline = NSMenuItem(title: "Отключён", action: nil, keyEquivalent: "")
+        let offline = NSMenuItem(
+            title: NSLocalizedString("Отключён", comment: "пункт меню профиля"),
+            action: nil,
+            keyEquivalent: ""
+        )
         offline.state = model.isOfflineByChoice ? .on : .off
         offline.onSelect = { Task { await model.goOffline() } }
         menu.addItem(offline)
@@ -709,7 +713,9 @@ struct DialedNumberField: View {
                         model.dialedNumber = number
                     }
                 ),
-                placeholder: "Номер",
+                // `NSTextField` из AppKit: подсказке нужна готовая строка,
+                // ключом литерал здесь не станет.
+                placeholder: NSLocalizedString("Номер", comment: "подсказка в поле набора"),
                 fontSize: Theme.Metrics.dialedNumberSize,
                 isEnabled: model.canPlaceCall,
                 onSubmit: { Task { await model.placeCall() } },

@@ -169,7 +169,7 @@ struct MaintenanceTab: View {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         panel.allowedFileTypes = ["json"]
-        panel.prompt = "Загрузить"
+        panel.prompt = NSLocalizedString("Загрузить", comment: "кнопка в окне выбора файла")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         pendingImport = PendingImport(url: url)
     }

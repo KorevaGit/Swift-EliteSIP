@@ -94,7 +94,9 @@ extension AppModel {
 
     /// Номер в капсуле — крупным планом.
     var panelStatusTitle: String {
-        isOfflineByChoice ? "Отключён" : settings.account.username
+        isOfflineByChoice
+            ? NSLocalizedString("Отключён", comment: "состояние в шапке панели")
+            : settings.account.username
     }
 
     /// Пометка профиля рядом с номером. `nil` — показывать нечего.

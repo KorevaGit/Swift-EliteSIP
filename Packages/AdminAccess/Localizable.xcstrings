@@ -1,0 +1,176 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "Данные административного доступа испорчены. Задайте пароль заново.": {
+      "comment": "отказ доступа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The administrator access data is corrupted. Set the password again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Данные административного доступа испорчены. Задайте пароль заново."
+          }
+        }
+      }
+    },
+    "Код восстановления — это %lld цифр.": {
+      "comment": "отказ доступа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A recovery code is %lld digits."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код восстановления — это %lld цифр."
+          }
+        }
+      }
+    },
+    "Локальный режим": {
+      "comment": "режим управления машиной",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local mode"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальный режим"
+          }
+        }
+      }
+    },
+    "Настройки из файла конфигурации": {
+      "comment": "режим управления машиной",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings from a configuration file"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки из файла конфигурации"
+          }
+        }
+      }
+    },
+    "Не удалось проверить пароль.": {
+      "comment": "отказ доступа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not verify the password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить пароль."
+          }
+        }
+      }
+    },
+    "Неверный код восстановления.": {
+      "comment": "отказ доступа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrong recovery code."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверный код восстановления."
+          }
+        }
+      }
+    },
+    "Неверный пароль.": {
+      "comment": "отказ доступа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrong password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверный пароль."
+          }
+        }
+      }
+    },
+    "Пароль не может быть пустым.": {
+      "comment": "отказ доступа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The password cannot be empty."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль не может быть пустым."
+          }
+        }
+      }
+    },
+    "Профили, макросы и политику защиты задаёт администратор этой машины.": {
+      "comment": "режим управления машиной",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiles, macros and the protection policy are set by this machine’s administrator."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили, макросы и политику защиты задаёт администратор этой машины."
+          }
+        }
+      }
+    },
+    "Профили, макросы и политику защиты принёс файл конфигурации.": {
+      "comment": "режим управления машиной",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiles, macros and the protection policy came from a configuration file."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили, макросы и политику защиты принёс файл конфигурации."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

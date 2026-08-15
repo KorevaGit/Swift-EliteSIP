@@ -1,0 +1,210 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "Все": {
+      "comment": "отбор в истории звонков",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все"
+          }
+        }
+      }
+    },
+    "Входящие": {
+      "comment": "отбор в истории звонков",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Входящие"
+          }
+        }
+      }
+    },
+    "Исходящие": {
+      "comment": "отбор в истории звонков",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outgoing"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исходящие"
+          }
+        }
+      }
+    },
+    "Пропущенные": {
+      "comment": "отбор в истории звонков",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропущенные"
+          }
+        }
+      }
+    },
+    "занято": {
+      "comment": "исход звонка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "busy"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "занято"
+          }
+        }
+      }
+    },
+    "не ответил": {
+      "comment": "исход звонка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no answer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не ответил"
+          }
+        }
+      }
+    },
+    "неизвестный номер": {
+      "comment": "звонок без номера",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "неизвестный номер"
+          }
+        }
+      }
+    },
+    "нет номера": {
+      "comment": "исход звонка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет номера"
+          }
+        }
+      }
+    },
+    "отказ": {
+      "comment": "исход звонка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "failed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отказ"
+          }
+        }
+      }
+    },
+    "отклонён": {
+      "comment": "исход звонка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "declined"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отклонён"
+          }
+        }
+      }
+    },
+    "приложение завершилось": {
+      "comment": "почему звонок оборвался",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the app quit"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "приложение завершилось"
+          }
+        }
+      }
+    },
+    "пропущен": {
+      "comment": "исход звонка",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "missed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "пропущен"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

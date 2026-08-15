@@ -1,0 +1,941 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "%@ не отвечает": {
+      "comment": "почему не поднялось соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is not answering"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не отвечает"
+          }
+        }
+      }
+    },
+    "Interval Too Brief без Min-Expires": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interval Too Brief without Min-Expires"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interval Too Brief без Min-Expires"
+          }
+        }
+      }
+    },
+    "входящего звонка больше нет": {
+      "comment": "почему звонок не начался",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the incoming call is gone"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "входящего звонка больше нет"
+          }
+        }
+      }
+    },
+    "завершён": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ended"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "завершён"
+          }
+        }
+      }
+    },
+    "занято": {
+      "comment": "чем кончился звонок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "busy"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "занято"
+          }
+        }
+      }
+    },
+    "заняты все линии (%lld)": {
+      "comment": "почему звонок не начался",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "all lines are busy (%lld)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "заняты все линии (%lld)"
+          }
+        }
+      }
+    },
+    "звонок запрещён": {
+      "comment": "чем кончился звонок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the call is forbidden"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "звонок запрещён"
+          }
+        }
+      }
+    },
+    "звонок отменён": {
+      "comment": "чем кончился звонок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the call was cancelled"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "звонок отменён"
+          }
+        }
+      }
+    },
+    "звонок прерван": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the call was interrupted"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "звонок прерван"
+          }
+        }
+      }
+    },
+    "звонок уже идёт": {
+      "comment": "почему звонок не начался",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a call is already in progress"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "звонок уже идёт"
+          }
+        }
+      }
+    },
+    "имя %@ не разрешается": {
+      "comment": "почему не поднялось соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the name %@ does not resolve"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "имя %@ не разрешается"
+          }
+        }
+      }
+    },
+    "не задан номер": {
+      "comment": "почему звонок не начался",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no number set"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не задан номер"
+          }
+        }
+      }
+    },
+    "не задан номер перевода": {
+      "comment": "почему перевод не состоялся",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no transfer number set"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не задан номер перевода"
+          }
+        }
+      }
+    },
+    "не отвечает": {
+      "comment": "чем кончился звонок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no answer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не отвечает"
+          }
+        }
+      }
+    },
+    "не удалось собрать запрос": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "could not build the request"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не удалось собрать запрос"
+          }
+        }
+      }
+    },
+    "неверный логин или пароль": {
+      "comment": "почему регистрация не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wrong login or password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "неверный логин или пароль"
+          }
+        }
+      }
+    },
+    "неверный логин или пароль (403)": {
+      "comment": "почему регистрация не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wrong login or password (403)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "неверный логин или пароль (403)"
+          }
+        }
+      }
+    },
+    "недоступен": {
+      "comment": "чем кончился звонок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unavailable"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "недоступен"
+          }
+        }
+      }
+    },
+    "неизвестный номер": {
+      "comment": "входящий без номера",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "неизвестный номер"
+          }
+        }
+      }
+    },
+    "нет маршрута до %@": {
+      "comment": "почему не поднялось соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no route to %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет маршрута до %@"
+          }
+        }
+      }
+    },
+    "нет регистрации на сервере": {
+      "comment": "почему звонок не начался",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not registered on the server"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет регистрации на сервере"
+          }
+        }
+      }
+    },
+    "номер перевода содержит недопустимые символы": {
+      "comment": "почему перевод не состоялся",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the transfer number contains invalid characters"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "номер перевода содержит недопустимые символы"
+          }
+        }
+      }
+    },
+    "ответ без Contact": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "response without Contact"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ответ без Contact"
+          }
+        }
+      }
+    },
+    "ответ не относится ни к одному запросу": {
+      "comment": "почему регистрация не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the response matches no request"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ответ не относится ни к одному запросу"
+          }
+        }
+      }
+    },
+    "ответ не ушёл": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the response was not sent"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ответ не ушёл"
+          }
+        }
+      }
+    },
+    "отказ %1$lld %2$@": {
+      "comment": "почему перевод не состоялся",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rejected %1$lld %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отказ %1$lld %2$@"
+          }
+        }
+      }
+    },
+    "отклонён": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "declined"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отклонён"
+          }
+        }
+      }
+    },
+    "отменён": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cancelled"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отменён"
+          }
+        }
+      }
+    },
+    "отменён вызывающим": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cancelled by the caller"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отменён вызывающим"
+          }
+        }
+      }
+    },
+    "офис": {
+      "comment": "где стоит рабочее место",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "office"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "офис"
+          }
+        }
+      }
+    },
+    "перевод уже выполняется": {
+      "comment": "почему перевод не состоялся",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a transfer is already under way"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "перевод уже выполняется"
+          }
+        }
+      }
+    },
+    "пересогласование уже идёт": {
+      "comment": "почему пересогласование не пошло",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a renegotiation is already under way"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "пересогласование уже идёт"
+          }
+        }
+      }
+    },
+    "по адресу сервера": {
+      "comment": "где стоит рабочее место",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by server address"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "по адресу сервера"
+          }
+        }
+      }
+    },
+    "порт %1$lld — обычно это незашифрованный SIP; для TLS нужен %2$lld": {
+      "comment": "почему не поднялось соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "port %1$lld is normally unencrypted SIP; TLS needs %2$lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "порт %1$lld — обычно это незашифрованный SIP; для TLS нужен %2$lld"
+          }
+        }
+      }
+    },
+    "порт %lld закрыт: на нём никто не слушает": {
+      "comment": "почему не поднялось соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "port %lld is closed: nothing is listening on it"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "порт %lld закрыт: на нём никто не слушает"
+          }
+        }
+      }
+    },
+    "проверьте, включён ли TLS на сервере и подходит ли сертификат": {
+      "comment": "почему не поднялось соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "check that TLS is enabled on the server and that the certificate is right"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "проверьте, включён ли TLS на сервере и подходит ли сертификат"
+          }
+        }
+      }
+    },
+    "разговор завершился во время перевода": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the call ended during the transfer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "разговор завершился во время перевода"
+          }
+        }
+      }
+    },
+    "разговора нет": {
+      "comment": "почему перевод не состоялся",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "there is no call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "разговора нет"
+          }
+        }
+      }
+    },
+    "сервер завершил перевод без результата": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the server ended the transfer with no result"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер завершил перевод без результата"
+          }
+        }
+      }
+    },
+    "сервер не ответил": {
+      "comment": "почему перевод не состоялся",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the server did not answer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер не ответил"
+          }
+        }
+      }
+    },
+    "сервер не принял TLS (код %lld)": {
+      "comment": "почему не поднялось соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the server rejected TLS (code %lld)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер не принял TLS (код %lld)"
+          }
+        }
+      }
+    },
+    "сервер не принял авторизацию": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the server rejected the authorisation"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер не принял авторизацию"
+          }
+        }
+      }
+    },
+    "сервер не сообщил результат перевода": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the server did not report the transfer result"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер не сообщил результат перевода"
+          }
+        }
+      }
+    },
+    "сервер ответил %1$lld %2$@": {
+      "comment": "почему регистрация не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the server answered %1$lld %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер ответил %1$lld %2$@"
+          }
+        }
+      }
+    },
+    "сеть выключена": {
+      "comment": "почему не поднялось соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the network is off"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сеть выключена"
+          }
+        }
+      }
+    },
+    "сеть: %@": {
+      "comment": "почему перевод не состоялся",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "network: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сеть: %@"
+          }
+        }
+      }
+    },
+    "слишком много попыток подряд": {
+      "comment": "почему регистрация не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "too many attempts in a row"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "слишком много попыток подряд"
+          }
+        }
+      }
+    },
+    "собеседник завершил звонок": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the other party ended the call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "собеседник завершил звонок"
+          }
+        }
+      }
+    },
+    "собеседник пересогласовывает первым (491)": {
+      "comment": "почему пересогласование не пошло",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the other party is renegotiating first (491)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "собеседник пересогласовывает первым (491)"
+          }
+        }
+      }
+    },
+    "соединение закрыто": {
+      "comment": "почему регистрация не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the connection was closed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "соединение закрыто"
+          }
+        }
+      }
+    },
+    "такого номера нет": {
+      "comment": "чем кончился звонок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no such number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "такого номера нет"
+          }
+        }
+      }
+    },
+    "такого номера нет на сервере (404)": {
+      "comment": "почему регистрация не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no such number on the server (404)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "такого номера нет на сервере (404)"
+          }
+        }
+      }
+    },
+    "транзакция потеряна": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the transaction was lost"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "транзакция потеряна"
+          }
+        }
+      }
+    },
+    "транспорт не готов": {
+      "comment": "почему регистрация не удалась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the transport is not ready"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "транспорт не готов"
+          }
+        }
+      }
+    },
+    "удалённо": {
+      "comment": "где стоит рабочее место",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "remote"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "удалённо"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

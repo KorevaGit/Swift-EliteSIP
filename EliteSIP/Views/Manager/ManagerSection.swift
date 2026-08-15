@@ -36,10 +36,10 @@ enum ManagerSection: String, CaseIterable, Identifiable {
     /// «Техподдержка» последней, потому что туда идут, когда уже сломалось.
     var title: String {
         switch self {
-        case .audio: "Звук"
-        case .ringtone: "Звонок"
-        case .appearance: "Оформление"
-        case .support: "Техподдержка"
+        case .audio: NSLocalizedString("Звук", comment: "раздел настроек менеджера")
+        case .ringtone: NSLocalizedString("Звонок", comment: "раздел настроек менеджера")
+        case .appearance: NSLocalizedString("Оформление", comment: "раздел настроек менеджера")
+        case .support: NSLocalizedString("Техподдержка", comment: "раздел настроек менеджера")
         }
     }
 

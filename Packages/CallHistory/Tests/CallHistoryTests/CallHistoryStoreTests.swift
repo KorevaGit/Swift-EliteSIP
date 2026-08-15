@@ -531,7 +531,6 @@ struct CallHistoryStoreTests {
         let stored = store.records(scope: scope).first
         #expect(stored?.outcomeCode == .busy)
         #expect(stored?.outcome == .busy)
-        #expect(stored?.outcome.title == "занято")
     }
 
     @Test("Состоявшийся разговор и пропущенный не спрашивают у кода")

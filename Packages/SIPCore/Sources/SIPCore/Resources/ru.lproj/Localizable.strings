@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%@ не отвечает</key>
+	<string>%@ не отвечает</string>
+	<key>Interval Too Brief без Min-Expires</key>
+	<string>Interval Too Brief без Min-Expires</string>
+	<key>входящего звонка больше нет</key>
+	<string>входящего звонка больше нет</string>
+	<key>завершён</key>
+	<string>завершён</string>
+	<key>занято</key>
+	<string>занято</string>
+	<key>заняты все линии (%lld)</key>
+	<string>заняты все линии (%lld)</string>
+	<key>звонок запрещён</key>
+	<string>звонок запрещён</string>
+	<key>звонок отменён</key>
+	<string>звонок отменён</string>
+	<key>звонок прерван</key>
+	<string>звонок прерван</string>
+	<key>звонок уже идёт</key>
+	<string>звонок уже идёт</string>
+	<key>имя %@ не разрешается</key>
+	<string>имя %@ не разрешается</string>
+	<key>не задан номер</key>
+	<string>не задан номер</string>
+	<key>не задан номер перевода</key>
+	<string>не задан номер перевода</string>
+	<key>не отвечает</key>
+	<string>не отвечает</string>
+	<key>не удалось собрать запрос</key>
+	<string>не удалось собрать запрос</string>
+	<key>неверный логин или пароль</key>
+	<string>неверный логин или пароль</string>
+	<key>неверный логин или пароль (403)</key>
+	<string>неверный логин или пароль (403)</string>
+	<key>недоступен</key>
+	<string>недоступен</string>
+	<key>неизвестный номер</key>
+	<string>неизвестный номер</string>
+	<key>нет маршрута до %@</key>
+	<string>нет маршрута до %@</string>
+	<key>нет регистрации на сервере</key>
+	<string>нет регистрации на сервере</string>
+	<key>номер перевода содержит недопустимые символы</key>
+	<string>номер перевода содержит недопустимые символы</string>
+	<key>ответ без Contact</key>
+	<string>ответ без Contact</string>
+	<key>ответ не относится ни к одному запросу</key>
+	<string>ответ не относится ни к одному запросу</string>
+	<key>ответ не ушёл</key>
+	<string>ответ не ушёл</string>
+	<key>отказ %1$lld %2$@</key>
+	<string>отказ %1$lld %2$@</string>
+	<key>отклонён</key>
+	<string>отклонён</string>
+	<key>отменён</key>
+	<string>отменён</string>
+	<key>отменён вызывающим</key>
+	<string>отменён вызывающим</string>
+	<key>офис</key>
+	<string>офис</string>
+	<key>перевод уже выполняется</key>
+	<string>перевод уже выполняется</string>
+	<key>пересогласование уже идёт</key>
+	<string>пересогласование уже идёт</string>
+	<key>по адресу сервера</key>
+	<string>по адресу сервера</string>
+	<key>порт %1$lld — обычно это незашифрованный SIP; для TLS нужен %2$lld</key>
+	<string>порт %1$lld — обычно это незашифрованный SIP; для TLS нужен %2$lld</string>
+	<key>порт %lld закрыт: на нём никто не слушает</key>
+	<string>порт %lld закрыт: на нём никто не слушает</string>
+	<key>проверьте, включён ли TLS на сервере и подходит ли сертификат</key>
+	<string>проверьте, включён ли TLS на сервере и подходит ли сертификат</string>
+	<key>разговор завершился во время перевода</key>
+	<string>разговор завершился во время перевода</string>
+	<key>разговора нет</key>
+	<string>разговора нет</string>
+	<key>сервер завершил перевод без результата</key>
+	<string>сервер завершил перевод без результата</string>
+	<key>сервер не ответил</key>
+	<string>сервер не ответил</string>
+	<key>сервер не принял TLS (код %lld)</key>
+	<string>сервер не принял TLS (код %lld)</string>
+	<key>сервер не принял авторизацию</key>
+	<string>сервер не принял авторизацию</string>
+	<key>сервер не сообщил результат перевода</key>
+	<string>сервер не сообщил результат перевода</string>
+	<key>сервер ответил %1$lld %2$@</key>
+	<string>сервер ответил %1$lld %2$@</string>
+	<key>сеть выключена</key>
+	<string>сеть выключена</string>
+	<key>сеть: %@</key>
+	<string>сеть: %@</string>
+	<key>слишком много попыток подряд</key>
+	<string>слишком много попыток подряд</string>
+	<key>собеседник завершил звонок</key>
+	<string>собеседник завершил звонок</string>
+	<key>собеседник пересогласовывает первым (491)</key>
+	<string>собеседник пересогласовывает первым (491)</string>
+	<key>соединение закрыто</key>
+	<string>соединение закрыто</string>
+	<key>такого номера нет</key>
+	<string>такого номера нет</string>
+	<key>такого номера нет на сервере (404)</key>
+	<string>такого номера нет на сервере (404)</string>
+	<key>транзакция потеряна</key>
+	<string>транзакция потеряна</string>
+	<key>транспорт не готов</key>
+	<string>транспорт не готов</string>
+	<key>удалённо</key>
+	<string>удалённо</string>
+</dict>
+</plist>

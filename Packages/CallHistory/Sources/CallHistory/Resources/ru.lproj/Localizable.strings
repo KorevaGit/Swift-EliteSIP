@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Все</key>
+	<string>Все</string>
+	<key>Входящие</key>
+	<string>Входящие</string>
+	<key>Исходящие</key>
+	<string>Исходящие</string>
+	<key>Пропущенные</key>
+	<string>Пропущенные</string>
+	<key>занято</key>
+	<string>занято</string>
+	<key>не ответил</key>
+	<string>не ответил</string>
+	<key>неизвестный номер</key>
+	<string>неизвестный номер</string>
+	<key>нет номера</key>
+	<string>нет номера</string>
+	<key>отказ</key>
+	<string>отказ</string>
+	<key>отклонён</key>
+	<string>отклонён</string>
+	<key>приложение завершилось</key>
+	<string>приложение завершилось</string>
+	<key>пропущен</key>
+	<string>пропущен</string>
+</dict>
+</plist>

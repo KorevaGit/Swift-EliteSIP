@@ -148,7 +148,7 @@ struct LinesTests {
         for await event in placed[3].events {
             if case .failed(_, let reason) = event { failure = reason }
         }
-        #expect(failure == "заняты все линии (3)")
+        #expect(failure == SIPCallError.tooManyLines(maximum: 3).description)
 
         // Ждём именно INVITE, а не появления линии в словаре: линия заводится
         // на шаг раньше отправки, и счёт запросов в этот момент ещё не сошёлся.

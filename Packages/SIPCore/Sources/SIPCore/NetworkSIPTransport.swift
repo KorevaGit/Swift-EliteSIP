@@ -188,7 +188,10 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
             case .ENETDOWN:
                 return NSLocalizedString("сеть выключена", bundle: .module, comment: "почему не поднялось соединение")
             default:
-                return "сеть: \(code)"
+                return String(
+                    format: NSLocalizedString("сеть: %@", bundle: .module, comment: "почему не поднялось соединение"),
+                    String(describing: code)
+                )
             }
 
         case .dns:

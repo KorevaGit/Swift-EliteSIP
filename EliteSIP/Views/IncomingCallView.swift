@@ -333,7 +333,7 @@ struct IncomingCallView: View {
             .compatAccessibilityHidden(true)
 
             FilledCallButton(
-                title: "Отклонить",
+                title: NSLocalizedString("Отклонить", comment: "кнопка в окне входящего"),
                 icon: "phone.down.fill",
                 fill: Theme.Palette.decline,
                 action: onDecline

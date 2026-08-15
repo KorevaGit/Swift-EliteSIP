@@ -144,14 +144,20 @@ public enum SIPRenegotiationError: Error, Sendable, Equatable, CustomStringConve
 
     public var description: String {
         switch self {
-        case .noActiveCall: "разговора нет"
+        case .noActiveCall: NSLocalizedString("разговора нет", bundle: .module, comment: "почему пересогласование не пошло")
         case .alreadyRenegotiating:
             NSLocalizedString("пересогласование уже идёт", bundle: .module, comment: "почему пересогласование не пошло")
         case .requestPending:
             NSLocalizedString("собеседник пересогласовывает первым (491)", bundle: .module, comment: "почему пересогласование не пошло")
-        case .rejected(let status, let reason): "отказ \(status) \(reason)"
-        case .timeout: "сервер не ответил"
-        case .transportFailed(let reason): "сеть: \(reason)"
+        case .rejected(let status, let reason):
+            String(
+                format: NSLocalizedString("отказ %1$lld %2$@", bundle: .module, comment: "почему пересогласование не пошло"),
+                status,
+                reason
+            )
+        case .timeout: NSLocalizedString("сервер не ответил", bundle: .module, comment: "почему пересогласование не пошло")
+        case .transportFailed(let reason):
+            String(format: NSLocalizedString("сеть: %@", bundle: .module, comment: "почему пересогласование не пошло"), reason)
         }
     }
 }
