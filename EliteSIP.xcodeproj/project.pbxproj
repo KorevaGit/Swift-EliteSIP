@@ -116,7 +116,7 @@
 				};
 			};
 			buildConfigurationList = E10000000000000000000015 /* Build configuration list for PBXProject "EliteSIP" */;
-			developmentRegion = ru;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,

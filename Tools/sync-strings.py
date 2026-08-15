@@ -28,6 +28,11 @@
 которые пакет и несёт. Собирает их тот же `xcstringstool`, что и у
 приложения, — вызывает его этот скрипт.
 
+Русский выписывается явно, хотя его значения равны ключам. Без этого
+`xcstringstool` кладёт в `ru.lproj` один только `.stringsdict` с формами
+множественного числа, а каталог из одного `.stringsdict` система за
+локализацию не считает: русской машине доставался бы английский интерфейс.
+
 Что важно: скрипт не выбрасывает переводы. Ключ, пропавший из кода, помечается
 `extractionState: stale` и остаётся в файле — иначе переименование подписи
 молча стирало бы английский перевод, а заметили бы это на чужой машине.
@@ -163,6 +168,15 @@ def merge(catalog_path: Path, found: dict[str, str]) -> tuple[int, int, int]:
         # Ключ вернулся в код — снимаем метку «устарел».
         elif entry.get("extractionState") == "stale":
             del entry["extractionState"]
+
+        # Русский — язык исходников, и его значение равно ключу. Записывается
+        # оно всё равно: иначе в `ru.lproj` не окажется `Localizable.strings`,
+        # и локализации как бы нет.
+        localizations = entry.setdefault("localizations", {})
+        if "ru" not in localizations:
+            localizations["ru"] = {
+                "stringUnit": {"state": "translated", "value": key}
+            }
 
     stale = 0
     for key, entry in strings.items():

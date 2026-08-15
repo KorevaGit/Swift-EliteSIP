@@ -12,7 +12,11 @@ let package = Package(
     name: "CallGuard",
     // Подписи, которые пакет показывает человеку, живут рядом с кодом,
     // который их порождает.
-    defaultLocalization: "ru",
+    //
+    // `en`, хотя исходники русские: это язык на случай, когда системе не
+    // подошёл ни один из наших. Русский тут означал бы, что французу достаётся
+    // русский интерфейс, — см. docs/localization.md.
+    defaultLocalization: "en",
     platforms: [.macOS(.v10_15)],
     products: [
         .library(name: "CallGuard", targets: ["CallGuard"])

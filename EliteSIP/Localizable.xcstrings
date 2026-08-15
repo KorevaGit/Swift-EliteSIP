@@ -9,6 +9,12 @@
             "state": "translated",
             "value": " — wideband"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " — широкая полоса"
+          }
         }
       }
     },
@@ -16,6 +22,12 @@
       "comment": "сколько вызовов из очереди и когда последний",
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · %2$@"
@@ -31,6 +43,12 @@
             "state": "translated",
             "value": "%1$@ · %2$lld macros · %3$lld queues"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$lld макр. · %3$lld очер."
+          }
         }
       }
     },
@@ -41,6 +59,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · %2$@ s before first registration"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · до первой регистрации %2$@ с"
           }
         }
       }
@@ -53,6 +77,12 @@
             "state": "translated",
             "value": "%@ · on call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · разговор"
+          }
         }
       }
     },
@@ -63,6 +93,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ · on hold"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · удержание"
           }
         }
       }
@@ -75,12 +111,24 @@
             "state": "translated",
             "value": "%@ — file not found"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — файл не найден"
+          }
         }
       }
     },
     "%lld": {
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        },
+        "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld"
@@ -148,6 +196,12 @@
             "state": "translated",
             "value": "%lld d"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld дн."
+          }
         }
       }
     },
@@ -211,6 +265,12 @@
             "state": "translated",
             "value": "%lld s between packets"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld с между пакетами"
+          }
         }
       }
     },
@@ -221,6 +281,12 @@
             "state": "translated",
             "value": "%lld digits. The code reveals this machine’s current password — it does not reset it, because the password matches the one in the configuration."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld цифр. Код покажет действующий пароль этой машины — он не сбрасывается, потому что совпадает с паролем в конфигурации."
+          }
         }
       }
     },
@@ -230,6 +296,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "CGEvent.post places the pointer with a single event — such a move leaves no path."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет."
           }
         }
       }
@@ -242,6 +314,12 @@
             "state": "translated",
             "value": "DTMF not supported"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DTMF не поддерживается"
+          }
         }
       }
     },
@@ -251,6 +329,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Feature code"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Feature-code"
           }
         }
       }
@@ -263,6 +347,12 @@
             "state": "translated",
             "value": "Liquid Glass is available"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liquid Glass доступен"
+          }
         }
       }
     },
@@ -274,12 +364,24 @@
             "state": "translated",
             "value": "Liquid Glass is unavailable; materials are used instead"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liquid Glass недоступен, используются материалы"
+          }
         }
       }
     },
     "TLS": {
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TLS"
+          }
+        },
+        "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "TLS"
@@ -294,6 +396,12 @@
             "state": "translated",
             "value": "UDP"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UDP"
+          }
         }
       }
     },
@@ -304,12 +412,40 @@
             "state": "translated",
             "value": "macOS"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS"
+          }
+        }
+      }
+    },
+    "«Системный» — как у macOS: русский там, где в системе есть русский, английский во всех остальных случаях.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Системный» — как у macOS: русский там, где в системе есть русский, английский во всех остальных случаях."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“System” follows macOS: Russian where the system has Russian, English in every other case."
+          }
         }
       }
     },
     "·": {
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "·"
+          }
+        },
+        "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "·"
@@ -325,6 +461,12 @@
             "state": "translated",
             "value": "PBX"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "АТС"
+          }
         }
       }
     },
@@ -335,6 +477,12 @@
             "state": "translated",
             "value": "An auto-clicker takes a lead faster than colleagues without anyone at the desk, and the lead goes to silence."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автокликер принимает лид быстрее коллег, не находясь за рабочим местом, и лид уходит в тишину."
+          }
         }
       }
     },
@@ -344,6 +492,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Automatic gain control"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматическая регулировка усиления"
           }
         }
       }
@@ -356,6 +510,12 @@
             "state": "translated",
             "value": "Account"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аккаунт"
+          }
         }
       }
     },
@@ -365,6 +525,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accounts, macros, auto-clicker protection and diagnostics."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аккаунты, макросы, защита от автокликеров и диагностика."
           }
         }
       }
@@ -376,6 +542,12 @@
             "state": "translated",
             "value": "An archive with the log and system details: support uses it to work out what happened to a call."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив с журналом и сведениями о системе: по нему в поддержке разбирают, что случилось со звонком."
+          }
         }
       }
     },
@@ -385,6 +557,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "ICMP payload bytes — the same as “ping -s”"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Байты данных ICMP — то же, что «ping -s»"
           }
         }
       }
@@ -396,6 +574,12 @@
             "state": "translated",
             "value": "Untitled"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без названия"
+          }
         }
       }
     },
@@ -405,6 +589,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Without a gap, two identical digits in a row are heard as one long one."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без паузы две одинаковые цифры подряд слышны как одна длинная."
           }
         }
       }
@@ -416,6 +606,12 @@
             "state": "translated",
             "value": "No glass"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без стекла"
+          }
         }
       }
     },
@@ -425,6 +621,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings, call history and the log will be erased. Profiles, passwords, macros, queues and the port knock sequence will be gone; no administrator password will remain on the machine, and the protected settings will be open to everyone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будут стёрты настройки, история звонков и журнал. Профили, пароли, макросы, очереди и последовательность стука исчезнут; пароля администратора на машине не останется, и закрытые настройки будут открыты всем."
           }
         }
       }
@@ -436,6 +638,12 @@
             "state": "translated",
             "value": "Records of every profile on this machine will be deleted. “Cancel” will not bring them back. A line with the record count goes to the log."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будут удалены записи всех профилей этой машины. Вернуть их «Отменой» нельзя. В журнал уйдёт строка с числом записей."
+          }
         }
       }
     },
@@ -445,6 +653,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The history holds lead numbers and SIP logins exactly as they arrived, unmasked. It is not included in the support archive: that contains only the log."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В истории лежат номера лидов и SIP-логины — как пришли, без маскирования. В архив для поддержки она не попадает: там только журнал."
           }
         }
       }
@@ -457,6 +671,12 @@
             "state": "translated",
             "value": "The file contains no administrator password: after saving, this machine’s protected settings will be open to everyone."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В файле нет пароля администратора: после сохранения закрытые настройки этой машины будут открыты всем."
+          }
         }
       }
     },
@@ -467,6 +687,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No calls on this day"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этот день звонков не было"
           }
         }
       }
@@ -479,6 +705,12 @@
             "state": "translated",
             "value": "You were put on hold"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вас поставили на удержание"
+          }
         }
       }
     },
@@ -488,6 +720,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter recovery code"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ввести код восстановления"
           }
         }
       }
@@ -499,6 +737,12 @@
             "state": "translated",
             "value": "Resume"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть"
+          }
         }
       }
     },
@@ -508,6 +752,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Restore the settings to what they were on entry"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть настройки к тому, что было при входе"
           }
         }
       }
@@ -519,6 +769,12 @@
             "state": "translated",
             "value": "Turn glass back on?"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть стекло?"
+          }
         }
       }
     },
@@ -528,6 +784,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "This cannot be undone by “Cancel” or from the support archive: the archive is built from the log, and the log is erased along with everything else."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть это нельзя ни «Отменой», ни из архива для поддержки: он собирается из журнала, а журнал стирается вместе со всем остальным."
           }
         }
       }
@@ -539,6 +801,12 @@
             "state": "translated",
             "value": "Version"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия"
+          }
         }
       }
     },
@@ -549,6 +817,12 @@
             "state": "translated",
             "value": "Write the log to a file"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вести журнал в файле"
+          }
         }
       }
     },
@@ -558,6 +832,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep call history"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вести историю звонков"
           }
         }
       }
@@ -570,6 +850,12 @@
             "state": "translated",
             "value": "Turned on in Administration. While it is off, calls are not recorded anywhere."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включается в «Управлении». Пока она выключена, звонки нигде не записываются."
+          }
         }
       }
     },
@@ -580,6 +866,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deleting this profile also deletes its password. This profile has no call history."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вместе с профилем будет удалён его пароль. Истории звонков у этого профиля нет."
           }
         }
       }
@@ -644,6 +936,12 @@
             "state": "translated",
             "value": "Instead of an Answer button, a row of digits is shown, and only one of them — the one named in the caption — accepts the call. This breaks a clicker that finds the button by its image. Off by default: it costs the operator attention on every call, whereas a random window position costs nothing."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вместо кнопки «Ответить» показывается ряд цифр, и вызов принимает только одна из них — названная в подписи. Ломает кликер, который ищет кнопку по картинке. Выключено по умолчанию: это внимание оператора на каждом вызове, а случайная позиция окна обходится ему бесплатно."
+          }
         }
       }
     },
@@ -653,6 +951,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Extension"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внутренний номер"
           }
         }
       }
@@ -665,6 +969,12 @@
             "state": "translated",
             "value": "The microphone is busy during a call."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Во время разговора микрофон занят."
+          }
         }
       }
     },
@@ -676,6 +986,12 @@
             "state": "translated",
             "value": "Resuming…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Возврат…"
+          }
         }
       }
     },
@@ -685,6 +1001,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign in"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войти"
           }
         }
       }
@@ -697,6 +1019,12 @@
             "state": "translated",
             "value": "Playing the recording"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Воспроизведение записанного"
+          }
         }
       }
     },
@@ -708,6 +1036,12 @@
             "state": "translated",
             "value": "Restoring audio…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстанавливаю звук…"
+          }
         }
       }
     },
@@ -717,6 +1051,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Manually"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вручную"
           }
         }
       }
@@ -729,6 +1069,12 @@
             "state": "translated",
             "value": "Every protected setting in this window will be replaced by the contents of the file, including the extension password and the administrator password. Nothing reaches the disk until you press Save."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль добавочного и пароль администратора. На диск это уйдёт только по «Сохранить»."
+          }
         }
       }
     },
@@ -739,6 +1085,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Paste"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить"
           }
         }
       }
@@ -751,6 +1103,12 @@
             "state": "translated",
             "value": "Incoming"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Входящие"
+          }
         }
       }
     },
@@ -761,6 +1119,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Incoming"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Входящий"
           }
         }
       }
@@ -773,6 +1137,12 @@
             "state": "translated",
             "value": "Incoming call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Входящий вызов"
+          }
         }
       }
     },
@@ -783,6 +1153,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No incoming calls in the history"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Входящих в истории нет"
           }
         }
       }
@@ -795,6 +1171,12 @@
             "state": "translated",
             "value": "Yesterday"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вчера"
+          }
         }
       }
     },
@@ -804,6 +1186,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "You are calling from a deal — accept the call to start dialling the client."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы звоните по сделке — примите звонок для начала вызова клиенту."
           }
         }
       }
@@ -816,6 +1204,12 @@
             "state": "translated",
             "value": "Select All"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать все"
+          }
         }
       }
     },
@@ -825,6 +1219,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose file…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать файл…"
           }
         }
       }
@@ -837,6 +1237,12 @@
             "state": "translated",
             "value": "Export"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить"
+          }
         }
       }
     },
@@ -846,6 +1252,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export log…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить журнал…"
           }
         }
       }
@@ -857,6 +1269,12 @@
             "state": "translated",
             "value": "Export settings…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить настройки…"
+          }
         }
       }
     },
@@ -867,6 +1285,12 @@
             "state": "translated",
             "value": "Export…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить…"
+          }
         }
       }
     },
@@ -876,6 +1300,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузка"
           }
         }
       }
@@ -888,6 +1318,12 @@
             "state": "translated",
             "value": "Call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вызов"
+          }
         }
       }
     },
@@ -899,6 +1335,12 @@
             "state": "translated",
             "value": "Deal call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вызов по сделке"
+          }
         }
       }
     },
@@ -908,6 +1350,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "A deal call arrives from the manager’s own extension: Bitrix picks it up first and only then dials the client. No setup is needed — the number comes from the active profile."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вызов по сделке приходит с добавочного самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля."
           }
         }
       }
@@ -919,6 +1367,12 @@
             "state": "translated",
             "value": "Turned off in Settings, under Appearance — the same place as the theme."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключается в «Настройках», раздел «Оформление»: там же, где тема."
+          }
         }
       }
     },
@@ -929,6 +1383,12 @@
             "state": "translated",
             "value": "Turning it off is recorded in the log, and in M8 it will go to EliteDash."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключение фиксируется в журнале, а в M8 уедет в EliteDash."
+          }
         }
       }
     },
@@ -938,6 +1398,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Turn glass off?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить стекло?"
           }
         }
       }
@@ -950,6 +1416,12 @@
             "state": "translated",
             "value": "Cut"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вырезать"
+          }
         }
       }
     },
@@ -961,6 +1433,12 @@
             "state": "translated",
             "value": "Quitting will end it and drop the registration."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выход завершит его и снимет регистрацию."
+          }
         }
       }
     },
@@ -971,6 +1449,12 @@
             "state": "translated",
             "value": "Move up"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выше"
+          }
         }
       }
     },
@@ -980,6 +1464,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "A headset lying on the desk cannot be heard — then the speakers should ring."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Гарнитуру на столе не слышно — тогда звонить должны колонки."
           }
         }
       }
@@ -992,6 +1482,12 @@
             "state": "translated",
             "value": "Speak — recording, %lld s left"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Говорите — запись, осталось %lld с"
+          }
         }
       }
     },
@@ -1001,6 +1497,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Done"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
           }
         }
       }
@@ -1013,6 +1515,12 @@
             "state": "translated",
             "value": "Done. If it did not help, reconnect"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово. Если не помогло — переподключитесь"
+          }
         }
       }
     },
@@ -1024,6 +1532,12 @@
             "state": "translated",
             "value": "Done: %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово: %@"
+          }
         }
       }
     },
@@ -1033,6 +1547,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Volume"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Громкость"
           }
         }
       }
@@ -1045,6 +1565,12 @@
             "state": "translated",
             "value": "Ringing"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Гудки"
+          }
         }
       }
     },
@@ -1055,6 +1581,12 @@
             "state": "translated",
             "value": "Takes effect at once, bypassing Save: reconnecting reads the settings from disk. Profile edits reach the PBX after saving."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Действует сразу, в обход «Сохранить»: переподключение берёт настройки с диска. Правки профиля дойдут до АТС после сохранения."
+          }
         }
       }
     },
@@ -1064,6 +1596,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Current password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Действующий пароль"
           }
         }
       }
@@ -1076,6 +1614,12 @@
             "state": "translated",
             "value": "Diagnostics"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Диагностика"
+          }
         }
       }
     },
@@ -1085,6 +1629,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gap length"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Длина паузы"
           }
         }
       }
@@ -1096,6 +1646,12 @@
             "state": "translated",
             "value": "Duration"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Длительность"
+          }
         }
       }
     },
@@ -1105,6 +1661,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить"
           }
         }
       }
@@ -1116,6 +1678,12 @@
             "state": "translated",
             "value": "Add macro"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить макрос"
+          }
         }
       }
     },
@@ -1125,6 +1693,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add queue"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить очередь"
           }
         }
       }
@@ -1136,6 +1710,12 @@
             "state": "translated",
             "value": "Add profile"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить профиль"
+          }
         }
       }
     },
@@ -1145,6 +1725,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add step"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить шаг"
           }
         }
       }
@@ -1156,6 +1742,12 @@
             "state": "translated",
             "value": "Extension"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавочный"
+          }
         }
       }
     },
@@ -1165,6 +1757,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Room extension"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавочный комнаты"
           }
         }
       }
@@ -1176,6 +1774,12 @@
             "state": "translated",
             "value": "Trust any TLS certificate"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доверять любому сертификату TLS"
+          }
         }
       }
     },
@@ -1186,6 +1790,12 @@
             "state": "translated",
             "value": "Answered"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дозвонился"
+          }
         }
       }
     },
@@ -1195,6 +1805,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "PBX domain"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Домен АТС"
           }
         }
       }
@@ -1207,6 +1823,12 @@
             "state": "translated",
             "value": "Access"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ"
+          }
         }
       }
     },
@@ -1216,6 +1838,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "There are unsaved changes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Есть несохранённые изменения"
           }
         }
       }
@@ -1227,6 +1855,12 @@
             "state": "translated",
             "value": "Again"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё раз"
+          }
         }
       }
     },
@@ -1236,6 +1870,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Log"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал"
           }
         }
       }
@@ -1247,6 +1887,12 @@
             "state": "translated",
             "value": "Logging to a file is off — there is nothing to collect. Turned on in Administration."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал в файл выключен — собирать нечего. Включается в «Управлении»."
+          }
         }
       }
     },
@@ -1256,6 +1902,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Log file"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал в файле"
           }
         }
       }
@@ -1268,6 +1920,12 @@
             "state": "translated",
             "value": "Log exported to %@."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал выгружен в %@."
+          }
         }
       }
     },
@@ -1279,6 +1937,12 @@
             "state": "translated",
             "value": "Ending…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершение…"
+          }
         }
       }
     },
@@ -1288,6 +1952,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hang up"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить"
           }
         }
       }
@@ -1300,6 +1970,12 @@
             "state": "translated",
             "value": "Quit EliteSIP"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить EliteSIP"
+          }
         }
       }
     },
@@ -1311,6 +1987,12 @@
             "state": "translated",
             "value": "End call and quit"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить и выйти"
+          }
         }
       }
     },
@@ -1320,6 +2002,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading older calls"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загружаются более старые звонки"
           }
         }
       }
@@ -1331,6 +2019,12 @@
             "state": "translated",
             "value": "Load"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить"
+          }
         }
       }
     },
@@ -1340,6 +2034,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Load settings from a file?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить настройки из файла?"
           }
         }
       }
@@ -1351,6 +2051,12 @@
             "state": "translated",
             "value": "Load settings from a file…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить настройки из файла…"
+          }
         }
       }
     },
@@ -1361,6 +2067,12 @@
             "state": "translated",
             "value": "Loading settings"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка настроек"
+          }
         }
       }
     },
@@ -1370,6 +2082,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Set password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задать пароль"
           }
         }
       }
@@ -1382,6 +2100,12 @@
             "state": "translated",
             "value": "Close"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
+          }
         }
       }
     },
@@ -1393,6 +2117,12 @@
             "state": "translated",
             "value": "All lines are busy"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заняты все линии"
+          }
         }
       }
     },
@@ -1402,6 +2132,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Record and play back"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записать и прослушать"
           }
         }
       }
@@ -1413,6 +2149,12 @@
             "state": "translated",
             "value": "Records"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записей"
+          }
         }
       }
     },
@@ -1422,6 +2164,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Records older than the retention period are deleted: at launch, once a day, and immediately after the period is shortened. Shortening takes effect on Save — “Cancel” will not bring deleted records back."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записи старше срока удаляются: при запуске, раз в сутки и сразу после того, как срок уменьшили. Уменьшение применяется по «Сохранить» — «Отменить» удалённые записи не вернёт."
           }
         }
       }
@@ -1433,6 +2181,12 @@
             "state": "translated",
             "value": "Record"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись"
+          }
         }
       }
     },
@@ -1442,6 +2196,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Exactly one profile is registered at a time — the one marked active. Each has its own password; deleting a profile erases it too. Settings open by clicking the card and can be edited for any profile, not just the active one."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зарегистрирован всегда ровно один профиль — отмеченный «рабочий». У каждого свой пароль; удаление профиля стирает и его. Настройки открываются нажатием на карточку и правятся у любого профиля, а не только у рабочего."
           }
         }
       }
@@ -1453,6 +2213,12 @@
             "state": "translated",
             "value": "Protection"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Защита"
+          }
         }
       }
     },
@@ -1463,6 +2229,12 @@
             "state": "translated",
             "value": "Auto-clicker protection"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Защита от автокликеров"
+          }
         }
       }
     },
@@ -1472,6 +2244,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Auto-clicker protection is on"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Защита от автокликеров включена"
           }
         }
       }
@@ -1484,6 +2262,12 @@
             "state": "translated",
             "value": "No calls yet"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звонков пока не было"
+          }
         }
       }
     },
@@ -1494,6 +2278,12 @@
             "state": "translated",
             "value": "Call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звонок"
+          }
         }
       }
     },
@@ -1503,6 +2293,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Audio"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук"
           }
         }
       }
@@ -1515,6 +2311,12 @@
             "state": "translated",
             "value": "Incoming call sound"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук входящего вызова"
+          }
         }
       }
     },
@@ -1525,6 +2327,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Audio did not come back"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук не вернулся"
           }
         }
       }
@@ -1537,6 +2345,12 @@
             "state": "translated",
             "value": "Audio is gone"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук пропал"
+          }
         }
       }
     },
@@ -1548,6 +2362,12 @@
             "state": "translated",
             "value": "Incoming and outgoing calls will appear here, together with how they ended."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появятся входящие и исходящие — вместе с тем, чем они кончились."
+          }
         }
       }
     },
@@ -1557,6 +2377,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edits here are not applied as you go: they accumulate until you press Save. You can close the window without saving at any time.\n\nSaving declares this machine’s settings local — set by an administrator rather than by a configuration file — and records that in the log."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь правки не применяются на ходу: они копятся, пока вы не нажмёте «Сохранить». Закрыть окно без сохранения можно в любой момент.\n\nСохранение объявит настройки этой машины локальными — их задаёт администратор, а не файл конфигурации, — и запишет это в журнал."
           }
         }
       }
@@ -1568,6 +2394,12 @@
             "state": "translated",
             "value": "The value changes on its own: any save in this window declares the settings local. The second value — settings from a configuration file — starts working in M8, once loading a config exists at all. After a local edit, a machine can be put back under the config only by loading the file again."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значение меняется само: любое сохранение в этом окне объявляет настройки локальными. Второе значение — «настройки из файла конфигурации» — заработает в M8, когда появится сама загрузка конфига. Вернуть машину под конфиг после локальной правки можно будет только повторной загрузкой файла."
+          }
         }
       }
     },
@@ -1578,6 +2410,12 @@
             "state": "translated",
             "value": "The value is managed by EliteDash."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значением управляет EliteDash."
+          }
         }
       }
     },
@@ -1587,6 +2425,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play through"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Играть в"
           }
         }
       }
@@ -1599,6 +2443,12 @@
             "state": "translated",
             "value": "A call is in progress"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идёт разговор"
+          }
         }
       }
     },
@@ -1608,6 +2458,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No changes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменений нет"
           }
         }
       }
@@ -1619,6 +2475,12 @@
             "state": "translated",
             "value": "Edit label"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить подпись"
+          }
         }
       }
     },
@@ -1628,6 +2490,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fix network"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исправить сеть"
           }
         }
       }
@@ -1639,6 +2507,12 @@
             "state": "translated",
             "value": "History"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История"
+          }
         }
       }
     },
@@ -1648,6 +2522,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Call history"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История звонков"
           }
         }
       }
@@ -1660,6 +2540,12 @@
             "state": "translated",
             "value": "Call history is off"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История звонков выключена"
+          }
         }
       }
     },
@@ -1669,6 +2555,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Call history is not exported: it holds lead numbers and SIP logins unmasked. That decision was made in stage 4 and still stands."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История звонков не выгружается: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе."
           }
         }
       }
@@ -1681,6 +2573,12 @@
             "state": "translated",
             "value": "Call history — %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История звонков — %@"
+          }
         }
       }
     },
@@ -1691,6 +2589,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "History cleared: %lld records."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История очищена: записей — %lld."
           }
         }
       }
@@ -1703,6 +2607,12 @@
             "state": "translated",
             "value": "No outgoing calls in the history"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исходящих в истории нет"
+          }
         }
       }
     },
@@ -1712,6 +2622,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recovery code"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код восстановления"
           }
         }
       }
@@ -1723,6 +2639,12 @@
             "state": "translated",
             "value": "The code runs an Asterisk dynamic feature and moves both legs of the current call into ConfBridge. In the lab it is *3; the production code has to be checked against features.conf — the “core show features” output from the production server has no conference at all."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. В лаборатории это *3; боевой код нужно сверить с features.conf — в выводе «core show features» с боевого сервера конференции нет вовсе."
+          }
         }
       }
     },
@@ -1732,6 +2654,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The code may contain only DTMF characters and must contain at least one tone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код должен содержать только DTMF-символы и хотя бы один тон."
           }
         }
       }
@@ -1743,6 +2671,12 @@
             "state": "translated",
             "value": "Codec"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кодек"
+          }
         }
       }
     },
@@ -1752,6 +2686,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codecs"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кодеки"
           }
         }
       }
@@ -1764,6 +2704,12 @@
             "state": "translated",
             "value": "Conference command sent"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команда конференции отправлена"
+          }
         }
       }
     },
@@ -1773,6 +2719,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Conference"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конференция"
           }
         }
       }
@@ -1785,6 +2737,12 @@
             "state": "translated",
             "value": "Conference is unavailable"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конференция недоступна"
+          }
         }
       }
     },
@@ -1794,6 +2752,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Who manages the settings"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кто управляет настройками"
           }
         }
       }
@@ -1805,6 +2769,12 @@
             "state": "translated",
             "value": "Sign-in login"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Логин для входа"
+          }
         }
       }
     },
@@ -1814,6 +2784,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Local call history"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальная история звонков"
           }
         }
       }
@@ -1825,6 +2801,12 @@
             "state": "translated",
             "value": "Breaks clickers that hit fixed coordinates."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ломает кликеры, которые бьют по постоянным координатам."
+          }
         }
       }
     },
@@ -1834,6 +2816,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No macros. The buttons will appear on the panel during a call."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Макросов нет. Кнопки появятся на панели во время разговора."
           }
         }
       }
@@ -1845,6 +2833,12 @@
             "state": "translated",
             "value": "Macros"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Макросы"
+          }
         }
       }
     },
@@ -1854,6 +2848,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Route"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маршрут"
           }
         }
       }
@@ -1866,6 +2866,12 @@
             "state": "translated",
             "value": "Machine"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина"
+          }
         }
       }
     },
@@ -1877,6 +2883,12 @@
             "state": "translated",
             "value": "The machine has been reset."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина сброшена."
+          }
         }
       }
     },
@@ -1886,6 +2898,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Microphone"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Микрофон"
           }
         }
       }
@@ -1897,6 +2915,12 @@
             "state": "translated",
             "value": "Minimum offset"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минимальное смещение"
+          }
         }
       }
     },
@@ -1906,6 +2930,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "RFC 4733 sets the minimum at 40 ms. Deaf voice menus hear 120 better."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минимум по RFC 4733 — 40 мс. Глухие голосовые меню лучше слышат 120."
           }
         }
       }
@@ -1918,6 +2948,12 @@
             "state": "translated",
             "value": "Registered"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На линии"
+          }
         }
       }
     },
@@ -1929,6 +2965,12 @@
             "state": "translated",
             "value": "On hold"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На удержании"
+          }
         }
       }
     },
@@ -1938,6 +2980,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sequence, for example 2,,101#"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Набор, например 2,,101#"
           }
         }
       }
@@ -1950,6 +2998,12 @@
             "state": "translated",
             "value": "Dialling…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Набор…"
+          }
         }
       }
     },
@@ -1959,6 +3013,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Back"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назад"
           }
         }
       }
@@ -1970,6 +3030,12 @@
             "state": "translated",
             "value": "Name"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название"
+          }
         }
       }
     },
@@ -1979,6 +3045,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The name takes pride of place in the incoming call window — the operator decides how to greet from it. The number is matched against what arrives with the call; spaces, brackets and hyphens do not matter."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название встаёт в окне входящего на главное место — по нему оператор решает, как здороваться. Номер сверяется с тем, что приходит в вызове; пробелы, скобки и дефисы значения не имеют."
           }
         }
       }
@@ -1990,6 +3062,12 @@
             "state": "translated",
             "value": "Queue name"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название раздачи"
+          }
         }
       }
     },
@@ -2000,6 +3078,12 @@
             "state": "translated",
             "value": "For example: Manager"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Например: Менеджер"
+          }
         }
       }
     },
@@ -2009,6 +3093,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки"
           }
         }
       }
@@ -2021,6 +3111,12 @@
             "state": "translated",
             "value": "EliteSIP Settings"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки EliteSIP"
+          }
         }
       }
     },
@@ -2030,6 +3126,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings are exported exactly as they appear in the window, including unsaved edits. The log goes out in the same archive as the manager’s “Collect logs”: build and system details inside, secrets masked."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки выгружаются такими, какими они видны в окне, — включая несохранённое. Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы."
           }
         }
       }
@@ -2042,6 +3144,12 @@
             "state": "translated",
             "value": "Settings exported to %@."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки выгружены в %@."
+          }
         }
       }
     },
@@ -2052,6 +3160,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings loaded. Review the sections and press Save."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки загружены. Проверьте разделы и нажмите «Сохранить»."
           }
         }
       }
@@ -2064,6 +3178,12 @@
             "state": "translated",
             "value": "Settings have changed"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки изменены"
+          }
         }
       }
     },
@@ -2073,6 +3193,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Machines already set up from it keep their settings."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки машин, заведённых по ней, останутся как есть."
           }
         }
       }
@@ -2084,6 +3210,12 @@
             "state": "translated",
             "value": "The settings will be open to everyone, no questions asked"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки станут доступны всем без вопросов"
+          }
         }
       }
     },
@@ -2094,6 +3226,12 @@
             "state": "translated",
             "value": "This machine’s settings become local: set by an administrator rather than by a configuration file. The save will be recorded in the log."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки этой машины станут локальными: их задаёт администратор, а не файл конфигурации. Сохранение будет записано в журнал."
+          }
         }
       }
     },
@@ -2103,6 +3241,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "This machine’s settings: %@."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки этой машины: %@."
           }
         }
       }
@@ -2115,6 +3259,12 @@
             "state": "translated",
             "value": "Settings…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки…"
+          }
         }
       }
     },
@@ -2124,6 +3274,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Headphones"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наушники"
           }
         }
       }
@@ -2136,6 +3292,12 @@
             "state": "translated",
             "value": "Do Not Disturb"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не беспокоить"
+          }
         }
       }
     },
@@ -2145,6 +3307,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No answer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не дозвонился"
           }
         }
       }
@@ -2157,6 +3325,12 @@
             "state": "translated",
             "value": "Not transferred: %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не переведён: %@"
+          }
         }
       }
     },
@@ -2168,6 +3342,12 @@
             "state": "translated",
             "value": "Not connected"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не подключено"
+          }
         }
       }
     },
@@ -2178,6 +3358,12 @@
             "state": "translated",
             "value": "Don’t apply"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не применять"
+          }
         }
       }
     },
@@ -2187,6 +3373,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Don’t Save"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не сохранять"
           }
         }
       }
@@ -2199,6 +3391,12 @@
             "state": "translated",
             "value": "Could not export the log: %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выгрузить журнал: %@"
+          }
         }
       }
     },
@@ -2209,6 +3407,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Could not export the settings: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выгрузить настройки: %@"
           }
         }
       }
@@ -2221,6 +3425,12 @@
             "state": "translated",
             "value": "Could not export: %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выгрузить: %@"
+          }
         }
       }
     },
@@ -2231,6 +3441,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Could not read the file: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать файл: %@"
           }
         }
       }
@@ -2243,6 +3459,12 @@
             "state": "translated",
             "value": "Could not build the archive: %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось собрать архив: %@"
+          }
         }
       }
     },
@@ -2254,6 +3476,12 @@
             "state": "translated",
             "value": "Failed: %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось: %@"
+          }
         }
       }
     },
@@ -2263,6 +3491,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No unnamed numbers. Either the dictionary is complete, or no calls from short numbers have reached this machine yet."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неназванных номеров нет. Либо словарь полон, либо на эту машину ещё не приходило вызовов с коротких номеров."
           }
         }
       }
@@ -2275,6 +3509,12 @@
             "state": "translated",
             "value": "Incompatible media"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Несовместимое медиа"
+          }
         }
       }
     },
@@ -2285,6 +3525,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No microphone access"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет доступа к микрофону"
           }
         }
       }
@@ -2297,6 +3543,12 @@
             "state": "translated",
             "value": "No microphone access. Allow it in Privacy & Security."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет доступа к микрофону. Разрешите его в «Защите и безопасности»."
+          }
         }
       }
     },
@@ -2307,6 +3559,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No stream from the other party"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет потока от собеседника"
           }
         }
       }
@@ -2319,6 +3577,12 @@
             "state": "translated",
             "value": "No network"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет сети"
+          }
         }
       }
     },
@@ -2330,6 +3594,12 @@
             "state": "translated",
             "value": "No account"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет учётной записи"
+          }
         }
       }
     },
@@ -2339,6 +3609,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Move down"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ниже"
           }
         }
       }
@@ -2351,6 +3627,12 @@
             "state": "translated",
             "value": "New"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый"
+          }
         }
       }
     },
@@ -2360,6 +3642,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "New password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый пароль"
           }
         }
       }
@@ -2371,6 +3659,12 @@
             "state": "translated",
             "value": "New password — optional"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый пароль — необязательно"
+          }
         }
       }
     },
@@ -2380,6 +3674,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "New profile"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый профиль"
           }
         }
       }
@@ -2391,6 +3691,12 @@
             "state": "translated",
             "value": "Number"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер"
+          }
         }
       }
     },
@@ -2401,6 +3707,12 @@
             "state": "translated",
             "value": "Transfer number"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер перевода"
+          }
         }
       }
     },
@@ -2410,6 +3722,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Required pointer path"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужный путь курсора"
           }
         }
       }
@@ -2422,6 +3740,12 @@
             "state": "translated",
             "value": "About EliteSIP"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "О программе EliteSIP"
+          }
         }
       }
     },
@@ -2433,6 +3757,12 @@
             "state": "translated",
             "value": "Maintenance"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обслуживание"
+          }
         }
       }
     },
@@ -2442,6 +3772,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "It normally matches the password in the configuration. Change it here only if you know what you are doing: until the configuration file arrives (M8), a change will set this machine apart from the rest."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обычно он совпадает с паролем в конфигурации. Меняйте его здесь только если знаете, что делаете: до появления файла конфигурации (M8) смена разведёт эту машину с остальными."
           }
         }
       }
@@ -2454,6 +3790,12 @@
             "state": "translated",
             "value": "Window"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окно"
+          }
         }
       }
     },
@@ -2463,6 +3805,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оставить"
           }
         }
       }
@@ -2474,6 +3822,12 @@
             "state": "translated",
             "value": "Leave as is"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оставить как есть"
+          }
         }
       }
     },
@@ -2483,6 +3837,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stop"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить"
           }
         }
       }
@@ -2495,6 +3855,12 @@
             "state": "translated",
             "value": "Answer"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответить"
+          }
         }
       }
     },
@@ -2506,6 +3872,12 @@
             "state": "translated",
             "value": "Declining…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отклонение…"
+          }
         }
       }
     },
@@ -2515,6 +3887,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Decline"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отклонить"
           }
         }
       }
@@ -2526,6 +3904,12 @@
             "state": "translated",
             "value": "Decline call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отклонить вызов"
+          }
         }
       }
     },
@@ -2535,6 +3919,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reject synthetic clicks"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отклонять синтетические нажатия"
           }
         }
       }
@@ -2547,6 +3937,12 @@
             "state": "translated",
             "value": "Disconnected from the server"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключение от сервера"
+          }
         }
       }
     },
@@ -2558,6 +3954,12 @@
             "state": "translated",
             "value": "Disconnecting…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключение…"
+          }
         }
       }
     },
@@ -2567,6 +3969,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Disconnect"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключить"
           }
         }
       }
@@ -2579,6 +3987,12 @@
             "state": "translated",
             "value": "Offline"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключён"
+          }
         }
       }
     },
@@ -2590,6 +4004,12 @@
             "state": "translated",
             "value": "Opening the path to %@…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открываем дорогу до %@…"
+          }
         }
       }
     },
@@ -2599,6 +4019,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open Administration"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть «Управление»"
           }
         }
       }
@@ -2610,6 +4036,12 @@
             "state": "translated",
             "value": "Cancel"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отмена"
+          }
         }
       }
     },
@@ -2619,6 +4051,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить"
           }
         }
       }
@@ -2630,6 +4068,12 @@
             "state": "translated",
             "value": "Display name"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отображаемое имя"
+          }
         }
       }
     },
@@ -2639,6 +4083,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Send the sequence right now"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить последовательность прямо сейчас"
           }
         }
       }
@@ -2651,6 +4101,12 @@
             "state": "translated",
             "value": "Sending the conference command…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправка команды конференции…"
+          }
         }
       }
     },
@@ -2660,6 +4116,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Release the headphones between calls"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отпускать наушники между звонками"
           }
         }
       }
@@ -2671,6 +4133,12 @@
             "state": "translated",
             "value": "Margin from the edges"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отступ от краёв"
+          }
         }
       }
     },
@@ -2681,6 +4149,12 @@
             "state": "translated",
             "value": "Appearance"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оформление"
+          }
         }
       }
     },
@@ -2690,6 +4164,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The appearance changes for every window at once, and the app restarts to do it: the registration is dropped and raised again. If a call is in progress, it will be cut off."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оформление меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся."
           }
         }
       }
@@ -2702,6 +4182,12 @@
             "state": "translated",
             "value": "Queues"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очереди"
+          }
         }
       }
     },
@@ -2711,6 +4197,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить"
           }
         }
       }
@@ -2722,6 +4214,12 @@
             "state": "translated",
             "value": "Clear log"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить журнал"
+          }
         }
       }
     },
@@ -2731,6 +4229,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear history"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить историю"
           }
         }
       }
@@ -2742,6 +4246,12 @@
             "state": "translated",
             "value": "Clear the call history?"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить историю звонков?"
+          }
         }
       }
     },
@@ -2752,6 +4262,12 @@
             "state": "translated",
             "value": "Clear number"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить номер"
+          }
         }
       }
     },
@@ -2761,6 +4277,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clearing the history erases the records of every profile at once — selective deletion is deliberately absent — and writes to the log how many there were. You can erase, but not without a trace."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистка истории стирает записи всех профилей целиком — выборочного удаления нет намеренно — и пишет в журнал, сколько их было. Стереть можно, бесследно нельзя."
           }
         }
       }
@@ -2773,6 +4295,12 @@
             "state": "translated",
             "value": "Audio error"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка звука"
+          }
         }
       }
     },
@@ -2782,6 +4310,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The passwords do not match."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароли не совпадают."
           }
         }
       }
@@ -2793,6 +4327,12 @@
             "state": "translated",
             "value": "Password"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль"
+          }
         }
       }
     },
@@ -2802,6 +4342,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Administrator password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль администратора"
           }
         }
       }
@@ -2813,6 +4359,12 @@
             "state": "translated",
             "value": "Password set, the protected part is closed"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль задан, закрытая часть закрыта"
+          }
         }
       }
     },
@@ -2822,6 +4374,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No password set — anyone can open this window"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль не задан — это окно откроет любой"
           }
         }
       }
@@ -2833,6 +4391,12 @@
             "state": "translated",
             "value": "No password — there is nothing to register this profile with."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароля нет — зарегистрироваться этим профилем нечем."
+          }
         }
       }
     },
@@ -2843,6 +4407,12 @@
             "state": "translated",
             "value": "Gap"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза"
+          }
         }
       }
     },
@@ -2852,6 +4422,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gap between tones"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза между тонами"
           }
         }
       }
@@ -2864,6 +4440,12 @@
             "state": "translated",
             "value": "Transferred to %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переведён на %@"
+          }
         }
       }
     },
@@ -2873,6 +4455,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transfer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перевести"
           }
         }
       }
@@ -2885,6 +4473,12 @@
             "state": "translated",
             "value": "Transferring…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перевод…"
+          }
         }
       }
     },
@@ -2894,6 +4488,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Overwrites everything the preset covers — both the machine settings and the selected profile. Left alone: numbers and passwords of the other profiles, the selected profile’s password and the administrator password. The extension login is set equal to the number."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин добавочного приравнивается к номеру."
           }
         }
       }
@@ -2905,6 +4505,12 @@
             "state": "translated",
             "value": "Restart"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить"
+          }
         }
       }
     },
@@ -2914,6 +4520,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "There is nothing to switch: the system itself has no glass, and the app is already shown plain. It cannot turn on glass that does not exist."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключать нечего: стекла нет в самой системе, и приложение уже показано обычным. Включить стекло там, где его нет, оно не может."
           }
         }
       }
@@ -2925,6 +4537,28 @@
             "state": "translated",
             "value": "Switching restarts the app: the registration is dropped and raised again, and a call in progress will be cut off."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключение перезапускает приложение: регистрация снимется и поднимется заново, а звонок в этот момент оборвётся."
+          }
+        }
+      }
+    },
+    "Переключение перезапускает приложение: язык выбирается при запуске, и поменять его у открытых окон нельзя. Регистрация снимется и поднимется заново, а звонок в этот момент оборвётся.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching restarts the app: the language is chosen at launch and cannot be changed for windows that are already open. The registration is dropped and raised again, and a call in progress will be cut off."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключение перезапускает приложение: язык выбирается при запуске, и поменять его у открытых окон нельзя. Регистрация снимется и поднимется заново, а звонок в этот момент оборвётся."
+          }
         }
       }
     },
@@ -2934,6 +4568,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reconnect"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переподключить"
           }
         }
       }
@@ -2945,6 +4585,12 @@
             "state": "translated",
             "value": "Write from"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Писать от"
+          }
         }
       }
     },
@@ -2954,6 +4600,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Repeat"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повтор"
           }
         }
       }
@@ -2966,6 +4618,12 @@
             "state": "translated",
             "value": "Redo"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторить"
+          }
         }
       }
     },
@@ -2976,6 +4634,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "None of the %lld calls match this filter."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Под этот отбор не попал ни один звонок из %lld."
           }
         }
       }
@@ -2988,6 +4652,12 @@
             "state": "translated",
             "value": "Connecting…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение…"
+          }
         }
       }
     },
@@ -2997,6 +4667,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Connect"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить"
           }
         }
       }
@@ -3008,6 +4684,12 @@
             "state": "translated",
             "value": "Label"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подпись"
+          }
         }
       }
     },
@@ -3017,6 +4699,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Digit confirmation"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтверждение цифрой"
           }
         }
       }
@@ -3028,6 +4716,12 @@
             "state": "translated",
             "value": "Call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позвонить"
+          }
         }
       }
     },
@@ -3037,6 +4731,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Call again"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позвонить ещё раз"
           }
         }
       }
@@ -3048,6 +4748,12 @@
             "state": "translated",
             "value": "Call %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позвонить на %@"
+          }
         }
       }
     },
@@ -3057,6 +4763,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Until Save is pressed, nothing has been written to disk."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока не нажато «Сохранить», на диск не записано ничего."
           }
         }
       }
@@ -3068,6 +4780,12 @@
             "state": "translated",
             "value": "None yet. Set this workstation up as the reference one and capture a preset from it — after that the preset is enough to set up an identical workstation with a single number."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока ни одной. Настройте это рабочее место как образцовое и снимите с него предустановку — дальше её хватит, чтобы завести такое же место одним номером."
+          }
         }
       }
     },
@@ -3077,6 +4795,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Short numbers are shown — queues and internal extensions: a queue is never a full phone number, and a list of client numbers has no place in a settings window. A long number can still be typed in by hand."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показаны короткие номера — раздачи и внутренние добавочные: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками."
           }
         }
       }
@@ -3088,6 +4812,12 @@
             "state": "translated",
             "value": "Show All"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать все"
+          }
         }
       }
     },
@@ -3097,6 +4827,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show all days"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать все дни"
           }
         }
       }
@@ -3108,6 +4844,12 @@
             "state": "translated",
             "value": "Show a deal call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать вызов по сделке"
+          }
         }
       }
     },
@@ -3118,6 +4860,12 @@
             "state": "translated",
             "value": "Show calls for a single day"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать звонки за один день"
+          }
         }
       }
     },
@@ -3127,6 +4875,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show the window for a test"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать окно для проверки"
           }
         }
       }
@@ -3139,6 +4893,12 @@
             "state": "translated",
             "value": "Show panel"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать панель"
+          }
         }
       }
     },
@@ -3148,6 +4908,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать пароль"
           }
         }
       }
@@ -3159,6 +4925,12 @@
             "state": "translated",
             "value": "Show trace…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать трассу…"
+          }
         }
       }
     },
@@ -3168,6 +4940,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shows the whole app as it looks on macOS before 26: matte surfaces instead of glass, and in windows with a sidebar, a list on the left on the system background with a divider instead of a floating inset."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывает приложение целиком так, как оно выглядит на macOS до 26: матовые поверхности вместо стекла, а в окнах с боковым списком — список слева на системном фоне с разделителем вместо плавающей вставки."
           }
         }
       }
@@ -3179,6 +4957,12 @@
             "state": "translated",
             "value": "Show from"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать от"
+          }
         }
       }
     },
@@ -3188,6 +4972,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Port"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порт"
           }
         }
       }
@@ -3199,6 +4989,12 @@
             "state": "translated",
             "value": "This is the order of the buttons on the panel. The operator aims at a position rather than reading the labels every time, so it is worth changing once during setup, not while working."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порядок кнопок на панели — этот. Оператор целится в место, а не читает подписи каждый раз, поэтому менять его стоит один раз при настройке, а не по ходу работы."
+          }
         }
       }
     },
@@ -3208,6 +5004,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Last call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последний вызов"
           }
         }
       }
@@ -3220,6 +5022,12 @@
             "state": "translated",
             "value": "The stream stopped"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поток прервался"
+          }
         }
       }
     },
@@ -3231,6 +5039,12 @@
             "state": "translated",
             "value": "Edit"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка"
+          }
         }
       }
     },
@@ -3241,6 +5055,12 @@
             "state": "translated",
             "value": "Offer wideband (G.722)"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предлагать широкую полосу (G.722)"
+          }
         }
       }
     },
@@ -3250,6 +5070,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "An offer, not a demand: the server picks from what is offered. Check it against the extension’s codec list on the PBX, not against the operator’s headphones."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется со списком кодеков добавочного на АТС, а не с наушниками оператора."
           }
         }
       }
@@ -3262,6 +5088,12 @@
             "state": "translated",
             "value": "Preset exported to %@."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановка выгружена в %@."
+          }
         }
       }
     },
@@ -3271,6 +5103,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Presets"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановки"
           }
         }
       }
@@ -3282,6 +5120,12 @@
             "state": "translated",
             "value": "Previous month"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущий месяц"
+          }
         }
       }
     },
@@ -3291,6 +5135,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Before you open Administration"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прежде чем открыть «Управление»"
           }
         }
       }
@@ -3302,6 +5152,12 @@
             "state": "translated",
             "value": "The marker can be forged, so by default it is only written to the report."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Признак подделывается, поэтому по умолчанию он только пишется в отчёт."
+          }
         }
       }
     },
@@ -3311,6 +5167,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Signs of a live person"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Признаки живого человека"
           }
         }
       }
@@ -3322,6 +5184,12 @@
             "state": "translated",
             "value": "Will take effect when the settings are saved"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применится при сохранении настроек"
+          }
         }
       }
     },
@@ -3331,6 +5199,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apply"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применить"
           }
         }
       }
@@ -3342,6 +5216,12 @@
             "state": "translated",
             "value": "Apply…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применить…"
+          }
         }
       }
     },
@@ -3351,6 +5231,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Answered"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принял"
           }
         }
       }
@@ -3363,6 +5249,12 @@
             "state": "translated",
             "value": "Accepted. The password takes effect once the settings are saved."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принято. Пароль начнёт действовать после сохранения настроек."
+          }
         }
       }
     },
@@ -3374,6 +5266,12 @@
             "state": "translated",
             "value": "Accepted. After saving, Administration will open without a password."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принято. После сохранения «Управление» откроется без пароля."
+          }
         }
       }
     },
@@ -3383,6 +5281,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Seen but unnamed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приходили, но не названы"
           }
         }
       }
@@ -3394,6 +5298,12 @@
             "state": "translated",
             "value": "Answering"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приём"
+          }
         }
       }
     },
@@ -3403,6 +5313,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Check"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить"
           }
         }
       }
@@ -3414,6 +5330,12 @@
             "state": "translated",
             "value": "Test port knock"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить стук"
+          }
         }
       }
     },
@@ -3423,6 +5345,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Test"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка"
           }
         }
       }
@@ -3435,6 +5363,12 @@
             "state": "translated",
             "value": "The test is over. If you heard yourself, the microphone and headphones work."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка закончена. Если вы себя услышали — микрофон и наушники работают."
+          }
         }
       }
     },
@@ -3444,6 +5378,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Certificate checking is off: an interceptor will be able to read the password and the conversation. For a self-signed lab certificate only."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка сертификата отключена: перехватчик сможет прочитать пароль и разговор. Только для самоподписанного сертификата лаборатории."
           }
         }
       }
@@ -3455,6 +5395,12 @@
             "state": "translated",
             "value": "Play a ringtone"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проигрывать рингтон"
+          }
         }
       }
     },
@@ -3464,6 +5410,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Missed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустил"
           }
         }
       }
@@ -3476,6 +5428,12 @@
             "state": "translated",
             "value": "No missed calls"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропущенных нет"
+          }
         }
       }
     },
@@ -3485,6 +5443,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play back"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прослушать"
           }
         }
       }
@@ -3496,6 +5460,12 @@
             "state": "translated",
             "value": "No profiles. Until at least one exists, there is nothing to call from."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профилей нет. Пока не заведён хотя бы один, звонить не с чего."
+          }
         }
       }
     },
@@ -3505,6 +5475,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Profiles"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили"
           }
         }
       }
@@ -3516,6 +5492,12 @@
             "state": "translated",
             "value": "Profile"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиль"
+          }
         }
       }
     },
@@ -3525,6 +5507,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Profile %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиль %@"
           }
         }
       }
@@ -3537,6 +5525,12 @@
             "state": "translated",
             "value": "Profile without a password"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиль без пароля"
+          }
         }
       }
     },
@@ -3546,6 +5540,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Empty. Press Connect."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто. Нажмите «Подключить»."
           }
         }
       }
@@ -3557,6 +5557,12 @@
             "state": "translated",
             "value": "Five seconds of recording and immediate playback, through the same path as a call."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пять секунд записи и сразу воспроизведение — тем же трактом, что и разговор."
+          }
         }
       }
     },
@@ -3566,6 +5572,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "This machine’s active profile"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рабочий профиль этой машины"
           }
         }
       }
@@ -3578,6 +5590,12 @@
             "state": "translated",
             "value": "On call"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разговор"
+          }
         }
       }
     },
@@ -3587,6 +5605,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The size is the signature: the rule on the gateway looks at the packet length, not at its contents. An empty host means “the server from the profile”; a filled-in one means knock on that host."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер — это подпись: правило на шлюзе смотрит на длину пакета, а не на его содержимое. Пустой хост означает «сервер из профиля»; заполненный — стучать именно по нему."
           }
         }
       }
@@ -3598,6 +5622,12 @@
             "state": "translated",
             "value": "Different devices: there will be no system echo cancellation. Through speakers the other party will hear themselves; through headphones they will not."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разные устройства: системного эхоподавления не будет. На колонках собеседник услышит себя, в наушниках — нет."
+          }
         }
       }
     },
@@ -3607,6 +5637,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Registration"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регистрация"
           }
         }
       }
@@ -3618,6 +5654,12 @@
             "state": "translated",
             "value": "Mode"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Режим"
+          }
         }
       }
     },
@@ -3627,6 +5669,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Administrator mode"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Режим администратора"
           }
         }
       }
@@ -3638,6 +5686,12 @@
             "state": "translated",
             "value": "Build"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сборка"
+          }
         }
       }
     },
@@ -3647,6 +5701,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reset"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сброс"
           }
         }
       }
@@ -3658,6 +5718,12 @@
             "state": "translated",
             "value": "Reset"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить"
+          }
         }
       }
     },
@@ -3667,6 +5733,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reset (%lld)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить (%lld)"
           }
         }
       }
@@ -3678,6 +5750,12 @@
             "state": "translated",
             "value": "Reset the machine?"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить машину?"
+          }
         }
       }
     },
@@ -3687,6 +5765,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reset machine…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить машину…"
           }
         }
       }
@@ -3699,6 +5783,12 @@
             "state": "translated",
             "value": "Minimize"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свернуть"
+          }
         }
       }
     },
@@ -3710,6 +5800,12 @@
             "state": "translated",
             "value": "Light"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Светлая"
+          }
         }
       }
     },
@@ -3719,6 +5815,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Make active"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать рабочим"
           }
         }
       }
@@ -3731,6 +5833,12 @@
             "state": "translated",
             "value": "Today"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сегодня"
+          }
         }
       }
     },
@@ -3741,6 +5849,12 @@
             "state": "translated",
             "value": "Calling is not possible right now"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сейчас позвонить нельзя"
+          }
         }
       }
     },
@@ -3750,6 +5864,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Secrets do not reach the file: the Digest response and SRTP keys are masked as they are written. Numbers and SIP logins remain — that is what a call is traced by."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. Номера и SIP-логины остаются — по ним и разбирают звонок."
           }
         }
       }
@@ -3762,6 +5882,12 @@
             "state": "translated",
             "value": "The server is transferring…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер переводит…"
+          }
         }
       }
     },
@@ -3773,6 +5899,12 @@
             "state": "translated",
             "value": "System"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системная"
+          }
         }
       }
     },
@@ -3782,6 +5914,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "System device"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системное устройство"
           }
         }
       }
@@ -3793,6 +5931,29 @@
             "state": "translated",
             "value": "System defaults"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системные по умолчанию"
+          }
+        }
+      }
+    },
+    "Системный": {
+      "comment": "язык интерфейса — как у системы",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системный"
+          }
         }
       }
     },
@@ -3802,6 +5963,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "System default"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системный по умолчанию"
           }
         }
       }
@@ -3813,6 +5980,12 @@
             "state": "translated",
             "value": "How many packets in a row — the same as “ping -c”"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сколько пакетов подряд — то же, что «ping -c»"
+          }
         }
       }
     },
@@ -3823,6 +5996,12 @@
             "state": "translated",
             "value": "Copy"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать"
+          }
         }
       }
     },
@@ -3832,6 +6011,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copy a snapshot of the list to the clipboard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать снимок списка в буфер обмена"
           }
         }
       }
@@ -3844,6 +6029,12 @@
             "state": "translated",
             "value": "Hide EliteSIP"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть EliteSIP"
+          }
         }
       }
     },
@@ -3854,6 +6045,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hide Others"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть остальные"
           }
         }
       }
@@ -3866,6 +6063,12 @@
             "state": "translated",
             "value": "Hide panel"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть панель"
+          }
         }
       }
     },
@@ -3875,6 +6078,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hide password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть пароль"
           }
         }
       }
@@ -3886,6 +6095,12 @@
             "state": "translated",
             "value": "Next month"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующий месяц"
+          }
         }
       }
     },
@@ -3895,6 +6110,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dictionary"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Словарь"
           }
         }
       }
@@ -3906,6 +6127,12 @@
             "state": "translated",
             "value": "The dictionary is empty: every call looks ordinary, and the operator cannot see which queue a lead came from."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Словарь пуст: все вызовы выглядят обычными, и оператор не видит, из какой раздачи пришёл лид."
+          }
         }
       }
     },
@@ -3915,6 +6142,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Random window position"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Случайная позиция окна"
           }
         }
       }
@@ -3926,6 +6159,12 @@
             "state": "translated",
             "value": "Randomness"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Случайность"
+          }
         }
       }
     },
@@ -3935,6 +6174,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Change password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить пароль"
+          }
+        }
+      }
+    },
+    "Сменить язык?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change the language?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить язык?"
           }
         }
       }
@@ -3947,6 +6208,12 @@
             "state": "translated",
             "value": "End the call first"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала завершите разговор"
+          }
         }
       }
     },
@@ -3956,6 +6223,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The snapshot is taken from what is in the window right now, including unsaved edits. It covers everything except the extension number, the SIP password and the administrator password: a preset travels between machines, each machine has its own number, and a password copied from a template stops being a password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера добавочного, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт."
           }
         }
       }
@@ -3968,6 +6241,12 @@
             "state": "translated",
             "value": "The snapshot failed"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок не получился"
+          }
         }
       }
     },
@@ -3979,6 +6258,12 @@
             "state": "translated",
             "value": "Snapshot copied — paste it into the chat"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок скопирован — вставьте в переписку"
+          }
         }
       }
     },
@@ -3988,6 +6273,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "List snapshot"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок списка"
           }
         }
       }
@@ -3999,6 +6290,12 @@
             "state": "translated",
             "value": "Clear the day filter"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять отбор по дню"
+          }
         }
       }
     },
@@ -4008,6 +6305,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять пароль"
           }
         }
       }
@@ -4019,6 +6322,12 @@
             "state": "translated",
             "value": "Capture preset"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять предустановку"
+          }
         }
       }
     },
@@ -4028,6 +6337,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Capture from this machine"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять с этой машины"
           }
         }
       }
@@ -4039,6 +6354,12 @@
             "state": "translated",
             "value": "Build a support archive"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собрать архив для поддержки"
+          }
         }
       }
     },
@@ -4048,6 +6369,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Collect logs"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собрать логи"
           }
         }
       }
@@ -4060,6 +6387,12 @@
             "state": "translated",
             "value": "Connecting…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Соединение…"
+          }
         }
       }
     },
@@ -4069,6 +6402,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "State"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Состояние"
           }
         }
       }
@@ -4081,6 +6420,12 @@
             "state": "translated",
             "value": "Saving declares this machine’s settings local: set by an administrator rather than by a configuration file. This will be recorded in the log."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранение объявит настройки этой машины локальными: их задаёт администратор, а не файл конфигурации. Это будет записано в журнал."
+          }
         }
       }
     },
@@ -4090,6 +6435,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить"
           }
         }
       }
@@ -4101,6 +6452,12 @@
             "state": "translated",
             "value": "Save the settings?"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить настройки?"
+          }
         }
       }
     },
@@ -4110,6 +6467,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save the preset file — to carry it to another machine"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить файл предустановки — перенести её на другую машину"
           }
         }
       }
@@ -4121,6 +6484,12 @@
             "state": "translated",
             "value": "Default"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стандартный"
+          }
         }
       }
     },
@@ -4131,6 +6500,12 @@
             "state": "translated",
             "value": "Erases the settings, the history and the log — the machine becomes exactly as it was right after installation, with no administrator password. Use it when handing the workstation over to another employee."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стирает настройки, историю и журнал — машина станет такой же, как сразу после установки, и пароля администратора на ней не будет. Готовится к передаче рабочего места другому сотруднику."
+          }
         }
       }
     },
@@ -4140,6 +6515,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Port knock"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стук"
           }
         }
       }
@@ -4152,6 +6533,12 @@
             "state": "translated",
             "value": "Port knocking is off in the settings"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стук выключен в настройках"
+          }
         }
       }
     },
@@ -4163,6 +6550,12 @@
             "state": "translated",
             "value": "Nowhere to knock"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стучать некуда"
+          }
         }
       }
     },
@@ -4172,6 +6565,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Current call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текущий разговор"
           }
         }
       }
@@ -4184,6 +6583,12 @@
             "state": "translated",
             "value": "Phone"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Телефон"
+          }
         }
       }
     },
@@ -4193,6 +6598,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Theme"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тема"
           }
         }
       }
@@ -4204,6 +6615,12 @@
             "state": "translated",
             "value": "Support"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Техподдержка"
+          }
         }
       }
     },
@@ -4214,6 +6631,12 @@
             "state": "translated",
             "value": "Tone"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тон"
+          }
         }
       }
     },
@@ -4223,6 +6646,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transport"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Транспорт"
           }
         }
       }
@@ -4235,6 +6664,12 @@
             "state": "translated",
             "value": "SIP Trace"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Трасса SIP"
+          }
         }
       }
     },
@@ -4244,6 +6679,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The trace opens in its own window: it is kept open during a call, and a settings section is no good for that — it closes together with Administration."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Трасса открывается своим окном: её держат открытой во время звонка, а раздел настроек для этого не годится — он закрывается вместе с «Управлением»."
           }
         }
       }
@@ -4255,6 +6696,12 @@
             "state": "translated",
             "value": "Require pointer movement"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требовать движения курсора"
+          }
         }
       }
     },
@@ -4264,6 +6711,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Password required"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требуется пароль"
           }
         }
       }
@@ -4276,6 +6729,12 @@
             "state": "translated",
             "value": "Dark"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тёмная"
+          }
         }
       }
     },
@@ -4285,6 +6744,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "At the other end"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У собеседника"
           }
         }
       }
@@ -4296,6 +6761,12 @@
             "state": "translated",
             "value": "Delete"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить"
+          }
         }
       }
     },
@@ -4305,6 +6776,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete “%@”?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить «%@»?"
           }
         }
       }
@@ -4316,6 +6793,12 @@
             "state": "translated",
             "value": "Delete preset"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить предустановку"
+          }
         }
       }
     },
@@ -4326,6 +6809,12 @@
             "state": "translated",
             "value": "Delete profile “%@”?"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить профиль «%@»?"
+          }
         }
       }
     },
@@ -4335,6 +6824,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete the profile along with its password and call history"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить профиль вместе с его паролем и историей звонков"
           }
         }
       }
@@ -4347,6 +6842,12 @@
             "state": "translated",
             "value": "Holding…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удержание…"
+          }
         }
       }
     },
@@ -4356,6 +6857,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hold"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удержать"
           }
         }
       }
@@ -4368,6 +6875,12 @@
             "state": "translated",
             "value": "EliteSIP Administration"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управление EliteSIP"
+          }
         }
       }
     },
@@ -4377,6 +6890,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings administration"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управление настройками"
           }
         }
       }
@@ -4388,6 +6907,12 @@
             "state": "translated",
             "value": "Administration ›"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управление ›"
+          }
         }
       }
     },
@@ -4398,6 +6923,12 @@
             "state": "translated",
             "value": "Call device"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Устройство разговора"
+          }
         }
       }
     },
@@ -4407,6 +6938,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The file fills the whole window — profiles, the SIP password, the administrator password, macros, queues, the port knock. Nothing reaches the disk before Save, and “Cancel” restores what was there."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, макросы, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
           }
         }
       }
@@ -4419,6 +6956,12 @@
             "state": "translated",
             "value": "This file does not look like EliteSIP settings."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не похож на настройки EliteSIP."
+          }
         }
       }
     },
@@ -4430,6 +6973,12 @@
             "state": "translated",
             "value": "The file comes from a newer version of the app (schema %1$lld, this build knows %2$lld). Some of its settings would be lost."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл от более новой версии приложения (схема %1$lld, эта сборка знает %2$lld). Часть настроек в ней была бы потеряна."
+          }
         }
       }
     },
@@ -4439,6 +6988,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Storage"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранилище"
           }
         }
       }
@@ -4450,6 +7005,12 @@
             "state": "translated",
             "value": "Keep for"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранить"
+          }
         }
       }
     },
@@ -4459,6 +7020,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Targets to choose from"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Целей на выбор"
           }
         }
       }
@@ -4470,6 +7037,12 @@
             "state": "translated",
             "value": "Digit confirmation"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цифровое подтверждение"
+          }
         }
       }
     },
@@ -4479,6 +7052,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Digits, “*”, “#” and A–D are sent as tones. A comma is a pause; several commas in a row add up. Spaces and hyphens affect nothing and are there only for readability."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цифры, «*», «#» и A–D отправляются как тоны. Запятая — пауза; несколько запятых подряд складываются. Пробелы и дефисы ни на что не влияют и нужны только для читаемости."
           }
         }
       }
@@ -4490,6 +7069,12 @@
             "state": "translated",
             "value": "Cleanup"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чистка"
+          }
         }
       }
     },
@@ -4500,6 +7085,12 @@
             "state": "translated",
             "value": "To answer, press"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтобы ответить, нажмите"
+          }
         }
       }
     },
@@ -4509,6 +7100,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No steps: there is nothing to knock with, and a remote workstation will not connect."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шагов нет: стучать нечем, и удалённое место не подключится."
           }
         }
       }
@@ -4521,6 +7118,12 @@
             "state": "translated",
             "value": "Call Screen"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экран вызова"
+          }
         }
       }
     },
@@ -4532,6 +7135,12 @@
             "state": "translated",
             "value": "This file cannot be read as audio. WAV, AIFF, CAF, M4A and MP3 will do."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3."
+          }
         }
       }
     },
@@ -4542,6 +7151,44 @@
             "state": "translated",
             "value": "Echo cancellation"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эхоподавление"
+          }
+        }
+      }
+    },
+    "Язык": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык"
+          }
+        }
+      }
+    },
+    "Язык меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The language changes for every window at once, and the app restarts to do it: the registration is dropped and raised again. If a call is in progress, it will be cut off."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся."
+          }
         }
       }
     },
@@ -4551,6 +7198,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "B"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "б"
           }
         }
       }
@@ -4563,6 +7216,12 @@
             "state": "translated",
             "value": "no number"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "без номера"
+          }
         }
       }
     },
@@ -4572,6 +7231,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "any more will not fit on the panel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "больше не влезает в панель"
           }
         }
       }
@@ -4584,6 +7249,12 @@
             "state": "translated",
             "value": "was damaged, set aside as %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "была повреждена, отставлена в %@"
+          }
         }
       }
     },
@@ -4593,6 +7264,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "in call: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в звонке: %@"
           }
         }
       }
@@ -4605,6 +7282,12 @@
             "state": "translated",
             "value": "healthy"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в порядке"
+          }
         }
       }
     },
@@ -4615,6 +7298,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "the call is already gone"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вызова уже нет"
           }
         }
       }
@@ -4627,6 +7316,12 @@
             "state": "translated",
             "value": "off"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "выключена"
+          }
         }
       }
     },
@@ -4636,6 +7331,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "off"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "выключено"
           }
         }
       }
@@ -4648,6 +7349,12 @@
             "state": "translated",
             "value": "until %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "до %@"
+          }
         }
       }
     },
@@ -4657,6 +7364,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "extension"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "добавочный"
           }
         }
       }
@@ -4669,6 +7382,12 @@
             "state": "translated",
             "value": "no domain set"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "домен не задан"
+          }
         }
       }
     },
@@ -4678,6 +7397,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "if different from the number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "если отличается от номера"
           }
         }
       }
@@ -4690,6 +7415,12 @@
             "state": "translated",
             "value": "in progress"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "идёт"
+          }
         }
       }
     },
@@ -4700,6 +7431,12 @@
             "state": "translated",
             "value": "every %lld min while all is well"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "каждые %lld мин, пока всё работает"
+          }
         }
       }
     },
@@ -4709,6 +7446,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "every %lld s"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "каждые %lld с"
           }
         }
       }
@@ -4721,6 +7464,12 @@
             "state": "translated",
             "value": "consultation"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "консультация"
+          }
         }
       }
     },
@@ -4731,6 +7480,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "conference"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "конференция"
           }
         }
       }
@@ -4743,6 +7498,12 @@
             "state": "translated",
             "value": "line"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "линия"
+          }
         }
       }
     },
@@ -4753,6 +7514,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "not opened"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не открыта"
           }
         }
       }
@@ -4765,6 +7532,12 @@
             "state": "translated",
             "value": "not tones: %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не тоны: %@"
+          }
         }
       }
     },
@@ -4776,6 +7549,12 @@
             "state": "translated",
             "value": "unavailable: %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "недоступна: %@"
+          }
         }
       }
     },
@@ -4785,6 +7564,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "unavailable during a call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "недоступно в разговоре"
           }
         }
       }
@@ -4797,6 +7582,12 @@
             "state": "translated",
             "value": "not a single tone"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет ни одного тона"
+          }
         }
       }
     },
@@ -4807,6 +7598,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "no label"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет подписи"
           }
         }
       }
@@ -4819,6 +7616,12 @@
             "state": "translated",
             "value": "new profile"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "новый профиль"
+          }
         }
       }
     },
@@ -4828,6 +7631,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "номер"
           }
         }
       }
@@ -4840,6 +7649,12 @@
             "state": "translated",
             "value": "no number set"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "номер не задан"
+          }
         }
       }
     },
@@ -4849,6 +7664,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "пароль"
           }
         }
       }
@@ -4861,6 +7682,12 @@
             "state": "translated",
             "value": "transfer"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "перевод"
+          }
         }
       }
     },
@@ -4870,6 +7697,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "default"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "по умолчанию"
           }
         }
       }
@@ -4882,6 +7715,12 @@
             "state": "translated",
             "value": "retry at %@"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "повтор в %@"
+          }
         }
       }
     },
@@ -4893,6 +7732,12 @@
             "state": "translated",
             "value": "profile"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "профиль"
+          }
         }
       }
     },
@@ -4902,6 +7747,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "working"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "работает"
           }
         }
       }
@@ -4913,6 +7764,12 @@
             "state": "translated",
             "value": "active"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "рабочий"
+          }
         }
       }
     },
@@ -4922,6 +7779,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "profile cannot be changed during a call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "смена профиля недоступна в разговоре"
           }
         }
       }
@@ -4933,6 +7796,12 @@
             "state": "translated",
             "value": "host from the profile"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "хост из профиля"
+          }
         }
       }
     },
@@ -4942,6 +7811,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "pcs"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "шт"
           }
         }
       }
@@ -4953,12 +7828,24 @@
             "state": "translated",
             "value": "‹"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‹"
+          }
         }
       }
     },
     "›": {
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "›"
+          }
+        },
+        "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "›"

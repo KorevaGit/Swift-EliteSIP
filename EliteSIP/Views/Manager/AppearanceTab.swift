@@ -20,8 +20,25 @@ struct AppearanceTab: View {
 
     @EnvironmentObject private var model: AppModel
 
-    /// Спрашиваем перед сменой корпуса: она стоит перезапуска.
-    @State private var isConfirmingChrome = false
+    /// Что именно собираются переключить.
+    ///
+    /// Один вопрос на две настройки, а не два `.alert` на одной вью: второй
+    /// такой модификатор в цепочке ненадёжен, а спрашивают они об одном и том
+    /// же — согласны ли на перезапуск со снятием регистрации.
+    private enum PendingRestart: Identifiable {
+
+        case chrome
+        case language(LanguageSetting)
+
+        var id: String {
+            switch self {
+            case .chrome: return "chrome"
+            case .language(let language): return "language-\(language.rawValue)"
+            }
+        }
+    }
+
+    @State private var pendingRestart: PendingRestart?
 
     /// Есть ли стекло в самой системе. Ниже macOS 26 переключать нечего:
     /// приложение и так показано обычным, и включить стекло там, где его нет,
@@ -58,7 +75,7 @@ struct AppearanceTab: View {
             // щелчок по нему открывает вопрос — и до ответа не меняется ничего.
             SettingsToggleRow("Без стекла", isOn: Binding(
                 get: { model.settings.plainChrome },
-                set: { _ in isConfirmingChrome = true }
+                set: { _ in pendingRestart = .chrome }
             ))
             .disabled(!isGlassAvailable)
 
@@ -90,20 +107,81 @@ struct AppearanceTab: View {
                     """)
             }
         }
+
+        // Свой раздел, а не строка рядом с темой. Язык не оформление: тема
+        // решает, как приложение выглядит, а язык — на чём оно разговаривает,
+        // и меняют его один раз при заведении рабочего места, а не по
+        // настроению. Стоит после стекла, потому что перезапуска стоят обе
+        // настройки, и о нём человек прочитает уже в соседней строке выше.
+        SettingsSection("Язык") {
+            // Как и «Без стекла», выбор не применяется на месте: язык берётся
+            // при запуске, и сменить его у открытых окон нельзя. Поэтому
+            // переключатель показывает выбранное, а щелчок открывает вопрос —
+            // и до ответа не меняется ничего.
+            // Подпись у строки пустая: заголовок раздела уже сказал «Язык», и
+            // повторять его строкой ниже незачем. Сама строка при этом
+            // остаётся `SettingsRow` — она держит переключатель на той же
+            // вертикали, что тема и тумблер выше.
+            SettingsRow("") {
+                Picker("", selection: Binding(
+                    get: { LanguageSetting.current },
+                    set: { pendingRestart = .language($0) }
+                )) {
+                    ForEach(LanguageSetting.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                // Та же ширина, что у темы: два переключателя одного вида в
+                // соседних разделах на разной ширине читаются как разные
+                // элементы.
+                .frame(maxWidth: 220, alignment: .leading)
+            }
+
+            SettingsNote("""
+                «Системный» — как у macOS: русский там, где в системе есть русский, \
+                английский во всех остальных случаях.
+                """)
+
+            SettingsNote("""
+                Переключение перезапускает приложение: язык выбирается при запуске, и \
+                поменять его у открытых окон нельзя. Регистрация снимется и поднимется \
+                заново, а звонок в этот момент оборвётся.
+                """)
+        }
         // Вопрос задаётся до правки, а не после: согласие здесь дают не на
         // оформление, а на перезапуск со снятием регистрации, и узнавать о нём
         // постфактум оператор не должен.
-        .alert(isPresented: $isConfirmingChrome) {
-            Alert(
-                title: Text(model.settings.plainChrome ? "Вернуть стекло?" : "Выключить стекло?"),
-                message: Text("""
-                    Оформление меняется у всех окон сразу, и для этого приложение \
-                    перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт \
-                    разговор, он оборвётся.
-                    """),
-                primaryButton: .default(Text("Перезапустить")) { switchChrome() },
-                secondaryButton: .cancel(Text("Оставить как есть"))
-            )
+        //
+        // Висит на последнем разделе, а обслуживает оба: диалог показывается
+        // окну целиком, и место, к которому он привязан, на вид не влияет.
+        .alert(item: $pendingRestart) { pending in
+            switch pending {
+            case .chrome:
+                return Alert(
+                    title: Text(model.settings.plainChrome ? "Вернуть стекло?" : "Выключить стекло?"),
+                    message: Text("""
+                        Оформление меняется у всех окон сразу, и для этого приложение \
+                        перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт \
+                        разговор, он оборвётся.
+                        """),
+                    primaryButton: .default(Text("Перезапустить")) { switchChrome() },
+                    secondaryButton: .cancel(Text("Оставить как есть"))
+                )
+
+            case .language(let language):
+                return Alert(
+                    title: Text("Сменить язык?"),
+                    message: Text("""
+                        Язык меняется у всех окон сразу, и для этого приложение перезапустится: \
+                        регистрация снимется и поднимется заново. Если сейчас идёт разговор, он \
+                        оборвётся.
+                        """),
+                    primaryButton: .default(Text("Перезапустить")) { switchLanguage(to: language) },
+                    secondaryButton: .cancel(Text("Оставить как есть"))
+                )
+            }
         }
     }
 
@@ -117,6 +195,19 @@ struct AppearanceTab: View {
     /// правки, ради которой его затевали.
     private func switchChrome() {
         model.settings.plainChrome.toggle()
+        NSApp.sendAction(#selector(AppDelegate.relaunchApplication(_:)), to: nil, from: nil)
+    }
+
+    /// Сменить язык: запомнить выбор и перезапуститься.
+    ///
+    /// Порядок тот же и по той же причине, что у оформления: новый процесс
+    /// поднимается раньше, чем завершается старый, и выбор он должен застать
+    /// уже записанным. Запись синхронна — см. `LanguageSetting.apply()`.
+    private func switchLanguage(to language: LanguageSetting) {
+        // В журнал, а не молча: язык меняет то, как выглядит всё приложение, и
+        // разбирая потом «у меня всё по-английски», начинают с журнала.
+        model.append(level: .info, message: "язык интерфейса переключён на «\(language.rawValue)»")
+        language.apply()
         NSApp.sendAction(#selector(AppDelegate.relaunchApplication(_:)), to: nil, from: nil)
     }
 }
