@@ -84,9 +84,17 @@ missing=$(
     # (`CompatSymbol(...)`, аргумент `label:`) — тоже нельзя: до `CompatSymbol`
     # девять имён из двадцати одного доезжают через переменную или вычисляемое
     # свойство, а это ровно тот случай, ради которого проверка и написана.
+    # Доменное имя (`crm.elitesochi.com` — боевая АТС в `Provisioning`)
+    # отсеивается по домену верхнего уровня, а не по первому сегменту: у хоста
+    # он как раз осмысленное слово, и `crm` от имени иконки не отличить.
+    #
+    # Имя нашего формата файлов (`elitesip.preset`, `elitesip.config` в
+    # `EliteSIPDocument`) — по первому сегменту: иконки с таким именем не
+    # бывает, а расширения у этих строк нет, они и есть идентификаторы формата.
     grep -rhoE '"[a-z][a-z0-9]*(\.[a-z0-9]+)+"' EliteSIP --include='*.swift' |
         tr -d '"' | grep -vE '\.(json|log|sqlite|swift|plist|txt|zip)$' |
-        grep -vE '^com\.' | sort -u |
+        grep -vE '\.(com|ru|net|org|local)$' |
+        grep -vE '^(com|elitesip)\.' | sort -u |
         comm -23 - /tmp/elitesip-symbols.$$
     rm -f /tmp/elitesip-symbols.$$
 )

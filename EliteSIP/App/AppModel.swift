@@ -258,9 +258,30 @@ final class AppModel: ObservableObject {
     @Published private var agent: SIPUserAgent?
     private var eventPump: Task<Void, Never>?
 
+    /// Нужен ли мастер первоначальной настройки прямо сейчас (этап 9).
+    ///
+    /// Считается один раз при запуске и дальше меняется только мастером и
+    /// сбросом машины: окно стоит до панели, и решение «показывать» не должно
+    /// передумывать под ним.
+    ///
+    /// Отдельно от `settings.firstRun`, хотя значение то же. Причина в
+    /// черновике: пока открыто «Управление», правки настроек придержаны
+    /// (`isHoldingSettingsWrites`), и мастер, читающий признак прямо из настроек,
+    /// зависел бы от того, сохранил ли администратор окно. Здесь — то, что
+    /// приложение делает сейчас, а не то, что записано на диск.
+    @Published var firstRun: FirstRunStage = .passed
+
     init() {
+        // До `load()`: тот на отсутствующем файле возвращает умолчания, и после
+        // него «первый запуск» от «файл испорчен» уже не отличить.
+        let hadSettingsFile = SettingsStore.fileExists
         let storedVersion = SettingsStore.storedSchemaVersion()
         settings = SettingsStore.load()
+
+        // Правило показа: файла не было — мастер с начала. Файл был — верим
+        // тому, что в нём записано, а записано там `.passed` у всех, кто
+        // обновился со прежних версий.
+        firstRun = hadSettingsFile ? settings.firstRun : .needed
         openLogFileIfNeeded()
         // После журнала: открытие истории пишет в него свой исход, включая
         // «база была повреждена».
