@@ -65,8 +65,6 @@ struct FirstRunWindowView: View {
                 FirstRunUserScreen(flow: flow).transition(slide)
             case .appearance:
                 FirstRunAppearanceScreen(flow: flow).transition(slide)
-            case .chrome:
-                FirstRunChromeScreen(flow: flow).transition(slide)
             case .finale:
                 FirstRunFinaleScreen().transition(slide)
             }
@@ -164,23 +162,34 @@ struct FirstRunWindowView: View {
 
     private func forward() {
         switch flow.step {
-        case .finale:
-            model.finishFirstRun()
-            // Окно закрывает и панель открывает делегат приложения — через
-            // цепочку ответчиков, как это делают «Настройки» и «История».
-            NSApp.sendAction(#selector(AppDelegate.finishFirstRunWindow(_:)), to: nil, from: nil)
+        case .welcome:
+            // Язык применяется перезапуском сразу, а не в конце: иначе всё
+            // показанное дальше читалось бы на том языке, который угадала
+            // система. Если язык не меняли — перезапускать незачем.
+            if flow.language == LanguageSetting.current {
+                flow.advance()
+            } else {
+                model.applyFirstRunLanguage(flow.language)
+            }
 
         case .firstUser:
             Task { await passFirstUser() }
 
-        case .chrome:
-            // Последний шаг перед перезапуском: всё, что набрано, применяется и
-            // уходит на диск одним махом, и только после этого приложение
-            // поднимается заново — язык и корпус берутся при старте процесса.
-            model.completeFirstRun(flow: flow)
-
-        default:
+        case .appearance:
             flow.advance()
+
+        case .finale:
+            // Всё набранное применяется и уходит на диск одним махом — здесь, на
+            // последнем экране, а не перед ним. Перезапуск нужен только ради
+            // корпуса: тот выбирается при сборке окон. Стекло оставили как было —
+            // мастер просто откроет панель.
+            if model.completeFirstRun(flow: flow) {
+                model.relaunchAfterFirstRun()
+            } else {
+                // Окно закрывает и панель открывает делегат приложения — через
+                // цепочку ответчиков, как это делают «Настройки» и «История».
+                NSApp.sendAction(#selector(AppDelegate.finishFirstRunWindow(_:)), to: nil, from: nil)
+            }
         }
     }
 

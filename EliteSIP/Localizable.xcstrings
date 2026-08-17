@@ -3069,6 +3069,22 @@
         }
       }
     },
+    "Матовые поверхности вместо стекла, как на macOS до 26. Приложение откроется заново, чтобы применить выбор.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Матовые поверхности вместо стекла, как на macOS до 26. Приложение откроется заново, чтобы применить выбор."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matte surfaces instead of glass, as on macOS before 26. The app will open again to apply the choice."
+          }
+        }
+      }
+    },
     "Машина": {
       "comment": "группа разделов «Управления»",
       "localizations": {
@@ -5564,7 +5580,8 @@
             "value": "The app will finish the setup and open again, so the choice applies everywhere."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Применится при сохранении настроек": {
       "localizations": {
@@ -6928,7 +6945,8 @@
             "value": "Glass, or the matte surfaces of macOS before 26."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Стирает настройки, историю и журнал — машина станет такой же, как сразу после установки, и пароля администратора на ней не будет. Готовится к передаче рабочего места другому сотруднику.": {
       "localizations": {
@@ -7709,6 +7727,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Язык"
+          }
+        }
+      }
+    },
+    "Язык интерфейса. Приложение откроется заново на выбранном.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык интерфейса. Приложение откроется заново на выбранном."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interface language. The app will open again in the one you pick."
           }
         }
       }

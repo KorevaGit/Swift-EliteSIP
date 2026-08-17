@@ -132,12 +132,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         #endif
 
         if model.firstRun != .passed {
+            // Регистрация во время мастера не поднимается: до экрана «Первый
+            // пользователь» подключаться нечем — добавочного нет, — а после него
+            // за подключение отвечает живая проверка самого экрана.
             showFirstRunWindow()
             NSApp.activate(ignoringOtherApps: true)
-            // На финале машина уже настроена и перезапущена: регистрацию
-            // поднимаем, чтобы обещание «телефон зарегистрирован» на последнем
-            // экране было правдой, а не вежливостью.
-            if model.firstRun == .awaitingFinale { model.startAutoConnect() }
             return
         }
 
@@ -452,9 +451,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         let flow = FirstRunFlow(presets: Provisioning.factoryPresets)
-        // На финал попадают уже после перезапуска: экраны до него пройдены, и
-        // возвращаться туда некуда — всё применено и записано.
-        if model.firstRun == .awaitingFinale { flow.step = .finale }
+        // Язык уже выбран и применён перезапуском — мастер продолжается со
+        // второго экрана, на выбранном языке.
+        if model.firstRun == .languageChosen { flow.step = .firstUser }
         firstRunFlow = flow
 
         let window = NSWindow(

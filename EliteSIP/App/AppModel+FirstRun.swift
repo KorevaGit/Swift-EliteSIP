@@ -24,22 +24,44 @@ extension AppModel {
         return password == secrets.adminPassword
     }
 
-    /// Применяет всё, что набрано в мастере, и перезапускает приложение.
+    /// Запоминает выбранный язык и перезапускает приложение сразу.
+    ///
+    /// Перезапуск стоит здесь, на первом экране, а не перед финалом — решение
+    /// 17 августа 2026. Язык берётся при старте процесса (`AppleLanguages`), и
+    /// без перезапуска мастер продолжался бы на том, что угадала система: человек
+    /// выбрал English, а следующий экран приезжал по-русски.
+    ///
+    /// Момент идеальный, и другого такого в мастере нет: на первом экране, кроме
+    /// языка, ещё ничего не введено, а ни регистрации, ни разговора на первом
+    /// запуске не существует — терять при перезапуске нечего.
+    func applyFirstRunLanguage(_ language: LanguageSetting) {
+        settings.firstRun = .languageChosen
+        firstRun = .languageChosen
+        persistSettings()
+        // До перезапуска и синхронно: новый процесс поднимается раньше, чем
+        // завершается старый, и незаписанный выбор он просто не увидит.
+        language.apply()
+        append(level: .info, message: "первоначальная настройка: выбран язык, приложение перезапускается")
+        NSApp.sendAction(#selector(AppDelegate.relaunchApplication(_:)), to: nil, from: nil)
+    }
+
+    /// Применяет всё, что набрано в мастере.
     ///
     /// Порядок здесь — не вкусовщина, а единственный работающий:
     ///
     /// 1. настройки рабочего места (предустановка, ручной ввод или слепок);
     /// 2. административные учётные данные из конфига;
     /// 3. тема и стекло — поверх всего, что приехало из файла или снимка;
-    /// 4. признак `awaitingFinale` и язык;
-    /// 5. запись на диск;
-    /// 6. перезапуск.
+    /// 4. признак «пройден»;
+    /// 5. запись на диск.
     ///
-    /// Перезапуск последним и обязателен: язык берётся при старте процесса
-    /// (`AppleLanguages`), корпус — при сборке окон, и на лету ни то ни другое не
-    /// применяется. На первом запуске он бесплатен — ни регистрации, ни разговора
-    /// ещё нет, и все предупреждения из «Настроек» здесь не действуют.
-    func completeFirstRun(flow: FirstRunFlow) {
+    /// - Returns: нужен ли перезапуск. Нужен он только ради корпуса: тот
+    ///   выбирается при сборке окон, и живьём не меняется. Если стекло оставили
+    ///   как было — а так будет почти всегда, — перезапуска не будет вовсе, и
+    ///   мастер закончится тем, что откроется панель.
+    @discardableResult
+    func completeFirstRun(flow: FirstRunFlow) -> Bool {
+        let chromeChanged = flow.plainChrome != settings.plainChrome
         applyFirstRunWorkplace(flow: flow)
 
         // Пароль всегда из конфига, а не из файла и не из снимка: слепок с
@@ -58,16 +80,17 @@ extension AppModel {
 
         settings.appearance = flow.appearance
         settings.plainChrome = flow.plainChrome
-        settings.firstRun = .awaitingFinale
-        firstRun = .awaitingFinale
+        settings.firstRun = .passed
+        firstRun = .passed
 
         persistSettings()
-        // До перезапуска и синхронно: новый процесс поднимается раньше, чем
-        // завершается старый, и незаписанный выбор он просто не увидит.
-        flow.language.apply()
-        append(level: .info, message: "первоначальная настройка применена, приложение перезапускается")
-
-        NSApp.sendAction(#selector(AppDelegate.relaunchApplication(_:)), to: nil, from: nil)
+        append(
+            level: .info,
+            message: chromeChanged
+                ? "первоначальная настройка применена, приложение перезапускается ради оформления"
+                : "первоначальная настройка применена"
+        )
+        return chromeChanged
     }
 
     /// Рабочее место: три ветки экрана 2.
@@ -77,11 +100,18 @@ extension AppModel {
             guard let preset = flow.selectedPreset else { return }
             // Площадка выбирает и признак стука, и адрес из пары — снимок
             // собирается уже под неё.
+            //
+            // Применяется **к существующему профилю**, а не рядом с ним, и это
+            // не мелочь: `SIPProfileList` на свежей машине уже держит один
+            // пустой профиль — ровно тот, из-за которого этап и понадобился, —
+            // и `to: nil` заводил второй. В списке профилей после мастера
+            // оставалось два: «без номера» и настроенный. Нашёл живой прогон
+            // 17 августа 2026.
             applyPreset(
                 preset.settingsPreset(site: flow.site),
                 number: flow.trimmedNumber,
                 password: flow.password,
-                to: nil
+                to: settings.profiles.activeID
             )
 
         case .manual:
@@ -114,11 +144,12 @@ extension AppModel {
         }
     }
 
-    /// Финальный экран: закрыть мастер и открыть панель.
-    func finishFirstRun() {
-        settings.firstRun = .passed
-        firstRun = .passed
-        persistSettings()
-        append(level: .info, message: "первоначальная настройка закончена")
+    /// Перезапуск ради корпуса — после того, как всё уже записано.
+    ///
+    /// Отдельным методом, а не строкой внутри `completeFirstRun`: тот отвечает
+    /// на «что применить», а этот на «чем закончить», и вызывающая сторона
+    /// выбирает между перезапуском и открытием панели.
+    func relaunchAfterFirstRun() {
+        NSApp.sendAction(#selector(AppDelegate.relaunchApplication(_:)), to: nil, from: nil)
     }
 }

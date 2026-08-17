@@ -18,11 +18,16 @@ import SwiftUI
 final class FirstRunFlow: ObservableObject {
 
     /// Экран мастера. Порядок объявления — порядок показа.
+    ///
+    /// Тема и стекло стоят на одном экране — «Оформление», по решению
+    /// 17 августа 2026. Двумя они были потому, что применяются по-разному (тема
+    /// живьём, корпус только при сборке окон), но человеку это различие ничего не
+    /// говорит: он отвечает на один вопрос «как приложение должно выглядеть», и
+    /// делить его на два экрана — считать своей реализацией чужие шаги.
     enum Step: Int, CaseIterable, Comparable {
         case welcome
         case firstUser
         case appearance
-        case chrome
         case finale
 
         static func < (lhs: Step, rhs: Step) -> Bool { lhs.rawValue < rhs.rawValue }
@@ -98,12 +103,10 @@ final class FirstRunFlow: ObservableObject {
 
     /// Экраны, по которым идёт мастер на этой машине.
     ///
-    /// «Стекло» выпадает там, где стекла нет в самой системе: выбирать не из
-    /// чего, а погашенный тумблер на входе читается как поломка ещё до того, как
-    /// человек увидел приложение живым.
-    var steps: [Step] {
-        Step.allCases.filter { $0 != .chrome || Theme.Chrome.isGlassAvailable }
-    }
+    /// Все четыре и всегда. Стекло выпадает не экраном, а тумблером внутри
+    /// «Оформления»: там, где стекла нет в самой системе, выбирать не из чего, —
+    /// но тема есть везде, и экран остаётся.
+    var steps: [Step] { Step.allCases }
 
     var canGoBack: Bool { step != .welcome && step != .finale }
 
@@ -113,7 +116,7 @@ final class FirstRunFlow: ObservableObject {
     /// 150 000 итерациями, и гонять его на каждое нажатие клавиши в поле нельзя.
     var canGoForward: Bool {
         switch step {
-        case .welcome, .appearance, .chrome, .finale:
+        case .welcome, .appearance, .finale:
             return true
         case .firstUser:
             guard !adminPassword.isEmpty else { return false }
