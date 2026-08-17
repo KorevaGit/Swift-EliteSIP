@@ -37,6 +37,14 @@ struct PresetsTab: View {
             SettingsButtonsRow {
                 Button("Снять предустановку") { capture() }
                     .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                // Загрузка была заявлена в M8 и не существовала полтора месяца:
+                // выгрузка файлом работала, а прочитать этот файл было нечем — то
+                // есть путь «настроить одну машину, снять шаблон, разнести по
+                // остальным» обрывался на середине. Появилась 17 августа 2026
+                // вместе с форматом `.elitesip`.
+                Button("Загрузить из файла…") { importPreset() }
+                    .compatHelp("Прочитать файл предустановки, снятой на другой машине")
             }
 
             SettingsNote("""
@@ -186,9 +194,15 @@ struct PresetsTab: View {
     /// шаблон и разнести его по остальным. Внутри — тот же JSON, что и в
     /// настройках, и ровно так же без номера, пароля SIP и блока доступа: файл
     /// уезжает на чужую машину, и класть в него секреты нельзя тем более.
+    ///
+    /// С 17 августа 2026 файл пишется в формате `.elitesip` — с заголовком и
+    /// версией, — а не сырым `SettingsPreset` под именем `.elitesip-preset.json`.
+    /// Заголовок нужен читающей стороне: без него чужой JSON того же вида
+    /// прочитался бы терпимыми декодерами в пустые настройки, и «файл не наш»
+    /// выглядело бы как «файл пустой».
     private func export(_ preset: SettingsPreset) {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "\(preset.name).elitesip-preset.json"
+        panel.nameFieldStringValue = EliteSIPDocument.suggestedName(.preset, label: preset.name)
         panel.prompt = NSLocalizedString("Выгрузить", comment: "кнопка в окне сохранения файла")
         // Рабочий стол: оттуда файл переносят на флешку или прикладывают к
         // письму. Тот же выбор, что у выгрузки настроек в «Обслуживании».
@@ -197,12 +211,55 @@ struct PresetsTab: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(preset).write(to: url, options: .atomic)
+            try EliteSIPDocument.encode(preset: preset).write(to: url, options: .atomic)
             notice = String(format: NSLocalizedString("Предустановка выгружена в %@.", comment: "итог выгрузки предустановки"), url.lastPathComponent)
         } catch {
             notice = String(format: NSLocalizedString("Не удалось выгрузить: %@", comment: "выгрузка предустановки не удалась"), error.localizedDescription)
+        }
+    }
+
+    /// Загрузка предустановки из файла.
+    ///
+    /// Ложится в тот же черновик «Управления», что и остальные правки: на диск
+    /// ничего не уходит до «Сохранить», и «Отменить» возвращает как было. Иначе
+    /// чужой файл менял бы настройки машины помимо того порядка, который в этом
+    /// окне заведён специально.
+    ///
+    /// Конфигурация вместо предустановки отбивается отдельным сообщением: файлы
+    /// лежат рядом, называются похоже, а последствия у них разные — слепок несёт
+    /// чужой добавочный и пароль.
+    private func importPreset() {
+        // `NSOpenPanel`, а не `fileImporter`: тот появился в macOS 11, а срез
+        // x86_64 живёт с Catalina.
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedFileTypes = [EliteSIPDocument.fileExtension]
+        panel.prompt = NSLocalizedString("Загрузить", comment: "кнопка в окне выбора файла")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            switch try EliteSIPDocument.read(try Data(contentsOf: url)) {
+            case .preset(let preset):
+                model.addPreset(preset)
+                notice = String(
+                    format: NSLocalizedString(
+                        "Предустановка «%@» загружена. Она появится на машине после «Сохранить».",
+                        comment: "итог загрузки предустановки"
+                    ),
+                    preset.name
+                )
+            case .config:
+                notice = NSLocalizedString(
+                    "Это конфигурация, а не предустановка: в ней есть добавочный и пароль. Такой файл принимает мастер первоначальной настройки.",
+                    comment: "выбран файл конфигурации вместо предустановки"
+                )
+            }
+        } catch let failure as EliteSIPDocument.Failure {
+            notice = failure.title
+        } catch {
+            notice = EliteSIPDocument.Failure.damaged.title
         }
     }
 

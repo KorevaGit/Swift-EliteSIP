@@ -249,6 +249,19 @@ public actor SIPUserAgent {
 
     public var registrationState: SIPRegistrationState { state }
 
+    /// Почему регистрация не удалась в последний раз — **типом**, а не строкой.
+    ///
+    /// `SIPRegistrationState.failed` несёт готовую подпись для оператора, и она
+    /// переведена: сравнивать её в коде нельзя, иначе разбор причины сломается от
+    /// смены языка машины. Мастеру первоначальной настройки (этап 9) причина нужна
+    /// именно разобранной — «неверный пароль» и «сервер молчит» требуют от
+    /// техподдержки разных действий, — поэтому она лежит здесь отдельно.
+    ///
+    /// `nil` — ни одной неудачи с последнего успеха: значение сбрасывается на
+    /// каждой удавшейся регистрации, чтобы вчерашний отказ не читался как
+    /// сегодняшний.
+    public private(set) var lastRegistrationFailure: RegistrationError?
+
     // MARK: - Жизненный цикл
 
     public func start() async {
@@ -351,6 +364,7 @@ public actor SIPUserAgent {
                 set(state: .registering)
                 let granted = try await register(expires: account.registrationExpires)
                 consecutiveFailures = 0
+                lastRegistrationFailure = nil
 
                 let expiresAt = Date().addingTimeInterval(Double(granted))
                 let contact = contactEndpoint.map(\.description) ?? "—"
@@ -365,6 +379,7 @@ public actor SIPUserAgent {
             } catch {
                 guard !isStopping else { return }
                 consecutiveFailures += 1
+                lastRegistrationFailure = error as? RegistrationError
                 let delay = Self.backoffDelay(forAttempt: consecutiveFailures)
                 let reason = Self.describe(error)
                 set(state: .failed(reason: reason, retryAt: Date().addingTimeInterval(Double(delay))))

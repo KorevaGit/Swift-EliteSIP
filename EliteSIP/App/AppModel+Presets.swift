@@ -24,6 +24,23 @@ extension AppModel {
         append(level: .info, message: "предустановка снята: \(trimmed)")
     }
 
+    /// Добавить предустановку, приехавшую файлом.
+    ///
+    /// Идентификатор перевыдаётся: у файла, разнесённого по десятку машин, он один
+    /// и тот же, а `SettingsPreset` — `Identifiable`, и два шаблона с общим
+    /// идентификатором в одном списке ведут к тому, что правка одного показывается
+    /// на другом. Чистку снимка при этом делает сам `SettingsPreset` на чтении.
+    ///
+    /// Одноимённые не сливаются и не отбиваются: администратор мог осознанно
+    /// привезти новую версию «Менеджера» и сравнить их по дате снятия, которая
+    /// показана в списке. Решать за него, какая лишняя, здесь не наше дело.
+    func addPreset(_ preset: SettingsPreset) {
+        var copy = preset
+        copy.id = UUID()
+        settings.presets.append(copy)
+        append(level: .info, message: "предустановка загружена из файла: \(copy.name)")
+    }
+
     func renamePreset(_ id: UUID, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let index = settings.presets.firstIndex(where: { $0.id == id })

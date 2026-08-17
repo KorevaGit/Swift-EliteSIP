@@ -33,6 +33,7 @@ struct MaintenanceTab: View {
         SettingsSection("Выгрузка") {
             SettingsButtonsRow {
                 Button("Выгрузить настройки…") { exportSettings() }
+                Button("Выгрузить конфигурацию…") { exportConfiguration() }
                 Button("Выгрузить журнал…") { exportLog() }
             }
 
@@ -40,6 +41,14 @@ struct MaintenanceTab: View {
                 Настройки выгружаются такими, какими они видны в окне, — включая несохранённое. \
                 Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о \
                 сборке и системе внутри, секреты замаскированы.
+                """)
+
+            SettingsNote("""
+                Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер \
+                первоначальной настройки на новой машине. Им переносят рабочее место человека на \
+                другой компьютер целиком, вместе с добавочным и паролем; при чтении из него \
+                отбрасываются звуковые устройства, свой рингтон, тема со стеклом и \
+                административный пароль — всё, что принадлежит той машине, а не месту.
                 """)
 
             SettingsNote("""
@@ -148,6 +157,41 @@ struct MaintenanceTab: View {
             show(String(format: NSLocalizedString("Настройки выгружены в %@.", comment: "итог выгрузки настроек"), url.lastPathComponent))
         } catch {
             show(String(format: NSLocalizedString("Не удалось выгрузить настройки: %@", comment: "выгрузка настроек не удалась"), error.localizedDescription))
+        }
+    }
+
+    /// Выгрузка конфигурации в формате EliteSIP.
+    ///
+    /// Появилась 17 августа 2026 вместе с веткой переноса в мастере. До неё эта
+    /// ветка была мертва: мастер `.elitesip` читать умел, а писать такой файл не
+    /// умел никто — то есть «перенести рабочее место» существовало только на
+    /// бумаге. Рядом с «Выгрузить настройки…», а не вместо: тот даёт сырой
+    /// `settings.json` для разбора жалоб, этот — документ для другой машины.
+    private func exportConfiguration() {
+        let label = model.settings.profiles.active.account.username
+        guard let url = save(name: EliteSIPDocument.suggestedName(.config, label: label)) else {
+            return
+        }
+        do {
+            try EliteSIPDocument.encode(config: model.settings).write(to: url, options: .atomic)
+            show(
+                String(
+                    format: NSLocalizedString(
+                        "Конфигурация выгружена в %@.", comment: "итог выгрузки конфигурации"
+                    ),
+                    url.lastPathComponent
+                )
+            )
+        } catch {
+            show(
+                String(
+                    format: NSLocalizedString(
+                        "Не удалось выгрузить конфигурацию: %@",
+                        comment: "выгрузка конфигурации не удалась"
+                    ),
+                    error.localizedDescription
+                )
+            )
         }
     }
 

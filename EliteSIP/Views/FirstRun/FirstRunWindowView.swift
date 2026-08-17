@@ -189,12 +189,16 @@ struct FirstRunWindowView: View {
         }
     }
 
-    /// Экран «Первый пользователь»: сперва пропуск, потом всё остальное.
+    /// Экран «Первый пользователь»: сперва пропуск, потом живая проверка.
     ///
     /// Пропуск проверяется здесь, а не в `canGoForward`: `matches` — это PBKDF2
     /// со 150 000 итераций, и гонять его на каждое нажатие клавиши нельзя.
     /// Ограничения по числу попыток нет — решение заказчика: пропуск знает только
     /// техподдержка, и запирать её после трёх опечаток значит запирать машину.
+    ///
+    /// Порядок именно такой: сперва пропуск, потом сеть. Проверка регистрации
+    /// стоит секунды и ходит на АТС — гонять её тому, у кого нет пропуска,
+    /// незачем.
     private func passFirstUser() async {
         guard model.firstRunPassMatches(flow.adminPassword) else {
             flow.notice = NSLocalizedString(
@@ -204,8 +208,28 @@ struct FirstRunWindowView: View {
             return
         }
 
-        // Живой проверки регистрации пока нет — она следующий кусок этапа.
-        // До неё мастер записывает то, что дали, как это делал бы «Аккаунт».
+        isChecking = true
+        flow.notice = NSLocalizedString(
+            "Проверяем регистрацию на АТС…",
+            comment: "ход живой проверки регистрации"
+        )
+        let outcome = await model.probeFirstRunRegistration(flow: flow)
+        isChecking = false
+
+        // `nil` — проверять нечего: это ветка готового слепка, где ничего не
+        // вводили руками. Она идёт дальше без проверки, как договорено.
+        guard let outcome else {
+            flow.notice = nil
+            flow.advance()
+            return
+        }
+
+        guard outcome.isSuccess else {
+            flow.notice = outcome.title
+            return
+        }
+
+        flow.notice = nil
         flow.advance()
     }
 }

@@ -202,6 +202,81 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return .terminateLater
     }
 
+    /// Двойной щелчок по файлу `.elitesip`.
+    ///
+    /// **Сам по себе файл ничего не меняет, и это главное здесь.** Конфигурация
+    /// несёт добавочный и пароль, предустановка — настройки рабочего места
+    /// целиком; применять такое по щелчку в Finder значило бы завести путь в
+    /// закрытые настройки в обход административного пароля. Поэтому:
+    ///
+    /// - мастер открыт — файл едет в него, там пропуск и так спрашивают;
+    /// - мастера нет — приложение говорит, что это за файл и где его принимают.
+    ///   Дальше человек идёт обычной дорогой, через «Управление» с паролем.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        // Один файл за раз: оба вида документа настраивают машину целиком, и
+        // «применить пять сразу» не значит ничего.
+        guard let url = urls.first(where: { $0.pathExtension == EliteSIPDocument.fileExtension })
+        else { return }
+
+        let content: EliteSIPDocument.Content
+        do {
+            content = try EliteSIPDocument.read(try Data(contentsOf: url))
+        } catch let failure as EliteSIPDocument.Failure {
+            report(failure.title)
+            return
+        } catch {
+            report(EliteSIPDocument.Failure.damaged.title)
+            return
+        }
+
+        if let flow = firstRunFlow {
+            switch content {
+            case .config(let settings):
+                flow.loadedConfig = settings
+                flow.loadedConfigName = url.lastPathComponent
+                flow.route = .configFile
+                flow.notice = nil
+            case .preset:
+                flow.notice = NSLocalizedString(
+                    "Это предустановка, а не конфигурация: в ней нет добавочного и пароля.",
+                    comment: "выбран файл предустановки вместо конфигурации"
+                )
+            }
+            firstRunWindow?.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        switch content {
+        case .preset(let preset):
+            report(
+                String(
+                    format: NSLocalizedString(
+                        "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки».",
+                        comment: "файл открыт двойным щелчком, применять его некому"
+                    ),
+                    preset.name
+                )
+            )
+        case .config:
+            report(
+                NSLocalizedString(
+                    "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали.",
+                    comment: "файл открыт двойным щелчком, применять его некому"
+                )
+            )
+        }
+    }
+
+    /// Короткое сообщение о файле. `NSAlert`, а не строка в окне: окна может не
+    /// быть вовсе — приложение живёт в строке меню.
+    private func report(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("Файл EliteSIP", comment: "заголовок сообщения о файле")
+        alert.informativeText = message
+        alert.addButton(withTitle: NSLocalizedString("Понятно", comment: "кнопка"))
+        alert.runModal()
+    }
+
     /// Клик по иконке в доке возвращает панель — иначе закрытое окно уже ничем
     /// не открыть: пункт «Новый» из меню убран.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

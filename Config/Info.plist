@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Свой тип документа: `.elitesip`.
+
+    Остальные ключи по-прежнему генерирует Xcode (`GENERATE_INFOPLIST_FILE = YES`)
+    и дописывает их в этот файл при сборке. Здесь лежит только то, что ключами
+    `INFOPLIST_KEY_*` не выражается: массивы словарей.
+
+    Тип объявлен своим, а не `public.json`, ради двух вещей. Первая: файл в Finder
+    выглядит документом EliteSIP, а не безымянным JSON, — предустановки и
+    конфигурации носят между машинами, и на чужом рабочем столе их надо узнавать.
+    Вторая: двойной щелчок открывает наше приложение, а не редактор кода.
+
+    Содержимое при этом остаётся JSON, и `UTTypeConformsTo` это объявляет честно:
+    `AppSettings` — плоский `Codable` с версией схемы именно затем, чтобы
+    конфигурацию можно было собрать снаружи (EliteDash в M9, баш-скрипт
+    провижининга). Свой контейнер сломал бы и то и другое.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Документ EliteSIP</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.elite.elitesip.document</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>AppIcon</string>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.elite.elitesip.document</string>
+			<key>UTTypeDescription</key>
+			<string>Документ EliteSIP</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeIconFile</key>
+			<string>AppIcon</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>elitesip</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

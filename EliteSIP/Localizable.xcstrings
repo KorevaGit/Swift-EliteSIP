@@ -421,6 +421,23 @@
         }
       }
     },
+    "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки».": {
+      "comment": "файл открыт двойным щелчком, применять его некому",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки»."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is an EliteSIP preset. It can be loaded in Administration, the Presets section."
+          }
+        }
+      }
+    },
     "«Системный» — как у macOS: русский там, где в системе есть русский, английский во всех остальных случаях.": {
       "localizations": {
         "ru": {
@@ -466,6 +483,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "АТС"
+          }
+        }
+      }
+    },
+    "АТС не отвечает.": {
+      "comment": "исход живой проверки регистрации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "АТС не отвечает."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The PBX is not answering."
+          }
+        }
+      }
+    },
+    "АТС не отвечает. Проверьте доступ к сети конторы.": {
+      "comment": "исход живой проверки регистрации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "АТС не отвечает. Проверьте доступ к сети конторы."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The PBX is not answering. Check access to the company network."
           }
         }
       }
@@ -547,6 +598,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "PBX address"
+          }
+        }
+      }
+    },
+    "Адрес АТС не найден. Проверьте адрес.": {
+      "comment": "исход живой проверки регистрации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес АТС не найден. Проверьте адрес."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PBX address not found. Check the address."
           }
         }
       }
@@ -1008,7 +1076,8 @@
             "value": "An external address means a port knock before registration; an internal one does not."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Внешний адрес — со стуком, внутренний — без.": {
       "localizations": {
@@ -1359,6 +1428,22 @@
         }
       }
     },
+    "Выгрузить конфигурацию…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить конфигурацию…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export a configuration…"
+          }
+        }
+      }
+    },
     "Выгрузить настройки…": {
       "localizations": {
         "en": {
@@ -1601,7 +1686,8 @@
             "value": "Where this machine sits. It decides the PBX address and the port knock."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Говорите — запись, осталось %lld с": {
       "comment": "самопроверка голоса",
@@ -2234,6 +2320,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Загрузить"
+          }
+        }
+      }
+    },
+    "Загрузить из файла…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить из файла…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load from a file…"
           }
         }
       }
@@ -2989,6 +3091,39 @@
         }
       }
     },
+    "Конфигурация выгружена в %@.": {
+      "comment": "итог выгрузки конфигурации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация выгружена в %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The configuration was exported to %@."
+          }
+        }
+      }
+    },
+    "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с добавочным и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с добавочным и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A configuration is the same thing in the EliteSIP format: the file the setup assistant accepts on a new machine. Use it to move someone's whole workstation to another computer, extension and password included; reading it drops the audio devices, the custom ringtone, the theme with glass and the administrator password — everything that belongs to that machine rather than to the workstation."
+          }
+        }
+      }
+    },
     "Кто управляет настройками": {
       "localizations": {
         "en": {
@@ -3725,6 +3860,23 @@
         }
       }
     },
+    "Не удалось выгрузить конфигурацию: %@": {
+      "comment": "выгрузка конфигурации не удалась",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выгрузить конфигурацию: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not export the configuration: %@"
+          }
+        }
+      }
+    },
     "Не удалось выгрузить настройки: %@": {
       "comment": "выгрузка настроек не удалась",
       "localizations": {
@@ -3806,6 +3958,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось: %@"
+          }
+        }
+      }
+    },
+    "Неверный добавочный или пароль.": {
+      "comment": "исход живой проверки регистрации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверный добавочный или пароль."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrong extension or password."
           }
         }
       }
@@ -3907,6 +4076,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нет сети"
+          }
+        }
+      }
+    },
+    "Нет сети. Проверьте подключение.": {
+      "comment": "исход живой проверки регистрации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет сети. Проверьте подключение."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No network. Check the connection."
           }
         }
       }
@@ -5371,6 +5557,23 @@
         }
       }
     },
+    "Понятно": {
+      "comment": "кнопка",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Понятно"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Got it"
+          }
+        }
+      }
+    },
     "Порт": {
       "localizations": {
         "en": {
@@ -5498,6 +5701,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preset"
+          }
+        }
+      }
+    },
+    "Предустановка «%@» загружена. Она появится на машине после «Сохранить».": {
+      "comment": "итог загрузки предустановки",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановка «%@» загружена. Она появится на машине после «Сохранить»."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The preset “%@” is loaded. It reaches the machine once you press Save."
           }
         }
       }
@@ -5875,6 +6095,23 @@
         }
       }
     },
+    "Проверяем регистрацию на АТС…": {
+      "comment": "ход живой проверки регистрации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверяем регистрацию на АТС…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking registration with the PBX…"
+          }
+        }
+      }
+    },
     "Проигрывать рингтон": {
       "localizations": {
         "en": {
@@ -6017,6 +6254,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Профиль без пароля"
+          }
+        }
+      }
+    },
+    "Прочитать файл предустановки, снятой на другой машине": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочитать файл предустановки, снятой на другой машине"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read a preset file captured on another machine"
           }
         }
       }
@@ -7128,6 +7381,23 @@
         }
       }
     },
+    "Телефон зарегистрирован.": {
+      "comment": "исход живой проверки регистрации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Телефон зарегистрирован."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The phone is registered."
+          }
+        }
+      }
+    },
     "Тема": {
       "localizations": {
         "en": {
@@ -7500,6 +7770,23 @@
         }
       }
     },
+    "Файл EliteSIP": {
+      "comment": "заголовок сообщения о файле",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл EliteSIP"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EliteSIP file"
+          }
+        }
+      }
+    },
     "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, макросы, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {
       "localizations": {
         "en": {
@@ -7741,6 +8028,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Экран вызова"
+          }
+        }
+      }
+    },
+    "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали.": {
+      "comment": "файл открыт двойным щелчком, применять его некому",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a workstation configuration. The setup assistant accepts it — on a machine that has not been set up yet."
+          }
+        }
+      }
+    },
+    "Это конфигурация, а не предустановка: в ней есть добавочный и пароль. Такой файл принимает мастер первоначальной настройки.": {
+      "comment": "выбран файл конфигурации вместо предустановки",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это конфигурация, а не предустановка: в ней есть добавочный и пароль. Такой файл принимает мастер первоначальной настройки."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a configuration, not a preset: it carries an extension and a password. The setup assistant accepts such a file."
           }
         }
       }

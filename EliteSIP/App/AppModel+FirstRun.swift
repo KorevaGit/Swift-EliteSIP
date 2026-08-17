@@ -45,6 +45,64 @@ extension AppModel {
         NSApp.sendAction(#selector(AppDelegate.relaunchApplication(_:)), to: nil, from: nil)
     }
 
+    /// Живая проверка: встаёт ли этот добавочный на АТС прямо сейчас.
+    ///
+    /// Только для веток «предустановка» и «вручную». Ветка «Загрузить
+    /// конфигурацию» проверки не проходит и не должна: там ничего не вводили
+    /// руками, а пароль в слепке уже работал на исходной машине.
+    ///
+    /// Ничего не записывает и не трогает рабочий агент — см. `RegistrationProbe`.
+    func probeFirstRunRegistration(flow: FirstRunFlow) async -> RegistrationProbe.Outcome? {
+        guard let candidate = firstRunCandidate(flow: flow) else { return nil }
+
+        return await RegistrationProbe.run(
+            account: candidate.account,
+            password: candidate.password,
+            site: candidate.site,
+            knock: settings.portKnock,
+            log: { [weak self] level, message in
+                Task { @MainActor in self?.append(level: level, message: message) }
+            }
+        )
+    }
+
+    /// Что именно проверять: собранная из черновика учётная запись.
+    ///
+    /// Собирается тем же способом, каким потом применится, — иначе проверка
+    /// подтверждала бы не то, что уедет в настройки. Отсюда и площадка: в ветке
+    /// предустановки она выбирает адрес из пары, в ручной остаётся `.automatic` и
+    /// стук решает сам адрес.
+    private func firstRunCandidate(
+        flow: FirstRunFlow
+    ) -> (account: SIPAccount, password: String, site: SIPProfileSite)? {
+        switch flow.route {
+        case .preset:
+            guard let preset = flow.selectedPreset else { return nil }
+            var account = preset.snapshot(site: flow.site).profiles.active.account
+            account.username = flow.trimmedNumber
+            account.authUsername = nil
+            return (account, flow.password, flow.site)
+
+        case .manual:
+            let host = flow.host.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !host.isEmpty else { return nil }
+            return (
+                SIPAccount(
+                    username: flow.trimmedNumber,
+                    displayName: "",
+                    domain: host,
+                    transport: .udp,
+                    registrationExpires: 300
+                ),
+                flow.password,
+                .automatic
+            )
+
+        case .configFile:
+            return nil
+        }
+    }
+
     /// Применяет всё, что набрано в мастере.
     ///
     /// Порядок здесь — не вкусовщина, а единственный работающий:
