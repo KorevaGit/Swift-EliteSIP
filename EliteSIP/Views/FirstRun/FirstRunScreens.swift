@@ -2,6 +2,26 @@ import AppKit
 import SIPCore
 import SwiftUI
 
+/// Фирменный знак — настоящая иконка приложения, а не вторая её копия.
+///
+/// `NSApp.applicationIconImage` берёт ровно то, что человек видел в Finder минуту
+/// назад: корона над клавиатурой. Нарисовать знак второй раз внутри вью значило
+/// бы завести вторую истину о том, как выглядит приложение, — и однажды они
+/// разъедутся.
+private struct FirstRunLogo: View {
+
+    var body: some View {
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: Theme.Metrics.firstRunLogoSize, height: Theme.Metrics.firstRunLogoSize)
+            // Тень мягкая и вниз: иконка уже несёт свою рамку и скругление, и
+            // сильная тень под ней читается как наклейка поверх окна.
+            .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+            .compatAccessibilityHidden(true)
+    }
+}
+
 /// Общая шапка экрана мастера: заголовок и пояснение под ним.
 ///
 /// Своим кирпичом, а не пятью копиями: экраны мастера идут подряд, и заголовок,
@@ -11,32 +31,50 @@ private struct FirstRunHeader: View {
 
     let title: LocalizedStringKey
     let subtitle: LocalizedStringKey
+    /// Плакатные экраны центрируют текст, формы — нет.
+    var isCentered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
+        VStack(alignment: isCentered ? .center : .leading, spacing: Theme.Metrics.tightSpacing) {
             Text(title)
-                .font(Theme.Text.firstRunTitle)
+                .font(isCentered ? Theme.Text.firstRunPoster : Theme.Text.firstRunTitle)
             Text(subtitle)
                 .font(.callout)
                 .compatForeground(Theme.Palette.textSecondary)
+                .multilineTextAlignment(isCentered ? .center : .leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: isCentered ? .center : .leading)
     }
 }
 
-/// Обёртка содержимого экрана: одинаковые отступы у всех пяти.
+/// Обёртка содержимого экрана — в двух видах.
+///
+/// **Плакат** (приветствие и финал): знак, заголовок и один выбор, всё по центру
+/// и по центру же вертикали. **Форма** (первый пользователь, тема, стекло): по
+/// левому краю и от верха, как любая форма настроек.
+///
+/// Два вида, а не один: у приветствия три строки на окно в четыреста точек, и
+/// прижатые к верхнему левому углу они оставляют под собой пустое поле — окно
+/// читается как недозаполненный диалог, а не как первое знакомство. Формам
+/// центрирование, наоборот, вредит: поля разной длины на общей осевой линии не
+/// стоят в колонку, и глаз ищет каждое заново.
 private struct FirstRunBody<Content: View>: View {
 
+    var isPoster = false
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
+        VStack(alignment: isPoster ? .center : .leading, spacing: Theme.Metrics.sectionSpacing) {
             content
         }
-        .padding(.horizontal, Theme.Metrics.contentPadding * 2)
-        .padding(.top, Theme.Metrics.contentPadding * 2)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Theme.Metrics.firstRunPadding)
+        .padding(.vertical, Theme.Metrics.firstRunPadding)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: isPoster ? .center : .top
+        )
     }
 }
 
@@ -58,10 +96,14 @@ struct FirstRunWelcomeScreen: View {
     @ObservedObject var flow: FirstRunFlow
 
     var body: some View {
-        FirstRunBody {
+        FirstRunBody(isPoster: true) {
+            FirstRunLogo()
+                .padding(.bottom, Theme.Metrics.sectionSpacing)
+
             FirstRunHeader(
                 title: "Добро пожаловать в EliteSIP",
-                subtitle: "Рабочее место настраивается один раз. Займёт минуту."
+                subtitle: "Рабочее место настраивается один раз. Займёт минуту.",
+                isCentered: true
             )
 
             Picker("", selection: $flow.language) {
@@ -71,11 +113,13 @@ struct FirstRunWelcomeScreen: View {
             }
             .labelsHidden()
             .pickerStyle(.segmented)
-            .frame(maxWidth: 260, alignment: .leading)
+            .frame(maxWidth: 260)
+            .padding(.top, Theme.Metrics.sectionSpacing)
 
             Text("Язык интерфейса. Применится, когда настройка закончится.")
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
+                .multilineTextAlignment(.center)
         }
     }
 }
@@ -121,16 +165,6 @@ struct FirstRunUserScreen: View {
 
     // MARK: Ветка
 
-    /// Выбор ветки — настоящими радиокнопками системы.
-    ///
-    /// `.radioGroup`, а не свои кружки из комплекта иконок: у трёх взаимно
-    /// исключающих путей ровно этот системный вид, и рисовать его самому значило
-    /// бы завести в комплекте две иконки, которых там нет, ради того, что macOS
-    /// умеет сама.
-    ///
-    /// Предустановки внутри показываются только когда их больше одной. То же
-    /// правило, что в «Аккаунте»: выбор из одного пункта — не выбор, а лишнее
-    /// решение на экране, где их и так семь.
     /// Выбор файла — в сеттере привязки, а не в `onChange`.
     ///
     /// `onChange(of:perform:)` появился в macOS 11, а срез x86_64 живёт с
@@ -147,6 +181,16 @@ struct FirstRunUserScreen: View {
         )
     }
 
+    /// Выбор ветки — настоящими радиокнопками системы.
+    ///
+    /// `.radioGroup`, а не свои кружки из комплекта иконок: у трёх взаимно
+    /// исключающих путей ровно этот системный вид, и рисовать его самому значило
+    /// бы завести в комплекте две иконки, которых там нет, ради того, что macOS
+    /// умеет сама.
+    ///
+    /// Предустановки внутри показываются только когда их больше одной. То же
+    /// правило, что в «Аккаунте»: выбор из одного пункта — не выбор, а лишнее
+    /// решение на экране, где их и так семь.
     private var route: some View {
         Picker("", selection: routeBinding) {
             if flow.showsPresetPicker {
@@ -373,16 +417,22 @@ struct FirstRunChromeScreen: View {
 struct FirstRunFinaleScreen: View {
 
     var body: some View {
-        FirstRunBody {
+        FirstRunBody(isPoster: true) {
+            FirstRunLogo()
+                .padding(.bottom, Theme.Metrics.sectionSpacing)
+
             FirstRunHeader(
                 title: "Готово",
-                subtitle: "Приятной работы. Телефон зарегистрирован и ждёт звонков."
+                subtitle: "Приятной работы. Телефон зарегистрирован и ждёт звонков.",
+                isCentered: true
             )
 
             Text("Приложение живёт в строке меню. Щелчок по значку открывает и убирает панель.")
-                .font(.callout)
+                .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, Theme.Metrics.tightSpacing)
         }
     }
 }

@@ -468,12 +468,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // Ни `.resizable`, ни `.miniaturizable`: размер один на все пять
             // экранов, а свернуть мастер в Dock значило бы спрятать единственное
             // окно приложения, которое нельзя обойти.
-            styleMask: [.titled, .closable],
+            //
+            // `.fullSizeContentView` обязателен вместе с прозрачным окном — та же
+            // ловушка, что у панели, и живой снимок 17 августа 2026 в неё
+            // угодил: без него содержимое начинается под полосой заголовка, сама
+            // полоса остаётся без фона, и светофор повисает над рабочим столом,
+            // оторванный от окна.
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = NSLocalizedString("Настройка EliteSIP", comment: "заголовок окна первого запуска")
         window.collectionBehavior.insert(.fullScreenNone)
+        // Полоса заголовка без своего фона и без названия: у окна знакомства
+        // содержимое начинается от самого верха, и подпись «Настройка EliteSIP»
+        // над короной повторяла бы то, что корона и говорит. Название остаётся у
+        // окна — оно нужно ⌘Tab и Mission Control.
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        // Пара обязательна вместе с материалом `.behindWindow`: иначе под ним
+        // окажется непрозрачный фон окна, и размывать материалу будет нечего.
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
             rootView: withEnvironment(FirstRunWindowView(flow: flow))
@@ -483,6 +499,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         firstRunWindow = window
         window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Сброс машины: закрыть всё и позвать мастер.
+    ///
+    /// Не `private`: зовётся из `AppModel.resetMachine` через цепочку ответчиков —
+    /// окнами владеет делегат, а модель о них не знает.
+    ///
+    /// Окна закрываются все, и это не уборка для красоты. «Управление», из
+    /// которого сброс и запустили, осталось бы стоять над машиной без настроек;
+    /// панель показывала бы пустой добавочный; история — только что стёртый
+    /// список. Мастер при этом обязан быть единственным окном: он закрыт
+    /// пропуском, и оставить рядом открытую дверь в настройки значит его обойти.
+    @objc func showFirstRunAfterReset(_ sender: Any?) {
+        // Черновик уже закрыт самим сбросом, поэтому вопросов о несохранённом
+        // здесь не задаём: решение принято, и спрашивать о правках, которых
+        // больше нет, — пугать без причины.
+        for window in [administrationWindow, settingsWindow, callHistoryWindow, sipTraceWindow, phoneWindow] {
+            guard let window else { continue }
+            window.delegate = nil
+            window.close()
+        }
+        administrationWindow = nil
+        administrationRouter = nil
+        settingsWindow = nil
+        settingsRouter = nil
+        callHistoryWindow = nil
+        sipTraceWindow = nil
+        phoneWindow = nil
+
+        showFirstRunWindow()
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     /// Финал мастера: закрыть окно и открыть панель.

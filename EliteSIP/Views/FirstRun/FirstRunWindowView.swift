@@ -22,6 +22,17 @@ struct FirstRunWindowView: View {
         VStack(spacing: 0) {
             screens
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                // Место под светофор. Содержимое идёт под полосу заголовка
+                // (`.fullSizeContentView`), и без этого отступа заголовок формы
+                // встаёт вплотную под кнопками окна.
+                .compatOwnTopInset(Theme.Metrics.firstRunTitlebarInset)
+
+            // Черта отделяет неподвижный низ от того, что сменяется сдвигом.
+            //
+            // Без неё уезжающий экран проходит вплотную под точками шагов и
+            // кнопкой, и на переходе видно, как содержимое ныряет за них: две
+            // разные по природе части окна выглядят одной.
+            Divider()
 
             footer
         }
@@ -29,6 +40,17 @@ struct FirstRunWindowView: View {
             width: Theme.Metrics.firstRunWidth,
             height: Theme.Metrics.firstRunHeight
         )
+        // Материал, а не плоский фон окна: остальные окна приложения стоят на
+        // нём же (`Theme.Chrome`), и мастер, единственный оставшийся плоским,
+        // читался бы как чужой диалог, приехавший из другой программы.
+        .compatBackground {
+            CompatMaterial(
+                material: .underWindowBackground,
+                blending: .behindWindow,
+                cornerRadius: 0
+            )
+            .compatIgnoreSafeArea()
+        }
     }
 
     // MARK: - Экраны
@@ -103,6 +125,14 @@ struct FirstRunWindowView: View {
                 }
                 .compatProminentButtonStyle()
                 .disabled(!flow.canGoForward || isChecking)
+                // Enter ведёт вперёд.
+                //
+                // Не удобство, а способ работы: на экране «Первый пользователь»
+                // техподдержка вводит с клавиатуры четыре поля подряд, и тянуться
+                // мышью к кнопке после каждого экрана — лишнее движение пять раз.
+                // Прежде Enter не делал ничего: `borderedProminent` красит
+                // кнопку акцентом, но кнопкой по умолчанию её не назначает.
+                .compatKeyboardShortcut("\r", modifiers: [])
             }
             .compatOverlay(alignment: .center) { dots }
         }
