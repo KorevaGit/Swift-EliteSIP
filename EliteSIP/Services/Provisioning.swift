@@ -151,19 +151,52 @@ extension Provisioning {
     /// «Управлением», открытым всякому.
     static var secrets: Secrets? {
         if let url = Bundle.main.url(forResource: resourceName, withExtension: "json"),
-            let data = try? Data(contentsOf: url),
-            let decoded = try? JSONDecoder().decode(Secrets.self, from: data)
+            let decoded = decodedSecrets(at: url)
         {
             return decoded
         }
         #if DEBUG
-            // не переводится: пароль-заглушка отладочной сборки, его не читают
-            // с экрана — его вводят по памяти те, кто собирает приложение.
+            // Отладочная сборка читает конфиг из дерева проекта.
+            //
+            // В бандл он попадает только в релизе (M7e, пункт 7), и без этого
+            // отладочная сборка сверяла бы пропуск с заглушкой — то есть
+            // настоящий административный пароль в ней **не подходил**, а
+            // проверяющий видел «пароль не подошёл» и не имел способа узнать,
+            // почему. Именно это и случилось 17 августа 2026.
+            //
+            // Путь берётся от `#filePath` — от места этого исходника, а не от
+            // рабочего каталога: приложение запускают и из Xcode, и из Finder, и
+            // из терминала, и рабочий каталог у них разный. В релизе ветка не
+            // компилируется вовсе, так что путь машины сборщика в выпуск не
+            // уезжает.
+            if let decoded = decodedSecrets(at: localConfigURL) { return decoded }
+            // не переводится: пароль-заглушка на случай, когда конфига нет и в
+            // дереве, — его не читают с экрана, его вводят по памяти те, кто
+            // собирает приложение.
             return Secrets(adminPassword: "стенд", recoveryCode: "000000")
         #else
             return nil
         #endif
     }
+
+    private static func decodedSecrets(at url: URL) -> Secrets? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(Secrets.self, from: data)
+    }
+
+    #if DEBUG
+        /// `Config/provisioning.local.json` в дереве проекта.
+        ///
+        /// Три уровня вверх от `EliteSIP/Services/Provisioning.swift` — это корень
+        /// репозитория.
+        private static var localConfigURL: URL {
+            URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()  // Services
+                .deletingLastPathComponent()  // EliteSIP
+                .deletingLastPathComponent()  // корень
+                .appendingPathComponent("Config/provisioning.local.json")
+        }
+    #endif
 
     /// Предустановки, доступные мастеру первого запуска.
     ///
@@ -171,7 +204,10 @@ extension Provisioning {
     /// сборке нет, и боевое рабочее место в ней всё равно не поднять.
     static var factoryPresets: [FactoryPreset] {
         #if DEBUG
-            [.laboratory]
+            // Обе: боевая — чтобы мастер проверялся на том, что увидит
+            // техподдержка, стендовая — чтобы его можно было пройти до конца, не
+            // выходя на боевую АТС.
+            [.manager, .laboratory]
         #else
             [.manager]
         #endif

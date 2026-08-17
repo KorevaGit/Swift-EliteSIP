@@ -1278,6 +1278,22 @@
         }
       }
     },
+    "Выбрать другой файл…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать другой файл…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose another file…"
+          }
+        }
+      }
+    },
     "Выбрать файл…": {
       "localizations": {
         "en": {
@@ -1618,6 +1634,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Готово: %@"
+          }
+        }
+      }
+    },
+    "Готовый слепок машины — когда рабочее место переносят, а не заводят.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовый слепок машины — когда рабочее место переносят, а не заводят."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A ready snapshot of a machine — for moving a workstation, not creating one."
           }
         }
       }
@@ -4285,6 +4317,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отменить"
+          }
+        }
+      }
+    },
+    "Отменить перенос": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить перенос"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel the move"
           }
         }
       }

@@ -65,16 +65,41 @@ private struct FirstRunBody<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: isPoster ? .center : .leading, spacing: Theme.Metrics.sectionSpacing) {
+        VStack(spacing: Theme.Metrics.sectionSpacing) {
             content
         }
         .padding(.horizontal, Theme.Metrics.firstRunPadding)
-        .padding(.vertical, Theme.Metrics.firstRunPadding)
+        // Сверху — только место под светофор, и только у форм.
+        //
+        // У плаката оно вредит: содержимое центрируется по вертикали, и лишний
+        // отступ сверху уводит композицию вниз от середины. У формы, наоборот,
+        // заголовок стоял на 52 точках от кромки — свои 24 плюс место под
+        // светофор, — и это читалось как забытая пустая строка.
+        .padding(.top, isPoster ? 0 : Theme.Metrics.firstRunTitlebarInset)
+        .padding(.bottom, isPoster ? 0 : Theme.Metrics.sectionSpacing)
         .frame(
             maxWidth: .infinity,
             maxHeight: .infinity,
             alignment: isPoster ? .center : .top
         )
+    }
+}
+
+/// Колонка содержимого формы: центрирована в окне, выровнена внутри себя.
+///
+/// Ровно то, что просили 17 августа 2026: «центрируй контент». Центрируется
+/// **колонка**, а не каждая строка в ней, — поля и подписи внутри остаются по
+/// левому краю. Иначе поля разной длины сели бы на общую осевую линию, перестали
+/// стоять в колонку, и глаз искал бы каждое заново.
+private struct FirstRunColumn<Content: View>: View {
+
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
+            content
+        }
+        .frame(width: Theme.Metrics.firstRunColumnWidth, alignment: .leading)
     }
 }
 
@@ -137,71 +162,112 @@ struct FirstRunUserScreen: View {
 
     @ObservedObject var flow: FirstRunFlow
 
+    /// Три уровня, а не одна таблица из трёх равных пунктов.
+    ///
+    /// Порядок согласован 17 августа 2026 и отражает, как часто этими путями
+    /// пользуются, а не сколько их:
+    ///
+    /// 1. **Предустановка** — верхний уровень и обычный путь: типовое рабочее
+    ///    место заводится так почти всегда.
+    /// 2. **Вручную** — рядом, но ниже: машина, для которой шаблона нет.
+    /// 3. **Загрузить конфигурацию** — внизу окна, отдельно от первых двух.
+    ///    Это не «третий способ завести место», а перенос уже готового, и стоять
+    ///    с ними в одном списке ему нельзя: одинаковый вид обещал бы, что выбор
+    ///    равноценный, а он даже полей просит других.
     var body: some View {
         FirstRunBody {
             FirstRunHeader(
                 title: "Первый пользователь",
-                subtitle: "Добавочный, пароль от него и то, как настроено рабочее место."
+                subtitle: "Добавочный, пароль от него и то, как настроено рабочее место.",
+                isCentered: true
             )
 
-            route
+            FirstRunColumn {
+                if case .configFile = flow.route {
+                    loadedSummary
+                } else {
+                    route
 
-            switch flow.route {
-            case .preset:
-                credentials
-                sitePicker
-            case .manual:
-                credentials
-                hostField
-            case .configFile:
-                loadedSummary
+                    switch flow.route {
+                    case .preset:
+                        credentials
+                        sitePicker
+                    case .manual:
+                        credentials
+                        hostField
+                    case .configFile:
+                        EmptyView()
+                    }
+                }
+
+                Divider()
+
+                pass
             }
 
-            Divider()
+            Spacer(minLength: Theme.Metrics.sectionSpacing)
 
-            pass
+            configRow
         }
+    }
+
+    // MARK: Третий уровень — готовая конфигурация
+
+    /// Внизу окна и подписью, а не пунктом списка.
+    ///
+    /// Кнопка без рамки: она не соперничает за внимание с первыми двумя
+    /// уровнями, но и не спрятана — техподдержка, пришедшая переносить рабочее
+    /// место, ищет её глазами первой и находит там, где кладут «прочее».
+    private var configRow: some View {
+        VStack(spacing: Theme.Metrics.hairSpacing) {
+            if case .configFile = flow.route {
+                Button("Выбрать другой файл…") { chooseConfig() }
+                    .buttonStyle(.link)
+                Button("Отменить перенос") { flow.route = defaultRoute }
+                    .buttonStyle(.link)
+            } else {
+                Button("Загрузить конфигурацию…") { chooseConfig() }
+                    .buttonStyle(.link)
+
+                Text("Готовый слепок машины — когда рабочее место переносят, а не заводят.")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Куда вернуться, отменив перенос: к предустановке, если она есть.
+    private var defaultRoute: FirstRunFlow.Route {
+        flow.presets.first.map { .preset(name: $0.name) } ?? .manual
     }
 
     // MARK: Ветка
 
-    /// Выбор файла — в сеттере привязки, а не в `onChange`.
-    ///
-    /// `onChange(of:perform:)` появился в macOS 11, а срез x86_64 живёт с
-    /// Catalina. Тот же приём уже стоит в «Оформлении»: побочное действие
-    /// принадлежит самому акту выбора, и в сеттере ему не хуже, чем в
-    /// наблюдателе.
+    /// Привязка без побочных действий: выбор файла теперь у своей кнопки внизу
+    /// окна, а не у пункта списка, и наблюдать за сменой ветки больше незачем.
     private var routeBinding: Binding<FirstRunFlow.Route> {
-        Binding(
-            get: { flow.route },
-            set: { value in
-                flow.route = value
-                if value == .configFile, flow.loadedConfig == nil { chooseConfig() }
-            }
-        )
+        Binding(get: { flow.route }, set: { flow.route = $0 })
     }
 
-    /// Выбор ветки — настоящими радиокнопками системы.
+    /// Первые два уровня — настоящими радиокнопками системы.
     ///
-    /// `.radioGroup`, а не свои кружки из комплекта иконок: у трёх взаимно
+    /// `.radioGroup`, а не свои кружки из комплекта иконок: у взаимно
     /// исключающих путей ровно этот системный вид, и рисовать его самому значило
     /// бы завести в комплекте две иконки, которых там нет, ради того, что macOS
     /// умеет сама.
     ///
-    /// Предустановки внутри показываются только когда их больше одной. То же
-    /// правило, что в «Аккаунте»: выбор из одного пункта — не выбор, а лишнее
-    /// решение на экране, где их и так семь.
+    /// «Загрузить конфигурацию» здесь нет — она третий уровень и живёт внизу
+    /// окна: перенос готового места не равен заведению нового, и в одном списке
+    /// с ними обещал бы равноценный выбор.
     private var route: some View {
         Picker("", selection: routeBinding) {
-            if flow.showsPresetPicker {
-                ForEach(flow.presets, id: \.name) { preset in
-                    Text(verbatim: preset.name).tag(FirstRunFlow.Route.preset(name: preset.name))
-                }
-            } else if let single = flow.presets.first {
-                Text(verbatim: single.name).tag(FirstRunFlow.Route.preset(name: single.name))
+            ForEach(flow.presets, id: \.name) { preset in
+                Text(verbatim: preset.name).tag(FirstRunFlow.Route.preset(name: preset.name))
             }
             Text("Вручную").tag(FirstRunFlow.Route.manual)
-            Text("Загрузить конфигурацию…").tag(FirstRunFlow.Route.configFile)
         }
         .labelsHidden()
         .pickerStyle(.radioGroup)
@@ -225,6 +291,7 @@ struct FirstRunUserScreen: View {
             Text("Внешний адрес означает стук перед регистрацией, внутренний — нет.")
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -247,6 +314,7 @@ struct FirstRunUserScreen: View {
             Text("Где стоит эта машина. От этого зависит адрес АТС и стук.")
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -286,6 +354,7 @@ struct FirstRunUserScreen: View {
             Text("Настройку рабочего места заканчивает техподдержка.")
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -305,7 +374,7 @@ struct FirstRunUserScreen: View {
             // Отказ от выбора не должен оставлять ветку, в которой нечего
             // применить: «Далее» в ней погашена, и человек упирается в экран без
             // объяснения.
-            flow.route = .manual
+            if flow.loadedConfig == nil { flow.route = defaultRoute }
             return
         }
 
@@ -325,7 +394,7 @@ struct FirstRunUserScreen: View {
                     "Это предустановка, а не конфигурация: в ней нет добавочного и пароля.",
                     comment: "выбран файл предустановки вместо конфигурации"
                 )
-                flow.route = .manual
+                flow.route = defaultRoute
             }
         } catch let failure as EliteSIPDocument.Failure {
             flow.notice = failure.title
@@ -345,11 +414,18 @@ struct FirstRunAppearanceScreen: View {
 
     @ObservedObject var flow: FirstRunFlow
 
+    // Плакат, а не форма, хотя это и настройка.
+    //
+    // На экране заголовок и один переключатель: прижатые к верхнему левому углу
+    // окна в 470 точек они оставляют под собой пустое поле — ровно то, из-за
+    // чего переделывали приветствие. Знака здесь нет: он представляет
+    // приложение, а представиться оно успело на первом экране.
     var body: some View {
-        FirstRunBody {
+        FirstRunBody(isPoster: true) {
             FirstRunHeader(
                 title: "Тема",
-                subtitle: "Панель висит поверх CRM весь день — важно, чтобы она не била по глазам."
+                subtitle: "Панель висит поверх CRM весь день — важно, чтобы она не била по глазам.",
+                isCentered: true
             )
 
             // Тема применяется сразу и к самому окну — выбор видно на себе, а
@@ -371,7 +447,7 @@ struct FirstRunAppearanceScreen: View {
             }
             .labelsHidden()
             .pickerStyle(.segmented)
-            .frame(maxWidth: 260, alignment: .leading)
+            .frame(maxWidth: 260)
         }
     }
 }
@@ -390,11 +466,13 @@ struct FirstRunChromeScreen: View {
 
     @ObservedObject var flow: FirstRunFlow
 
+    /// Плакат — по тем же доводам, что у «Темы».
     var body: some View {
-        FirstRunBody {
+        FirstRunBody(isPoster: true) {
             FirstRunHeader(
                 title: "Оформление",
-                subtitle: "Стекло или матовые поверхности, как на macOS до 26."
+                subtitle: "Стекло или матовые поверхности, как на macOS до 26.",
+                isCentered: true
             )
 
             Toggle("Без стекла", isOn: $flow.plainChrome)
@@ -403,7 +481,9 @@ struct FirstRunChromeScreen: View {
             Text("Приложение закончит настройку и откроется заново — так выбор применится целиком.")
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: Theme.Metrics.firstRunColumnWidth)
         }
     }
 }
