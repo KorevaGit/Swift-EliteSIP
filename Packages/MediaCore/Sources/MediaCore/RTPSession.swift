@@ -86,6 +86,9 @@ public final class RTPSession: @unchecked Sendable {
     private var needsMarker = true
     private var isStopped = false
 
+    /// Сколько отказов приёма подряд, без единого удавшегося.
+    private var consecutiveReceiveFailures = 0
+
     /// Сигналит, когда сокет действительно закрыт и порт свободен.
     private let released = DispatchSemaphore(value: 0)
 
@@ -263,14 +266,33 @@ public final class RTPSession: @unchecked Sendable {
 
     // MARK: - Приём
 
+    /// Сколько отказов приёма подряд терпим, прежде чем перестать слушать.
+    ///
+    /// Выходить из приёма после первого нельзя. На UDP сокет «подключён», и
+    /// каждая ICMP port unreachable приходит сюда ошибкой — а присылает их
+    /// перезапускаемый Asterisk на каждый наш кадр, то есть полсотни раз в
+    /// секунду. Разговор при этом жив и через пару секунд продолжится; молча
+    /// выйти из цикла значит потерять его насовсем, и выглядеть это будет как
+    /// «звонок идёт, звука нет» — симптом, который в этом проекте уже трижды
+    /// уводил разбор не туда.
+    ///
+    /// Потолок всё-таки нужен: у соединения в состоянии `.failed` completion
+    /// приходит с ошибкой немедленно, и приём без предела превратился бы в
+    /// холостой цикл на всю мощность ядра.
+    static let maximumConsecutiveReceiveFailures = 16
+
     private func receiveNext() {
         connection.receiveMessage { [weak self] data, _, _, error in
-            guard let self else { return }
+            guard let self, !self.isStopped else { return }
 
             if let error {
-                self.onFailure?(error.localizedDescription)
+                self.handleReceiveFailure(error)
                 return
             }
+
+            // Приём состоялся — значит череда отказов кончилась, и считать её
+            // дальше незачем.
+            self.consecutiveReceiveFailures = 0
 
             if let data, !data.isEmpty {
                 // Битый или чужой пакет молча пропускаем: на открытый UDP-порт
@@ -285,9 +307,32 @@ public final class RTPSession: @unchecked Sendable {
                 }
             }
 
-            guard !self.isStopped else { return }
             self.receiveNext()
         }
+    }
+
+    /// Разбирает отказ приёма и решает, слушать ли дальше.
+    ///
+    /// Выполняется на `queue`, как и сам приём.
+    private func handleReceiveFailure(_ error: NWError) {
+        consecutiveReceiveFailures += 1
+
+        // Говорим о первом отказе в череде и о том, на котором сдались.
+        // Строка на каждый отказ залила бы журнал одним и тем же текстом
+        // полсотни раз в секунду — то есть сделала бы его бесполезным ровно
+        // там, где он нужен.
+        if consecutiveReceiveFailures == 1 {
+            onFailure?("приём RTP: \(error.localizedDescription)")
+        }
+
+        guard consecutiveReceiveFailures < Self.maximumConsecutiveReceiveFailures else {
+            onFailure?(
+                "приём RTP остановлен: \(consecutiveReceiveFailures) отказов подряд"
+                    + " (\(error.localizedDescription))"
+            )
+            return
+        }
+        receiveNext()
     }
 }
 

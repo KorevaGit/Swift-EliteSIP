@@ -5870,7 +5870,8 @@
             "value": "The app lives in the menu bar. Clicking its icon shows and hides the panel."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Приложение закончит настройку и откроется заново — так выбор применится целиком.": {
       "localizations": {
@@ -6484,6 +6485,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Режим администратора"
+          }
+        }
+      }
+    },
+    "Сбой звука": {
+      "comment": "состояние линии при отказе сокета или шифрования",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio failure"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбой звука"
           }
         }
       }
@@ -7936,6 +7954,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "The file comes from a newer version (format %d). Update the app."
+          }
+        }
+      }
+    },
+    "Файл сделан для другой установки EliteSIP и здесь не открывается.": {
+      "comment": "файл запечатан чужим кодом восстановления",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file was made for a different EliteSIP installation and cannot be opened here."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл сделан для другой установки EliteSIP и здесь не открывается."
           }
         }
       }

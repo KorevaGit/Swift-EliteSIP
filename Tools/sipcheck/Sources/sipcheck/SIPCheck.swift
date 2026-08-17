@@ -269,6 +269,7 @@ struct SIPCheck {
                     reservation: prepared.reservation
                 )
                 session.onDiagnostic = { print("   звук: \($0)") }
+                session.onTransportFailure = { print("   ✖ медиа: \($0)") }
                 try session.start()
                 audio = session
             } else {
@@ -408,6 +409,7 @@ struct SIPCheck {
                             reservation: reservation
                         )
                         session.onDiagnostic = { print("   звук: \($0)") }
+                        session.onTransportFailure = { print("   ✖ медиа: \($0)") }
                         session.onAudioEvent = { event in
                             switch event {
                             case .restarted(let reason): print("   ⟳ тракт пересобран: \(reason)")

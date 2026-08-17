@@ -95,7 +95,13 @@ public struct AdminCredential: Codable, Sendable, Equatable {
         guard !password.isEmpty, !loginSalt.isEmpty, !loginHash.isEmpty else { return false }
         guard
             let candidate = try? KeyDerivation.derive(
-                from: password, salt: loginSalt, iterations: iterations, byteCount: loginHash.count
+                from: password,
+                salt: loginSalt,
+                // Число из файла — см. `KeyDerivation.boundedIterations`. Без
+                // границ одна правка в JSON вешает вход намертво, и выглядит
+                // это как зависшее приложение, а не как испорченный файл.
+                iterations: KeyDerivation.boundedIterations(iterations),
+                byteCount: loginHash.count
             )
         else { return false }
         return KeyDerivation.constantTimeEquals(candidate, loginHash)
@@ -112,7 +118,11 @@ public struct AdminCredential: Codable, Sendable, Equatable {
             throw AdminAccessError.malformedCredential
         }
 
-        let key = try KeyDerivation.derive(from: code, salt: recoverySalt, iterations: iterations)
+        let key = try KeyDerivation.derive(
+            from: code,
+            salt: recoverySalt,
+            iterations: KeyDerivation.boundedIterations(iterations)
+        )
         guard
             let sealed = try? AES.GCM.SealedBox(combined: recoveryBox),
             let opened = try? AES.GCM.open(sealed, using: SymmetricKey(data: key)),

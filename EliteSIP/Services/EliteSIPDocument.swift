@@ -1,3 +1,4 @@
+import AdminAccess
 import Foundation
 import SIPCore
 
@@ -28,7 +29,15 @@ enum EliteSIPDocument {
 
     /// Версия формата файла. Не то же, что `AppSettings.schemaVersion`: та
     /// описывает настройки внутри, эта — саму обёртку.
-    static let currentVersion = 1
+    ///
+    /// 1 — конфигурация лежала открытым JSON. 2 — она запечатана кодом
+    /// восстановления (`RecoveryCodeSeal`). Первую версию мы по-прежнему
+    /// читаем: файлы её выпуска существуют, и отказ им означал бы потерянный
+    /// перенос рабочего места на ровном месте. Пишем только вторую.
+    ///
+    /// Приложение прежней сборки, встретив вторую версию, скажет «файл сделан
+    /// версией новее этой» — проверка для того и стоит до разбора содержимого.
+    static let currentVersion = 2
 
     /// Что лежит в файле.
     enum Kind: String, Codable, Sendable {
@@ -51,6 +60,12 @@ enum EliteSIPDocument {
         case notEliteSIP
         case futureVersion(Int)
         case damaged
+        /// Файл запечатан не тем кодом, каким открывают здесь.
+        ///
+        /// Отдельно от `damaged`, потому что совет человеку разный: битый файл
+        /// надо снять заново, а этот — принесён из конторы с другим кодом
+        /// провижининга, и «снимите заново» ему не поможет.
+        case sealedByAnotherCode
 
         var title: String {
             switch self {
@@ -72,18 +87,45 @@ enum EliteSIPDocument {
                     "Файл повреждён и не читается.",
                     comment: "битый файл выбран для загрузки"
                 )
+            case .sealedByAnotherCode:
+                return NSLocalizedString(
+                    "Файл сделан для другой установки EliteSIP и здесь не открывается.",
+                    comment: "файл запечатан чужим кодом восстановления"
+                )
             }
         }
     }
 
     // MARK: - Запись
 
+    /// Предустановка пишется открытым текстом, и это не забывчивость.
+    ///
+    /// Секретов в ней нет по построению: `SettingsPreset` снимает пароль,
+    /// номер и весь блок доступа ещё при создании снимка. Шифровать шаблон
+    /// отдела, в котором лежат макросы и номера очередей, значило бы добавить
+    /// возню на пустом месте — и заодно лишить администратора возможности
+    /// заглянуть в файл глазами перед тем, как разослать его по местам.
     static func encode(preset: SettingsPreset) throws -> Data {
-        try encode(Envelope(kind: .preset, preset: preset, settings: nil))
+        try encode(Envelope(kind: .preset, preset: preset, sealed: nil))
     }
 
+    /// Конфигурация запечатывается: в ней пароль от добавочного.
+    ///
+    /// Заголовок остаётся читаемым — по нему `read` отличает чужой файл от
+    /// нашего и старую версию от новой, и делает это до того, как возьмётся за
+    /// содержимое.
     static func encode(config settings: AppSettings) throws -> Data {
-        try encode(Envelope(kind: .config, preset: nil, settings: settings))
+        // Блок доступа не уезжает вовсе, хотя шифрование его и прикрыло бы:
+        // читающая сторона его всё равно выбрасывает (`machineIndependent`),
+        // административный пароль всегда берётся из вшитого конфига, и
+        // запечатанный мёртвый секрет остаётся секретом, который незачем
+        // возить.
+        var portable = settings
+        portable.admin = AppSettings.AdminSettings()
+
+        let payload = try JSONEncoder().encode(portable)
+        let sealed = try RecoveryCodeSeal.seal(payload, code: Provisioning.recoveryCode)
+        return try encode(Envelope(kind: .config, preset: nil, sealed: sealed))
     }
 
     /// Имя файла по умолчанию в окне сохранения.
@@ -136,9 +178,36 @@ enum EliteSIPDocument {
             return .preset(preset)
 
         case .config:
-            guard let settings = envelope.settings else { throw Failure.damaged }
-            return .config(machineIndependent(settings))
+            return .config(machineIndependent(try settings(from: envelope)))
         }
+    }
+
+    /// Настройки из обёртки любой из двух версий.
+    ///
+    /// Первая версия несла их открытым JSON, вторая — запечатанными. Читаются
+    /// обе: файлы первой версии существуют, и отказ им означал бы потерянный
+    /// перенос рабочего места из-за нашего же обновления.
+    private static func settings(from envelope: Envelope) throws -> AppSettings {
+        if let sealed = envelope.sealed {
+            let opened: Data
+            do {
+                opened = try sealed.open(code: Provisioning.recoveryCode)
+            } catch {
+                // Открыть не вышло. Причин ровно две — чужой код провижининга
+                // или испорченные байты, — и различить их нечем: тег GCM
+                // ломается одинаково. Говорим о более полезной для человека:
+                // битый файл он снимет заново и получит то же самое, а про
+                // чужую установку хотя бы поймёт, куда идти.
+                throw Failure.sealedByAnotherCode
+            }
+            guard let settings = try? JSONDecoder().decode(AppSettings.self, from: opened) else {
+                throw Failure.damaged
+            }
+            return settings
+        }
+
+        guard let settings = envelope.settings else { throw Failure.damaged }
+        return settings
     }
 
     /// Убирает из слепка всё, что принадлежит **той** машине, а не рабочему месту.
@@ -178,13 +247,20 @@ enum EliteSIPDocument {
         var format: String
         var version: Int
         var preset: SettingsPreset?
+
+        /// Конфигурация, запечатанная кодом. Версия 2 и новее.
+        var sealed: RecoveryCodeSeal?
+
+        /// Конфигурация открытым текстом. Только версия 1 — читается, но
+        /// больше не пишется.
         var settings: AppSettings?
 
-        init(kind: Kind, preset: SettingsPreset?, settings: AppSettings?) {
+        init(kind: Kind, preset: SettingsPreset?, sealed: RecoveryCodeSeal?) {
             self.format = kind.rawValue
             self.version = EliteSIPDocument.currentVersion
             self.preset = preset
-            self.settings = settings
+            self.sealed = sealed
+            self.settings = nil
         }
     }
 }

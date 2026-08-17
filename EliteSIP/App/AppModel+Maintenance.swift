@@ -1,6 +1,7 @@
 import AppKit
 import CallHistory
 import Foundation
+import SIPCore
 
 /// Обслуживание машины: выгрузка файлов, чистка и сброс.
 ///
@@ -21,11 +22,58 @@ extension AppModel {
     /// Выгружается то, что видно в окне, включая несохранённое, — а не то, что
     /// лежит на диске. Иначе администратор, настроивший рабочее место и
     /// выгрузивший образец, унёс бы на флешке состояние «до».
+    /// Выгружает настройки для разбора жалобы — без секретов и читаемыми.
+    ///
+    /// **Не шифруется, в отличие от файла конфигурации, и это разные задачи.**
+    /// Конфигурацию читает наше же приложение на новой машине, поэтому её можно
+    /// запечатать целиком. Этот файл читает человек в поддержке: зашифровать
+    /// его значит сделать бесполезным ровно то, ради чего он существует.
+    /// Значит, секретов в нём просто не должно быть — их там и не нужно, чтобы
+    /// понять, почему не поднимается регистрация.
+    ///
+    /// Убирается два блока. Пароли **всех** профилей, а не только активного:
+    /// выгрузка описывает машину целиком, и пароль от второго добавочного
+    /// уезжает точно так же, как от первого. И блок административного
+    /// доступа — проверочное значение с запечатанной копией пароля, которую
+    /// открывает общий для всех установок код.
     func exportSettings(to destination: URL) throws {
+        var portable = settings
+        portable.profiles = SIPProfileList(
+            profiles: settings.profiles.profiles.map { profile in
+                var stripped = profile
+                stripped.password = ""
+                return stripped
+            },
+            activeID: settings.profiles.activeID
+        )
+        portable.admin = AppSettings.AdminSettings()
+
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(settings).write(to: destination)
-        append(level: .info, message: "настройки выгружены в файл")
+        try Self.write(try encoder.encode(portable), to: destination)
+        append(level: .info, message: "настройки выгружены в файл, пароли из выгрузки убраны")
+    }
+
+    /// Пишет файл, доступный только владельцу.
+    ///
+    /// Права ставятся **до** записи, а не после: `Data.write` создаёт файл с
+    /// правами из umask, обычно 0644, и переставлять их следом значит оставить
+    /// щель, в которую файл виден всей машине. Щель короткая, но выгрузку и
+    /// делают затем, чтобы файл кому-то отдать, — а до этого он лежит в
+    /// «Загрузках» ровно с теми правами, с какими его создали.
+    ///
+    /// Общая для обеих выгрузок: второй способ записать такой файл означал бы,
+    /// что однажды один из них запишется иначе.
+    static func write(_ data: Data, to destination: URL) throws {
+        let manager = FileManager.default
+        try? manager.removeItem(at: destination)
+        guard manager.createFile(
+            atPath: destination.path,
+            contents: data,
+            attributes: [.posixPermissions: 0o600]
+        ) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
     }
 
     /// Кладёт журнал рядом с выбранным местом одним архивом.

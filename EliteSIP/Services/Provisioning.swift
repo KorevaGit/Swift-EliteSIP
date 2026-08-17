@@ -179,6 +179,20 @@ extension Provisioning {
         #endif
     }
 
+    /// Код восстановления этой установки.
+    ///
+    /// Нужен не только на входе по коду: им запечатывается файл конфигурации
+    /// рабочего места, и без него такой файл ни собрать, ни открыть. Именно
+    /// поэтому код обязан быть одинаковым у всех установок — файл, снятый на
+    /// одной машине, открывается на другой.
+    ///
+    /// Отсутствие конфига — это релизная сборка без провижининга, которую по
+    /// M7e (пункт 7) выпускать нельзя вовсе. Чтобы она хотя бы не падала на
+    /// ровном месте, остаётся вшитая в пакет константа.
+    static var recoveryCode: String {
+        secrets?.recoveryCode ?? RecoveryCode.provisioned
+    }
+
     private static func decodedSecrets(at url: URL) -> Secrets? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(Secrets.self, from: data)

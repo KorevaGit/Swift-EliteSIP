@@ -155,8 +155,9 @@ public final class MediaSession: @unchecked Sendable {
     private let bufferLock = NSLock()
     private var jitter: JitterBuffer
 
-    /// SSRC собеседника — узнаётся из первого же принятого пакета.
-    private let remoteSSRC = UnfairLock(initialState: UInt32?.none)
+    /// Кто из говорящих на нашем порту — собеседник. Устройство и цена решения
+    /// — в `RemoteSourceFilter`.
+    private let remoteSource = UnfairLock(initialState: RemoteSourceFilter())
     private let remoteViewLock = UnfairLock(initialState: RTCPSession.RemoteView?.none)
 
     /// Что сейчас можно делать со звуком.
@@ -206,6 +207,17 @@ public final class MediaSession: @unchecked Sendable {
         transport = UnfairLock(
             initialState: try Self.makeTransport(negotiated: negotiated, localPort: localPort)
         )
+
+        // Обработчики вешаются здесь, а не в `start()`, и это не перестановка
+        // ради порядка. Отсутствие одной такой строки — назначения
+        // `rtp.onFailure` — и было ошибкой, из-за которой отказ сокета не
+        // доезжал даже в журнал: пока проводка живёт в отдельном шаге, её можно
+        // забыть, а забытую заметить нечем. В `init` она обязательна по
+        // построению, и непровязанной сессии больше не существует.
+        //
+        // Раньше момента, чем `start()`, ничего не случится: сокет ещё не
+        // запущен, и звать обработчики некому.
+        wireTransport()
     }
 
     /// Собирает пару RTP и RTCP под уже согласованные параметры.
@@ -250,6 +262,15 @@ public final class MediaSession: @unchecked Sendable {
 
     /// События аудиотракта: пересборка после смены устройства, смена маршрута.
     public var onAudioEvent: (@Sendable (VoiceAudioEngine.Event) -> Void)?
+
+    /// Отказ транспорта медиа: сокет, шифрование, отправка.
+    ///
+    /// Отдельно от `onDiagnostic`, потому что это не подробность про формат, а
+    /// причина, по которой разговор молчит, — и уровень у неё другой.
+    /// Сигнализация в этот момент цела: диалог живёт, кнопки работают, на
+    /// экране «Разговор». Без этой строки разбор жалобы «звук был, потом
+    /// пропал» начинается с пустого места.
+    public var onTransportFailure: (@Sendable (String) -> Void)?
 
     /// Работает ли системное эхоподавление в этом разговоре.
     ///
@@ -340,8 +361,7 @@ public final class MediaSession: @unchecked Sendable {
     }
 
     public func start() throws {
-        wireTransport()
-
+        // `wireTransport` здесь больше нет: обработчики уже висят с `init`.
         portReservation.activate()
         startTransport()
         do {
@@ -353,13 +373,27 @@ public final class MediaSession: @unchecked Sendable {
         isAudioRunning.withLock { $0 = true }
     }
 
+    /// Поднимает поток RTP, не трогая звуковую карту.
+    ///
+    /// Существует ради проверок: `start()` забирает общий аудиотракт, а
+    /// разрешения на микрофон в сборочной машине никто не выдаст. Всё, что
+    /// касается приёма пакетов — фильтр источника, джиттер-буфер, счётчики, —
+    /// проверяется без единого звука.
+    ///
+    /// Прикладному коду не нужен и потому не `public`: ему нужен разговор
+    /// целиком, а разговор без звука разговором не является.
+    func startWithoutAudio() {
+        portReservation.activate()
+        startTransport()
+    }
+
     /// Вешает обработчики на текущий поток RTP и RTCP.
     ///
-    /// Отдельно от `start`, потому что при пересогласовании поток меняется, а
-    /// звук и буфер остаются те же. Обработчик приёма намеренно замыкается на
-    /// свой payload type события, а не читает его из общего состояния: иначе
-    /// каждый принятый пакет брал бы замок, который в этот момент держит
-    /// пересогласование.
+    /// Зовётся из `init` — чтобы непровязанной сессии не бывало вовсе — и из
+    /// `renegotiate`, где поток подменяется целиком, а звук и буфер остаются те
+    /// же. Обработчик приёма намеренно замыкается на свой payload type события,
+    /// а не читает его из общего состояния: иначе каждый принятый пакет брал бы
+    /// замок, который в этот момент держит пересогласование.
     private func wireTransport() {
         guard let current = transport.withLock({ $0 }) else { return }
         let eventPayloadType = current.configuration.telephoneEventPayloadType
@@ -380,10 +414,34 @@ public final class MediaSession: @unchecked Sendable {
             // нельзя: к возврату в разговор там будет минута протухшей музыки,
             // которую оператор услышит вместо собеседника.
             guard flow.withLock({ $0.receivesAudio }) else { return }
-            // SSRC собеседника нужен для отчётов: без него блок отчёта
-            // некуда адресовать.
-            remoteSSRC.withLock { if $0 == nil { $0 = packet.ssrc } }
+
+            // Чей это голос. Заодно узнаётся SSRC для отчётов RTCP: без него
+            // блок отчёта некуда адресовать.
+            switch remoteSource.withLock({ $0.admit(ssrc: packet.ssrc) }) {
+            case .known:
+                break
+            case .foreign:
+                // Молча: чужой поток может идти сколько угодно, и строка на
+                // каждый его пакет залила бы журнал вместо того, чтобы о чём-то
+                // сообщить.
+                return
+            case .adopted:
+                // Источник сменился по-настоящему. Буфер выбрасывается вместе
+                // с ним: в нём лежат кадры прежнего потока, а номера
+                // последовательности у нового свои, и склеивать одно с другим
+                // по номерам — верный способ получить кашу вместо речи.
+                bufferLock.withLock { jitter.reset() }
+                onDiagnostic?("источник потока сменился, SSRC \(packet.ssrc)")
+            }
+
             bufferLock.withLock { jitter.push(packet) }
+        }
+
+        // Отказ сокета, шифрования или отправки. До этой строки он не доезжал
+        // никуда: обработчик был объявлен, срабатывал в четырёх местах и не был
+        // назначен ни одним вызывающим.
+        rtp.onFailure = { [weak self] reason in
+            self?.onTransportFailure?(reason)
         }
 
         rtcp.statisticsProvider = { [weak self] in
@@ -394,7 +452,7 @@ public final class MediaSession: @unchecked Sendable {
             statistics.packetsSent = sent.packets
             statistics.octetsSent = sent.octets
             statistics.rtpTimestamp = sent.timestamp
-            statistics.remoteSSRC = remoteSSRC.withLock { $0 }
+            statistics.remoteSSRC = remoteSource.withLock { $0.accepted }
 
             bufferLock.withLock {
                 statistics.fractionLost = jitter.fractionLostSinceLastReport()
@@ -648,7 +706,10 @@ public final class MediaSession: @unchecked Sendable {
         current.rtp.stop()
         if !current.rtp.isSecured { current.rtcp.stop() }
         bufferLock.withLock { jitter.reset() }
-        remoteSSRC.withLock { $0 = nil }
+        // Собеседник за новым сокетом — заново неизвестно кто: поток он мог
+        // пересобрать вместе с адресом, и прежний SSRC ничего про него не
+        // говорит.
+        remoteSource.withLock { $0 = RemoteSourceFilter() }
         remoteViewLock.withLock { $0 = nil }
 
         wireTransport()

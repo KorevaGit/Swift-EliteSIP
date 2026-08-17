@@ -173,7 +173,7 @@ struct MaintenanceTab: View {
             return
         }
         do {
-            try EliteSIPDocument.encode(config: model.settings).write(to: url, options: .atomic)
+            try AppModel.write(EliteSIPDocument.encode(config: model.settings), to: url)
             show(
                 String(
                     format: NSLocalizedString(
