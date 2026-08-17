@@ -23,10 +23,7 @@ struct DiagnosticsTab: View {
         return "\(version) (\(build))"
     }
 
-    private var isGlassAvailable: Bool {
-        if #available(macOS 26.0, *) { return true }
-        return false
-    }
+    private var isGlassAvailable: Bool { Theme.Chrome.isGlassAvailable }
 
     private var glassAvailability: String {
         isGlassAvailable

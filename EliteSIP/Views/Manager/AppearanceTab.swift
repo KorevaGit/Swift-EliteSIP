@@ -43,10 +43,7 @@ struct AppearanceTab: View {
     /// Есть ли стекло в самой системе. Ниже macOS 26 переключать нечего:
     /// приложение и так показано обычным, и включить стекло там, где его нет,
     /// выключатель не может.
-    private var isGlassAvailable: Bool {
-        if #available(macOS 26.0, *) { return true }
-        return false
-    }
+    private var isGlassAvailable: Bool { Theme.Chrome.isGlassAvailable }
 
     var body: some View {
         SettingsSection("Оформление") {

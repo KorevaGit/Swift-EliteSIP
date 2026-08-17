@@ -54,6 +54,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// нужна она ровно тогда.
     private var sipTraceWindow: NSWindow?
 
+    /// Окно первоначальной настройки (этап 9).
+    ///
+    /// Живёт только на первом запуске и после сброса машины, стоит до панели и
+    /// вместо неё. Закрытие крестиком завершает приложение: мастер закрыт
+    /// административным пропуском, и обойти его одним щелчком по красной кнопке
+    /// значило бы не иметь пропуска вовсе.
+    private var firstRunWindow: NSWindow?
+
+    /// Черновик мастера. Ссылка нужна сильная: окно держит вью, а состояние
+    /// живёт снаружи — как `administrationRouter` у «Управления».
+    private var firstRunFlow: FirstRunFlow?
+
     /// Значок в строке меню. Заводится при запуске и живёт до выхода.
     private var statusItemController: StatusItemController?
 
@@ -99,6 +111,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         makePhoneMenus()
         NSApp.mainMenu = makeMainMenu()
         makeStatusItem()
+
+        // Мастер первоначальной настройки стоит **до** панели и вместо неё:
+        // свежая машина иначе открывает панель с пустым добавочным и без единого
+        // слова о том, что делать дальше (этап 9).
+        #if DEBUG
+        // Посмотреть мастер, не стирая настоящие настройки. Показывает окно и
+        // ничего не применяет само — дойти до «Далее» на экране 2 всё равно
+        // нужно с пропуском.
+        //   EliteSIP.app/Contents/MacOS/EliteSIP --first-run
+        //
+        // Иначе увидеть мастер можно только на машине без файла настроек, то
+        // есть удалив рабочую конфигурацию проверяющего. Тот же довод, по
+        // которому ключами открываются «Управление» и оба оформления.
+        if ProcessInfo.processInfo.arguments.contains("--first-run") {
+            showFirstRunWindow()
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        #endif
+
+        if model.firstRun != .passed {
+            showFirstRunWindow()
+            NSApp.activate(ignoringOtherApps: true)
+            // На финале машина уже настроена и перезапущена: регистрацию
+            // поднимаем, чтобы обещание «телефон зарегистрирован» на последнем
+            // экране было правдой, а не вежливостью.
+            if model.firstRun == .awaitingFinale { model.startAutoConnect() }
+            return
+        }
+
         showPhoneWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         #if DEBUG
@@ -395,6 +437,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         phoneWindow = window
         window.makeKeyAndOrderFront(nil)
+    }
+
+    // MARK: - Первоначальная настройка
+
+    /// Показывает мастер. Кадр не запоминается: окно одноразовое, и «там, где
+    /// оставили» у него не бывает.
+    private func showFirstRunWindow() {
+        defer { updateActivationPolicy() }
+
+        if let firstRunWindow {
+            firstRunWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let flow = FirstRunFlow(presets: Provisioning.factoryPresets)
+        // На финал попадают уже после перезапуска: экраны до него пройдены, и
+        // возвращаться туда некуда — всё применено и записано.
+        if model.firstRun == .awaitingFinale { flow.step = .finale }
+        firstRunFlow = flow
+
+        let window = NSWindow(
+            contentRect: CGRect(
+                origin: .zero,
+                size: CGSize(
+                    width: Theme.Metrics.firstRunWidth,
+                    height: Theme.Metrics.firstRunHeight
+                )
+            ),
+            // Ни `.resizable`, ни `.miniaturizable`: размер один на все пять
+            // экранов, а свернуть мастер в Dock значило бы спрятать единственное
+            // окно приложения, которое нельзя обойти.
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = NSLocalizedString("Настройка EliteSIP", comment: "заголовок окна первого запуска")
+        window.collectionBehavior.insert(.fullScreenNone)
+        window.isReleasedWhenClosed = false
+        window.contentViewController = NSHostingController(
+            rootView: withEnvironment(FirstRunWindowView(flow: flow))
+        )
+        window.center()
+        window.delegate = self
+
+        firstRunWindow = window
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Финал мастера: закрыть окно и открыть панель.
+    ///
+    /// Не `private`: зовётся из SwiftUI через цепочку ответчиков, как открытие
+    /// настроек и истории. Ссылка гасится **до** `close()` — иначе
+    /// `windowWillClose` принял бы этот путь за закрытие крестиком и завершил
+    /// приложение вместо того, чтобы показать панель.
+    @objc func finishFirstRunWindow(_ sender: Any?) {
+        if let firstRunWindow {
+            self.firstRunWindow = nil
+            firstRunWindow.delegate = nil
+            firstRunWindow.close()
+        }
+        firstRunFlow = nil
+
+        showPhoneWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        model.startAutoConnect()
     }
 
     /// Имя, под которым AppKit хранит кадр панели между запусками.
@@ -974,6 +1081,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// открытие снова спросит пароль, а не покажет прошлую сессию.
     func windowWillClose(_ notification: Notification) {
         guard let closing = notification.object as? NSWindow else { return }
+
+        // Красная кнопка мастера завершает приложение.
+        //
+        // Иначе мастер, закрытый административным пропуском, обходится одним
+        // щелчком — и весь смысл пропуска пропадает: машина остаётся с пустым
+        // профилем и с «Управлением», открытым всякому. Путь «прошёл до конца»
+        // сюда не попадает: `finishFirstRunWindow` гасит ссылку до `close()`.
+        if closing === firstRunWindow {
+            firstRunWindow = nil
+            firstRunFlow = nil
+            NSApp.terminate(nil)
+            return
+        }
 
         if closing === settingsWindow {
             // Раздел не сбрасывается: окно живёт между показами
