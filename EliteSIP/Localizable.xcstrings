@@ -684,6 +684,22 @@
         }
       }
     },
+    "Без административного пароля регистрацию не проверить.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без административного пароля регистрацию не проверить."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration cannot be checked without the administrator password."
+          }
+        }
+      }
+    },
     "Без названия": {
       "localizations": {
         "en": {
@@ -1093,7 +1109,8 @@
             "value": "An external address knocks, an internal one does not."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Внутренний номер": {
       "localizations": {
@@ -1670,7 +1687,8 @@
             "value": "Where the machine sits: it decides the PBX address and the knock."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Где стоит эта машина. От этого зависит адрес АТС и стук.": {
       "localizations": {
@@ -1770,7 +1788,8 @@
             "value": "A ready snapshot of a machine — for moving a workstation, not creating one."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Громкость": {
       "localizations": {
@@ -2045,7 +2064,8 @@
             "value": "The extension, its password and how the workstation is set up."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Добро пожаловать в EliteSIP": {
       "localizations": {
@@ -3726,7 +3746,8 @@
             "value": "Setting up a workstation is finished by support staff."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Наушники": {
       "localizations": {

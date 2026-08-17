@@ -64,6 +64,19 @@ final class FirstRunFlow: ObservableObject {
 
     @Published var step: Step = .welcome
 
+    /// Мастер открыт на посмотреть, а не на настроить.
+    ///
+    /// Ставится только отладочным ключом `--first-run` и запрещает **применять
+    /// что-либо**: последняя кнопка закрывает окно и всё.
+    ///
+    /// Появилось после того, как ключ стёр настройки на рабочей машине. Он был
+    /// заявлен безобидным — «показывает окно и ничего не применяет само», — и это
+    /// было неправдой: `--first-run finale` открывает мастер сразу на последнем
+    /// экране, а там кнопка ровно и применяет черновик. Черновик при этом пустой,
+    /// потому что предыдущие экраны никто не проходил, — и предустановка легла на
+    /// машину с пустым добавочным и пустым паролем SIP. 17 августа 2026.
+    let isPreview: Bool
+
     // MARK: - Что набрано
 
     @Published var language: LanguageSetting = LanguageSetting.current
@@ -91,8 +104,9 @@ final class FirstRunFlow: ObservableObject {
     /// живой проверки. Живёт до следующего действия.
     @Published var notice: String?
 
-    init(presets: [Provisioning.FactoryPreset]) {
+    init(presets: [Provisioning.FactoryPreset], isPreview: Bool = false) {
         self.presets = presets
+        self.isPreview = isPreview
         // Ветка по умолчанию — первая предустановка, если она есть: типовое
         // рабочее место заводится чаще, чем нетиповое.
         route = presets.first.map { .preset(name: $0.name) } ?? .manual

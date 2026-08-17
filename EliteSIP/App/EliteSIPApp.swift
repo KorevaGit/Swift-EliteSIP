@@ -131,7 +131,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // которому ключами открываются «Управление» и оба оформления.
         if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--first-run") {
             let name = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first
-            showFirstRunWindow(startingAt: name.flatMap(FirstRunFlow.Step.init(debugName:)))
+            showFirstRunWindow(
+                startingAt: name.flatMap(FirstRunFlow.Step.init(debugName:)),
+                isPreview: true
+            )
             NSApp.activate(ignoringOtherApps: true)
             return
         }
@@ -525,7 +528,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// оставили» у него не бывает.
     /// - Parameter startingAt: с какого экрана открыть. Только для отладочного
     ///   ключа `--first-run`; в обычной работе экран выбирает признак в настройках.
-    private func showFirstRunWindow(startingAt debugStep: FirstRunFlow.Step? = nil) {
+    /// - Parameter isPreview: открыть, ничего не применяя. Только для отладочного
+    ///   ключа: он открывает мастер на рабочей машине, где применять нечего и
+    ///   опасно.
+    private func showFirstRunWindow(
+        startingAt debugStep: FirstRunFlow.Step? = nil,
+        isPreview: Bool = false
+    ) {
         defer { updateActivationPolicy() }
 
         if let firstRunWindow {
@@ -533,7 +542,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        let flow = FirstRunFlow(presets: Provisioning.factoryPresets)
+        let flow = FirstRunFlow(presets: Provisioning.factoryPresets, isPreview: isPreview)
         // Язык уже выбран и применён перезапуском — мастер продолжается со
         // второго экрана, на выбранном языке.
         if model.firstRun == .languageChosen { flow.step = .firstUser }
@@ -759,8 +768,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         sidebar sidebarView: Sidebar,
         content contentView: Content
     ) -> NSWindow {
-        let sidebarController = NSHostingController(rootView: sidebarView)
-        let contentController = NSHostingController(rootView: contentView)
+        // Полоса под светофором — только без стекла.
+        //
+        // `titlebarSeparatorStyle = .line` эту черту обещает и не рисует: полоса
+        // заголовка у окна прозрачная (иначе на стыке с содержимым остаётся
+        // светлый волосок), а прозрачной полосе разделитель системой не рисуется
+        // вовсе. Замечено на живом окне 17 августа 2026: верх окна расплывался, и
+        // светофор висел над содержимым без границы.
+        //
+        // Под стеклом черты быть не должно: там содержимое уходит **под** полосу,
+        // и линия резала бы его пополам.
+        let sidebarController = NSHostingController(
+            rootView: sidebarView.compatOverlay(alignment: .top) { TitlebarHairline(isGlass: isGlass) }
+        )
+        let contentController = NSHostingController(
+            rootView: contentView.compatOverlay(alignment: .top) { TitlebarHairline(isGlass: isGlass) }
+        )
 
         // Безопасная зона обеих половин — своя, не системная.
         //

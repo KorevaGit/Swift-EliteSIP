@@ -220,21 +220,23 @@ struct FirstRunUserScreen: View {
                 if case .configFile = flow.route {
                     loadedSummary
                 } else {
-                    route
+                    // Два ряда вместо четырёх строк: сверху — кто (добавочный и
+                    // его пароль), под ним — где (рабочее место и площадка либо
+                    // адрес). Порядок согласован 17 августа 2026 и читается как
+                    // два вопроса, а не как шесть полей.
+                    credentials
 
-                    switch flow.route {
-                    case .preset:
-                        credentials
-                        sitePicker
-                    case .manual:
-                        credentials
-                        hostField
-                    case .configFile:
-                        EmptyView()
+                    HStack(spacing: Theme.Metrics.elementSpacing) {
+                        route
+                        switch flow.route {
+                        case .preset: sitePicker
+                        case .manual: hostField
+                        case .configFile: EmptyView()
+                        }
                     }
                 }
 
-                Divider()
+                cautionAboutPass
 
                 pass
             }
@@ -363,6 +365,25 @@ struct FirstRunUserScreen: View {
                     .compatForeground(Theme.Palette.textSecondary)
             }
         }
+    }
+
+    /// Жёлтая строка над пропуском — она же разделитель.
+    ///
+    /// Черта здесь стояла и была немой: она отделяла пропуск от полей, но не
+    /// говорила, зачем он. Надпись делает и то и другое, поэтому черты больше нет
+    /// (решение 17 августа 2026).
+    ///
+    /// Жёлтым, а не красным: незаполненный пропуск — не отказ, а незаконченный
+    /// ввод. И жёлтым, а не серым: без него дальше не пройти, и узнавать об этом
+    /// по погасшей кнопке «Далее» человек не должен.
+    private var cautionAboutPass: some View {
+        Text("Без административного пароля регистрацию не проверить.")
+            .font(.footnote)
+            .compatForeground(Theme.Palette.caution)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
+            .padding(.top, Theme.Metrics.tightSpacing)
     }
 
     private var pass: some View {
