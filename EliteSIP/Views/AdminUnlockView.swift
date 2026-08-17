@@ -65,7 +65,8 @@ struct AdminUnlockView: View {
                 .font(.footnote)
                 .compatForeground(.secondary)
 
-            // `onSubmit` появился в macOS 12; ввод завершает кнопка «Войти».
+            // `onSubmit` появился в macOS 12, поэтому ввод завершает не поле, а
+            // Enter на кнопке «Войти» — см. `compatKeyboardShortcut` ниже.
             SecureField("Пароль администратора", text: $passwordDraft)
 
             HStack {
@@ -83,6 +84,13 @@ struct AdminUnlockView: View {
                 Button("Войти") { submitPassword() }
                     .compatProminentButtonStyle()
                     .disabled(passwordDraft.isEmpty)
+                    // Enter входит.
+                    //
+                    // Прежде не входил ничего: `borderedProminent` красит кнопку
+                    // акцентом, но кнопкой по умолчанию её не назначает, — а
+                    // пароль здесь набирают с клавиатуры и тянуться мышью после
+                    // него противоестественно. То же и у двух кнопок ниже.
+                    .compatKeyboardShortcut("\r", modifiers: [])
             }
         }
     }
@@ -136,6 +144,7 @@ struct AdminUnlockView: View {
                     )
                 }
                 .compatProminentButtonStyle()
+                .compatKeyboardShortcut("\r", modifiers: [])
             }
         }
     }
@@ -188,6 +197,7 @@ struct AdminUnlockView: View {
                 Button("Отмена") { isPresented = false }
                 Button("Проверить") { submitRecovery() }
                     .compatProminentButtonStyle()
+                    .compatKeyboardShortcut("\r", modifiers: [])
                     .disabled(!RecoveryCode.isWellFormed(recoveryDraft))
             }
         }

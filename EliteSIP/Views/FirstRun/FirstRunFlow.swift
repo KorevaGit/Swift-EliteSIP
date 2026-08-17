@@ -31,6 +31,22 @@ final class FirstRunFlow: ObservableObject {
         case finale
 
         static func < (lhs: Step, rhs: Step) -> Bool { lhs.rawValue < rhs.rawValue }
+
+        #if DEBUG
+            /// Имя экрана для отладочного ключа `--first-run <экран>`.
+            ///
+            /// Своё, а не `rawValue`: тот число, и запоминать «третий экран — это
+            /// 2» проверяющему незачем.
+            init?(debugName: String) {
+                switch debugName {
+                case "welcome": self = .welcome
+                case "user", "firstUser": self = .firstUser
+                case "appearance": self = .appearance
+                case "finale": self = .finale
+                default: return nil
+                }
+            }
+        #endif
     }
 
     /// Как заводится первое рабочее место.
@@ -91,13 +107,10 @@ final class FirstRunFlow: ObservableObject {
         return presets.first { $0.name == name }
     }
 
-    /// Показывать ли выбор ветки.
-    ///
-    /// «Вручную» и «Из файла» есть всегда, поэтому выбор есть всегда — но список
-    /// предустановок внутри него показывается только когда их больше одной. То
-    /// же правило, что в «Аккаунте» (`AccountSettingsTab`): выбор из одного
-    /// пункта — не выбор.
-    var showsPresetPicker: Bool { presets.count > 1 }
+    // `showsPresetPicker` убран 17 августа 2026 вместе с радиокнопками. Он
+    // прятал список из одного пункта — правило «выбор из одного пункта не выбор»,
+    // взятое из «Аккаунта». У выпадающего списка этой беды нет: «Вручную» стоит в
+    // нём всегда, то есть пунктов минимум два, и прятать нечего.
 
     // MARK: - Навигация
 

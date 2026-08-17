@@ -1010,6 +1010,22 @@
         }
       }
     },
+    "Внешний адрес — со стуком, внутренний — без.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внешний адрес — со стуком, внутренний — без."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An external address knocks, an internal one does not."
+          }
+        }
+      }
+    },
     "Внутренний номер": {
       "localizations": {
         "en": {
@@ -1551,6 +1567,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Гарнитуру на столе не слышно — тогда звонить должны колонки."
+          }
+        }
+      }
+    },
+    "Где стоит машина: от этого зависит адрес АТС и стук.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где стоит машина: от этого зависит адрес АТС и стук."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where the machine sits: it decides the PBX address and the knock."
           }
         }
       }
@@ -3069,6 +3101,22 @@
         }
       }
     },
+    "Матовые поверхности": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Матовые поверхности"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matte surfaces"
+          }
+        }
+      }
+    },
     "Матовые поверхности вместо стекла, как на macOS до 26. Приложение откроется заново, чтобы применить выбор.": {
       "localizations": {
         "ru": {
@@ -3083,7 +3131,8 @@
             "value": "Matte surfaces instead of glass, as on macOS before 26. The app will open again to apply the choice."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Машина": {
       "comment": "группа разделов «Управления»",
@@ -5583,6 +5632,22 @@
       },
       "extractionState": "stale"
     },
+    "Приложение откроется заново, чтобы применить оформление.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение откроется заново, чтобы применить оформление."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app will open again to apply the appearance."
+          }
+        }
+      }
+    },
     "Применится при сохранении настроек": {
       "localizations": {
         "en": {
@@ -6931,6 +6996,22 @@
         }
       }
     },
+    "Стекло": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стекло"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glass"
+          }
+        }
+      }
+    },
     "Стекло или матовые поверхности, как на macOS до 26.": {
       "localizations": {
         "ru": {
@@ -7156,6 +7237,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Требовать движения курсора"
+          }
+        }
+      }
+    },
+    "Требуется macOS 26": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требуется macOS 26"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requires macOS 26"
           }
         }
       }
@@ -7761,7 +7858,8 @@
             "value": "Interface language. It applies once the setup is done."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Язык меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся.": {
       "localizations": {

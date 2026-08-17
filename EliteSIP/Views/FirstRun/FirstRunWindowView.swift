@@ -22,10 +22,6 @@ struct FirstRunWindowView: View {
         VStack(spacing: 0) {
             screens
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                // Место под светофор. Содержимое идёт под полосу заголовка
-                // (`.fullSizeContentView`), и без этого отступа заголовок формы
-                // встаёт вплотную под кнопками окна.
-                .compatOwnTopInset(Theme.Metrics.firstRunTitlebarInset)
 
             // Черта отделяет неподвижный низ от того, что сменяется сдвигом.
             //

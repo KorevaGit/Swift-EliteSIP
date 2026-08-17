@@ -79,22 +79,15 @@ private struct FirstRunHeader: View {
     }
 }
 
-/// Обёртка содержимого экрана — в двух видах.
+/// Обёртка содержимого экрана: одинаковые поля и центр у всех четырёх.
 ///
-/// **Плакат** — приветствие, оформление и финал: заголовок, знак и один-два
-/// выбора, всё по центру и по центру же вертикали. **Форма** — «Первый
-/// пользователь», единственный экран с настоящим вводом: от верха, потому что
-/// полей на нём пять и они обязаны стоять в колонку.
-///
-/// Два вида, а не один: три строки, прижатые к верхнему левому углу окна в 470
-/// точек, оставляют под собой пустое поле — окно читается как недозаполненный
-/// диалог, а не как первое знакомство. Форме центрирование строк, наоборот,
-/// вредит: поля разной длины на общей осевой линии не стоят в колонку, и глаз
-/// ищет каждое заново. Поэтому у формы центрируется колонка целиком
-/// (`FirstRunColumn`), а не её содержимое.
+/// Видов было два — «плакат» по центру и «форма» от верха, — и второй отменён
+/// 17 августа 2026: центрируется всё. Различие осталось внутри, там где ему и
+/// место: строки центрирует только заголовок, а поля ввода стоят колонкой по
+/// левому краю (`FirstRunColumn`). Поля разной длины на общей осевой линии не
+/// стоят в колонку, и глаз ищет каждое заново.
 private struct FirstRunBody<Content: View>: View {
 
-    var isPoster = false
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -102,19 +95,16 @@ private struct FirstRunBody<Content: View>: View {
             content
         }
         .padding(.horizontal, Theme.Metrics.firstRunPadding)
-        // Сверху — только место под светофор, и только у форм.
+        // Поля сверху и снизу равные — и никакой отдельной зоны под светофор.
         //
-        // У плаката оно вредит: содержимое центрируется по вертикали, и лишний
-        // отступ сверху уводит композицию вниз от середины. У формы, наоборот,
-        // заголовок стоял на 52 точках от кромки — свои 24 плюс место под
-        // светофор, — и это читалось как забытая пустая строка.
-        .padding(.top, isPoster ? 0 : Theme.Metrics.firstRunTitlebarInset)
-        .padding(.bottom, isPoster ? 0 : Theme.Metrics.sectionSpacing)
-        .frame(
-            maxWidth: .infinity,
-            maxHeight: .infinity,
-            alignment: isPoster ? .center : .top
-        )
+        // Зона была, и из-за неё содержимое стояло ниже середины: она съедала
+        // высоту сверху, центр области уезжал вниз, и верхнее поле выходило
+        // заметно больше нижнего. Видно это только на живом окне; снимок
+        // 17 августа 2026 показал. Светофору при этом ничего не нужно: у обоих
+        // видов экрана содержимое начинается много ниже полосы заголовка, потому
+        // что центрируется по вертикали.
+        .padding(.vertical, Theme.Metrics.firstRunPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 
@@ -157,7 +147,7 @@ struct FirstRunWelcomeScreen: View {
     @ObservedObject var flow: FirstRunFlow
 
     var body: some View {
-        FirstRunBody(isPoster: true) {
+        FirstRunBody {
             FirstRunLogo()
                 .padding(.bottom, Theme.Metrics.sectionSpacing)
 
@@ -212,6 +202,13 @@ struct FirstRunUserScreen: View {
     ///    равноценный, а он даже полей просит других.
     var body: some View {
         FirstRunBody {
+            // Главный блок стоит по центру окна, а третий уровень — внизу.
+            //
+            // Двумя равными распорками, а не отступом: иначе блок съезжает вверх
+            // ровно на высоту того, что прижато к низу, и «по центру» перестаёт
+            // быть по центру — именно это и было видно 17 августа 2026.
+            Spacer(minLength: 0)
+
             FirstRunHeader(
                 title: "Первый пользователь",
                 subtitle: "Добавочный, пароль от него и то, как настроено рабочее место.",
@@ -289,12 +286,13 @@ struct FirstRunUserScreen: View {
         Binding(get: { flow.route }, set: { flow.route = $0 })
     }
 
-    /// Первые два уровня — настоящими радиокнопками системы.
+    /// Первые два уровня — одной выпадающей строкой.
     ///
-    /// `.radioGroup`, а не свои кружки из комплекта иконок: у взаимно
-    /// исключающих путей ровно этот системный вид, и рисовать его самому значило
-    /// бы завести в комплекте две иконки, которых там нет, ради того, что macOS
-    /// умеет сама.
+    /// Радиокнопками они занимали три строки из семи на экране, и экран читался
+    /// перегруженным (замечание 17 августа 2026). Выпадающий список говорит то же
+    /// самое одной строкой: выбор один, вариантов немного, и все они видны по
+    /// щелчку. Стиль не задаётся — на macOS список по умолчанию и есть всплывающая
+    /// кнопка, а `.menu` появился только в 11.
     ///
     /// «Загрузить конфигурацию» здесь нет — она третий уровень и живёт внизу
     /// окна: перенос готового места не равен заведению нового, и в одном списке
@@ -307,7 +305,6 @@ struct FirstRunUserScreen: View {
             Text("Вручную").tag(FirstRunFlow.Route.manual)
         }
         .labelsHidden()
-        .pickerStyle(.radioGroup)
     }
 
     // MARK: Поля
@@ -324,11 +321,16 @@ struct FirstRunUserScreen: View {
     private var hostField: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
             TextField("Адрес АТС", text: $flow.host)
-                .frame(maxWidth: 260)
-            Text("Внешний адрес означает стук перед регистрацией, внутренний — нет.")
+            // Подпись ровно в одну строку, и это не сокращение ради красоты.
+            //
+            // Прежняя занимала две, и при переключении на «Вручную» всё, что
+            // ниже — пропуск с его подписью, — прыгало вниз на строку. Замечание
+            // 17 августа 2026: «прыгает адрес из-за второй строки». Обе ветки
+            // теперь занимают одинаковую высоту, и переключение не двигает ничего.
+            Text("Внешний адрес — со стуком, внутренний — без.")
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
         }
     }
 
@@ -348,10 +350,13 @@ struct FirstRunUserScreen: View {
             .pickerStyle(.segmented)
             .frame(maxWidth: 200, alignment: .leading)
 
-            Text("Где стоит эта машина. От этого зависит адрес АТС и стук.")
+            // Одна строка — как у подписи под адресом в ручной ветке: две ветки
+            // обязаны занимать одинаковую высоту, иначе переключение между ними
+            // двигает всё, что ниже.
+            Text("Где стоит машина: от этого зависит адрес АТС и стук.")
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
         }
     }
 
@@ -463,7 +468,7 @@ struct FirstRunAppearanceScreen: View {
     // углу окна в 470 точек они оставляют под собой пустое поле — ровно то,
     // из-за чего переделывали приветствие.
     var body: some View {
-        FirstRunBody(isPoster: true) {
+        FirstRunBody {
             FirstRunHeader(
                 title: "Оформление",
                 subtitle: "Панель висит поверх CRM весь день — важно, чтобы она не била по глазам.",
@@ -492,27 +497,54 @@ struct FirstRunAppearanceScreen: View {
             .pickerStyle(.segmented)
             .frame(maxWidth: 260)
 
-            // Стекло — тумблером, и только там, где оно есть в системе.
+            Divider()
+                .frame(maxWidth: Theme.Metrics.firstRunColumnWidth)
+                .padding(.vertical, Theme.Metrics.tightSpacing)
+
+            // Стекло — двумя картинками, а не тумблером.
             //
-            // Ниже macOS 26 выбирать не из чего: приложение и так показано
-            // обычным, а погашенный тумблер на входе читается как поломка ещё до
-            // того, как человек увидел приложение живым. Поэтому его не гасят, а
-            // не показывают вовсе.
-            if Theme.Chrome.isGlassAvailable {
-                Divider()
-                    .frame(maxWidth: Theme.Metrics.firstRunColumnWidth)
-                    .padding(.vertical, Theme.Metrics.tightSpacing)
+            // Тумблер отвечал словами на вопрос, который словами не отвечается:
+            // человек, впервые открывший приложение, не знает ни что такое
+            // стекло в macOS 26, ни чем от него отличается матовая поверхность.
+            //
+            // Карточки показываются **всегда**, даже когда стекла в системе нет:
+            // прежде экран прятал выбор целиком, и человек на Catalina не узнавал
+            // ни того, что варианта два, ни того, почему у него один. Теперь
+            // стеклянная карточка стоит на месте, погашенная, и подписана
+            // причиной — «Требуется macOS 26».
+            HStack(alignment: .top, spacing: Theme.Metrics.sectionSpacing) {
+                // Отмечено то, что человек **увидит**, а не то, что стоит в
+                // флаге. Разница вылезает на системах до macOS 26: `plainChrome`
+                // там равен `false` («вручную на матовый не переводили»), но
+                // приложение всё равно матовое — и отмеченной оказалась бы
+                // погашенная стеклянная карточка.
+                ChromePreviewCard(
+                    isGlass: true,
+                    isSelected: !flow.plainChrome && Theme.Chrome.isGlassAvailable,
+                    isEnabled: Theme.Chrome.isGlassAvailable
+                ) {
+                    flow.plainChrome = false
+                }
 
-                Toggle("Без стекла", isOn: $flow.plainChrome)
-                    .compatSwitchToggle()
-
-                Text("Матовые поверхности вместо стекла, как на macOS до 26. Приложение откроется заново, чтобы применить выбор.")
-                    .font(.footnote)
-                    .compatForeground(Theme.Palette.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: Theme.Metrics.firstRunColumnWidth)
+                ChromePreviewCard(
+                    isGlass: false,
+                    isSelected: flow.plainChrome || !Theme.Chrome.isGlassAvailable,
+                    isEnabled: true
+                ) {
+                    // Там, где стекла нет, флаг не выставляется: он ничего не
+                    // изменил бы, а перезапуск в конце мастера случился бы ради
+                    // ничего — `completeFirstRun` считает его нужным по правке
+                    // этого самого флага.
+                    flow.plainChrome = Theme.Chrome.isGlassAvailable
+                }
             }
+
+            Text("Приложение откроется заново, чтобы применить оформление.")
+                .font(.footnote)
+                .compatForeground(Theme.Palette.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: Theme.Metrics.firstRunColumnWidth)
         }
     }
 }
@@ -526,7 +558,7 @@ struct FirstRunAppearanceScreen: View {
 struct FirstRunFinaleScreen: View {
 
     var body: some View {
-        FirstRunBody(isPoster: true) {
+        FirstRunBody {
             FirstRunLogo()
                 .padding(.bottom, Theme.Metrics.sectionSpacing)
 

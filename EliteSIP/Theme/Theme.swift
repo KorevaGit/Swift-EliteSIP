@@ -545,6 +545,13 @@ enum Theme {
         static let firstRunLogoSize: CGFloat = 96
         /// Место под светофор: содержимое мастера идёт под полосу заголовка.
         static let firstRunTitlebarInset: CGFloat = 28
+        /// Миниатюра оформления на экране «Оформление».
+        ///
+        /// Пропорция взята у панели софтфона: она узкая и высокая, и миниатюра
+        /// обязана быть узкой и высокой, иначе показывает не панель, а картинку.
+        static let chromePreviewWidth: CGFloat = 104
+        static let chromePreviewHeight: CGFloat = 116
+
         /// Знак экрана мастера над заголовком.
         ///
         /// Крупнее любой иконки в `Theme.Icon`: те стоят в строках и на кнопках

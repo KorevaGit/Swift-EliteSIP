@@ -117,15 +117,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // слова о том, что делать дальше (этап 9).
         #if DEBUG
         // Посмотреть мастер, не стирая настоящие настройки. Показывает окно и
-        // ничего не применяет само — дойти до «Далее» на экране 2 всё равно
-        // нужно с пропуском.
+        // ничего не применяет само — применение висит на последней кнопке.
         //   EliteSIP.app/Contents/MacOS/EliteSIP --first-run
+        //   EliteSIP.app/Contents/MacOS/EliteSIP --first-run appearance
+        //
+        // Имя экрана вторым словом — необязательно, но без него до «Оформления»
+        // приходится проходить два экрана с вводом, и проверка вёрстки зависит от
+        // того, не проскочил ли проверяющий шаг лишним нажатием Enter. Ровно это
+        // и случилось 17 августа 2026.
         //
         // Иначе увидеть мастер можно только на машине без файла настроек, то
         // есть удалив рабочую конфигурацию проверяющего. Тот же довод, по
         // которому ключами открываются «Управление» и оба оформления.
-        if ProcessInfo.processInfo.arguments.contains("--first-run") {
-            showFirstRunWindow()
+        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--first-run") {
+            let name = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first
+            showFirstRunWindow(startingAt: name.flatMap(FirstRunFlow.Step.init(debugName:)))
             NSApp.activate(ignoringOtherApps: true)
             return
         }
@@ -442,7 +448,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Показывает мастер. Кадр не запоминается: окно одноразовое, и «там, где
     /// оставили» у него не бывает.
-    private func showFirstRunWindow() {
+    /// - Parameter startingAt: с какого экрана открыть. Только для отладочного
+    ///   ключа `--first-run`; в обычной работе экран выбирает признак в настройках.
+    private func showFirstRunWindow(startingAt debugStep: FirstRunFlow.Step? = nil) {
         defer { updateActivationPolicy() }
 
         if let firstRunWindow {
@@ -454,6 +462,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Язык уже выбран и применён перезапуском — мастер продолжается со
         // второго экрана, на выбранном языке.
         if model.firstRun == .languageChosen { flow.step = .firstUser }
+        if let debugStep { flow.step = debugStep }
         firstRunFlow = flow
 
         let window = NSWindow(
@@ -493,7 +502,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentViewController = NSHostingController(
             rootView: withEnvironment(FirstRunWindowView(flow: flow))
         )
-        window.center()
+        // Кадр запоминается, хотя окно одноразовое.
+        //
+        // Мастер перезапускает приложение сам — после выбора языка, — и без этого
+        // окно возвращалось не туда, где стояло: новый процесс центрировал его на
+        // главном мониторе. На одном экране это незаметно, на трёх окно
+        // перепрыгивает на другой монитор, и человек ищет его глазами посреди
+        // настройки.
+        restoreFrame(
+            of: window,
+            autosaveName: Self.firstRunWindowAutosaveName,
+            defaultContentSize: CGSize(
+                width: Theme.Metrics.firstRunWidth,
+                height: Theme.Metrics.firstRunHeight
+            )
+        )
         window.delegate = self
 
         firstRunWindow = window
@@ -538,6 +561,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// `windowWillClose` принял бы этот путь за закрытие крестиком и завершил
     /// приложение вместо того, чтобы показать панель.
     @objc func finishFirstRunWindow(_ sender: Any?) {
+        // Куда встанет панель. Запоминается **до** закрытия мастера: панель
+        // обязана появиться там, где человек только что смотрел на окно
+        // настройки, а не в центре главного монитора. На одном экране разницы
+        // нет; на трёх панель возникала на другом мониторе, и первое, что делал
+        // человек после настройки, — искал телефон глазами.
+        let wizardFrame = firstRunWindow?.frame
+
         if let firstRunWindow {
             self.firstRunWindow = nil
             firstRunWindow.delegate = nil
@@ -546,8 +576,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         firstRunFlow = nil
 
         showPhoneWindow(nil)
+        if let wizardFrame, let panel = phoneWindow {
+            place(panel, atCenterOf: wizardFrame)
+        }
         NSApp.activate(ignoringOtherApps: true)
         model.startAutoConnect()
+    }
+
+    /// Ставит окно по центру чужого кадра, не выпуская за пределы экрана.
+    ///
+    /// Панель узкая и высокая, мастер — почти квадратный, поэтому совпадает не
+    /// угол, а центр: иначе панель уезжала бы вниз-вправо от того места, куда
+    /// человек смотрел.
+    private func place(_ window: NSWindow, atCenterOf frame: NSRect) {
+        var origin = NSPoint(
+            x: frame.midX - window.frame.width / 2,
+            y: frame.midY - window.frame.height / 2
+        )
+        // Экран берётся тот, на котором стоял мастер, а не главный: в этом весь
+        // смысл переноса.
+        if let visible = NSScreen.screens.first(where: { $0.frame.intersects(frame) })?.visibleFrame {
+            origin.x = min(max(origin.x, visible.minX), visible.maxX - window.frame.width)
+            origin.y = min(max(origin.y, visible.minY), visible.maxY - window.frame.height)
+        }
+        window.setFrameOrigin(origin)
     }
 
     /// Имя, под которым AppKit хранит кадр панели между запусками.
@@ -558,6 +610,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// окно было фиксированной ширины и высоты по содержимому — запоминать было
     /// нечего.
     private static let settingsWindowAutosaveName = "EliteSIPSettings"
+    /// То же для окна мастера: он перезапускает приложение сам и обязан вернуться
+    /// туда, где стоял.
+    private static let firstRunWindowAutosaveName = "EliteSIPFirstRun"
 
     /// Возвращает окно туда, где его оставили.
     ///
