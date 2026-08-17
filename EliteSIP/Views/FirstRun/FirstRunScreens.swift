@@ -211,7 +211,7 @@ struct FirstRunUserScreen: View {
 
             FirstRunHeader(
                 title: "Первый пользователь",
-                subtitle: "Добавочный, пароль от него и то, как настроено рабочее место.",
+                subtitle: "Кто будет работать за этой машиной.",
                 isCentered: true,
                 glyph: .firstUser
             )
@@ -263,11 +263,6 @@ struct FirstRunUserScreen: View {
                 Button("Загрузить конфигурацию…") { chooseConfig() }
                     .buttonStyle(.link)
 
-                Text("Готовый слепок машины — когда рабочее место переносят, а не заводят.")
-                    .font(.footnote)
-                    .compatForeground(Theme.Palette.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity)
@@ -309,29 +304,21 @@ struct FirstRunUserScreen: View {
 
     // MARK: Поля
 
+    // Все контролы экрана — по ширине колонки, и это не вкусовщина.
+    //
+    // Стояли они на четырёх разных ширинах — 110, 150, 200 и 260 точек, — и
+    // правый край ступеньками сползал вниз: «некрасивая разметка», как это и
+    // было названо. Одна ширина на всё даёт колонку, в которой глаз находит
+    // следующее поле не глядя.
     private var credentials: some View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
             TextField("Добавочный", text: $flow.number)
-                .frame(maxWidth: 110)
             SecureField("Пароль SIP", text: $flow.password)
-                .frame(maxWidth: 150)
         }
     }
 
     private var hostField: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
-            TextField("Адрес АТС", text: $flow.host)
-            // Подпись ровно в одну строку, и это не сокращение ради красоты.
-            //
-            // Прежняя занимала две, и при переключении на «Вручную» всё, что
-            // ниже — пропуск с его подписью, — прыгало вниз на строку. Замечание
-            // 17 августа 2026: «прыгает адрес из-за второй строки». Обе ветки
-            // теперь занимают одинаковую высоту, и переключение не двигает ничего.
-            Text("Внешний адрес — со стуком, внутренний — без.")
-                .font(.footnote)
-                .compatForeground(Theme.Palette.textSecondary)
-                .lineLimit(1)
-        }
+        TextField("Адрес АТС", text: $flow.host)
     }
 
     /// Тумблер площадки — только у предустановки.
@@ -341,23 +328,12 @@ struct FirstRunUserScreen: View {
     /// вписан руками, и спрашивать про площадку значило бы спрашивать дважды об
     /// одном и том же.
     private var sitePicker: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
-            Picker("", selection: $flow.site) {
-                Text("Офис").tag(SIPProfileSite.office)
-                Text("Удалённо").tag(SIPProfileSite.remote)
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 200, alignment: .leading)
-
-            // Одна строка — как у подписи под адресом в ручной ветке: две ветки
-            // обязаны занимать одинаковую высоту, иначе переключение между ними
-            // двигает всё, что ниже.
-            Text("Где стоит машина: от этого зависит адрес АТС и стук.")
-                .font(.footnote)
-                .compatForeground(Theme.Palette.textSecondary)
-                .lineLimit(1)
+        Picker("", selection: $flow.site) {
+            Text("Офис").tag(SIPProfileSite.office)
+            Text("Удалённо").tag(SIPProfileSite.remote)
         }
+        .labelsHidden()
+        .pickerStyle(.segmented)
     }
 
     /// Что приехало из файла.
@@ -390,14 +366,7 @@ struct FirstRunUserScreen: View {
     }
 
     private var pass: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
-            SecureField("Административный пароль", text: $flow.adminPassword)
-                .frame(maxWidth: 260)
-            Text("Настройку рабочего места заканчивает техподдержка.")
-                .font(.footnote)
-                .compatForeground(Theme.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        SecureField("Административный пароль", text: $flow.adminPassword)
     }
 
     // MARK: Файл

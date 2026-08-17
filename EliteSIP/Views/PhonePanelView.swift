@@ -140,10 +140,22 @@ struct PhonePanelView: View {
             + Theme.Gap.statusToHeader
             + Theme.Metrics.headerHeight
             + Theme.Gap.headerToControls
-            + Theme.Metrics.controlHeight
+            + CallControls.height
             + Theme.Gap.macrosToAction
             + Theme.Metrics.actionHeight
             + Theme.Metrics.contentPadding
+
+        // Поле перевода занимает место сетки макросов — и высоту обязано просить
+        // своё.
+        //
+        // До 17 августа 2026 не просило вовсе: панель считалась по числу
+        // макросов, а поле перевода выше одного ряда макросов — и при трёх
+        // макросах кнопка «Перевести» просто не влезала в окно, обрезанная
+        // `clipped()`. Причём чем меньше макросов, тем хуже: без них панель
+        // короче ещё на ряд, и поле не влезало совсем.
+        if model.isTransferEntryVisible {
+            return fixed + Theme.Gap.controlsToMacros + TransferEntry.height
+        }
 
         // Пустого места под макросы не резервируется: пока их нет, панель
         // ровно на них короче, а каждый добавленный ряд просто добавляет
@@ -742,45 +754,79 @@ struct DialedNumberField: View {
     }
 }
 
-/// Кнопки, которые имеют смысл только в разговоре: удержание, микрофон, перевод.
+/// Кнопки, которые имеют смысл только в разговоре: удержание, микрофон, перевод
+/// и конференция.
 ///
-/// Три, и только три: конференция и консультация делаются DTMF-макросами на
-/// стороне сервера. Ряд виден и в покое, но выключенным — иначе его появление
-/// сдвигало бы сетку макросов в момент ответа на вызов.
+/// **Четыре в два ряда, а не три в один** — с 17 августа 2026. Конференция до
+/// этого дня была недостижима вовсе: кнопку убрал редизайн, положившись на
+/// DTMF-макрос, а из заводской предустановки макрос `КОНФЕРЕНЦИЯ · *3` убрали
+/// как дубль штатного действия — и `AppModel.startConference()`, живой и рабочий,
+/// не вызывался ниоткуда. Дыру нашёл заказчик словами «в экране звонка не вижу
+/// конференции».
+///
+/// Ряд стал сеткой, а не отрастил четвёртую кнопку: панель 270 точек шириной, и
+/// «Конференция» в четверти этой ширины не читается. Два на два дают каждой
+/// кнопке половину — с запасом на любой из четырёх подписей и на английский.
+///
+/// Ряды видны и в покое, но выключенными — иначе их появление сдвигало бы сетку
+/// макросов в момент ответа на вызов.
 struct CallControls: View {
 
     @EnvironmentObject private var model: AppModel
 
+    /// Высота блока. Нужна расчёту высоты окна, поэтому объявлена здесь, рядом с
+    /// вёрсткой, а не повторена числом в панели.
+    static var height: CGFloat {
+        Theme.Metrics.controlHeight * 2 + Theme.Metrics.elementSpacing
+    }
+
     var body: some View {
-        HStack(spacing: Theme.Metrics.elementSpacing) {
-            controlButton(
-                title: model.isOnHold ? "Вернуть" : "Удержать",
-                symbol: model.isOnHold ? "play.fill" : "pause.fill",
-                isOn: model.isOnHold,
-                isEnabled: model.canHold
-            ) {
-                Task { await model.toggleHold() }
+        VStack(spacing: Theme.Metrics.elementSpacing) {
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                controlButton(
+                    title: model.isOnHold ? "Вернуть" : "Удержать",
+                    symbol: model.isOnHold ? "play.fill" : "pause.fill",
+                    isOn: model.isOnHold,
+                    isEnabled: model.canHold
+                ) {
+                    Task { await model.toggleHold() }
+                }
+
+                controlButton(
+                    title: "Микрофон",
+                    symbol: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
+                    isOn: model.isMicrophoneMuted,
+                    isEnabled: model.callPhase == .active
+                ) {
+                    model.toggleMicrophone()
+                }
             }
 
-            controlButton(
-                title: "Микрофон",
-                symbol: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
-                isOn: model.isMicrophoneMuted,
-                isEnabled: model.callPhase == .active
-            ) {
-                model.toggleMicrophone()
-            }
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                controlButton(
+                    title: "Перевести",
+                    symbol: "phone.arrow.right",
+                    isOn: model.isTransferEntryVisible,
+                    isEnabled: model.canTransfer && !model.isTransferEntryVisible
+                ) {
+                    model.showTransferEntry()
+                }
 
-            controlButton(
-                title: "Перевести",
-                symbol: "phone.arrow.right",
-                isOn: model.isTransferEntryVisible,
-                isEnabled: model.canTransfer && !model.isTransferEntryVisible
-            ) {
-                model.showTransferEntry()
+                // Конференция — то самое штатное действие: посылает серверный
+                // код (`ConferenceSettings.featureCode`) тонами и помечает линию,
+                // то есть приложение знает, что комната собрана. Макросом это
+                // выглядело бы так же, но приложение не знало бы ничего.
+                controlButton(
+                    title: "Конференция",
+                    symbol: "person.3.fill",
+                    isOn: model.activeLine?.isConferenceCommandSent ?? false,
+                    isEnabled: model.canStartConference
+                ) {
+                    model.startConference()
+                }
             }
         }
-        .frame(height: Theme.Metrics.controlHeight)
+        .frame(height: Self.height)
     }
 
     private func controlButton(
@@ -887,6 +933,17 @@ struct MacroGrid: View {
 struct TransferEntry: View {
 
     @EnvironmentObject private var model: AppModel
+
+    /// Высота блока: поле, промежуток и ряд кнопок.
+    ///
+    /// Объявлена здесь, а не повторена числом в расчёте высоты окна: разъехавшись,
+    /// эти два места дают обрезанную кнопку «Перевести» — ровно то, что случилось
+    /// до 17 августа 2026, когда высоту окна поле не просило вовсе.
+    static var height: CGFloat {
+        Theme.Metrics.transferFieldHeight
+            + Theme.Metrics.elementSpacing
+            + Theme.Metrics.transferButtonHeight
+    }
 
     private func submit() {
         guard model.hasTransferNumber, !model.isTransferring else { return }

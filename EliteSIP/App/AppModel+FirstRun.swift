@@ -127,8 +127,19 @@ extension AppModel {
         // встала бы с паролем, которого нет ни у кого.
         if let secrets = Provisioning.secrets {
             do {
-                settings.admin.credential = try secrets.credential()
+                let credential = try secrets.credential()
+                settings.admin.credential = credential
                 settings.admin.management = .local
+                // Живому процессу об этом надо сказать отдельно.
+                //
+                // `AdminAccess` держит своё состояние и читает настройки только
+                // при запуске (`AppModel.init`). Без этой строки приложение до
+                // перезапуска считало, что пароля нет вовсе, — и «Управление»
+                // открывалось **без вопроса**: `AdminUnlockView` на незащищённой
+                // машине входит сам. Мастер при этом заканчивается без
+                // перезапуска, если стекло не меняли, то есть дыра оставалась
+                // открытой до конца смены. Нашлось на живой машине 17 августа 2026.
+                adminAccess.restore(credential: credential, management: .local)
             } catch {
                 // Не молчим: без учётных данных машина остаётся с «Управлением»,
                 // открытым всякому, а выглядит настроенной.

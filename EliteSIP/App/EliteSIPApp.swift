@@ -1193,6 +1193,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// поднимается заново — цена перезапуска, о которой сказано в
     /// предупреждении.
     @objc func relaunchApplication(_ sender: Any?) {
+        // Кадр мастера записывается руками и синхронно.
+        //
+        // `setFrameAutosaveName` сохраняет его сам, но лениво — в `UserDefaults`,
+        // которые дописываются на диск когда придётся. Перезапуск мастера
+        // происходит через секунду после того, как окно поставили: новый процесс
+        // читал кадр, которого ещё нет, и центрировал окно на главном мониторе.
+        // На одном экране незаметно, на двух окно перепрыгивало на другой — то
+        // самое, что было замечено дважды.
+        if let firstRunWindow {
+            firstRunWindow.saveFrame(usingName: Self.firstRunWindowAutosaveName)
+            UserDefaults.standard.synchronize()
+        }
+
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         task.arguments = ["-n", Bundle.main.bundleURL.path]
@@ -1212,6 +1225,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         self.administrationWindow = nil
         administrationWindow.delegate = nil
         administrationWindow.close()
+        administrationRouter = nil
+        // Режим гасится здесь же, и это починка, а не порядок ради порядка.
+        //
+        // Гасил его `windowWillClose`, но этим путём он до нас не доходит:
+        // делегат снят строкой выше, чтобы закрытие не приняли за крестик. То
+        // есть «Управление», закрытое кнопкой «Сохранить» или «Отменить»,
+        // оставляло административный режим открытым — и следующий вход не
+        // спрашивал пароль вовсе, до конца смены. Нашлось на живой машине
+        // 17 августа 2026.
+        model.lockAdministration()
     }
 
     /// Крестик окна «Управление» с несохранёнными правками спрашивает.

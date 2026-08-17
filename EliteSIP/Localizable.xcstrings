@@ -3124,6 +3124,22 @@
         }
       }
     },
+    "Кто будет работать за этой машиной.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кто будет работать за этой машиной."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who will work at this machine."
+          }
+        }
+      }
+    },
     "Кто управляет настройками": {
       "localizations": {
         "en": {
