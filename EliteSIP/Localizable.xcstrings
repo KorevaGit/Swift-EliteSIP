@@ -5889,6 +5889,22 @@
       },
       "extractionState": "stale"
     },
+    "Приложение остаётся в доке. Щелчок по иконке возвращает панель.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение остаётся в доке. Щелчок по иконке возвращает панель."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app stays in the Dock. Click its icon to bring the panel back."
+          }
+        }
+      }
+    },
     "Приложение откроется заново, чтобы применить оформление.": {
       "localizations": {
         "ru": {
