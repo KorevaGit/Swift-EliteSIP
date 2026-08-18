@@ -421,6 +421,57 @@
         }
       }
     },
+    "«%@» — отправка…": {
+      "comment": "состояние линии при отправке макроса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” — sending…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» — отправка…"
+          }
+        }
+      }
+    },
+    "«%@» — отправлено": {
+      "comment": "состояние линии после макроса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” — sent"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» — отправлено"
+          }
+        }
+      }
+    },
+    "«%@» — перевод отправлен": {
+      "comment": "состояние линии после макроса перевода",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” — transfer sent"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» — перевод отправлен"
+          }
+        }
+      }
+    },
     "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки».": {
       "comment": "файл открыт двойным щелчком, применять его некому",
       "localizations": {
@@ -434,6 +485,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "“%@” is an EliteSIP preset. It can be loaded in Administration, the Presets section."
+          }
+        }
+      }
+    },
+    "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченный макрос оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник.": {
+      "comment": "пояснение к признаку перевода у макроса",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on “Transfers the call” for transfer codes — the app cannot recognise them on its own. A flagged macro leaves a “transfer” mark in the history, and that mark is what later explains where the client went. The line state is still driven by the PBX: the screen keeps showing the previous party."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченный макрос оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник."
           }
         }
       }
@@ -5153,6 +5221,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Перевести"
+          }
+        }
+      }
+    },
+    "Переводит звонок": {
+      "comment": "выключатель у макроса перевода",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfers the call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переводит звонок"
           }
         }
       }

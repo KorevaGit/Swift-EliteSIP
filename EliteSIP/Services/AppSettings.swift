@@ -644,10 +644,32 @@ struct AppSettings: Codable, Sendable, Equatable {
             /// Запись набора: цифры и запятые.
             var sequence: String = ""
 
-            init(id: UUID = UUID(), title: String = "", sequence: String = "") {
+            /// Уводит ли этот макрос звонок к другому человеку.
+            ///
+            /// **Признаком, а не догадкой по коду.** Соблазн опознавать перевод
+            /// по началу последовательности («`*02` — значит перевод») ложный:
+            /// `*02` — это Attended Transfer *боевого* сервера EliteSochi,
+            /// полученный `core show features` 30 июля 2026, а не общее правило
+            /// Asterisk. У другой установки там `#`, `*2` или своя запись в
+            /// `[applicationmap]`, и зашитый префикс начал бы помечать переводом
+            /// что попало — а пометка идёт в историю, которую читают как
+            /// свидетельство при разборе жалобы.
+            ///
+            /// Поэтому отвечает администратор: он и так вписывает сюда коды под
+            /// свою АТС и один он знает, что они делают. Умолчание — «нет»:
+            /// молчание не должно превращаться в утверждение о звонке.
+            var transfersCall: Bool = false
+
+            init(
+                id: UUID = UUID(),
+                title: String = "",
+                sequence: String = "",
+                transfersCall: Bool = false
+            ) {
                 self.id = id
                 self.title = title
                 self.sequence = sequence
+                self.transfersCall = transfersCall
             }
 
             init(from decoder: Decoder) throws {
@@ -655,6 +677,10 @@ struct AppSettings: Codable, Sendable, Equatable {
                 id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
                 title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
                 sequence = try container.decodeIfPresent(String.self, forKey: .sequence) ?? ""
+                // Старый файл настроек этого поля не знает, и решать за него
+                // нельзя: `false` означает «администратор не сказал», а не
+                // «перевода тут нет».
+                transfersCall = try container.decodeIfPresent(Bool.self, forKey: .transfersCall) ?? false
             }
 
             /// Годен ли макрос к отправке.

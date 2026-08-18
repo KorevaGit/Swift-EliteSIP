@@ -898,6 +898,17 @@ struct MacroGrid: View {
         }
     }
 
+    /// Принимает ли клавиша нажатие прямо сейчас.
+    ///
+    /// Две причины отказа, и различать их в вёрстке незачем: пока команда идёт
+    /// в RTP, молчит вся сетка (тоны уходят очередью, и вторая команда поверх
+    /// первой перемешала бы их), а после успеха молчит только нажатая — на
+    /// время остывания. Ответ на нажатие при этом даёт строка состояния в
+    /// шапке, а не сама клавиша: подпись на ней короткая и меняться не должна.
+    private func isEnabled(_ macro: AppSettings.DTMFSettings.Macro) -> Bool {
+        model.canSendDTMF && !model.isMacroBusy(macro)
+    }
+
     private func macroButton(_ macro: AppSettings.DTMFSettings.Macro) -> some View {
         Button {
             model.send(macro: macro)
@@ -920,9 +931,9 @@ struct MacroGrid: View {
         }
         .buttonStyle(.plain)
         .themedControlSurface()
-        .hoverHighlight(isEnabled: model.canSendDTMF)
-        .disabled(!model.canSendDTMF)
-        .opacity(model.canSendDTMF ? 1 : Theme.Metrics.disabledOpacity)
+        .hoverHighlight(isEnabled: isEnabled(macro))
+        .disabled(!isEnabled(macro))
+        .opacity(isEnabled(macro) ? 1 : Theme.Metrics.disabledOpacity)
     }
 }
 

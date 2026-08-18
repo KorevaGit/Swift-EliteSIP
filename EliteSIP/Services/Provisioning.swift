@@ -253,10 +253,16 @@ extension Provisioning.FactoryPreset {
         // стоял примером в `docs/profiles.md`: пример был боевым.
         officeHost: "192.168.1.2",
         remoteHost: "crm.elitesochi.com",
+        // `transfersCall` у всех трёх: `*02` — Attended Transfer боевого
+        // сервера (`core show features`, 30 июля 2026), и нажатие такой клавиши
+        // уводит клиента к коллеге. Без признака приложение об этом не знает, и
+        // в истории перевода не видно — цена, названная в `docs/ROADMAP.md`,
+        // раздел M4. Признак её закрывает наполовину: состояние линии
+        // по-прежнему ведёт сервер, но сам факт перевода в записи появляется.
         macros: [
-            .init(title: "Юрист", sequence: "*029999#"),
-            .init(title: "Саммер Бэй", sequence: "*029998#"),
-            .init(title: "ОП", sequence: "*029997#"),
+            .init(title: "Юрист", sequence: "*029999#", transfersCall: true),
+            .init(title: "Саммер Бэй", sequence: "*029998#", transfersCall: true),
+            .init(title: "ОП", sequence: "*029997#", transfersCall: true),
         ],
         queueTitle: "🔥Горячая раздача🔥",
         queueNumbers: [

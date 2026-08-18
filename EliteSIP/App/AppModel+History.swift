@@ -126,6 +126,14 @@ extension AppModel {
         if !before.isTransferring, after.isTransferring {
             historyStore.markTransferred(id)
         }
+        // Перевод макросом — та же пометка, что и своим REFER.
+        //
+        // Разными их делать нельзя: для того, кто читает историю при разборе
+        // жалобы, важно, что звонок увели, а не каким протоколом. Чем именно —
+        // видно в журнале, там записан и код, и подпись клавиши.
+        if !before.didSendTransferMacro, after.didSendTransferMacro {
+            historyStore.markTransferred(id)
+        }
         if !before.isConferenceCommandSent, after.isConferenceCommandSent {
             historyStore.markConference(id)
         }

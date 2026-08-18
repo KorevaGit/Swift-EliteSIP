@@ -743,6 +743,18 @@ final class AppModel: ObservableObject {
         var isConferenceCommandPending = false
         var isConferenceCommandSent = false
 
+        /// Перевод отдан серверу макросом — фич-кодом тонами, а не `REFER`.
+        ///
+        /// Отдельно от `isTransferring`: тот означает «наш REFER в пути» и
+        /// гасит кнопки до ответа сервера, а здесь ответа не будет вовсе —
+        /// Asterisk выполняет фичу внутри `Dial` и отдельного SIP-события не
+        /// шлёт. Поэтому признак односторонний: он говорит «команда перевода
+        /// ушла в RTP», и большего приложение не знает.
+        ///
+        /// Нужен истории: пометка «перевод» в записи ставится по нему через
+        /// `noteHistory`.
+        var didSendTransferMacro = false
+
         var negotiatedCodec: AudioCodec?
         var audioRoute: AudioRoute?
         var echoCancellationActive: Bool?
@@ -1662,21 +1674,122 @@ final class AppModel: ObservableObject {
         return true
     }
 
+    /// Макрос, который сейчас уходит в RTP. Пока он не `nil`, сетка нажатий не
+    /// принимает.
+    @Published private(set) var sendingMacroID: UUID?
+
+    /// Только что отправленные макросы — на остывании.
+    @Published private(set) var cooledMacroIDs: Set<UUID> = []
+
+    /// Сколько клавиша не принимает повторное нажатие после успешной отправки.
+    ///
+    /// Остывание, а не запрет до конца звонка, как у конференции. Разница по
+    /// существу: конференция — действие однократное, а среди макросов есть
+    /// переключатели (боевой `apprecord` — `*1` — включает и выключает запись
+    /// разговора одним и тем же кодом), и запереть их навсегда значило бы
+    /// отнять половину смысла.
+    ///
+    /// Три секунды — время, за которое человек решает «не сработало» и тянется
+    /// нажать второй раз. Именно этот второй раз и надо съесть: у макроса
+    /// перевода он уходит тонами уже в разговор с коллегой, где `*02…` снова
+    /// код перевода.
+    static let macroCooldown: Interval = .seconds(3)
+
+    /// Ждать ли ответа от этой клавиши.
+    func isMacroBusy(_ macro: AppSettings.DTMFSettings.Macro) -> Bool {
+        sendingMacroID != nil || cooledMacroIDs.contains(macro.id)
+    }
+
     /// Отправляет макрос целиком.
+    ///
+    /// **Ждёт подтверждения, а не стреляет и забывает.** До 18 августа 2026
+    /// успех не показывался нигде: символы копились в `line.sentDTMF`, которого
+    /// не читает ни одна вьюха, и на экране не менялось ничего. Успех и мёртвая
+    /// кнопка выглядели одинаково — при том, что три верхние клавиши боевой
+    /// предустановки это коды перевода, то есть самое последственное действие в
+    /// панели после «Завершить».
+    ///
+    /// Подтверждать можно ровно одно, и подпись это признаёт: команда вышла из
+    /// очереди в RTP. Что с ней сделал сервер, приложению не сообщают — тот же
+    /// предел, что у конференции, и по той же причине (Asterisk 13 выполняет
+    /// фичу внутри `Dial`). Обещать «переведено» здесь значило бы показывать
+    /// успех и при неверном коде.
     func send(macro: AppSettings.DTMFSettings.Macro) {
         guard let lineID = activeLineID, let media, callPhase == .active else { return }
+        // Повтор не ставится в очередь и не копится: нажатие, пришедшее не
+        // вовремя, должно пропасть, а не выстрелить через секунду.
+        guard !isMacroBusy(macro) else { return }
+
         let sequence = settings.dtmf.sequence(of: macro)
         guard sequence.hasTones else {
             append(level: .warning, message: "макрос «\(macro.title)» пуст")
             return
         }
-        guard media.send(dtmf: sequence, timing: settings.dtmf.timing) else {
-            append(level: .warning, message: "собеседник не подтвердил telephone-event — макрос не отправлен")
-            setStatus(NSLocalizedString("DTMF не поддерживается", comment: "состояние линии"), on: lineID)
-            return
+        let timing = settings.dtmf.timing
+
+        sendingMacroID = macro.id
+        setStatus(
+            String(
+                format: NSLocalizedString("«%@» — отправка…", comment: "состояние линии при отправке макроса"),
+                macro.title
+            ),
+            on: lineID
+        )
+
+        Task { [weak self, weak media] in
+            guard let self, let media else { return }
+            let sent = await media.sendAndWait(dtmf: sequence, timing: timing)
+
+            self.sendingMacroID = nil
+
+            // Завершившаяся линия уже снята; итог её старой очереди не имеет
+            // права переписать состояние другой — та же оговорка, что у
+            // конференции.
+            guard let line = self.line(lineID), line.media === media, line.phase == .active else { return }
+
+            guard sent else {
+                self.append(level: .warning, message: "собеседник не подтвердил telephone-event — макрос не отправлен")
+                self.setStatus(NSLocalizedString("DTMF не поддерживается", comment: "состояние линии"), on: lineID)
+                return
+            }
+
+            self.mutate(lineID) {
+                $0.sentDTMF += sequence.displayText
+                // Пометку ставит сам факт отправки, и снять её нельзя: звонок
+                // либо увели, либо код был неверен — и во втором случае у нас
+                // нет способа об этом узнать. Пометить перевод, которого не
+                // было, дешевле, чем потерять тот, который был: историю читают,
+                // когда разбирают жалобу на пропавшего клиента.
+                if macro.transfersCall { $0.didSendTransferMacro = true }
+            }
+            self.setStatus(
+                macro.transfersCall
+                    ? String(
+                        format: NSLocalizedString("«%@» — перевод отправлен", comment: "состояние линии после макроса перевода"),
+                        macro.title
+                    )
+                    : String(
+                        format: NSLocalizedString("«%@» — отправлено", comment: "состояние линии после макроса"),
+                        macro.title
+                    ),
+                on: lineID
+            )
+            self.append(
+                level: .info,
+                message: macro.transfersCall
+                    ? "перевод макросом «\(macro.title)»: \(sequence.displayText)"
+                    : "макрос «\(macro.title)»: \(sequence.displayText)"
+            )
+            self.startMacroCooldown(macro.id)
         }
-        mutate(lineID) { $0.sentDTMF += sequence.displayText }
-        append(level: .info, message: "макрос «\(macro.title)»: \(sequence.displayText)")
+    }
+
+    private func startMacroCooldown(_ id: UUID) {
+        cooledMacroIDs.insert(id)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(Self.macroCooldown)
+            self?.cooledMacroIDs.remove(id)
+        }
     }
 
     /// Макросы, годные к отправке.
@@ -1817,6 +1930,7 @@ final class AppModel: ObservableObject {
             isTransferEntryVisible = false
             transferNumber = ""
             numberEntry = .blindTransfer
+            clearMacroSending()
             // Линия освободилась — если пересборка соединения ждала конца
             // разговора, её час настал.
             reconnectIfPending()
@@ -1863,9 +1977,24 @@ final class AppModel: ObservableObject {
         isTransferEntryVisible = false
         transferNumber = ""
         numberEntry = .blindTransfer
+        clearMacroSending()
         levelTask?.cancel()
         levelTask = nil
         audioLevels.reset()
+    }
+
+    /// Снимает ожидание макроса вместе с разговором.
+    ///
+    /// Нужно из-за одного случая: медиа-сессию снимает `retire`, и продолжение
+    /// `sendAndWait` на снятой сессии может не возобновиться никогда. Без этой
+    /// уборки `sendingMacroID` остался бы занят до конца работы приложения — то
+    /// есть сетка макросов следующего звонка не приняла бы ни одного нажатия.
+    ///
+    /// Остывание сбрасывается здесь же: оно защищает от второго нажатия внутри
+    /// одного разговора, а к следующему звонку отношения не имеет.
+    private func clearMacroSending() {
+        sendingMacroID = nil
+        cooledMacroIDs.removeAll()
     }
 
     // MARK: - Входящий звонок
