@@ -94,6 +94,14 @@ public actor SIPTransactionLayer {
     public nonisolated let serverInviteEvents: AsyncStream<SIPServerInviteEvent>
     private nonisolated let serverInviteContinuation: AsyncStream<SIPServerInviteEvent>.Continuation
 
+    /// Канал закрылся насовсем — с причиной.
+    ///
+    /// Отдельным потоком, а не полем: закрытие надо не «спросить потом», а
+    /// узнать сразу, потому что чинится оно только пересборкой транспорта, а
+    /// транспорт нам передали снаружи. Своё `stop()` сюда ничего не кладёт.
+    public nonisolated let channelClosures: AsyncStream<String>
+    private nonisolated let channelClosureContinuation: AsyncStream<String>.Continuation
+
     /// Ключ — branch плюс метод: CANCEL несёт тот же branch, что отменяемый
     /// INVITE, и без метода в ключе транзакции затирали бы друг друга.
     private var clientTransactions: [String: ClientTransaction] = [:]
@@ -107,10 +115,44 @@ public actor SIPTransactionLayer {
 
     /// Ответы на входящие запросы, чтобы отвечать одинаково на ретрансмиссии
     /// (RFC 3261 §17.2.2). Ключ — branch входящего запроса.
-    private var sentResponses: [String: SIPResponse] = [:]
+    ///
+    /// Со сроком годности у каждой записи. Раньше срок держала отдельная задача
+    /// со сном на сорок секунд — по задаче на каждый отправленный ответ, — и
+    /// ограничить это было нечем: поток запросов на открытый UDP-порт растил и
+    /// словарь, и число задач без потолка. Теперь просроченное убирается на
+    /// следующей же записи, а сверху стоит предел.
+    private var sentResponses: [String: CachedResponse] = [:]
+
+    private struct CachedResponse {
+        let response: SIPResponse
+        let expiresAt: MonotonicClock.Instant
+    }
+
+    /// Сколько ответов держим одновременно.
+    ///
+    /// Больше сотни живых серверных транзакций у софтфона с тремя линиями не
+    /// бывает: столько записей означают не работу, а поток мусора на порт.
+    /// Лишнее вытесняется самым старым, потому что ретрансмиссия приходит
+    /// вскоре после ответа, а не через минуту.
+    static let maximumCachedResponses = 128
+
+    /// Сколько ответов лежит в кэше. Доступно проверкам с `@testable`:
+    /// потолок, который никто не считает, потолком не является.
+    var cachedResponseCount: Int { sentResponses.count }
 
     private var localEndpoint: SIPEndpoint?
-    private var readinessWaiters: [CheckedContinuation<SIPEndpoint, Error>] = []
+
+    /// Ожидающие готовности канала — каждый со своим таймером.
+    ///
+    /// Словарь, а не массив, потому что таймер у каждого свой. Общий таймер
+    /// ронял всех разом: второй звонок, начатый через девять секунд после
+    /// первого, получал чужой таймаут через секунду. На исправном транспорте
+    /// это не всплывает — `localEndpoint` обычно уже известен, и до ожидания
+    /// дело не доходит, — а всплывает ровно тогда, когда сеть тормозит, то
+    /// есть когда разбираться труднее всего.
+    private var readinessWaiters: [UUID: CheckedContinuation<SIPEndpoint, Error>] = [:]
+    private var readinessTimeouts: [UUID: Task<Void, Never>] = [:]
+
     private var pumpTask: Task<Void, Never>?
     private var failureReason: String?
 
@@ -125,6 +167,11 @@ public actor SIPTransactionLayer {
             AsyncStream<SIPServerInviteEvent>.makeStream(bufferingPolicy: .bufferingNewest(16))
         serverInviteEvents = serverStream
         serverInviteContinuation = serverContinuation
+
+        let (closureStream, closureContinuation) =
+            AsyncStream<String>.makeStream(bufferingPolicy: .bufferingNewest(4))
+        channelClosures = closureStream
+        channelClosureContinuation = closureContinuation
     }
 
     public var transport: SIPTransport { channel.transport }
@@ -153,6 +200,7 @@ public actor SIPTransactionLayer {
         }
         inboundContinuation.finish()
         serverInviteContinuation.finish()
+        channelClosureContinuation.finish()
         await channel.stop()
     }
 
@@ -161,14 +209,13 @@ public actor SIPTransactionLayer {
         if let localEndpoint { return localEndpoint }
         if let failureReason { throw TransactionError.transportFailed(failureReason) }
 
-        let timeoutTask = Task { [weak self] in
-            do { try await Task.sleep(timeout) } catch { return }
-            await self?.failReadiness(with: .timeout)
-        }
-        defer { timeoutTask.cancel() }
-
+        let id = UUID()
         return try await withCheckedThrowingContinuation { continuation in
-            readinessWaiters.append(continuation)
+            readinessWaiters[id] = continuation
+            readinessTimeouts[id] = Task { [weak self] in
+                do { try await Task.sleep(timeout) } catch { return }
+                await self?.expireReadiness(id)
+            }
         }
     }
 
@@ -368,8 +415,8 @@ public actor SIPTransactionLayer {
         guard let transaction = serverInvites[branch], transaction.state != .proceeding else {
             return false
         }
-        guard let response = sentResponses[branch] else { return false }
-        try? await channel.send(response.encoded())
+        guard let cached = sentResponses[branch] else { return false }
+        try? await channel.send(cached.response.encoded())
         return true
     }
 
@@ -432,12 +479,24 @@ public actor SIPTransactionLayer {
     }
 
     private func remember(response: SIPResponse, branch: String) {
-        sentResponses[branch] = response
-        let lifetime = timers.t4 * 8
-        Task { [weak self] in
-            try? await Task.sleep(lifetime)
-            await self?.forgetResponse(branch: branch)
+        let now = MonotonicClock.now
+        pruneCachedResponses(now: now)
+        sentResponses[branch] = CachedResponse(
+            response: response,
+            expiresAt: now + timers.t4 * 8
+        )
+
+        // Предел на случай, когда просроченного ещё нет, а записей уже много:
+        // так выглядит поток запросов, а не разговор.
+        while sentResponses.count > Self.maximumCachedResponses,
+            let oldest = sentResponses.min(by: { $0.value.expiresAt < $1.value.expiresAt })?.key
+        {
+            sentResponses.removeValue(forKey: oldest)
         }
+    }
+
+    private func pruneCachedResponses(now: MonotonicClock.Instant) {
+        sentResponses = sentResponses.filter { $0.value.expiresAt > now }
     }
 
     /// Отправляет запрос, не создавая транзакцию и не ожидая ответа.
@@ -535,10 +594,6 @@ public actor SIPTransactionLayer {
         try await channel.send(data)
     }
 
-    private func forgetResponse(branch: String) {
-        sentResponses.removeValue(forKey: branch)
-    }
-
     // MARK: - Приём
 
     private func handle(_ event: SIPTransportEvent) async {
@@ -546,22 +601,37 @@ public actor SIPTransactionLayer {
         case .ready(let local):
             localEndpoint = local
             failureReason = nil
-            let waiters = readinessWaiters
-            readinessWaiters.removeAll()
-            for waiter in waiters {
-                waiter.resume(returning: local)
-            }
+            resolveReadiness(with: .success(local))
 
         case .received(let data):
             await handleReceived(data)
 
         case .failed(let reason):
+            // Канал жив и повторит попытку сам. Причину запоминаем ради тех,
+            // кто ждёт первой готовности: им она заменяет десять секунд
+            // молчания внятным текстом. На уже поднятый канал она не влияет —
+            // `waitUntilReady` сначала отдаёт известный локальный адрес, и это
+            // намеренно: запрещать набор на время подрагивания Wi-Fi значит
+            // ломать работу там, где ломаться нечему.
+            //
+            // А вот транзакции в пути больше не роняем. Раньше их убивал
+            // каждый `waiting` от Network.framework, то есть каждое
+            // подрагивание Wi-Fi: REGISTER обрывался, backoff рос, и после
+            // перехода между точками доступа регистрация возвращалась не сразу,
+            // а следующим его шагом — до пяти минут без входящих. У транзакций
+            // есть собственные таймеры, и они для этого и заведены.
             failureReason = reason
-            failReadiness(with: .transportFailed(reason))
+
+        case .closed(let reason):
+            failureReason = reason
+            resolveReadiness(with: .failure(TransactionError.transportFailed(reason)))
             failAll(with: .transportFailed(reason))
+            // Наверх — один раз и с причиной. Дальше решает тот, кто создавал
+            // транспорт: сами мы его пересобрать не можем.
+            channelClosureContinuation.yield(reason)
 
         case .cancelled:
-            failReadiness(with: .cancelled)
+            resolveReadiness(with: .failure(TransactionError.cancelled))
             failAll(with: .cancelled)
         }
     }
@@ -596,8 +666,8 @@ public actor SIPTransactionLayer {
             // отменяемого INVITE, и без проверки получил бы в ответ его 180.
             if let branch = request.topVia?.branch,
                let previous = sentResponses[branch],
-               previous.cseq?.method == request.method {
-                try? await channel.send(previous.encoded())
+               previous.response.cseq?.method == request.method {
+                try? await channel.send(previous.response.encoded())
                 return
             }
             inboundContinuation.yield(request)
@@ -721,11 +791,22 @@ public actor SIPTransactionLayer {
         }
     }
 
-    private func failReadiness(with error: TransactionError) {
-        let waiters = readinessWaiters
-        readinessWaiters.removeAll()
-        for waiter in waiters {
-            waiter.resume(throwing: error)
+    /// Отвечает одному ожидающему и снимает его таймер.
+    private func resumeReadiness(_ id: UUID, with result: Result<SIPEndpoint, Error>) {
+        readinessTimeouts.removeValue(forKey: id)?.cancel()
+        guard let waiter = readinessWaiters.removeValue(forKey: id) else { return }
+        waiter.resume(with: result)
+    }
+
+    /// Истёк срок ожидания у одного — остальные ждут дальше свой.
+    private func expireReadiness(_ id: UUID) {
+        resumeReadiness(id, with: .failure(TransactionError.timeout))
+    }
+
+    /// Отвечает всем: канал готов, закрылся или отменён.
+    private func resolveReadiness(with result: Result<SIPEndpoint, Error>) {
+        for id in Array(readinessWaiters.keys) {
+            resumeReadiness(id, with: result)
         }
     }
 }

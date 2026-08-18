@@ -65,6 +65,12 @@ enum RegistrationProbe {
     ///   - password: пароль SIP.
     ///   - site: площадка. Решает, стучать ли перед регистрацией.
     ///   - knock: последовательность стука из настроек.
+    ///   - acceptsAnyCertificate: доверие к сертификату TLS из того же профиля.
+    ///     Проверка обязана ходить ровно так, как потом пойдёт рабочее
+    ///     подключение: с системным доверием она отказывала бы на лабораторном
+    ///     профиле с самоподписанным сертификатом там, где приложение
+    ///     регистрируется, и говорила бы при этом «АТС не отвечает» — то есть
+    ///     уводила бы искать сеть.
     ///   - log: куда писать подробности. В интерфейс уходит один исход, в
     ///     журнал — весь разбор: тому, кто потом читает жалобу «не
     ///     регистрируется», нужна именно трасса.
@@ -73,6 +79,7 @@ enum RegistrationProbe {
         password: String,
         site: SIPProfileSite,
         knock: PortKnockSequence,
+        acceptsAnyCertificate: Bool = false,
         log: @escaping @Sendable (SIPLogLevel, String) -> Void
     ) async -> Outcome {
         let host = account.signalingEndpoint.host
@@ -82,7 +89,7 @@ enum RegistrationProbe {
         // иначе выглядит точно так же, как молчащая АТС, — тайм-аутом. Разница
         // для техподдержки существенная: в одном случае надо править поле, в
         // другом — идти смотреть сеть.
-        switch resolve(host: host) {
+        switch await resolve(host: host) {
         case .resolved:
             break
         case .unknownHost:
@@ -96,7 +103,7 @@ enum RegistrationProbe {
         let channel = NetworkSIPTransport(
             remote: account.signalingEndpoint,
             transport: account.transport,
-            tlsTrust: .system,
+            tlsTrust: acceptsAnyCertificate ? .acceptAnyCertificateInsecurely : .system,
             serverName: account.domain
         )
         let knocker = PortKnocker.forServer(host, site: site, sequence: knock) { level, message in
@@ -194,7 +201,21 @@ enum RegistrationProbe {
     /// отсутствие маршрута) считается отсутствием сети. Это огрубление, и оно
     /// названо: на машине без сети имя тоже «не найдено», но подсказка «проверьте
     /// подключение» полезнее, чем «проверьте адрес», ровно в этом случае.
-    private static func resolve(host: String) -> Resolution {
+    private static func resolve(host: String) async -> Resolution {
+        // На своей очереди, а не на кооперативном пуле. Довод тот же, что у
+        // `PortKnocker`, и записан там же: `getaddrinfo` умеет думать
+        // секундами, а потоков в пуле немного, и один заблокированный отнимает
+        // их у звука и у транзакций. Здесь это ровно тот случай — проверка идёт
+        // из мастера, пока приложение уже работает.
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: blockingResolve(host: host)) }
+        }
+    }
+
+    /// Отдельная очередь под блокирующие вызовы имени.
+    private static let queue = DispatchQueue(label: "com.elitesip.registration-probe")
+
+    private static func blockingResolve(host: String) -> Resolution {
         var hints = addrinfo()
         hints.ai_family = AF_UNSPEC
         hints.ai_socktype = SOCK_DGRAM

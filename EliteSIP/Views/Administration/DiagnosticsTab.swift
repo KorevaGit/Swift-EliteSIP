@@ -158,7 +158,7 @@ private struct LogFileSection: View {
                     """)
 
                 SettingsButtonsRow {
-                    Button("Собрать архив для поддержки") { makeArchive() }
+                    Button("Собрать архив для поддержки") { Task { await makeArchive() } }
                 }
 
                 if let archiveResult {
@@ -170,9 +170,9 @@ private struct LogFileSection: View {
 
     /// Архив собирается и сразу показывается в Finder: инструкция оператору
     /// должна состоять из одного шага, а дальше он его просто перетащит.
-    private func makeArchive() {
+    private func makeArchive() async {
         do {
-            let url = try model.makeSupportArchive()
+            let url = try await model.makeSupportArchive()
             NSWorkspace.shared.activateFileViewerSelecting([url])
             archiveResult = String(
                 format: NSLocalizedString("Готово: %@", comment: "архив для поддержки собран"),

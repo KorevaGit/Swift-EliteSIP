@@ -108,7 +108,10 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
             receiveNext()
 
         case .failed(let error):
-            continuation.yield(.failed(reason: explain(error)))
+            // Насовсем: `NWConnection` из `.failed` не поднимается никаким
+            // `start()`. Пересобрать транспорт может только тот, кто его
+            // создавал, и `closed` существует затем, чтобы он об этом узнал.
+            continuation.yield(.closed(reason: explain(error)))
             continuation.finish()
 
         case .cancelled:
@@ -123,6 +126,13 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
             // и вот его ожидание не лечит никогда: если на порту незашифрованный
             // SIP, он им и останется. Поэтому текст берём у `explain`, а не
             // подписываем всё подряд «ожиданием сети».
+            //
+            // Событие всё же `failed`, а не `closed`, и разница здесь важнее
+            // всего: пересборка транспорта отказ TLS не лечит — на том порту
+            // как был обычный SIP, так и останется, — и рабочее место, которое
+            // на это событие переподключалось бы, ушло бы в бесконечный круг
+            // пересборок. Чинится это правкой настроек, и сказать об этом надо
+            // словами, а не попытками.
             continuation.yield(.failed(reason: explain(error)))
 
         case .setup, .preparing:
@@ -236,7 +246,12 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
 
     private func handleReceived(data: Data?, error: NWError?, isComplete: Bool) {
         if let error {
-            continuation.yield(.failed(reason: error.localizedDescription))
+            // Приём отказал — значит соединение кончилось: перезаводить приём
+            // на нём нечем, а другого способа получать сообщения у нас нет.
+            // Это тот самый случай, ради которого заведено `closed`: раньше
+            // здесь молча умирал весь SIP, а снаружи это выглядело как
+            // «зарегистрирован, но звонки не приходят».
+            continuation.yield(.closed(reason: explain(error)))
             continuation.finish()
             return
         }
@@ -255,7 +270,11 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
                 } catch {
                     // не переводится: рядом стоит текст самой ошибки, и
                     // разбирают эту пару в журнале.
-                    continuation.yield(.failed(reason: "поток испорчен: \(error)"))
+                    //
+                    // Испорченный поток не чинится: границы сообщений потеряны,
+                    // и всё, что придёт дальше, разберётся мусором. Канал
+                    // закрывается насовсем, и его пересоберут.
+                    continuation.yield(.closed(reason: "поток испорчен: \(error)"))
                     continuation.finish()
                     return
                 }
@@ -263,8 +282,20 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
         }
 
         // isComplete на потоковом соединении означает закрытие с другой стороны.
+        //
+        // Это `closed`, а не `cancelled`: `cancelled` означает «закрыли мы
+        // сами», и обходиться с чужим закрытием как со своим значит остаться
+        // без регистрации молча. Перезапуск Asterisk и разрыв TCP по таймауту
+        // приходят именно сюда.
         if isComplete, transport != .udp {
-            continuation.yield(.cancelled)
+            // Причина видна человеку в шапке панели, а не только в журнале:
+            // закрытый канал приводит агент в состояние отказа, а его подпись
+            // и есть эта строка.
+            continuation.yield(.closed(reason: NSLocalizedString(
+                "сервер закрыл соединение",
+                bundle: .module,
+                comment: "почему пропало соединение"
+            )))
             continuation.finish()
             return
         }

@@ -60,6 +60,7 @@ extension AppModel {
             password: candidate.password,
             site: candidate.site,
             knock: settings.portKnock,
+            acceptsAnyCertificate: settings.profiles.active.acceptsAnyTLSCertificate,
             log: { [weak self] level, message in
                 Task { @MainActor in self?.append(level: level, message: message) }
             }

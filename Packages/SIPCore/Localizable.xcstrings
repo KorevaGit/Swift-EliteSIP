@@ -664,6 +664,23 @@
         }
       }
     },
+    "сервер закрыл соединение": {
+      "comment": "почему пропало соединение",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the server closed the connection"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер закрыл соединение"
+          }
+        }
+      }
+    },
     "сервер не ответил": {
       "comment": "почему перевод не состоялся",
       "localizations": {

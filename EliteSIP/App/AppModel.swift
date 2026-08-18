@@ -229,6 +229,20 @@ final class AppModel: ObservableObject {
     @Published var lastNetworkPathIsSatisfied = false
     var lastNetworkInterfaces: Set<String> = []
     var wakeObserver: NSObjectProtocol?
+
+    /// Канал закрылся, пока шёл разговор: пересоберём, когда линия освободится.
+    ///
+    /// Разговор рвать ради переподключения нельзя — он держится своим диалогом
+    /// и своим сокетом RTP и переживает мёртвую сигнализацию. А вот забыть про
+    /// пересборку нельзя тем более: после отбоя рабочее место осталось бы без
+    /// регистрации молча.
+    var isReconnectPending = false
+
+    /// Сколько отказов регистрации подряд. Ноль после каждой удавшейся.
+    var consecutiveRegistrationFailures = 0
+
+    /// Когда в последний раз пересобирали соединение по страховке.
+    var lastSafetyReconnect: Date?
     @Published private(set) var log: [LogEntry] = []
 
     /// Набранный номер — всегда в том виде, в котором он уйдёт на сервер.
@@ -343,16 +357,34 @@ final class AppModel: ObservableObject {
     ///   «Обслуживание» передаёт сюда место, выбранное администратором, и
     ///   упаковка при этом остаётся одна: второй способ собрать архив означал
     ///   бы, что однажды в поддержку уедет не то, что мы думаем.
-    func makeSupportArchive(to destination: URL? = nil) throws -> URL {
-        logFile?.flush()
+    ///
+    /// Асинхронный, потому что синхронным он держал главный актор всё время
+    /// сборки: `flush` заходит на очередь журнала, а сама упаковка запускает
+    /// `ditto` и ждёт его завершения. Оператор нажимает эту кнопку тогда, когда
+    /// у него уже что-то не работает, и замершее в ответ приложение — худший из
+    /// возможных ответов.
+    func makeSupportArchive(to destination: URL? = nil) async throws -> URL {
         let target = destination
             ?? logDirectory.appendingPathComponent(SupportArchive.suggestedName())
-        return try SupportArchive.make(
-            logs: logFile?.files() ?? [],
-            summary: supportSummary,
-            destination: target
-        )
+        let logFile = logFile
+        let summary = supportSummary
+
+        return try await withCheckedThrowingContinuation { continuation in
+            Self.archiveQueue.async {
+                continuation.resume(with: Result {
+                    logFile?.flush()
+                    return try SupportArchive.make(
+                        logs: logFile?.files() ?? [],
+                        summary: summary,
+                        destination: target
+                    )
+                })
+            }
+        }
     }
+
+    /// Очередь сборки архива: и журнал, и внешний архиватор блокируют надолго.
+    private static let archiveQueue = DispatchQueue(label: "com.elite.EliteSIP.support-archive")
 
     private var supportSummary: String {
         // не переводится: шапка архива для поддержки — то же техническое
@@ -602,6 +634,12 @@ final class AppModel: ObservableObject {
         registrationSlowTask?.cancel()
         registrationSlowTask = nil
 
+        switch registration {
+        case .registered: consecutiveRegistrationFailures = 0
+        case .failed: noteRegistrationFailed()
+        default: break
+        }
+
         guard case .registering = registration else {
             isRegistrationSlow = false
             return
@@ -631,6 +669,9 @@ final class AppModel: ObservableObject {
 
         case .unsupportedRequest(let method):
             append(level: .info, message: "запрос \(method.rawValue) отклонён: ещё не поддерживается")
+
+        case .channelClosed(let reason):
+            Task { [weak self] in await self?.handleChannelClosed(reason: reason) }
         }
     }
 
@@ -1048,7 +1089,7 @@ final class AppModel: ObservableObject {
             }
 
         case .answered(let body, _):
-            startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID)
+            await startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID)
 
         case .failed(let status, let reason):
             reservation.release()
@@ -1071,13 +1112,13 @@ final class AppModel: ObservableObject {
         offer: SessionDescription,
         reservation: RTPPortReservation,
         on lineID: String
-    ) {
+    ) async {
         do {
             let answer = try SessionDescription(parsing: answerBody)
             let negotiated = try SDPNegotiator.resolveAnswer(
                 answer, toOffer: offer, supported: preferredCodecs
             )
-            startMedia(negotiated: negotiated, reservation: reservation, on: lineID)
+            await startMedia(negotiated: negotiated, reservation: reservation, on: lineID)
         } catch {
             append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
             setStatus(NSLocalizedString("Ошибка звука", comment: "состояние линии"), on: lineID)
@@ -1093,7 +1134,7 @@ final class AppModel: ObservableObject {
         negotiated: NegotiatedMedia,
         reservation: RTPPortReservation,
         on lineID: String
-    ) {
+    ) async {
         do {
             append(
                 level: .info,
@@ -1140,7 +1181,9 @@ final class AppModel: ObservableObject {
             session.onAudioEvent = { [weak self] event in
                 Task { @MainActor in self?.handle(audio: event, on: lineID) }
             }
-            try session.start()
+            // Подъём стоит до восьми десятых секунды на открытии устройства,
+            // и держать на них главный актор незачем: ждём мы, а не панель.
+            try await session.startWithoutBlocking()
 
             // Линия могла уйти, пока поднимался звук: BYE или CANCEL
             // расходится с 200 OK на сети, и `teardown` успевает раньше.
@@ -1712,8 +1755,15 @@ final class AppModel: ObservableObject {
     /// не деаллоцируется вовсе (`VoiceAudioBus`), а держать снятую сессию
     /// лишнюю секунду стало вредно — звонок, начатый сразу после отбоя, попадал
     /// бы на разбор её узла.
+    ///
+    /// Снятие уведено с главного актора: `RTPSession.stop` ждёт закрытия сокета,
+    /// движок останавливается синхронно, и вместе это давало 1,4 секунды
+    /// замершей панели после отбоя — ровно тогда, когда оператор набирает
+    /// следующий номер. Порядок при этом не страдает: очередь снятия у
+    /// `MediaSession` последовательная и общая, а владение трактом проверяется
+    /// по ключу, поэтому опоздавшее снятие чужой разговор не заглушит.
     private func retire(_ media: MediaSession?) {
-        media?.stop()
+        media?.stopWithoutBlocking()
     }
 
     /// Убирает линию и, если она была последней, всё общее состояние звонка.
@@ -1767,6 +1817,9 @@ final class AppModel: ObservableObject {
             isTransferEntryVisible = false
             transferNumber = ""
             numberEntry = .blindTransfer
+            // Линия освободилась — если пересборка соединения ждала конца
+            // разговора, её час настал.
+            reconnectIfPending()
             return
         }
 
@@ -2020,7 +2073,7 @@ final class AppModel: ObservableObject {
         // подъёмом тракта первые кадры уходят в закрытый порт, а сам порт в это
         // время может занять кто угодно ещё.
         mutate(lineID) { $0.localDescription = prepared.answer }
-        startMedia(negotiated: prepared.media, reservation: prepared.reservation, on: lineID)
+        await startMedia(negotiated: prepared.media, reservation: prepared.reservation, on: lineID)
         guard line(lineID)?.media != nil else { return }
 
         guard await agent.answerIncomingCall(

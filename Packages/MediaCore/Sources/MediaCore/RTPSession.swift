@@ -379,7 +379,13 @@ public final class RTPPortReservation: @unchecked Sendable {
             ? range.lowerBound
             : range.lowerBound + 1
 
-        while candidate < range.upperBound {
+        // Пара обязана целиком лечь в диапазон: RTCP живёт на порту RTP плюс
+        // один. Условие написано именно так, чтобы это было видно на месте —
+        // из `candidate < upperBound` тот же смысл вычитается не сразу, и при
+        // следующей правке границы легко получить пару, у которой второй порт
+        // уже снаружи. Верхний порт диапазона при этом остаётся неиспользуемым
+        // как RTP, и это правильно, а не потеря.
+        while candidate + 1 <= range.upperBound {
             if !claimedPorts.contains(candidate),
                let rtp = boundDatagramSocket(port: candidate) {
                 if let rtcp = boundDatagramSocket(port: candidate + 1) {

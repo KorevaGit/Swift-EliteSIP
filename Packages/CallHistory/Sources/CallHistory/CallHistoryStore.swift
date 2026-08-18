@@ -152,6 +152,12 @@ public final class CallHistoryStore: @unchecked Sendable {
                 withIntermediateDirectories: true
             )
 
+            // Файл заводим сами и сразу с правами 0600. SQLite создал бы его
+            // с умолчанием umask, то есть читаемым всей машиной, — а в нём
+            // номера лидов, ради которых у истории вообще есть срок хранения.
+            // Пустой файл SQLite примет как новую базу.
+            restrictPermissions()
+
             var database = try SQLiteDatabase(url: settings.fileURL)
 
             // Порча файла не гипотетическая: рабочее место выключают из
@@ -169,11 +175,32 @@ public final class CallHistoryStore: @unchecked Sendable {
             }
 
             try prepare(database)
+            // Повторно: журнал упреждающей записи и разделяемую память SQLite
+            // заводит сам, и заводит их первой же транзакцией — то есть внутри
+            // `prepare`, а не раньше. В них лежит то же, что и в базе.
+            restrictPermissions()
             self.database = database
             outcome = .ready
         } catch {
             database = nil
             outcome = .unavailable("\(error)")
+        }
+    }
+
+    /// Закрывает базу и её спутников от всех, кроме владельца.
+    ///
+    /// Три файла, а не один: в режиме WAL рядом с базой живут `-wal` и `-shm`,
+    /// и данные в них те же самые. Отсутствующие молча пропускаются — их
+    /// SQLite ещё не создал либо уже убрал за собой.
+    private func restrictPermissions() {
+        let manager = FileManager.default
+        let base = settings.fileURL.path
+        for path in [base, base + "-wal", base + "-shm"] {
+            if !manager.fileExists(atPath: path), path == base {
+                manager.createFile(atPath: path, contents: nil, attributes: [.posixPermissions: 0o600])
+                continue
+            }
+            try? manager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
         }
     }
 

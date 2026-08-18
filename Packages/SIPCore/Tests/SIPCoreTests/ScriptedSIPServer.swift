@@ -22,6 +22,9 @@ final class ScriptedSIPServer: SIPTransportChannel, @unchecked Sendable {
     private let responder: Responder
     private let lock = NSLock()
 
+    /// Не объявлять готовность в `start()`. Только для проверок ожидания.
+    var staysSilentOnStart = false
+
     private var receivedRequestsStorage: [SIPRequest] = []
     private var sentResponsesStorage: [SIPResponse] = []
     private var keepAliveCountStorage = 0
@@ -58,6 +61,12 @@ final class ScriptedSIPServer: SIPTransportChannel, @unchecked Sendable {
     }
 
     func start() async {
+        guard !staysSilentOnStart else { return }
+        continuation.yield(.ready(local: local))
+    }
+
+    /// Объявляет готовность вручную — для тех, кто её так и не дождался.
+    func becomeReady() {
         continuation.yield(.ready(local: local))
     }
 
@@ -105,8 +114,27 @@ final class ScriptedSIPServer: SIPTransportChannel, @unchecked Sendable {
         continuation.yield(.received(response.encoded()))
     }
 
+    /// Отказ, после которого канал жив: Network.framework повторит сам.
     func fail(reason: String) {
         continuation.yield(.failed(reason: reason))
+    }
+
+    /// Канал закрылся насовсем — так выглядит `NWConnection` в `.failed` и
+    /// закрытое сервером TCP-соединение.
+    func close(reason: String) {
+        continuation.yield(.closed(reason: reason))
+        continuation.finish()
+    }
+
+    /// Канал так и не поднялся: `ready` не приходит вовсе.
+    ///
+    /// Отдельным способом создания, потому что обычный сервер объявляет себя
+    /// готовым в `start()`, а проверять ожидание готовности надо на том,
+    /// который этого не делает.
+    static func neverReady() -> ScriptedSIPServer {
+        let server = ScriptedSIPServer { _, _ in nil }
+        server.staysSilentOnStart = true
+        return server
     }
 }
 

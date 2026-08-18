@@ -90,6 +90,10 @@ struct SIPCheck {
                     await incoming.deliver(call)
                 case .unsupportedRequest(let method):
                     print("   отклонён запрос \(method.rawValue)")
+                case .channelClosed(let reason):
+                    // Дальше ничего не будет: канал мёртв, а пересобрать его
+                    // инструменту нечем — в приложении это делает `AppModel`.
+                    print("   ✖ канал закрыт: \(reason)")
                 }
             }
         }

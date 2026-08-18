@@ -163,4 +163,93 @@ extension AppModel {
         }
         await reconnect()
     }
+
+    // MARK: - Закрытый канал
+
+    /// Канал закрылся насовсем.
+    ///
+    /// До появления этого пути такое состояние было тупиком, и самым дорогим из
+    /// найденных аудитом. `NWConnection` в `.failed` не поднимается никаким
+    /// `start()`, а поток его событий кончается — то есть транспорт мёртв, а
+    /// узнать об этом было неоткуда. Регистрация продолжала ходить по кругу с
+    /// backoff, каждая попытка падала мгновенно, и рабочее место молча выпадало
+    /// из раздачи лидов до перезапуска приложения. На экране при этом стояло
+    /// «повтор через N с» — обещание, которое не могло сбыться.
+    ///
+    /// Лечится это только пересборкой транспорта, и сделать её может лишь тот,
+    /// кто его создавал, — то есть мы.
+    func handleChannelClosed(reason: String) async {
+        append(level: .error, message: "соединение с сервером закрыто: \(reason)")
+
+        // Решение оператора уйти с линии сильнее любой автоматики — тот же
+        // довод, что и в `connectIfPossible`.
+        guard !isOfflineByChoice else { return }
+
+        guard canDisconnect else {
+            // Разговор рвать нельзя. Сигнализация к этому моменту уже мертва —
+            // BYE не уйдёт, — но звук идёт своим сокетом и живёт, а оператор
+            // говорит с клиентом. Пересоберём, как только линия освободится.
+            isReconnectPending = true
+            append(level: .info, message: "пересборка соединения отложена: идёт разговор")
+            return
+        }
+
+        isReconnectPending = false
+        await reconnect()
+    }
+
+    /// Пересобирает соединение, если оно этого ждало.
+    ///
+    /// Зовётся из `teardown`, когда снялась последняя линия.
+    func reconnectIfPending() {
+        guard isReconnectPending, canDisconnect, !isOfflineByChoice else { return }
+        isReconnectPending = false
+        append(level: .info, message: "разговор закончен — пересобираем соединение")
+        Task { [weak self] in await self?.reconnect() }
+    }
+
+    // MARK: - Страховка
+
+    /// Сколько отказов регистрации подряд считать поводом пересобрать всё.
+    ///
+    /// Пять — это около двух с половиной минут: backoff идёт 5, 10, 20, 40, 80.
+    static let failuresBeforeRebuild = 5
+
+    /// Не чаще раза в пять минут.
+    static let safetyRebuildInterval: TimeInterval = 300
+
+    /// Страховка от отказов, которые мы не научились узнавать.
+    ///
+    /// `channelClosed` закрывает те случаи, которые удалось перечислить.
+    /// Перечислить все нельзя, а цена пропущенного — рабочее место без
+    /// входящих до перезапуска, и узнаёт о нём не оператор, а колл-центр по
+    /// недостаче лидов. Поэтому здесь стоит грубая мера: регистрация не
+    /// поднимается подряд много раз — пересобираем соединение целиком, ровно
+    /// как это сделал бы человек кнопкой.
+    ///
+    /// Две оговорки не дают ей превратиться в круг пересборок. Реже раза в пять
+    /// минут — потому что есть отказы, которых пересборка не лечит в принципе
+    /// (неверный пароль, выключенный на сервере TLS), и биться в них чаще
+    /// бессмысленно. И только при свободных линиях — разговор дороже
+    /// регистрации.
+    func noteRegistrationFailed() {
+        consecutiveRegistrationFailures += 1
+        guard consecutiveRegistrationFailures >= Self.failuresBeforeRebuild else { return }
+        guard isAgentRunning, canDisconnect, !isOfflineByChoice else { return }
+
+        if let last = lastSafetyReconnect,
+            Date().timeIntervalSince(last) < Self.safetyRebuildInterval
+        {
+            return
+        }
+
+        lastSafetyReconnect = Date()
+        consecutiveRegistrationFailures = 0
+        append(
+            level: .warning,
+            message: "регистрация не поднимается \(Self.failuresBeforeRebuild) раз подряд —"
+                + " пересобираем соединение"
+        )
+        Task { [weak self] in await self?.reconnect() }
+    }
 }

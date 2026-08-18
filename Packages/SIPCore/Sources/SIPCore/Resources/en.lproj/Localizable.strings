@@ -80,6 +80,8 @@
 	<string>there is no call</string>
 	<key>сервер завершил перевод без результата</key>
 	<string>the server ended the transfer with no result</string>
+	<key>сервер закрыл соединение</key>
+	<string>the server closed the connection</string>
 	<key>сервер не ответил</key>
 	<string>the server did not answer</string>
 	<key>сервер не принял TLS (код %lld)</key>

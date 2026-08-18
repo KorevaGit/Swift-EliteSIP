@@ -641,3 +641,49 @@ struct CallHistoryStoreTests {
         )
     }
 }
+
+/// Права на файлы истории.
+///
+/// В базе лежат номера лидов — те самые персональные данные, ради которых у
+/// истории вообще есть срок хранения и отдельная политика удаления. Файл
+/// настроек ради пароля закрыли правами 0600 ещё в M7b, а база оставалась с
+/// умолчанием umask, то есть читаемой любым процессом пользователя и уезжающей
+/// в бэкап ровно такой.
+@Suite("Права на историю", .serialized)
+struct CallHistoryPermissionsTests {
+
+    private func makeSettings() -> CallHistoryStore.Settings {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("elitesip-history-perm-\(UUID().uuidString)", isDirectory: true)
+        return CallHistoryStore.Settings(
+            fileURL: directory.appendingPathComponent("call-history.sqlite"),
+            maximumAgeInDays: 30
+        )
+    }
+
+    private func permissions(of path: String) -> Int? {
+        try? (FileManager.default.attributesOfItem(atPath: path)[.posixPermissions] as? NSNumber)?
+            .intValue
+    }
+
+    @Test("База и её спутники закрыты от всех, кроме владельца")
+    func databaseIsPrivate() {
+        let settings = makeSettings()
+        defer { try? FileManager.default.removeItem(at: settings.fileURL.deletingLastPathComponent()) }
+
+        let store = CallHistoryStore(settings: settings)
+        #expect(store.openOutcome == .ready)
+        store.flush()
+
+        let base = settings.fileURL.path
+        #expect(permissions(of: base) == 0o600, "сама база")
+
+        // `-wal` и `-shm` заводит SQLite первой же транзакцией, и данные в них
+        // те же самые. Если их нет — база закрыта начисто, и проверять нечего.
+        for suffix in ["-wal", "-shm"] {
+            let path = base + suffix
+            guard FileManager.default.fileExists(atPath: path) else { continue }
+            #expect(permissions(of: path) == 0o600, "спутник \(suffix)")
+        }
+    }
+}

@@ -155,3 +155,35 @@ struct G711Tests {
         #expect(G711.decode([], as: .pcma).isEmpty)
     }
 }
+
+/// Кодек не роняет процесс на чужом кодеке.
+///
+/// `G711.encode/decode/silenceByte` на `.g722` раньше звали
+/// `preconditionFailure`, то есть падали. Из боевого кода они недостижимы —
+/// `AudioFrameEncoder` и `silencePayload` разводят G.722 отдельной веткой, — но
+/// проект уже падал ровно здесь: живой `sipcheck --answer` на лабе, где G.722
+/// идёт первым. Цена ошибки не должна быть крэшем посреди разговора.
+@Suite("G.711 и чужой кодек")
+struct G711ForeignCodecTests {
+
+    @Test("Кодирование G.722 через таблицы G.711 отдаёт пустоту, а не падает")
+    func encodingWideBandYieldsNothing() {
+        #expect(G711.encode([0, 1000, -1000], as: .g722).isEmpty)
+    }
+
+    @Test("Декодирование G.722 через таблицы G.711 отдаёт пустоту, а не падает")
+    func decodingWideBandYieldsNothing() {
+        #expect(G711.decode(Data([0x01, 0x02, 0x03]), as: .g722).isEmpty)
+    }
+
+    @Test("Байт тишины для G.722 не падает и не идёт в звук")
+    func silenceByteForWideBandIsSafe() {
+        // Значение здесь — заглушка, а не утверждение про G.722: настоящую
+        // тишину для него кодирует `silencePayload` честным кодером, и именно
+        // этот путь проходит боевой код.
+        _ = G711.silenceByte(for: .g722)
+
+        let payload = AudioCodec.g722.silencePayload(forPacketTime: 20)
+        #expect(payload.count == AudioCodec.g722.byteCount(forPacketTime: 20))
+    }
+}

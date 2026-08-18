@@ -81,8 +81,8 @@ extension AppModel {
     /// Тем же `SupportArchive`, что и «Собрать архив для поддержки»: второй
     /// способ упаковать журнал означал бы, что однажды в поддержку уедет не то,
     /// что мы думаем.
-    func exportLog(to destination: URL) throws {
-        _ = try makeSupportArchive(to: destination)
+    func exportLog(to destination: URL) async throws {
+        _ = try await makeSupportArchive(to: destination)
         append(level: .info, message: "журнал выгружен в файл")
     }
 

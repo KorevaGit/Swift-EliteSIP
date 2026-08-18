@@ -18,6 +18,16 @@ public actor SIPUserAgent {
         /// Запрос, на который мы ответили отказом, потому что он ещё не
         /// поддерживается. Нужен, чтобы такие вещи было видно, а не только в логе.
         case unsupportedRequest(method: SIPMethod)
+
+        /// Канал закрылся насовсем: дальше без пересборки транспорта не будет
+        /// ни регистрации, ни звонков.
+        ///
+        /// Агент сам себе помочь тут не может — транспорт ему передали снаружи,
+        /// и создать новый может только тот, кто создавал прежний. Повторы
+        /// регистрации в этом состоянии бессмысленны: каждая попытка падает
+        /// мгновенно на мёртвом канале, а человек читает «повтор через N с» как
+        /// обещание, которое не сбудется.
+        case channelClosed(reason: String)
     }
 
     public static let defaultUserAgentName = "EliteSIP/0.1 (macOS)"
@@ -204,8 +214,18 @@ public actor SIPUserAgent {
     private var registrationTask: Task<Void, Never>?
     private var requestPumpTask: Task<Void, Never>?
     private var serverInvitePumpTask: Task<Void, Never>?
+    private var channelClosurePumpTask: Task<Void, Never>?
     private var keepAliveTask: Task<Void, Never>?
     private var isStopping = false
+
+    /// Канал закрылся насовсем — и это состояние необратимо для этого агента.
+    ///
+    /// Отдельный признак, а не одна отмена задачи, потому что `cancel()`
+    /// останавливает цикл не сразу: попытка регистрации, уже вошедшая в
+    /// обработку отказа, успевает записать своё «повтор через N с» поверх
+    /// нашего «канал закрыт». Ровно эту гонку и поймал тест.
+    private var isChannelClosed = false
+
     private var consecutiveFailures = 0
 
     /// Как часто удерживать привязку NAT пустым пакетом.
@@ -267,6 +287,7 @@ public actor SIPUserAgent {
     public func start() async {
         guard registrationTask == nil else { return }
         isStopping = false
+        isChannelClosed = false
 
         await transactions.start()
 
@@ -284,6 +305,13 @@ public actor SIPUserAgent {
             }
         }
 
+        let closures = transactions.channelClosures
+        channelClosurePumpTask = Task { [weak self] in
+            for await reason in closures {
+                await self?.handle(channelClosed: reason)
+            }
+        }
+
         registrationTask = Task { [weak self] in
             await self?.runRegistrationLoop()
         }
@@ -291,6 +319,25 @@ public actor SIPUserAgent {
         keepAliveTask = Task { [weak self] in
             await self?.runKeepAliveLoop()
         }
+    }
+
+    /// Канал закрылся насовсем.
+    ///
+    /// Всё, что можно сделать изнутри агента, — перестать делать вид, что
+    /// повторы помогут: цикл регистрации останавливается, а наверх уходит
+    /// событие. Дальше либо приложение пересоберёт транспорт и поднимет нового
+    /// агента, либо не пересоберёт — но тогда и «повтор через N с» на экране
+    /// врать не будет.
+    private func handle(channelClosed reason: String) {
+        guard !isStopping, !isChannelClosed else { return }
+        isChannelClosed = true
+        registrationTask?.cancel()
+        registrationTask = nil
+        keepAliveTask?.cancel()
+        keepAliveTask = nil
+        log(.error, "канал закрыт: \(reason)")
+        set(state: .failed(reason: reason, retryAt: nil))
+        eventContinuation.yield(.channelClosed(reason: reason))
     }
 
     /// Немедленно перерегистрироваться, не дожидаясь планового обновления.
@@ -341,6 +388,8 @@ public actor SIPUserAgent {
         requestPumpTask = nil
         serverInvitePumpTask?.cancel()
         serverInvitePumpTask = nil
+        channelClosurePumpTask?.cancel()
+        channelClosurePumpTask = nil
         await transactions.stop()
         set(state: .idle)
         eventContinuation.finish()
@@ -349,7 +398,7 @@ public actor SIPUserAgent {
     // MARK: - Регистрация
 
     private func runRegistrationLoop() async {
-        while !isStopping, !Task.isCancelled {
+        while !isStopping, !isChannelClosed, !Task.isCancelled {
             do {
                 // Перед REGISTER, а не параллельно с ним: пока дорога закрыта,
                 // запрос уходит в никуда и стоит нам полного цикла ожидания
@@ -377,7 +426,9 @@ public actor SIPUserAgent {
             } catch is CancellationError {
                 return
             } catch {
-                guard !isStopping else { return }
+                // Закрытый канал уже всё сказал про себя сам, и «повтор через
+                // N с» поверх этого был бы обещанием, которое не сбудется.
+                guard !isStopping, !isChannelClosed else { return }
                 consecutiveFailures += 1
                 lastRegistrationFailure = error as? RegistrationError
                 let delay = Self.backoffDelay(forAttempt: consecutiveFailures)

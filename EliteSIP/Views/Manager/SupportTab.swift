@@ -22,7 +22,7 @@ struct SupportTab: View {
                 """)
 
             SettingsButtonsRow {
-                Button("Собрать логи") { makeArchive() }
+                Button("Собрать логи") { Task { await makeArchive() } }
                     .disabled(!model.settings.logFile.isEnabled)
                 Button("Исправить сеть") {
                     Task { await model.repairNetwork() }
@@ -49,9 +49,9 @@ struct SupportTab: View {
         }
     }
 
-    private func makeArchive() {
+    private func makeArchive() async {
         do {
-            let url = try model.makeSupportArchive()
+            let url = try await model.makeSupportArchive()
             NSWorkspace.shared.activateFileViewerSelecting([url])
             archiveResult = String(format: NSLocalizedString("Готово: %@", comment: "архив для поддержки собран"), url.lastPathComponent)
         } catch {

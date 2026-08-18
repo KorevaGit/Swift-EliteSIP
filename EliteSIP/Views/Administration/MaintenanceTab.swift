@@ -34,7 +34,7 @@ struct MaintenanceTab: View {
             SettingsButtonsRow {
                 Button("Выгрузить настройки…") { exportSettings() }
                 Button("Выгрузить конфигурацию…") { exportConfiguration() }
-                Button("Выгрузить журнал…") { exportLog() }
+                Button("Выгрузить журнал…") { Task { await exportLog() } }
             }
 
             SettingsNote("""
@@ -195,10 +195,10 @@ struct MaintenanceTab: View {
         }
     }
 
-    private func exportLog() {
+    private func exportLog() async {
         guard let url = save(name: SupportArchive.suggestedName()) else { return }
         do {
-            try model.exportLog(to: url)
+            try await model.exportLog(to: url)
             show(String(format: NSLocalizedString("Журнал выгружен в %@.", comment: "итог выгрузки журнала"), url.lastPathComponent))
         } catch {
             show(String(format: NSLocalizedString("Не удалось выгрузить журнал: %@", comment: "выгрузка журнала не удалась"), error.localizedDescription))

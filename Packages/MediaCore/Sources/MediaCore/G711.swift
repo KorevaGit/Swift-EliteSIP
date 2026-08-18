@@ -186,7 +186,13 @@ public enum G711 {
             shift = 3
             bias = Tables.aLawIndexBias
         case .g722:
-            preconditionFailure("G.722 кодируется через G722.Encoder")
+            // Пустота, а не падение. Сюда не приходят: и `AudioFrameEncoder`, и
+            // `silencePayload` разводят G.722 отдельной веткой, а прямых
+            // вызовов из боевого кода нет. Но проект уже падал ровно здесь —
+            // на живом `sipcheck --answer`, где G.722 идёт первым, — и цена
+            // ошибки не должна быть падением процесса посреди разговора.
+            // Пустой кадр слышен как заминка, и это несравнимо дешевле.
+            return Data()
         }
 
         var encoded = Data(count: samples.count)
@@ -208,7 +214,8 @@ public enum G711 {
         switch codec {
         case .pcmu: table = Tables.muLawDecode
         case .pcma: table = Tables.aLawDecode
-        case .g722: preconditionFailure("G.722 декодируется через G722.Decoder")
+        // Пустота по той же причине, что и в `encode`: тишина вместо крэша.
+        case .g722: return []
         }
 
         return [Int16](unsafeUninitializedCapacity: payload.count) { destination, initialized in
@@ -235,7 +242,12 @@ public enum G711 {
         switch codec {
         case .pcmu: muLawSilence
         case .pcma: aLawSilence
-        case .g722: preconditionFailure("У G.722 нет постоянного байта тишины")
+        // У G.722 постоянного байта тишины нет — это ADPCM с состоянием, и
+        // нули дают щелчки, а не тишину. Правильный путь — `silencePayload`,
+        // который кодирует нули честным кодером. Здесь остаётся байт G.711
+        // как заведомо безвредная заглушка: заявлением о том, что у G.722
+        // тишина такая, он не является, и звук через него не идёт.
+        case .g722: muLawSilence
         }
     }
 }
