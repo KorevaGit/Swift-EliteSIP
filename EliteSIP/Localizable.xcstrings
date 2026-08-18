@@ -2996,6 +2996,22 @@
         }
       }
     },
+    "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. На боевом сервере такой фичи нет: «core show features» от 18 августа 2026 знает перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмену перевода *77 — и ничего про конференцию. Прежнее умолчание *3 было догадкой и снято.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code runs an Asterisk dynamic feature and moves both legs of the current call into ConfBridge. The production server has no such feature: “core show features” of 18 August 2026 lists pickup *8, blind transfer ##, attended transfer *02, disconnect **, recording *1 and cancel-transfer *77 — and nothing about conferencing. The former *3 default was a guess and has been dropped."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. На боевом сервере такой фичи нет: «core show features» от 18 августа 2026 знает перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмену перевода *77 — и ничего про конференцию. Прежнее умолчание *3 было догадкой и снято."
+          }
+        }
+      }
+    },
     "Код должен содержать только DTMF-символы и хотя бы один тон.": {
       "localizations": {
         "en": {
@@ -3008,6 +3024,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Код должен содержать только DTMF-символы и хотя бы один тон."
+          }
+        }
+      }
+    },
+    "Код не задан, и кнопка «Конференция» у оператора недоступна. Это верное состояние до тех пор, пока код не появится в features.conf: не совпавший ни с одной фичей код Asterisk не перехватывает, и он уходит собеседнику обычными тонами — клиент слышит писк, а конференции не происходит.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No code is set, so the operator’s Conference button is unavailable. That is the correct state until the code appears in features.conf: a code that matches no feature is not intercepted by Asterisk and reaches the other party as plain tones — the client hears beeping and no conference happens."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код не задан, и кнопка «Конференция» у оператора недоступна. Это верное состояние до тех пор, пока код не появится в features.conf: не совпавший ни с одной фичей код Asterisk не перехватывает, и он уходит собеседнику обычными тонами — клиент слышит писк, а конференции не происходит."
           }
         }
       }

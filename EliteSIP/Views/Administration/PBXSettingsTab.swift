@@ -37,7 +37,14 @@ struct PBXSettingsTab: View {
                 .frame(width: 90)
             }
 
-            if !model.settings.conference.isUsable {
+            if model.settings.conference.featureCode.isEmpty {
+                SettingsNote("""
+                    Код не задан, и кнопка «Конференция» у оператора недоступна. Это верное \
+                    состояние до тех пор, пока код не появится в features.conf: не совпавший \
+                    ни с одной фичей код Asterisk не перехватывает, и он уходит собеседнику \
+                    обычными тонами — клиент слышит писк, а конференции не происходит.
+                    """)
+            } else if !model.settings.conference.isUsable {
                 SettingsNote(
                     "Код должен содержать только DTMF-символы и хотя бы один тон.",
                     isAlarming: true
@@ -46,8 +53,10 @@ struct PBXSettingsTab: View {
 
             SettingsNote("""
                 Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора \
-                в ConfBridge. В лаборатории это *3; боевой код нужно сверить с features.conf — \
-                в выводе «core show features» с боевого сервера конференции нет вовсе.
+                в ConfBridge. На боевом сервере такой фичи нет: «core show features» от \
+                18 августа 2026 знает перехват *8, слепой перевод ##, консультационный *02, \
+                отбой **, запись *1 и отмену перевода *77 — и ничего про конференцию. \
+                Прежнее умолчание *3 было догадкой и снято.
                 """)
         }
 

@@ -2161,8 +2161,22 @@ final class AppModel: ObservableObject {
     /// двадцать раз в секунду, и журнал был бы залит одинаковыми строками.
     private func reportInboundStream(of media: MediaSession) {
         guard let lineID = activeLineID else { return }
+
+        // Пока приём выключен нами самими — на удержании, — ругаться на тишину
+        // не на что: её устроили мы. Живой прогон 18 августа 2026 дал сорок
+        // строк «поток прервался» подряд ровно на удержанной линии, плюс
+        // ложную подпись под кнопкой. Наблюдение заводится заново при
+        // возврате, поэтому у потока снова есть законная фора на разбег.
+        guard media.isReceivingAudio else {
+            streamWatch.reset()
+            lastStreamState = .flowing
+            return
+        }
+
         let state = streamWatch.update(received: media.statistics.received)
-        guard state != lastStreamState else { return }
+        // Сравниваем состояния, а не их подробности: в подробностях лежит
+        // счётчик секунд, и по нему «изменилось» верно всегда.
+        guard state.kind != lastStreamState.kind else { return }
         let previous = lastStreamState
         lastStreamState = state
 
@@ -2180,7 +2194,7 @@ final class AppModel: ObservableObject {
             setStatus(NSLocalizedString("Поток прервался", comment: "состояние линии"), on: lineID)
 
         case .flowing:
-            guard previous != .flowing else { return }
+            guard previous.kind != .flowing else { return }
             append(level: .info, message: "поток от собеседника пошёл")
             if let line = line(lineID), Self.streamWarningStatuses.contains(line.status) {
                 setStatus(line.isOnHold ? NSLocalizedString("На удержании", comment: "состояние линии") : NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)

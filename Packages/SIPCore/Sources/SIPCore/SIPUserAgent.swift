@@ -228,6 +228,9 @@ public actor SIPUserAgent {
 
     private var consecutiveFailures = 0
 
+    /// Доходит ли до нас опрос сервера. Устройство и цена — в `QualifyWatch`.
+    private var qualifyWatch = QualifyWatch()
+
     /// Как часто удерживать привязку NAT пустым пакетом.
     private let keepAliveInterval: Interval
 
@@ -415,6 +418,8 @@ public actor SIPUserAgent {
                 consecutiveFailures = 0
                 lastRegistrationFailure = nil
 
+                qualifyWatch.noteReachable(at: .now)
+
                 let expiresAt = Date().addingTimeInterval(Double(granted))
                 let contact = contactEndpoint.map(\.description) ?? "—"
                 set(state: .registered(expiresAt: expiresAt, contact: contact))
@@ -480,13 +485,42 @@ public actor SIPUserAgent {
 
             do {
                 try await transactions.sendKeepAlive()
+                // Успешную отправку тоже пишем, и это не шум. Раньше keep-alive
+                // не оставлял в журнале ни строки, и разобрать по архиву жалобу
+                // «перестал быть доступен» было нечем: «пакеты уходили, но не
+                // помогли» и «пакеты не уходили» выглядели одинаково, а лечатся
+                // по-разному. Уровень отладочный, тик редкий — 25 секунд на UDP.
+                log(.debug, "keep-alive ушёл")
             } catch {
                 // Молча: транспорт сообщает о своих отказах сам, через события
                 // канала. Дублировать их предупреждением на каждый тик значит
                 // залить журнал одним и тем же, пока сеть лежит.
                 log(.debug, "keep-alive не ушёл: \(error)")
             }
+
+            checkQualifySilence()
         }
+    }
+
+    /// Проверяет, не пропал ли опрос сервера, и лечит это перерегистрацией.
+    ///
+    /// Едет на такте keep-alive, а не на своём таймере: третий жизненный цикл
+    /// со своими start/stop не нужен, а нужный уже есть — «пока мы подключены».
+    ///
+    /// Лечение выбрано по журналу, а не по догадке: в архиве 18 августа 2026
+    /// каждый провал опроса кончался ровно в ту миллисекунду, когда уходил
+    /// очередной REGISTER. То есть исходящий запрос открывает обратную дорогу
+    /// обратно, и ждать планового обновления — значит ждать зря.
+    private func checkQualifySilence() {
+        guard state.isRegistered else { return }
+        guard let silence = qualifyWatch.silenceIfLost(at: .now) else { return }
+
+        log(
+            .warning,
+            "сервер не опрашивал нас \(Int(silence.seconds)) с при живой регистрации —"
+                + " обратной дороги нет, перерегистрируемся"
+        )
+        Task { [weak self] in await self?.reregisterNow() }
     }
 
     /// Интервал по умолчанию для транспорта.
@@ -869,6 +903,11 @@ public actor SIPUserAgent {
                         if response.isAuthenticationRequired,
                            authenticationAttempts == 0,
                            let offered = response.authenticationChallenges.first {
+                            // Без этой строки в журнале оставались два подряд
+                            // `-> INVITE` без всякой причины между ними, и
+                            // выглядело это дефектом набора. Причина обычная:
+                            // chan_sip вызывает на авторизацию и INVITE тоже.
+                            log(.debug, "<- \(response.statusCode) на INVITE, отвечаем на вызов")
                             cachedChallenge = offered
                             nonceCount = 0
                             authenticationAttempts += 1
@@ -2021,6 +2060,11 @@ public actor SIPUserAgent {
     private func handle(inbound request: SIPRequest) async {
         switch request.method {
         case .options:
+            // Дошедший до нас опрос — единственное доказательство обратной
+            // дороги, какое у клиента есть. Свои пакеты доходят всегда: они эту
+            // дорогу и открывают.
+            qualifyWatch.noteQualify(at: .now)
+
             // Ответ на OPTIONS — это то, что держит пир в состоянии OK.
             var response = SIPResponse(statusCode: 200, headers: responseHeaders(for: request))
             response.headers.append(SIPHeaderName.allow, Self.allowedMethods)

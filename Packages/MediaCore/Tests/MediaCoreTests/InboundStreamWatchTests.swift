@@ -88,3 +88,41 @@ struct InboundStreamWatchTests {
         #expect(watch.update(received: 0, at: 13) == .neverStarted(seconds: 3))
     }
 }
+
+/// Состояние без подробностей.
+///
+/// Живой прогон 18 августа 2026: в архиве для поддержки 62 строки из 266
+/// оказались одним и тем же предупреждением, повторённым двадцать раз в
+/// секунду. Причина была в самом `State` — счётчик секунд внутри него растёт на
+/// каждом опросе, и сравнение «состояние то же?» отвечало «нет» всегда, хотя
+/// сказать надо было один раз на переходе.
+@Suite("Состояние потока без подробностей")
+struct InboundStreamWatchKindTests {
+
+    @Test("Растущие секунды не меняют состояния")
+    func growingSecondsKeepTheSameKind() {
+        var watch = InboundStreamWatch(startupGrace: 1, stallTimeout: 1)
+
+        // Первый замер задаёт начало отсчёта: фора считается от него, а не от
+        // нуля шкалы.
+        _ = watch.update(received: 0, at: 0)
+
+        let first = watch.update(received: 0, at: 1.5)
+        let later = watch.update(received: 0, at: 9.0)
+
+        #expect(first != later, "подробности разные — секунд прошло больше")
+        #expect(first.kind == later.kind, "а состояние одно, и говорить второй раз не о чем")
+        #expect(first.kind == .neverStarted)
+    }
+
+    @Test("Переход между состояниями виден по тому же признаку")
+    func kindChangesOnRealTransitions() {
+        var watch = InboundStreamWatch(startupGrace: 1, stallTimeout: 1)
+
+        #expect(watch.update(received: 0, at: 0.1).kind == .flowing)
+        #expect(watch.update(received: 0, at: 2.0).kind == .neverStarted)
+        #expect(watch.update(received: 1, at: 2.5).kind == .flowing)
+        #expect(watch.update(received: 1, at: 4.0).kind == .stalled)
+        #expect(watch.update(received: 2, at: 4.5).kind == .flowing)
+    }
+}

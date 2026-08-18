@@ -584,26 +584,49 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// Серверная конференция через dynamic feature Asterisk.
     ///
     /// Клиент не смешивает звук сам: код переводит оба плеча текущего Dial в
-    /// одну комнату ConfBridge. Значение настраивается, потому что `*3` в
-    /// лаборатории восстановлен по виду боевого кода, а не скопирован с боя.
+    /// одну комнату ConfBridge.
+    ///
+    /// **Кода по умолчанию больше нет, и это вывод из боевых данных.**
+    /// `core show features` с боевого сервера, полученный 18 августа 2026,
+    /// не содержит конференции ни встроенной, ни динамической: там есть
+    /// перехват `*8`, слепой перевод `##`, консультационный `*02`, отбой `**`,
+    /// запись `*1` и отмена перевода `*77` — и всё. Прежнее умолчание `*3`
+    /// было догадкой по виду лабораторного стенда, и теперь оно опровергнуто.
+    ///
+    /// Догадка в этом поле стоит дороже пустоты. Код, не совпавший ни с одной
+    /// фичей, Asterisk не перехватывает — он уходит собеседнику обычными
+    /// тонами. То есть кнопка «Конференция» не собирала конференцию, а пищала
+    /// клиенту в ухо, и отличить это от «сработало молча» оператор не мог.
+    ///
+    /// Пустое значение выключает кнопку целиком (`isUsable`), и это верное
+    /// поведение до тех пор, пока настоящий код не появится в `features.conf`.
     struct ConferenceSettings: Codable, Sendable, Equatable {
 
-        var featureCode: String = "*3"
+        var featureCode: String = ""
 
         /// Добавочный прямого входа в комнату. Нужен для проверки и станет
         /// целью третьей линии после появления многолинейного UI.
         var roomExtension: String = "8000"
 
-        init(featureCode: String = "*3", roomExtension: String = "8000") {
+        init(featureCode: String = "", roomExtension: String = "8000") {
             self.featureCode = featureCode
             self.roomExtension = roomExtension
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            featureCode = try container.decodeIfPresent(String.self, forKey: .featureCode) ?? "*3"
+            let stored = try container.decodeIfPresent(String.self, forKey: .featureCode) ?? ""
+            // Ровно `*3` в файле — это наше же опровергнутое умолчание, а не
+            // выбор администратора: набрать его руками было неоткуда, кода
+            // такого на сервере нет. Оставить его значит и дальше слать клиенту
+            // тоны вместо конференции. Замена видна сразу: кнопка становится
+            // недоступной, а раздел «АТС» объясняет, почему.
+            featureCode = stored == ConferenceSettings.disprovenGuess ? "" : stored
             roomExtension = try container.decodeIfPresent(String.self, forKey: .roomExtension) ?? "8000"
         }
+
+        /// Умолчание, которое `core show features` опроверг 18 августа 2026.
+        static let disprovenGuess = "*3"
 
         var command: DTMFSequence { DTMFSequence(featureCode) }
 
