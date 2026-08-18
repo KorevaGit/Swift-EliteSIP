@@ -238,6 +238,42 @@ struct SidebarInsetReader: NSViewRepresentable {
     }
 }
 
+/// Сообщает вёрстке собственную высоту при каждой раскладке.
+///
+/// `GeometryReader` с `onChange` для этого не годится: `onChange` есть только с
+/// macOS 11, а нижняя планка выпуска — 10.15. Замер вью работает на всём
+/// диапазоне и делается там же, где система раскладывает окно.
+final class HeightReaderView: NSView {
+
+    var report: ((CGFloat) -> Void)?
+
+    private var reported: CGFloat?
+
+    override func layout() {
+        super.layout()
+        let height = bounds.height
+        // Ноль — это ещё не разложенное вью, а не нулевая высота.
+        guard height > 0, reported != height else { return }
+        reported = height
+        report?(height)
+    }
+}
+
+struct HeightReader: NSViewRepresentable {
+
+    let report: (CGFloat) -> Void
+
+    func makeNSView(context: Context) -> HeightReaderView {
+        let view = HeightReaderView()
+        view.report = report
+        return view
+    }
+
+    func updateNSView(_ nsView: HeightReaderView, context: Context) {
+        nsView.report = report
+    }
+}
+
 /// Задаёт окну высоту и переносит её при изменении, сохраняя верхний левый угол.
 ///
 /// Отдельно от `WindowAccessor`, потому что тот настраивает окно однократно, а

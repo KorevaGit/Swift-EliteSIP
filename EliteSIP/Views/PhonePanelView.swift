@@ -39,6 +39,10 @@ struct PhonePanelView: View {
     /// ответ приходит в том же проходе раскладки.
     @State private var titleBarInset: CGFloat = 28
 
+    /// Последняя записанная в журнал нехватка высоты — чтобы одно и то же
+    /// расхождение не писалось на каждом проходе раскладки.
+    @State private var lastReportedShortfall: CGFloat?
+
     var body: some View {
         VStack(spacing: 0) {
             titleBar
@@ -51,6 +55,21 @@ struct PhonePanelView: View {
             Color.clear
                 .frame(maxHeight: .infinity)
                 .compatOverlay(alignment: .top) { middle }
+                // Замер середины в журнал — а не на глаз.
+                //
+                // Высота панели считается из констант, и запаса в ней нет ни
+                // точки: `clipped()` ниже режет всё, что не поместилось, и
+                // первой под нож идёт сетка макросов — она стоит последней.
+                // 18 августа 2026 на живой Big Sur макросы пропали из окна
+                // целиком, и понять по снимку экрана, на сколько именно не
+                // хватило места, было нельзя.
+                //
+                // Пишется только при нехватке и только на новое значение:
+                // строка в журнале на каждый проход раскладки — это не журнал,
+                // а шум.
+                .compatBackground {
+                    HeightReader { height in reportMiddleHeight(height) }
+                }
                 .clipped()
 
             bottomBar
@@ -167,6 +186,46 @@ struct PhonePanelView: View {
             + CGFloat(rows - 1) * Theme.Metrics.elementSpacing
 
         return fixed + Theme.Gap.controlsToMacros + grid
+    }
+
+    /// Сверяет доставшуюся середине высоту с той, на которую рассчитана панель,
+    /// и пишет нехватку в журнал.
+    ///
+    /// Ожидаемое — это всё, что середина обязана вместить: шапка, ряд управления
+    /// и то, что под ними (сетка макросов или поле перевода). Если доставшееся
+    /// меньше хоть на точку, значит нижний край содержимого срезан, и в журнале
+    /// это видно числом, а не догадкой по снимку экрана.
+    private func reportMiddleHeight(_ height: CGFloat) {
+        let expected = expectedMiddleHeight
+        let shortfall = (expected - height).rounded()
+        // Полточки — это округление раскладки, а не нехватка места.
+        guard shortfall > 0.5, lastReportedShortfall != shortfall else { return }
+        lastReportedShortfall = shortfall
+        let given = Int(height.rounded())
+        let needed = Int(expected.rounded())
+        model.append(
+            level: .warning,
+            message: "панели не хватает высоты: середине дано \(given) точек вместо "
+                + "\(needed), срезано \(Int(shortfall)). Полоса заголовка "
+                + "\(Int(titleBarInset)), макросов \(model.usableMacros.count)"
+        )
+    }
+
+    /// Сколько середина обязана вместить.
+    private var expectedMiddleHeight: CGFloat {
+        let head = Theme.Gap.statusToHeader
+            + Theme.Metrics.headerHeight
+            + Theme.Gap.headerToControls
+            + CallControls.height
+        if model.isTransferEntryVisible {
+            return head + Theme.Gap.controlsToMacros + TransferEntry.height
+        }
+        let columns = Theme.Metrics.macroColumns
+        let rows = (model.usableMacros.count + columns - 1) / columns
+        guard rows > 0 else { return head }
+        return head + Theme.Gap.controlsToMacros
+            + CGFloat(rows) * Theme.Metrics.macroMinHeight
+            + CGFloat(rows - 1) * Theme.Metrics.elementSpacing
     }
 
     // MARK: - Ярус 1: голова
