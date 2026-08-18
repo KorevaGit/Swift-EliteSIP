@@ -2964,6 +2964,22 @@
         }
       }
     },
+    "Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. Подтвердить результат клиент не может: сервер о входе в комнату не сообщает.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The button sends this code as tones into the current call — exactly what the “CONFERENCE” hot key does in the production MicroSIP, where it is set to *3. The client cannot confirm the result: the server does not report joining a room."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. Подтвердить результат клиент не может: сервер о входе в комнату не сообщает."
+          }
+        }
+      }
+    },
     "Код восстановления": {
       "localizations": {
         "en": {
@@ -3024,6 +3040,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Код должен содержать только DTMF-символы и хотя бы один тон."
+          }
+        }
+      }
+    },
+    "Код не задан — кнопка «Конференция» у оператора недоступна.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No code is set — the operator’s Conference button is unavailable."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код не задан — кнопка «Конференция» у оператора недоступна."
           }
         }
       }
@@ -6469,6 +6501,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Разные устройства: системного эхоподавления не будет. На колонках собеседник услышит себя, в наушниках — нет."
+          }
+        }
+      }
+    },
+    "Расхождение, о котором стоит знать: в «core show features» с боевого сервера конференции нет — там перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмена перевода *77. Как при этом работает *3 в MicroSIP, неизвестно. Разбор — docs/conference.md.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A discrepancy worth knowing about: “core show features” from the production server lists no conferencing — only pickup *8, blind transfer ##, attended transfer *02, disconnect **, recording *1 and cancel-transfer *77. How *3 works in MicroSIP is unknown. See docs/conference.md."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расхождение, о котором стоит знать: в «core show features» с боевого сервера конференции нет — там перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмена перевода *77. Как при этом работает *3 в MicroSIP, неизвестно. Разбор — docs/conference.md."
           }
         }
       }
