@@ -143,6 +143,27 @@ else
     check_minos x86_64 10.15
     check_minos arm64 11.0
 
+    step "Release: отладочного права get-task-allow нет"
+    # Проверка настройки, а не подписи. `CODE_SIGN_INJECT_BASE_ENTITLEMENTS =
+    # NO` в Release убирает право, которое Xcode добавляет сам при ad-hoc
+    # подписи; нотарификация бинарь с ним отклоняет. Настройка невидимая, и
+    # пропажу её замечает служба Apple в день выпуска — то есть поздно.
+    if codesign -d --entitlements - --xml "$app" 2>/dev/null | grep -q "get-task-allow"; then
+        fail "в подписи есть com.apple.security.get-task-allow — нотарификация такую сборку отклонит"
+    else
+        ok "get-task-allow нет"
+    fi
+
+    step "Release: конфиг провижининга вшит"
+    # Пустая проверка на машине сборщика и осмысленная везде ещё: без этого
+    # файла в бандле рабочее место встаёт с «Управлением» без пароля, а сборка
+    # при этом выглядит рабочей.
+    if [[ -f "$app/Contents/Resources/provisioning.json" ]]; then
+        ok "provisioning.json в бандле"
+    else
+        fail "в Release-бандле нет provisioning.json"
+    fi
+
     step "Бинарь: Swift-конкурентность развёрнута назад"
     # На Catalina libswift_Concurrency в системе нет, и без вложенной копии
     # приложение не запустится вовсе — падение на dyld, ещё до первого экрана.
