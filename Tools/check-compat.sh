@@ -148,7 +148,11 @@ else
     # NO` в Release убирает право, которое Xcode добавляет сам при ad-hoc
     # подписи; нотарификация бинарь с ним отклоняет. Настройка невидимая, и
     # пропажу её замечает служба Apple в день выпуска — то есть поздно.
-    if codesign -d --entitlements - --xml "$app" 2>/dev/null | grep -q "get-task-allow"; then
+    # Вывод сперва в переменную: при `pipefail` нашедший `grep -q` закрывает
+    # трубу, `codesign` получает SIGPIPE, и конвейер возвращает ошибку — то есть
+    # находка теряется ровно тогда, когда она есть.
+    entitlements=$(codesign -d --entitlements - --xml "$app" 2>/dev/null)
+    if grep -q "get-task-allow" <<<"$entitlements"; then
         fail "в подписи есть com.apple.security.get-task-allow — нотарификация такую сборку отклонит"
     else
         ok "get-task-allow нет"
