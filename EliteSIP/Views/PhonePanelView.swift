@@ -123,6 +123,13 @@ struct PhonePanelView: View {
                 NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
             }
 
+            // То же для истории: её окно живёт по своему рецепту (полоса
+            // заголовка, снимок списка), и сверять его раскладку снимком экрана
+            // надо отдельно от настроек.
+            if ProcessInfo.processInfo.arguments.contains("--open-history") {
+                NSApp.sendAction(#selector(AppDelegate.showCallHistoryWindow(_:)), to: nil, from: nil)
+            }
+
             // Проверка звука одной командой: подключиться и сразу позвонить.
             // Автоматизировать «слышно себя» нельзя, а вот дойти до разговора
             // без десятка кликов — можно.

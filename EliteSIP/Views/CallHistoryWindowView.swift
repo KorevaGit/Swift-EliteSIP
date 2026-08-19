@@ -625,10 +625,24 @@ final class HistorySnapshotAnchor {
     /// «21:07» в строке означает разное в Москве и в Новосибирске, а разбирают
     /// по таким снимкам как раз опоздания и пропущенные.
     func image(profile: String) -> NSImage? {
-        guard let view,
-              let content = view.window?.contentView,
-              let layer = content.layer
-        else { return nil }
+        guard let view, let content = view.window?.contentView else { return nil }
+
+        // Слой у вью окна может отсутствовать, и это не поломка.
+        //
+        // На macOS 26 всё окно слоёное по умолчанию, поэтому первая редакция
+        // просто брала `content.layer`. На живой Big Sur 19 августа 2026 кнопка
+        // отвечала «Снимок не получился» на каждое нажатие: там вью окна
+        // слоёной сама не становится, `layer` — `nil`, и снимать было нечего.
+        //
+        // `wantsLayer` включается здесь, а не при сборке окна: слой нужен ровно
+        // на снимок, а не всё время, и включённый по требованию он не меняет
+        // того, как окно рисуется в остальное время.
+        if content.layer == nil { content.wantsLayer = true }
+        // Свежий слой пуст до первой отрисовки: без этого первый снимок вышел
+        // бы пустым прямоугольником, а второй — правильным.
+        content.displayIfNeeded()
+
+        guard let layer = content.layer else { return nil }
 
         let area = view.convert(view.bounds, to: content)
         let whole = content.bounds

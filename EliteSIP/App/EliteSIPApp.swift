@@ -1136,10 +1136,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        // Тот же рецепт стекла, что у панели и у настроек: `.fullSizeContentView`
-        // с прозрачной полосой заголовка, непрозрачность выключена, фон
-        // прозрачный. Иначе окно осталось бы единственным непрозрачным из трёх,
-        // и это читалось бы как забытое, а не как решение.
+        // Рецепт тот же, что у панели и настроек, но с развилкой по стеклу.
+        //
+        // Со стеклом: `.fullSizeContentView`, прозрачная полоса заголовка,
+        // непрозрачность выключена. Содержимое заходит под полосу, материал её
+        // накрывает, и окно не выглядит забытым рядом с двумя другими.
+        //
+        // Без стекла — обычное окно. Живая проверка на Big Sur 19 августа 2026:
+        // с `.fullSizeContentView` ряд фильтров уезжал под полосу заголовка и
+        // выглядел обрезанным сверху. Вёрстка отступает от верха на зазор
+        // `titleToStatus`, считая, что высоту полосы ей уже отдала безопасная
+        // зона; на Big Sur она её не отдаёт. Обычное окно ставит содержимое под
+        // полосу само, и отступ снова означает то, что означает.
         //
         // Ловушка с безопасной зоной, которая стоила настройкам итерации, здесь
         // не срабатывает: у окна истории размер свой и меняется мышью, а не
@@ -1147,9 +1155,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Заводится шире своего минимума: на самом минимуме окно открывалось бы
         // впритык к ряду фильтров, а первое, что оператор делает в истории, —
         // читает строки, а не считает поля.
+        let isGlass = Theme.Chrome.usesLiquidGlass
+        var styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+        if isGlass { styleMask.insert(.fullSizeContentView) }
+
         let window = NSWindow(
             contentRect: CGRect(origin: .zero, size: CGSize(width: 660, height: 460)),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            styleMask: styleMask,
             backing: .buffered,
             defer: false
         )
@@ -1158,9 +1170,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Полноэкранного режима нет — по той же причине, что у «Управления»
         // и настроек, см. `makeSidebarWindow`.
         window.collectionBehavior.insert(.fullScreenNone)
-        window.titlebarAppearsTransparent = true
-        window.isOpaque = false
-        window.backgroundColor = .clear
+        window.titlebarAppearsTransparent = isGlass
+        window.isOpaque = !isGlass
+        window.backgroundColor = isGlass ? .clear : .windowBackgroundColor
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
             rootView: withEnvironment(CallHistoryWindowView())
