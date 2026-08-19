@@ -396,13 +396,13 @@ struct PhonePanelView: View {
         Button(action: action) {
             CompatSymbol(name: symbol, size: Theme.Icon.medium)
                 .compatForeground(Theme.Palette.textSecondary)
-                .frame(
-                    width: Theme.Metrics.statusIconHitSize,
-                    height: Theme.Metrics.statusIconHitSize
-                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .frame(
+            width: Theme.Metrics.statusIconHitSize,
+            height: Theme.Metrics.statusIconHitSize
+        )
         .hoverHighlight(cornerRadius: 6)
         .compatAccessibilityLabel(label)
     }
@@ -476,10 +476,11 @@ struct PhonePanelView: View {
                     Text("История")
                         .font(Theme.Text.actionCaption)
                 }
-                .frame(width: Theme.Metrics.historyWidth, height: Theme.Metrics.actionHeight)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .frame(width: Theme.Metrics.historyWidth, height: Theme.Metrics.actionHeight)
             .themedControlSurface()
             .hoverHighlight()
             .compatAccessibilityLabel("История звонков")
@@ -506,14 +507,15 @@ struct PhonePanelView: View {
             )
             .font(Theme.Text.controlLabel)
             .compatForeground(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: Theme.Metrics.actionHeight)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .compatBackground(
                 model.isInCall ? Theme.Palette.decline : Theme.Palette.answer,
                 cornerRadius: Theme.Radius.control
             )
             .contentShape(Rectangle())
         }
+        // Высота — кнопке, а не подписи: см. клавишу макроса.
+        .frame(height: Theme.Metrics.actionHeight)
         // Заливка задана явно, а не через .borderedProminent с tint: у того
         // радиус меньше макетного, а в неактивном окне акцент выцветает в
         // серый — панель висит поверх CRM и активной бывает редко.
@@ -854,6 +856,10 @@ struct CallControls: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Высота — кнопке, а не подписи: см. клавишу макроса. Ряд управления
+        // заперт в `Self.height`, и кнопка, выросшая от поля стиля, растягивала
+        // бы не себя, а всё, что под ней.
+        .frame(height: Theme.Metrics.controlHeight)
         .compatForeground(isOn ? Color.white : Color.primary)
         .compatBackground {
             if isOn {
@@ -900,6 +906,20 @@ struct MacroGrid: View {
                         }
                     }
                 }
+                // Высота ряда — своя, и это не повтор высоты клавиши.
+                //
+                // Пустое место в неполном ряду — `Color`, а он тянется по обеим
+                // осям без предела. Ряд с таким соседом становится растяжимым, и
+                // вся свободная вертикаль панели уходит в него: на живой Big Sur
+                // 19 августа 2026 ряды клавиш разъехались тем сильнее, чем
+                // больше клавиш добавляли, — потому что каждая новая клавиша
+                // рано или поздно оставляет неполный ряд. Три клавиши ровно в
+                // ряд не разъезжались никогда, и это сбивало со следа.
+                //
+                // Хуже того, растяжимый ряд делал замер середины бессмысленным:
+                // она сообщала наверх не свою высоту, а высоту окна, и окно
+                // подтверждало само себя.
+                .frame(height: Theme.Metrics.macroMinHeight)
             }
         }
     }
@@ -929,23 +949,19 @@ struct MacroGrid: View {
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)
-                // Клавиша своей высоты и никакой другой.
-                //
-                // Раньше забирала всю свободную вертикаль — по доводу, что иначе
-                // между сеткой и кнопкой завершения возникнет провал. Довод
-                // верен ровно там, где высота окна сходится с содержимым точка в
-                // точку, то есть только на системе, на которой её считали. На
-                // живой Big Sur 19 августа 2026 окно оказалось выше расчёта, и
-                // клавиши растянулись вниз через всю панель: подписи повисли
-                // посреди пустых прямоугольников.
-                //
-                // Теперь лишняя вертикаль уходит вниз пустотой (`Spacer` в
-                // середине), а клавиши остаются размером с клавишу. Пустота под
-                // сеткой читается как воздух, растянутые кнопки — как поломка.
-                .frame(height: Theme.Metrics.macroMinHeight)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Высота задаётся кнопке, а не подписи внутри неё.
+        //
+        // Разница не косметическая. Стиль кнопки добавляет к содержимому своё
+        // поле, и оно по версиям системы разное: подпись, ужатая в 58 точек,
+        // вместе с полем даёт кнопку выше — на живой Big Sur 19 августа 2026
+        // ряды клавиш разъехались, и на глаз это читалось как разные отступы
+        // между ними. Пришпиленная снаружи высота — это высота всей кнопки,
+        // сколько бы стиль ни хотел добавить.
+        .frame(height: Theme.Metrics.macroMinHeight)
         .themedControlSurface()
         .hoverHighlight(isEnabled: isEnabled(macro))
         .disabled(!isEnabled(macro))
