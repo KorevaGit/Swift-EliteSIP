@@ -19,6 +19,10 @@ extension AppModel {
 
         /// Не хватает настройки: учётки или пароля. Чинит администратор.
         case setup(String)
+        /// Разговаривать не на чем: нет микрофона, выхода или ни того ни
+        /// другого. Чинит человек, но не в настройках — руками, воткнув
+        /// гарнитуру.
+        case noAudio(String)
         /// Пути наружу нет вовсе.
         case noNetwork
         /// Сервер ответил отказом.
@@ -41,6 +45,7 @@ extension AppModel {
         var text: String {
             switch self {
             case .setup(let hint): hint
+            case .noAudio(let what): what
             case .noNetwork: NSLocalizedString("Нет сети", comment: "состояние в шапке панели")
             case .failed(let reason): reason
             case .connecting: NSLocalizedString("Подключение…", comment: "состояние в шапке панели")
@@ -70,6 +75,23 @@ extension AppModel {
 
         // Настройка — раньше всего остального: см. комментарий к `Trouble`.
         if let hint = setupHint { return .setup(hint) }
+
+        // Устройства — сразу за настройкой и раньше сети.
+        //
+        // Порядок не случаен: регистрация без микрофона проходит, точка в
+        // капсуле зелёная, и оператор узнаёт, что говорить не на чем, ровно в
+        // тот момент, когда звонок уже нужен. Снимок берётся у каталога, за
+        // которым приложение и так следит, — перечитывать устройства на каждой
+        // отрисовке панели нельзя.
+        if audioCatalog.inputs.isEmpty, audioCatalog.outputs.isEmpty {
+            return .noAudio(NSLocalizedString("Нет звука", comment: "состояние в шапке панели: ни микрофона, ни выхода"))
+        }
+        if audioCatalog.inputs.isEmpty {
+            return .noAudio(NSLocalizedString("Нет микрофона", comment: "состояние в шапке панели"))
+        }
+        if audioCatalog.outputs.isEmpty {
+            return .noAudio(NSLocalizedString("Нет выхода", comment: "состояние в шапке панели: нет звукового выхода"))
+        }
 
         switch registration {
         case .failed(let reason, _):

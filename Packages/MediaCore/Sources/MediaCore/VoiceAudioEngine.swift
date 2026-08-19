@@ -106,6 +106,12 @@ public final class VoiceAudioEngine: @unchecked Sendable {
 
     public enum AudioError: Error, Sendable, LocalizedError {
         case microphoneDenied
+        /// Ни одного звукового устройства в системе.
+        ///
+        /// Отдельно от `deviceUnavailable`: там выбранное устройство пропало, а
+        /// остальные на месте, и тракт поднимется на умолчании. Здесь поднимать
+        /// не на чем, и объяснять это надо человеку, а не в терминах CoreAudio.
+        case noAudioDevices(hasInput: Bool, hasOutput: Bool)
         case formatUnavailable
         case voiceProcessingUnavailable(String)
         case deviceUnavailable(uid: String)
@@ -118,6 +124,15 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             switch self {
             case .microphoneDenied:
                 "Нет доступа к микрофону. Разрешите его в «Системных настройках → Конфиденциальность»."
+            case .noAudioDevices(let hasInput, let hasOutput):
+                switch (hasInput, hasOutput) {
+                case (false, false):
+                    "Нет активных звуковых устройств: ни микрофона, ни выхода. Подключите наушники или гарнитуру и повторите."
+                case (false, true):
+                    "Нет активного микрофона. Подключите его и повторите."
+                default:
+                    "Нет активного звукового выхода. Подключите наушники или колонки и повторите."
+                }
             case .formatUnavailable:
                 "Не удалось построить формат звука 8 кГц."
             case .voiceProcessingUnavailable(let reason):
@@ -489,6 +504,23 @@ public final class VoiceAudioEngine: @unchecked Sendable {
                 throw AudioError.microphoneDenied
             }
 
+            // Устройства проверяются до того, как тронут движок.
+            //
+            // Не перестраховка: `AVAudioEngine.inputNode` на машине без
+            // звуковых устройств возбуждает исключение Objective-C, а оно
+            // кладёт процесс целиком. Живая проверка 18 августа 2026 — звонок
+            // сразу после подключения на машине без активных устройств ронял
+            // приложение. Ловушка ниже это же исключение перехватывает, но
+            // отсутствие устройств — не исключительный случай, а обычное
+            // состояние ноутбука без наушников, и человеку надо сказать
+            // словами, что подключить.
+            let devices = AudioDeviceCatalog.devices()
+            let hasInput = devices.contains(where: \.isInput)
+            let hasOutput = devices.contains(where: \.isOutput)
+            guard hasInput, hasOutput else {
+                throw AudioError.noAudioDevices(hasInput: hasInput, hasOutput: hasOutput)
+            }
+
             do {
                 try buildAndStart()
             } catch {
@@ -566,8 +598,20 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     }
 
     private func startEngine(withVoiceProcessing wantsVoiceProcessing: Bool) throws {
-        let input = engine.inputNode
-        let output = engine.outputNode
+        // Даже узлы берутся под ловушкой. Между проверкой устройств в `start()`
+        // и этой строкой проходят доли миллисекунды, но вынутая в этот момент
+        // гарнитура — это исключение Objective-C из `inputNode`, то есть
+        // падение процесса, а не отказ звонка.
+        var nodes: (input: AVAudioInputNode, output: AVAudioOutputNode)?
+        try AudioObjCException.trap(step: "получение узлов ввода-вывода") {
+            nodes = (engine.inputNode, engine.outputNode)
+        }
+        guard let (input, output) = nodes else {
+            throw AudioError.engineFailed(
+                step: "получение узлов ввода-вывода",
+                reason: "движок не отдал узлы"
+            )
+        }
 
         if wantsVoiceProcessing {
             // Включать надо ДО подключения узлов: VoiceProcessingIO меняет
@@ -618,7 +662,14 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         let outputFormat = output.inputFormat(forBus: 0)
         onDiagnostic?("вход: \(Self.describe(input.outputFormat(forBus: 0)))")
         onDiagnostic?("выход: \(Self.describe(outputFormat))")
-        onDiagnostic?("микшер: \(Self.describe(engine.mainMixerNode.outputFormat(forBus: 0)))")
+        // `mainMixerNode` создаётся лениво и при создании сам подключается к
+        // выходу — то есть трогает железо. На машине без устройств это ещё одно
+        // исключение Objective-C, поэтому и он под ловушкой.
+        var mixerFormat: AVAudioFormat?
+        try AudioObjCException.trap(step: "создание микшера") {
+            mixerFormat = engine.mainMixerNode.outputFormat(forBus: 0)
+        }
+        onDiagnostic?("микшер: \(mixerFormat.map(Self.describe) ?? "нет")")
         onDiagnostic?("разговор: \(Self.describe(conversationFormat))")
 
         // Микшер пересоединяем с выходом явно.
@@ -648,7 +699,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         try startPlayback()
         try startCapture()
 
-        engine.prepare()
+        // `prepare` тоже трогает железо и тоже умеет ронять процесс
+        // исключением, когда устройства не стало.
+        try AudioObjCException.trap(step: "подготовка движка") {
+            engine.prepare()
+        }
         do {
             try engine.start()
         } catch {

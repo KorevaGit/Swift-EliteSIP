@@ -42,15 +42,23 @@ struct FirstRunWindowView: View {
         // местах незачем.
         .frame(width: Theme.Metrics.firstRunWidth)
         .frame(maxHeight: .infinity)
-        // Материал, а не плоский фон окна: остальные окна приложения стоят на
-        // нём же (`Theme.Chrome`), и мастер, единственный оставшийся плоским,
-        // читался бы как чужой диалог, приехавший из другой программы.
+        // Фон — как у остальных окон приложения, и по тому же правилу: материал
+        // там, где в системе есть стекло, плоская заливка там, где его нет.
+        // Мастер, единственный оставшийся полупрозрачным, читался бы как чужой
+        // диалог из другой программы — но полупрозрачный поверх чужого рабочего
+        // стола он читается ещё хуже: на Big Sur сквозь него видны обои.
         .compatBackground {
-            CompatMaterial(
-                material: .underWindowBackground,
-                blending: .behindWindow,
-                cornerRadius: 0
-            )
+            Group {
+                if Theme.Chrome.usesLiquidGlass {
+                    CompatMaterial(
+                        material: .underWindowBackground,
+                        blending: .behindWindow,
+                        cornerRadius: 0
+                    )
+                } else {
+                    Color(NSColor.windowBackgroundColor)
+                }
+            }
             .compatIgnoreSafeArea()
         }
     }

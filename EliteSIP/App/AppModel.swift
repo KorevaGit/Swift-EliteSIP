@@ -962,6 +962,18 @@ final class AppModel: ObservableObject {
             return false
         }
 
+        // Устройства проверяются до набора, а не при подъёме звука.
+        //
+        // Разница для человека большая: отказ здесь — это надпись в панели и
+        // ничего больше, а отказ после набора — это состоявшийся INVITE,
+        // поднятая трубка на той стороне и разговор, в котором никто никого не
+        // слышит.
+        if let reason = missingAudioDeviceReason() {
+            append(level: .error, message: "звонок не начат: \(reason.lowercased())")
+            callStatus = reason
+            return false
+        }
+
         await claimHeadset()
 
         guard let address = await agent.mediaAddress else {
@@ -2159,6 +2171,16 @@ final class AppModel: ObservableObject {
             return
         }
 
+        // То же, что и на исходящем: разговаривать не на чем — вызов не берём.
+        // 480 «Temporarily Unavailable», а не 486 «Busy»: занято означает «этот
+        // человек говорит», а он не говорит — ему нечем.
+        if let reason = missingAudioDeviceReason() {
+            append(level: .error, message: "вызов отклонён: \(reason.lowercased())")
+            setStatus(reason, on: lineID)
+            await agent.rejectIncomingCall(callID: lineID, status: 480)
+            return
+        }
+
         await claimHeadset()
 
         guard let address = await agent.mediaAddress else {
@@ -2454,6 +2476,39 @@ final class AppModel: ObservableObject {
             defaultInputName: AudioDeviceCatalog.defaultInput?.name,
             defaultOutputName: AudioDeviceCatalog.defaultOutput?.name
         )
+    }
+
+    /// Есть ли на чём разговаривать: хотя бы один вход и хотя бы один выход.
+    ///
+    /// Ноутбук с закрытой крышкой на внешнем мониторе, машина без встроенного
+    /// звука, вынутая USB-гарнитура — состояния обычные, а не исключительные. До
+    /// 18 августа 2026 звонок в таком состоянии ронял приложение целиком:
+    /// `AVAudioEngine.inputNode` на машине без устройств возбуждает исключение
+    /// Objective-C. Движок теперь такой звонок отклоняет ошибкой, а панель до
+    /// него и не доводит — и говорит человеку, чего не хватает.
+    var hasAudioDevices: Bool {
+        !audioCatalog.inputs.isEmpty && !audioCatalog.outputs.isEmpty
+    }
+
+    /// Подпись для линии и журнала, когда разговаривать не на чем.
+    ///
+    /// Каталог перечитывается на месте: между наблюдением за устройствами и
+    /// нажатием «Позвонить» гарнитуру могли и подключить, и вынуть, а отказ по
+    /// устаревшему снимку — это отказ на ровном месте.
+    func missingAudioDeviceReason() -> String? {
+        refreshAudioCatalog()
+        switch (audioCatalog.inputs.isEmpty, audioCatalog.outputs.isEmpty) {
+        case (true, true):
+            return NSLocalizedString(
+                "Нет звуковых устройств", comment: "состояние линии: ни микрофона, ни выхода"
+            )
+        case (true, false):
+            return NSLocalizedString("Нет микрофона", comment: "состояние линии")
+        case (false, true):
+            return NSLocalizedString("Нет звукового выхода", comment: "состояние линии")
+        default:
+            return nil
+        }
     }
 
     /// Начинает следить за устройствами. Зовётся один раз, при запуске.

@@ -854,6 +854,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // что левая своим фоном его перекрывала. Полоса без фона показывает фон
         // окна, стыка нет вовсе.
         window.titlebarAppearsTransparent = true
+        // Без стекла окно обязано быть непрозрачным, и красить его надо самим.
+        //
+        // Прозрачная полоса заголовка показывает фон окна, а у окна с
+        // вибрирующим сайдбаром своего фона над сайдбаром нет — там просто
+        // дырка. На macOS 26 её закрывает стекло, и потому дырки никто не
+        // видел; на живой Big Sur 18 августа 2026 над сайдбаром оказалась
+        // полоса рабочего стола с обоями.
+        if !isGlass {
+            window.isOpaque = true
+            window.backgroundColor = .windowBackgroundColor
+        }
         window.isReleasedWhenClosed = false
         window.contentViewController = split
         window.contentMinSize = contentMinSize

@@ -864,18 +864,26 @@ private struct PanelSurface: ViewModifier {
 
     @ViewBuilder
     private var base: some View {
-        // Три ветки, а не две, и средняя — не полумера.
+        // Две ветки: есть стекло — стекло, нет стекла — непрозрачно.
         //
         // «Без стекла» значит «без прозрачности», а не «другой полупрозрачный
         // материал»: замер живого окна показал, что матовый `hudWindow`
         // человек читает тем же стеклом — сквозь него так же видно чужое окно.
-        // Поэтому ручной режим красит непрозрачно, системным цветом окна, и
-        // только автоматическая ветка (старая система без нашей настройки)
-        // оставляет материал — там он и есть системный вид.
-        if !Theme.Chrome.usesLiquidGlass, Theme.Chrome.prefersPlain {
+        //
+        // Веток было три, и средняя — материал для систем ниже macOS 26 —
+        // держалась на догадке: там он-де и есть системный вид. Живая проверка
+        // на Big Sur 18 августа 2026 догадку опровергла: экран вызова оказался
+        // слишком прозрачным и попросту нечитаемым поверх чужих окон. Причём
+        // проверить это раньше было негде — на машине разработки ручной тумблер
+        // включён, то есть все замеры «без стекла» шли по непрозрачной ветке.
+        //
+        // Теперь правило одно и не зависит от настройки: нет стекла в системе —
+        // нет и прозрачности. Ручной тумблер при этом остаётся тем же, чем был,
+        // — единственным способом получить непрозрачность там, где стекло есть.
+        if !Theme.Chrome.usesLiquidGlass {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(Color(NSColor.windowBackgroundColor))
-        } else if Theme.Chrome.usesLiquidGlass, #available(macOS 26.0, *) {
+        } else if #available(macOS 26.0, *) {
             // `.regular` — ради размытия, а не ради плотности.
             //
             // Разница между ним и `.clear` не в том, «сколько видно», а в том,
@@ -891,11 +899,12 @@ private struct PanelSurface: ViewModifier {
             // укрытие чужого содержимого целиком на размытии.
             Color.clear.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
-            CompatMaterial(
-                material: .hudWindow,
-                blending: .behindWindow,
-                cornerRadius: cornerRadius
-            )
+            // Недостижимо: `usesLiquidGlass` истинно только с macOS 26. Ветка
+            // существует ради полноты `if`, и красит она тем же, чем первая, —
+            // не материалом, чтобы недостижимость не обернулась прозрачным
+            // окном, если условие однажды разъедется.
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Color(NSColor.windowBackgroundColor))
         }
     }
 }
@@ -935,10 +944,13 @@ private struct IncomingSurface: ViewModifier {
 
     @ViewBuilder
     private var base: some View {
-        // Ручной режим приравнен к системному «уменьшению прозрачности», и это
-        // не натяжка: просят там и там одно и то же — непрозрачное окно. Ветка
-        // уже есть и проверена, заводить рядом вторую такую же незачем.
-        if reducesTransparency || Theme.Chrome.prefersPlain {
+        // Три повода к непрозрачности, и все просят одного и того же:
+        // системное «уменьшение прозрачности», наш ручной тумблер и система без
+        // стекла. Последний добавлен 18 августа 2026 вместе с той же правкой у
+        // панели: окно входящего borderless, и полупрозрачное оно висит над
+        // чужим интерфейсом ещё хуже, чем панель, — у него нет ни рамки, ни
+        // полосы заголовка, только текст.
+        if reducesTransparency || !Theme.Chrome.usesLiquidGlass {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(Color(NSColor.windowBackgroundColor))
         } else {
@@ -957,11 +969,12 @@ private struct IncomingSurface: ViewModifier {
         if Theme.Chrome.usesLiquidGlass, #available(macOS 26.0, *) {
             Color.clear.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
-            CompatMaterial(
-                material: .hudWindow,
-                blending: .behindWindow,
-                cornerRadius: cornerRadius
-            )
+            // Сюда доходит только система со стеклом, у которой стекло почему-то
+            // не собралось. Непрозрачная заливка вместо материала — по тому же
+            // доводу, что и у панели: пустой фон у borderless-окна хуже, чем
+            // плоский.
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Color(NSColor.windowBackgroundColor))
         }
     }
 }
@@ -991,26 +1004,27 @@ private struct HoverHighlight: ViewModifier {
 
 extension View {
 
-    /// Основная поверхность: стекло на macOS 26, материал ниже — и материал же
-    /// везде, если включено «Без стекла».
+    /// Основная поверхность: стекло на macOS 26, плоская заливка везде ниже.
     ///
-    /// Три ступени, а не две: `Material` из SwiftUI появился только в macOS 12,
-    /// поэтому на Catalina и Big Sur тот же системный эффект берётся напрямую у
-    /// AppKit. Плоской заливки нет ни на одной ступени.
+    /// Ступеней было три — стекло, `ultraThinMaterial` с macOS 12 и `hudWindow`
+    /// на Catalina, — и держались они на том, что полупрозрачная поверхность
+    /// внутри окна выглядит системно. Правка 18 августа 2026 сняла прозрачность
+    /// у самого окна на системах без стекла, а поверхность внутри непрозрачного
+    /// окна размывает уже не чужой интерфейс, а собственный фон: тот же серый,
+    /// только мутный. Плоская заливка честнее и читается лучше.
     @ViewBuilder
     func themedSurface(cornerRadius: CGFloat = Theme.Radius.surface) -> some View {
-        if !Theme.Chrome.usesLiquidGlass, Theme.Chrome.prefersPlain {
+        if !Theme.Chrome.usesLiquidGlass {
             self.background(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(Color(NSColor.controlBackgroundColor))
             )
-        } else if Theme.Chrome.usesLiquidGlass, #available(macOS 26.0, *) {
+        } else if #available(macOS 26.0, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
-        } else if #available(macOS 12.0, *) {
-            self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
         } else {
             self.background(
-                CompatMaterial(material: .hudWindow, cornerRadius: cornerRadius)
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color(NSColor.controlBackgroundColor))
             )
         }
     }
