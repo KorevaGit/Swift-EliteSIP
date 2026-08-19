@@ -165,6 +165,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // кадра, а не появляться после первой записи настроек.
         model.seedDebugMacrosIfNeeded()
         #endif
+        #if DEBUG
+        // Перезапуск — тем же путём, каким его зовёт кнопка, но без мыши.
+        //   EliteSIP.app/Contents/MacOS/EliteSIP --relaunch-in 8
+        //
+        // Ключ заведён 19 августа 2026 и заслужен: этот путь чинился трижды, и
+        // каждый раз «проверка» шла в обход настоящего вызова — через Apple
+        // Event, которым выход зовёт `⌘Q`. Разница между ними и оказалась
+        // причиной: `NSApp.terminate` из действия алерта до делегата не
+        // доходит, а Apple Event доходит. Ключ зовёт именно то, что зовёт
+        // кнопка, — `sendAction` по цепочке ответчиков, — и потому ловит ровно
+        // тот случай, который трижды проскакивал мимо проверки.
+        //
+        // Задержка нужна, чтобы приложение успело подняться и зарегистрироваться:
+        // выход обязан проверяться на живой регистрации, а не на пустом месте.
+        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--relaunch-in"),
+           let seconds = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first,
+           let delay = Double(seconds) {
+            model.append(level: .debug, message: "отладка: перезапуск через \(seconds) с")
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                NSApp.sendAction(#selector(AppDelegate.relaunchApplication(_:)), to: nil, from: nil)
+            }
+        }
+        #endif
 
         // Регистрация поднимается сама: ручного «Подключить» в панели нет.
         model.startAutoConnect()
@@ -1341,7 +1364,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         model.append(level: .info, message: "перезапуск: ждущий потомок заведён, выходим")
-        NSApp.terminate(nil)
+
+        // Не `NSApp.terminate(nil)`, и это последняя из трёх правок выхода за
+        // 19 августа 2026 — та, что наконец нашла настоящего виновника.
+        //
+        // Журнал живой машины показал разницу прямо: тот же самый выход,
+        // позванный Apple Event'ом (`⌘Q`, `NSRunningApplication.terminate()`),
+        // проходит целиком — «выход: снимаем регистрацию», `REGISTER expires=0`,
+        // «отключено», «выход». Позванный `NSApp.terminate(nil)` **отсюда** — не
+        // доходит до `applicationShouldTerminate` вовсе: в журнале за ним не
+        // следует ни строки, а приложение продолжает слать keep-alive.
+        //
+        // Место вызова и есть причина: сюда мы попадаем из действия кнопки
+        // `.alert` через `NSApp.sendAction`, то есть изнутри разбора события, из
+        // которого AppKit намерение выйти просто теряет. Обе прежние попытки
+        // чинили не то: они правили, **как** ответить делегату, а делегата
+        // никто не спрашивал.
+        //
+        // Поэтому AppKit из этого пути убран целиком. Решение уже принято —
+        // человек нажал «Перезапустить», — и дальше `tearDownAndExit()` делает
+        // ровно то же, что сделал бы обычный выход, но сам: снимает регистрацию
+        // и завершает процесс. Признак поднимаем здесь же, чтобы `⌘Q`,
+        // нажатый в ту же секунду, не завёл вторую разборку.
+        isTearingDown = true
+        Task { @MainActor in await tearDownAndExit() }
     }
 
     @objc func closeAdministrationWindow(_ sender: Any?) {
