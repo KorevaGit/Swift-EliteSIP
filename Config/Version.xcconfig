@@ -14,4 +14,4 @@
 // выпуске и никогда не убывает. Sparkle сравнивает именно его.
 
 MARKETING_VERSION = 0.1.5
-CURRENT_PROJECT_VERSION = 6
+CURRENT_PROJECT_VERSION = 7

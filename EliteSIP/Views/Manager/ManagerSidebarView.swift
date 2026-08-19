@@ -40,14 +40,12 @@ struct ManagerSidebarView: View {
 
     private var list: some View {
         List(selection: selection) {
-            // Одна безымянная группа, а не голый `ForEach`: `Section` даёт
-            // системному списку те же поля сверху, что и в «Управлении», —
-            // без неё первая строка встаёт на несколько точек выше, и два окна
-            // отступают от светофора по-разному.
-            Section {
-                ForEach(ManagerSection.allCases) { item in
-                    row(item).tag(item)
-                }
+            // Голый `ForEach`, без `Section`, и в «Управлении» безымянная
+            // группа теперь тоже без неё. Обёртка ставилась ради полей сверху,
+            // одинаковых у двух окон, а на Big Sur дала пустую полосу под
+            // заголовок, которого нет. Поля задаёт `compatOwnTopInset` ниже.
+            ForEach(ManagerSection.allCases) { item in
+                row(item).tag(item)
             }
         }
         .listStyle(SidebarListStyle())

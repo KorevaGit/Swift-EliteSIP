@@ -43,6 +43,27 @@ struct PhonePanelView: View {
     /// расхождение не писалось на каждом проходе раскладки.
     @State private var lastReportedShortfall: CGFloat?
 
+    /// Добавка к расчётной высоте окна: столько середине не хватило на деле.
+    ///
+    /// Высота панели складывается из констант, и на macOS 26 сумма сходится
+    /// точно. На живой Big Sur — нет: клавиши обрезались и после того, как
+    /// расчёт был перепроверен по слагаемым. Гадать, какое из них там больше —
+    /// полоса заголовка, кегль подписи, высота кнопки, — значит подгонять
+    /// константы под одну систему и ломать их на другой.
+    ///
+    /// Поэтому панель не угадывает, а меряет: сколько середине не хватило,
+    /// столько окно и добирает. На системе, где расчёт сходится, добавка равна
+    /// нулю и не меняет ничего.
+    @State private var heightCorrection: CGFloat = 0
+
+    /// К какой раскладке относится добавка.
+    ///
+    /// Число клавиш и открытое поле перевода меняют то, что середина обязана
+    /// вместить. Добавка, снятая для другой раскладки, к новой отношения не
+    /// имеет — иначе панель, однажды подросшая под три ряда клавиш, осталась бы
+    /// такой и без них.
+    @State private var correctionKey: CGFloat = 0
+
     var body: some View {
         VStack(spacing: 0) {
             titleBar
@@ -173,19 +194,19 @@ struct PhonePanelView: View {
         // `clipped()`. Причём чем меньше макросов, тем хуже: без них панель
         // короче ещё на ряд, и поле не влезало совсем.
         if model.isTransferEntryVisible {
-            return fixed + Theme.Gap.controlsToMacros + TransferEntry.height
+            return fixed + Theme.Gap.controlsToMacros + TransferEntry.height + heightCorrection
         }
 
         // Пустого места под макросы не резервируется: пока их нет, панель
         // ровно на них короче, а каждый добавленный ряд просто добавляет
         // высоты. Ряд управления при этом остаётся — он не про макросы.
         let rows = (model.usableMacros.count + Theme.Metrics.macroColumns - 1) / Theme.Metrics.macroColumns
-        guard rows > 0 else { return fixed }
+        guard rows > 0 else { return fixed + heightCorrection }
 
         let grid = CGFloat(rows) * Theme.Metrics.macroMinHeight
             + CGFloat(rows - 1) * Theme.Metrics.elementSpacing
 
-        return fixed + Theme.Gap.controlsToMacros + grid
+        return fixed + Theme.Gap.controlsToMacros + grid + heightCorrection
     }
 
     /// Сверяет доставшуюся середине высоту с той, на которую рассчитана панель,
@@ -197,17 +218,32 @@ struct PhonePanelView: View {
     /// это видно числом, а не догадкой по снимку экрана.
     private func reportMiddleHeight(_ height: CGFloat) {
         let expected = expectedMiddleHeight
+
+        // Смена раскладки обнуляет добавку: она снята для другого содержимого.
+        if correctionKey != expected {
+            correctionKey = expected
+            heightCorrection = 0
+            lastReportedShortfall = nil
+        }
+
         let shortfall = (expected - height).rounded()
         // Полточки — это округление раскладки, а не нехватка места.
         guard shortfall > 0.5, lastReportedShortfall != shortfall else { return }
         lastReportedShortfall = shortfall
+
+        // Потолок добавки — не перестраховка. Если нехватка растёт вопреки
+        // добавке, значит середине не хватает не места, а чего-то другого, и
+        // окно, растущее до края экрана, эту беду только скроет. Двух рядов
+        // клавиш хватает на любую разумную разницу в метриках системы.
+        let ceiling = 2 * Theme.Metrics.macroMinHeight
+        heightCorrection = min(heightCorrection + shortfall, ceiling)
         let given = Int(height.rounded())
         let needed = Int(expected.rounded())
         model.append(
             level: .warning,
             message: "панели не хватает высоты: середине дано \(given) точек вместо "
-                + "\(needed), срезано \(Int(shortfall)). Полоса заголовка "
-                + "\(Int(titleBarInset)), макросов \(model.usableMacros.count)"
+                + "\(needed), срезано \(Int(shortfall)), добавка \(Int(heightCorrection)). "
+                + "Полоса заголовка \(Int(titleBarInset)), клавиш \(model.usableMacros.count)"
         )
     }
 
