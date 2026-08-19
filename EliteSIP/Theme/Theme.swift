@@ -374,9 +374,31 @@ enum Theme {
         /// полоса своя и непрозрачная, — и отступать надо не от неё, а от края
         /// содержимого, как в любом обычном окне.
         static func sidebarTopInset(glass: Bool) -> CGFloat {
-            guard glass else { return sectionSpacing }
-            return NSWindow.frameRect(forContentRect: .zero, styleMask: [.titled]).height
-                + Gap.titleToStatus
+            guard contentRunsUnderTitleBar(glass: glass) else { return sectionSpacing }
+            return titleBarHeight + Gap.titleToStatus
+        }
+
+        /// Высота полосы заголовка по мнению самой системы. На macOS 26 это 32
+        /// точки против 28 на прежних версиях — своя константа означала бы, что
+        /// на одной из систем всё под полосой уезжает ровно на разницу.
+        static var titleBarHeight: CGFloat {
+            NSWindow.frameRect(forContentRect: .zero, styleMask: [.titled]).height
+        }
+
+        /// Заходит ли содержимое под полосу заголовка.
+        ///
+        /// Со стеклом — всегда. Без стекла — начиная с Big Sur, где сайдбар
+        /// умеет идти во всю высоту окна (`allowsFullHeightLayout`, macOS 11).
+        /// На Catalina такого сайдбара нет, и содержимое остаётся под обычной
+        /// полосой.
+        ///
+        /// Правка 19 августа 2026: до неё без стекла содержимое шло под полосой
+        /// всегда, и на живой Big Sur над первой строкой сайдбара стояла пустая
+        /// белая полоса во всю ширину окна — вид окна без сайдбара, а не с ним.
+        static func contentRunsUnderTitleBar(glass: Bool) -> Bool {
+            if glass { return true }
+            if #available(macOS 11.0, *) { return true }
+            return false
         }
 
         /// Отступ содержимого — меньше, чем у сайдбара, и намеренно.
@@ -391,7 +413,13 @@ enum Theme {
         /// Само число — только зазор: вставку сверху половина уже получила от
         /// `SidebarInsetReader`, по её полю и выравнивается.
         static func contentTopInset(glass: Bool) -> CGFloat {
-            glass ? Gap.titleToStatus : sectionSpacing
+            // Со стеклом высоту полосы половина уже получила полем плавающей
+            // вставки (`SidebarInsetReader`), и здесь остаётся один зазор.
+            // Без стекла вставки нет — полей ноль, — и полосу содержимое
+            // отсчитывает само, иначе первая строка встанет под светофор.
+            if glass { return Gap.titleToStatus }
+            guard contentRunsUnderTitleBar(glass: false) else { return sectionSpacing }
+            return titleBarHeight + Gap.titleToStatus
         }
 
         /// Окно живой трассы SIP. Уже этого строка `INVITE sip:...` начинает

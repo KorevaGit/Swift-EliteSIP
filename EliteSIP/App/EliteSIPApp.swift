@@ -876,7 +876,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // сайдбар был стеклянной вставкой, а содержимое обычным.
             sidebar.titlebarSeparatorStyle = isGlass ? .none : .line
         }
-        if isGlass, #available(macOS 11.0, *) {
+        if #available(macOS 11.0, *) {
             // Сайдбар идёт от самого верха окна, а не от низа полосы заголовка:
             // светофор обязан стоять внутри него, а строки — уходить под
             // светофор, а не обрываться выше него.
@@ -884,6 +884,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // Значение стоит по умолчанию, но записано явно: от него зависит
             // всё остальное в этом окне, и молчаливое значение по умолчанию —
             // плохая опора для того, что при его смене развалится.
+            //
+            // Со стеклом это было с самого начала, без стекла — с 19 августа
+            // 2026. Живая проверка на Big Sur показала над первой строкой
+            // пустую белую полосу: сайдбар кончался под полосой заголовка, а
+            // сама полоса стояла пустой во всю ширину окна. Так выглядит окно
+            // без сайдбара, а не с ним, — в Finder и «Почте» на той же системе
+            // список идёт до самого верха, и светофор стоит на нём.
             sidebar.allowsFullHeightLayout = true
         }
 
@@ -896,12 +903,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         split.addSplitViewItem(sidebar)
         split.addSplitViewItem(content)
 
-        // `.fullSizeContentView` — только под стекло: он и есть то, чем
-        // содержимое заводится под полосу заголовка. В обычном варианте он
-        // означал бы прозрачную полосу без фона, под которую резко ныряет
-        // список, — там нужна ровно обычная полоса, а содержимое под ней.
+        // `.fullSizeContentView` — то, чем содержимое заводится под полосу
+        // заголовка, и без него полная высота сайдбара невозможна в принципе.
+        //
+        // Раньше стоял только под стекло, по доводу «в обычном варианте это
+        // прозрачная полоса без фона, под которую резко ныряет список». Довод
+        // держался, пока окно было прозрачным; теперь без стекла оно красится
+        // непрозрачно явно (ниже), и нырять списку некуда — он и есть то, что
+        // под полосой нарисовано.
+        //
+        // На Catalina остаётся прежнее поведение: `allowsFullHeightLayout`
+        // появился в macOS 11, и без него полная высота даст полосу без
+        // сайдбара — ровно ту беду, от которой уходим.
         var styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
-        if isGlass { styleMask.insert(.fullSizeContentView) }
+        if isGlass {
+            styleMask.insert(.fullSizeContentView)
+        } else if #available(macOS 11.0, *) {
+            styleMask.insert(.fullSizeContentView)
+        }
 
         let window = NSWindow(
             contentRect: CGRect(origin: .zero, size: contentMinSize),
