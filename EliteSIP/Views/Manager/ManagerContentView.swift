@@ -73,6 +73,7 @@ struct ManagerContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
                 switch router.section {
+                case .work: WorkTab()
                 case .audio: AudioTab()
                 case .ringtone: RingtoneTab()
                 case .appearance: AppearanceTab()

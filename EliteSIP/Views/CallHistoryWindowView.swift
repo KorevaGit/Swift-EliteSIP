@@ -543,20 +543,15 @@ struct CallOutcomeBadge: View {
     }
 }
 
-/// Подсказка на кнопке фильтра — стрелка того же вида, что в строках.
+/// Подсказка на кнопке фильтра — тот же значок, что в строках списка.
 ///
-/// Смысл в том, что стрелка **та же**: кнопка учит читать список, а не заводит
-/// второй язык. Направление у неё то же, цвет у «Пропущенных» тот же красный.
-///
-/// **Кольца вокруг стрелки здесь нет, хотя в строке у пропущенного оно есть.**
-/// Живое окно показало, почему: на четырнадцати точках красное кольцо с
-/// диагональной чертой внутри читается как знак «запрещено», а не как
-/// пропущенный звонок — головку стрелки на такой доле размера уже не видно.
-/// Кольцо несёт «разговор не состоялся», и в списке это различие обязательно;
-/// на кнопке оно не нужно вовсе — рядом стоит слово «Пропущенные».
-///
-/// По той же причине здесь остаётся различие одним цветом, хотя в списке так
-/// нельзя: там значок единственный носитель смысла, а тут он подпись к подписи.
+/// **Именно тот же, а не похожий.** Кнопка учит читать список: человек нажимает
+/// «Пропущенные», видит на кнопке красное кольцо со стрелкой внутрь — и то же
+/// самое находит потом в строках. Прежде здесь стояла одна голая стрелка без
+/// кольца, различавшая исход только цветом; за это была названа причина —
+/// на одиннадцати точках кольцо вырождалось в точку, — но лечили ею следствие,
+/// а не причину. Причина в размере, и с 19 августа 2026 размер поправлен
+/// (`historyFilterGlyph`), а фигура вернулась к общей.
 ///
 /// У «Всех» значка нет: подсказывать нечего, а четвёртая фигура ради симметрии
 /// сообщала бы, что и «Все» чем-то отбирают.
@@ -565,25 +560,24 @@ private struct FilterGlyph: View {
     let filter: CallHistoryStore.Filter
 
     var body: some View {
-        if let direction {
-            CallDirectionArrow(isIncoming: direction)
-                .stroke(style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
-                .compatForeground(
-                    filter == .missed ? Theme.Palette.outcomeMissed : Theme.Palette.textSecondary
-                )
-                .frame(
-                    width: Theme.Metrics.historyFilterGlyph,
-                    height: Theme.Metrics.historyFilterGlyph
-                )
+        if let sample {
+            CallOutcomeBadge(
+                isIncoming: sample.isIncoming,
+                isCompleted: sample.isCompleted,
+                color: sample.color,
+                size: Theme.Metrics.historyFilterGlyph
+            )
         }
     }
 
-    /// nil — у фильтра нет направления, значит нет и стрелки.
-    private var direction: Bool? {
+    /// Тот звонок, который этот отбор и показывает: направление, исход и цвет
+    /// берутся у него, а не выбираются для кнопки отдельно.
+    private var sample: (isIncoming: Bool, isCompleted: Bool, color: Color)? {
         switch filter {
         case .all: return nil
-        case .incoming, .missed: return true
-        case .outgoing: return false
+        case .incoming: return (true, true, Theme.Palette.outcomeAnswered)
+        case .missed: return (true, false, Theme.Palette.outcomeMissed)
+        case .outgoing: return (false, true, Theme.Palette.outcomeCompleted)
         }
     }
 }
@@ -993,16 +987,20 @@ private struct CallDirectionArrow: Shape {
 /// Строка истории.
 ///
 /// Две линии. Сверху — с кем говорили и чем это кончилось, снизу — чем это
-/// подтверждается и когда было. Повтор набора справа отдельной кнопкой, а не
-/// нажатием по строке: нажатие по строке в списке означает «выбрать», и звонок
-/// от него — это звонок, которого не хотели.
+/// подтверждается и когда было.
+///
+/// **Звонка из истории нет вовсе.** Кнопка повторного набора стояла здесь в
+/// каждой строке и убрана по решению 19 августа 2026: окно истории отвечает на
+/// «что было», а не «позвони ещё раз», и кнопка, которая звонит по-настоящему,
+/// в списке для чтения — это звонок, которого не хотели. Набрать тот же номер
+/// по-прежнему можно из панели: стрелка у поля набора помнит последние номера
+/// (`recentDialedNumbers`), и там это действие стоит там, где звонят, а не там,
+/// где читают.
 private struct CallHistoryRow: View {
 
     @EnvironmentObject private var model: AppModel
 
     let record: CallRecord
-
-    private var canRedial: Bool { model.canPlaceCall && !record.number.isEmpty }
 
     var body: some View {
         HStack(spacing: Theme.Metrics.sectionSpacing) {
@@ -1025,8 +1023,8 @@ private struct CallHistoryRow: View {
 
             Spacer(minLength: Theme.Metrics.elementSpacing)
 
-            // Колонка постоянной ширины: иначе кнопки повторного набора ездят
-            // от длины исхода и не стоят на одной вертикали.
+            // Колонка постоянной ширины: иначе исход и время ездят по
+            // горизонтали от длины слова исхода и не стоят на одной вертикали.
             VStack(alignment: .trailing, spacing: Theme.Metrics.hairSpacing) {
                 Text(outcome)
                     .compatMonospacedDigit()
@@ -1041,35 +1039,6 @@ private struct CallHistoryRow: View {
                     .compatForeground(Theme.Palette.textSecondary)
             }
             .frame(width: Theme.Metrics.historyOutcomeColumn, alignment: .trailing)
-
-            Button {
-                model.redial(record)
-            } label: {
-                // Не зелёная, хотя кнопка и звонит: цвет в этом окне
-                // принадлежит значку исхода, и зелёная трубка в каждой строке
-                // спорила бы с ним за внимание.
-                CompatSymbol(name: "phone.fill")
-                    .compatForeground(
-                        canRedial ? Theme.Palette.textPrimary : Theme.Palette.textTertiary
-                    )
-                    // Квадрат, а не набивка по сторонам. Разная набивка по
-                    // горизонтали и вертикали давала приплюснутый
-                    // прямоугольник — форму, которой в приложении больше нигде
-                    // нет: клавиши макросов, кнопки управления и цифровые цели
-                    // либо квадратные, либо явно широкие.
-                    .frame(
-                        width: Theme.Metrics.historyRedialButton,
-                        height: Theme.Metrics.historyRedialButton
-                    )
-                    // Рамка с фоном, а не голый значок: без неё оператор не
-                    // понимает, что это кнопка, а не пометка строки.
-                    .themedControlSurface(cornerRadius: Theme.Radius.control)
-                    .hoverHighlight(isEnabled: canRedial)
-            }
-            .buttonStyle(.plain)
-            .disabled(!canRedial)
-            .compatHelp(canRedial ? "Позвонить на \(record.number)" : "Сейчас позвонить нельзя")
-            .compatAccessibilityLabel("Позвонить ещё раз")
         }
         // Кегль задаётся строке целиком, а не каждой надписи: `.callout` на
         // содержимое, `.footnote` на второй план — те же два голоса, что на

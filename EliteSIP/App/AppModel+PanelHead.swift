@@ -140,7 +140,7 @@ extension AppModel {
     /// из трёх профилей одного добавочного номера не было бы видно вовсе.
     func profileMenuTitle(_ profile: SIPProfile) -> String {
         let number = profile.account.username.isEmpty
-            ? NSLocalizedString("без номера", comment: "профиль без добавочного в списке")
+            ? NSLocalizedString("без номера", comment: "профиль без номера в списке")
             : profile.account.username
         return profile.label.isEmpty ? number : "\(number) · \(profile.label)"
     }

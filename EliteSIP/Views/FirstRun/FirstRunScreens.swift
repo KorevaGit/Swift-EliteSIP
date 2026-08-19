@@ -314,7 +314,7 @@ struct FirstRunUserScreen: View {
     // следующее поле не глядя.
     private var credentials: some View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
-            TextField("Добавочный", text: $flow.number)
+            TextField("Номер", text: $flow.number)
             SecureField("Пароль SIP", text: $flow.password)
         }
     }
@@ -340,7 +340,7 @@ struct FirstRunUserScreen: View {
 
     /// Что приехало из файла.
     ///
-    /// Поля добавочного и пароля здесь спрятаны, но добавочный показан: иначе
+    /// Поля номера и пароля здесь спрятаны, но номер показан: иначе
     /// техподдержка молча заводит вторую регистрацию на чужой номер.
     private var loadedSummary: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
@@ -350,7 +350,7 @@ struct FirstRunUserScreen: View {
                 Text(
                     String(
                         format: NSLocalizedString(
-                            "Добавочный %@, АТС %@.",
+                            "Номер %@, АТС %@.",
                             comment: "что приехало из файла конфигурации"
                         ),
                         config.profiles.active.account.username,
@@ -423,7 +423,7 @@ struct FirstRunUserScreen: View {
                 // пароля, и заводить ею машину «как готовую» нельзя. Отдельным
                 // отказом, а не молчанием: файлы лежат рядом и похожи.
                 flow.notice = NSLocalizedString(
-                    "Это предустановка, а не конфигурация: в ней нет добавочного и пароля.",
+                    "Это предустановка, а не конфигурация: в ней нет номера и пароля.",
                     comment: "выбран файл предустановки вместо конфигурации"
                 )
                 flow.route = defaultRoute

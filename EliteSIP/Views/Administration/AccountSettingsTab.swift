@@ -86,7 +86,7 @@ struct AccountSettingsTab: View {
             // пунктом списка: место, для которого шаблона нет, не должно
             // заводиться труднее, чем до предустановок.
             SettingsButtonsRow {
-                TextField("добавочный", text: $newProfileNumber)
+                TextField("номер", text: $newProfileNumber)
                     .frame(maxWidth: 110)
 
                 SecureField("пароль", text: $newProfilePassword)

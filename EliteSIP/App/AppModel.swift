@@ -1734,7 +1734,7 @@ final class AppModel: ObservableObject {
 
         let sequence = settings.dtmf.sequence(of: macro)
         guard sequence.hasTones else {
-            append(level: .warning, message: "макрос «\(macro.title)» пуст")
+            append(level: .warning, message: "клавиша «\(macro.title)» пуста")
             return
         }
         let timing = settings.dtmf.timing
@@ -1742,7 +1742,7 @@ final class AppModel: ObservableObject {
         sendingMacroID = macro.id
         setStatus(
             String(
-                format: NSLocalizedString("«%@» — отправка…", comment: "состояние линии при отправке макроса"),
+                format: NSLocalizedString("«%@» — отправка…", comment: "состояние линии при отправке клавиши"),
                 macro.title
             ),
             on: lineID
@@ -1760,7 +1760,7 @@ final class AppModel: ObservableObject {
             guard let line = self.line(lineID), line.media === media, line.phase == .active else { return }
 
             guard sent else {
-                self.append(level: .warning, message: "собеседник не подтвердил telephone-event — макрос не отправлен")
+                self.append(level: .warning, message: "собеседник не подтвердил telephone-event — клавиша не отправлена")
                 self.setStatus(NSLocalizedString("DTMF не поддерживается", comment: "состояние линии"), on: lineID)
                 return
             }
@@ -1777,11 +1777,11 @@ final class AppModel: ObservableObject {
             self.setStatus(
                 macro.transfersCall
                     ? String(
-                        format: NSLocalizedString("«%@» — перевод отправлен", comment: "состояние линии после макроса перевода"),
+                        format: NSLocalizedString("«%@» — перевод отправлен", comment: "состояние линии после клавиши перевода"),
                         macro.title
                     )
                     : String(
-                        format: NSLocalizedString("«%@» — отправлено", comment: "состояние линии после макроса"),
+                        format: NSLocalizedString("«%@» — отправлено", comment: "состояние линии после клавиши"),
                         macro.title
                     ),
                 on: lineID
@@ -1789,8 +1789,8 @@ final class AppModel: ObservableObject {
             self.append(
                 level: .info,
                 message: macro.transfersCall
-                    ? "перевод макросом «\(macro.title)»: \(sequence.displayText)"
-                    : "макрос «\(macro.title)»: \(sequence.displayText)"
+                    ? "перевод клавишей «\(macro.title)»: \(sequence.displayText)"
+                    : "клавиша «\(macro.title)»: \(sequence.displayText)"
             )
             self.startMacroCooldown(macro.id)
         }
@@ -2733,13 +2733,96 @@ final class AppModel: ObservableObject {
         settings.profiles.rename(id, to: label)
     }
 
-    // `setProfileSite` убрана в этапе 5 вместе с кнопками «Офис/Удалённо».
-    //
-    // Ручное переключение перестало иметь смысл: рабочее место у машины
-    // одно и не меняется, а `PortKnockPolicy` и без него решает по адресу
-    // сервера, стучать ли перед регистрацией. Поле `site` осталось в
-    // профиле и читается стуком — записывать в него теперь некому, и
-    // значение у всех профилей `.automatic`.
+    /// Переезд между офисом и удалёнкой: пометка, адрес АТС и перерегистрация.
+    ///
+    /// **Вернулась 19 августа 2026** — вместе с разделом «Работа» в настройках
+    /// менеджера. В этапе 5 её убрали по доводу «рабочее место у машины одно и
+    /// не меняется»; довод верен для машины и неверен для человека — тот же
+    /// менеджер с тем же номером работает то из офиса, то из дома. Новое здесь
+    /// одно: переключает не администратор, а сам менеджер, и потому метод
+    /// молчалив к ошибкам настройки — он не открывает закрытых настроек, а
+    /// пользуется парой адресов, которую туда уже вписали.
+    ///
+    /// **Переезд, а не пометка.** Вместе с рабочим местом меняется адрес АТС:
+    /// изнутри внутренний, снаружи внешний. Одно без другого бессмысленно — из
+    /// дома внутренний адрес недостижим, а из офиса внешний ведёт на тот же
+    /// сервер длинной дорогой через шлюз.
+    ///
+    /// Адрес переписывается **только у профиля из пары**: лабораторный
+    /// `127.0.0.1` и чужая АТС остаются на месте — пометка не должна незаметно
+    /// уводить профиль на другой сервер. Такой профиль получает только пометку,
+    /// и журнал об этом говорит.
+    ///
+    /// Перерегистрация нужна ровно из-за адреса. Пометка сама по себе решает
+    /// только, стучать ли перед следующим подключением, и рвать ради неё живую
+    /// регистрацию незачем; стук уйдёт сам на первой же регистрации по новому
+    /// адресу.
+    func setProfileSite(_ site: SIPProfileSite, for id: UUID) async {
+        guard let profile = settings.profiles[id], profile.site != site else { return }
+        // Переезд снимает регистрацию, значит запрет тот же, что у смены
+        // профиля и у отключения из M6b: посреди разговора — нельзя.
+        guard canSwitchProfile else {
+            refuseProfileChange()
+            return
+        }
+
+        let addresses = settings.siteAddresses
+        let currentHost = profile.account.domain
+        let newHost = addresses.host(for: site)
+        let movesAddress =
+            !addresses.isEmpty && addresses.recognizes(currentHost) && newHost != nil
+            && newHost != currentHost
+
+        let wasConnected = agent != nil
+        if movesAddress && wasConnected { await disconnect() }
+
+        _ = settings.profiles.setSite(site, for: id)
+
+        if movesAddress, let newHost {
+            // Пароль переносить не нужно: он поле профиля и переезжает вместе
+            // с ним.
+            var moved = settings.profiles[id]?.account
+            moved?.domain = newHost
+            if let moved, settings.profiles.setAccount(moved, for: id) {
+                append(
+                    level: .info,
+                    message: "профиль \(profileTitle(id)): \(site.title), адрес АТС \(currentHost) → \(newHost)"
+                )
+            }
+        } else {
+            // не переводится: строка журнала — он остаётся техническим, потому
+            // что его сравнивают между машинами (решение этапа 8).
+            let kept = addresses.recognizes(currentHost)
+                ? ""
+                : ", адрес \(currentHost) оставлен как есть"
+            append(level: .info, message: "профиль \(profileTitle(id)): \(site.title)" + kept)
+        }
+
+        guard wasConnected, movesAddress else { return }
+        if !settings.sipPassword.isEmpty {
+            await connect()
+        } else {
+            append(level: .warning, message: "у профиля не задан пароль — подключение не восстановлено")
+            callStatus = NSLocalizedString("Профиль без пароля", comment: "состояние линии")
+        }
+    }
+
+    /// Где стоит рабочее место активного профиля — для раздела «Работа».
+    ///
+    /// `.automatic` наружу не выходит: менеджеру нечего ответить на «по адресу
+    /// сервера», он знает только, откуда он сегодня работает. Догадка по адресу
+    /// остаётся умолчанием модели, а на экране показывается тем из двух, к чему
+    /// она сейчас сводится.
+    var workplaceSite: SIPProfileSite {
+        let profile = settings.profiles.active
+        // Тем же `resolvedSite`, каким решает стук: два ответа на экране и в
+        // сети обязаны совпадать, иначе «Офис» показан, а стучим мы как из
+        // дома.
+        return PortKnockPolicy.resolvedSite(
+            serverHost: profile.account.signalingEndpoint.host,
+            site: profile.site
+        )
+    }
 
     /// «Исправить сеть»: стук по портам один раз, прямо сейчас.
     ///

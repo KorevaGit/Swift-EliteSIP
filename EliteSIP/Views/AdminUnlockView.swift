@@ -61,7 +61,7 @@ struct AdminUnlockView: View {
         Group {
             Text("Управление настройками")
                 .font(.headline)
-            Text("Аккаунты, макросы, защита от автокликеров и диагностика.")
+            Text("Аккаунты, клавиши, защита от автокликеров и диагностика.")
                 .font(.footnote)
                 .compatForeground(.secondary)
 

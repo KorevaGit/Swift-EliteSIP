@@ -134,14 +134,17 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// правится, потому что живёт на чужом шлюзе и может измениться без нас.
     var portKnock: PortKnockSequence = .production
 
-    // `siteAddresses` убрана в этапе 5 вместе с кнопками «Офис/Удалённо».
-    //
-    // Пара адресов существовала ради переезда: смена рабочего места
-    // переписывала домен профиля по этой паре. Кнопок больше нет, переписывать
-    // домен некому, и читать пару стало нечему — а настройка, которую можно
-    // поменять без последствий, однажды меняется и ждёт эффекта. Адрес АТС
-    // задаётся полем «Домен АТС» в самом профиле, адреса стука — своими полями
-    // в шагах последовательности.
+    /// Пара адресов одной АТС: изнутри и снаружи.
+    ///
+    /// Убрана в этапе 5 и возвращена 19 августа 2026 вместе с разделом
+    /// «Работа» в настройках менеджера. Довод, по которому её убирали, —
+    /// «рабочее место у машины одно и не меняется» — верен для машины и неверен
+    /// для человека: тот же менеджер с тем же номером работает то из офиса, то
+    /// из дома, и переключает это он сам, а не администратор.
+    ///
+    /// Схема не выросла: старый файл читается терпимым декодером и получает
+    /// заводскую пару — то же, что стояло бы на свежей машине.
+    var siteAddresses: SIPSiteAddresses = .production
 
     /// Учётная запись активного профиля.
     ///
@@ -180,7 +183,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         history: CallHistorySettings = CallHistorySettings(),
         admin: AdminSettings = AdminSettings(),
         acceptsAnyTLSCertificate: Bool = false,
-        portKnock: PortKnockSequence = .production
+        portKnock: PortKnockSequence = .production,
+        siteAddresses: SIPSiteAddresses = .production
     ) {
         self.schemaVersion = schemaVersion
         self.profiles = profiles
@@ -195,6 +199,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.history = history
         self.admin = admin
         self.portKnock = portKnock
+        self.siteAddresses = siteAddresses
         // После `profiles`: свойство живёт в активном профиле.
         self.acceptsAnyTLSCertificate = acceptsAnyTLSCertificate
     }
@@ -241,6 +246,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         admin = (try? container.decodeIfPresent(AdminSettings.self, forKey: .admin)) ?? AdminSettings()
         portKnock =
             try container.decodeIfPresent(PortKnockSequence.self, forKey: .portKnock) ?? .production
+        siteAddresses =
+            try container.decodeIfPresent(SIPSiteAddresses.self, forKey: .siteAddresses) ?? .production
         // Оформление читается здесь же — и до этой строки не читалось вовсе.
         //
         // Свойству хватало значения по умолчанию, чтобы код собрался, а
@@ -263,10 +270,6 @@ struct AppSettings: Codable, Sendable, Equatable {
         firstRun =
             (try? container.decodeIfPresent(FirstRunStage.self, forKey: .firstRun))
             .flatMap { $0 } ?? .passed
-        // Ключ `siteAddresses` в старых файлах остаётся и просто не читается:
-        // терпимый декодер незнакомое игнорирует, и версия схемы от убранного
-        // поля не растёт — она растёт от несовместимости, а не от убыли.
-
         // Доверие к сертификату переехало в профиль. Общий ключ старого файла
         // достаётся активному профилю, а не всем: включали его ради одного
         // сервера, и раздать его остальным значило бы размножить ровно ту

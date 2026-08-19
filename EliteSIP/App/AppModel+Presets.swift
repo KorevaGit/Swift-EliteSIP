@@ -101,7 +101,7 @@ extension AppModel {
 
         append(
             level: .info,
-            message: "предустановка применена: \(preset.name), добавочный \(trimmedNumber)"
+            message: "предустановка применена: \(preset.name), номер \(trimmedNumber)"
         )
     }
 }

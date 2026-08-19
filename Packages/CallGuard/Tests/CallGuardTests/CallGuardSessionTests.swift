@@ -110,6 +110,8 @@ struct CallGuardSessionTests {
     @Test("Сломанная политика не выключает защиту молча")
     func normalizesBrokenPolicy() {
         var broken = CallGuardPolicy()
+        broken.tunesRandomnessByHand = true
+        broken.tunesLivenessByHand = true
         broken.targetCount = 0
         broken.requiredCursorTravel = -50
         broken.minimumTravel = -1
@@ -117,6 +119,52 @@ struct CallGuardSessionTests {
         let normalized = broken.normalized
         #expect(normalized.targetCount == 1)
         #expect(normalized.requiredCursorTravel == 0)
+        #expect(normalized.minimumTravel == 0)
+    }
+
+    @Test("На «Авто» расстояния заводские, чем бы ни был испорчен файл")
+    func automaticTuningIgnoresStoredDistances() {
+        // Ровно тот случай, ради которого признак заведён: числа в файле
+        // сдвинуты — ползунком, чужой правкой, старой версией, — а слой
+        // объявлен автоматическим. «Авто» обязано означать «как задумано», а не
+        // «то, что осталось от прошлой правки».
+        var drifted = CallGuardPolicy()
+        drifted.minimumTravel = 25
+        drifted.screenMargin = 200
+        drifted.requiredCursorTravel = 0
+        drifted.requiredCursorSamples = 0
+
+        let normalized = drifted.normalized
+        let factory = CallGuardPolicy()
+        #expect(normalized.minimumTravel == factory.minimumTravel)
+        #expect(normalized.screenMargin == factory.screenMargin)
+        #expect(normalized.requiredCursorTravel == factory.requiredCursorTravel)
+        #expect(normalized.requiredCursorSamples == factory.requiredCursorSamples)
+    }
+
+    @Test("Ручной слой держит выставленные числа")
+    func manualTuningKeepsChosenDistances() {
+        var tuned = CallGuardPolicy()
+        tuned.tunesRandomnessByHand = true
+        tuned.tunesLivenessByHand = true
+        tuned.minimumTravel = 300
+        tuned.screenMargin = 64
+        tuned.requiredCursorTravel = 120
+
+        let normalized = tuned.normalized
+        #expect(normalized.minimumTravel == 300)
+        #expect(normalized.screenMargin == 64)
+        #expect(normalized.requiredCursorTravel == 120)
+    }
+
+    @Test("Выключенная защита остаётся выключенной после приведения")
+    func disabledPolicySurvivesNormalization() {
+        // `disabled` объявлен ручным намеренно: на «Авто» приведение вернуло бы
+        // заводские сорок точек пути курсора — то есть выключенная защита
+        // требовала бы движения мыши.
+        let normalized = CallGuardPolicy.disabled.normalized
+        #expect(normalized.requiredCursorTravel == 0)
+        #expect(normalized.requiredCursorSamples == 0)
         #expect(normalized.minimumTravel == 0)
     }
 

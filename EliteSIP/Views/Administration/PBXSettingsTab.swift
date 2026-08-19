@@ -27,7 +27,7 @@ struct PBXSettingsTab: View {
                 .frame(width: 90)
             }
 
-            SettingsRow("Добавочный комнаты") {
+            SettingsRow("Номер комнаты") {
                 TextField("", text: Binding(
                     get: { model.settings.conference.roomExtension },
                     set: { model.settings.conference.roomExtension = $0 }
@@ -70,8 +70,52 @@ struct PBXSettingsTab: View {
 
             SettingsNote("""
                 Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется \
-                со списком кодеков добавочного на АТС, а не с наушниками оператора.
+                со списком кодеков номера на АТС, а не с наушниками оператора.
                 """)
+        }
+
+        SettingsSection("Адреса площадок") {
+            SettingsRow("Из офиса") {
+                TextField("", text: Binding(
+                    get: { model.settings.siteAddresses.office },
+                    set: { model.settings.siteAddresses.office = $0 }
+                ))
+                .labelsHidden()
+                .frame(width: 220)
+            }
+
+            SettingsRow("Из дома") {
+                TextField("", text: Binding(
+                    get: { model.settings.siteAddresses.remote },
+                    set: { model.settings.siteAddresses.remote = $0 }
+                ))
+                .labelsHidden()
+                .frame(width: 220)
+            }
+
+            SettingsNote("""
+                Два адреса одной и той же АТС. По этой паре менеджер переключает себя между \
+                офисом и домом в своих настройках, разделом «Работа»: адрес АТС в профиле \
+                меняется на парный, регистрация поднимается заново, а стук уходит сам.
+                """)
+
+            SettingsNote("""
+                Профиль, у которого адрес АТС не из этой пары — лаборатория, чужой сервер, — \
+                переключение не трогает: он получает только пометку, а адрес остаётся как \
+                вписан. Пустая половина пары выключает переезд целиком.
+                """)
+
+            if model.settings.siteAddresses.isEmpty {
+                SettingsNote(
+                    "Половина пары пуста — переключение «Работы» адрес не поменяет.",
+                    isAlarming: true
+                )
+            } else if !model.settings.siteAddresses.recognizes(model.settings.account.domain) {
+                SettingsNote(
+                    "Адрес АТС активного профиля не из этой пары — переезд ему не достанется.",
+                    isAlarming: true
+                )
+            }
         }
 
         PortKnockSection()

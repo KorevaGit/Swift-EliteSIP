@@ -23,7 +23,7 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
         case .presets: NSLocalizedString("Предустановки", comment: "раздел «Управления»")
         case .pbx: NSLocalizedString("АТС", comment: "раздел «Управления»")
         case .incoming: NSLocalizedString("Входящие", comment: "раздел «Управления»")
-        case .macros: NSLocalizedString("Макросы", comment: "раздел «Управления»")
+        case .macros: NSLocalizedString("Клавиши", comment: "раздел «Управления»")
         case .queues: NSLocalizedString("Очереди", comment: "раздел «Управления»")
         case .history: NSLocalizedString("История", comment: "раздел «Управления»")
         case .diagnostics: NSLocalizedString("Диагностика", comment: "раздел «Управления»")

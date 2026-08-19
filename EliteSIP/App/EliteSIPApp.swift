@@ -176,6 +176,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         false
     }
 
+    /// Выход уже решён и идёт: спрашивать второй раз не о чем.
+    private var isTearingDown = false
+
+    /// Перезапуск уже затеян: ждущий потомок заведён, второго не надо.
+    private var isRelaunching = false
+
     /// Выход снимает регистрацию и закрывает диалоги, пока транспорт жив.
     ///
     /// Без этого сервер держит и привязку пира, и разговор до истечения сроков:
@@ -183,7 +189,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// лиды. Отключение здесь принудительное — в разговоре обычная кнопка
     /// «Отключить» недоступна (M6b), и выход остаётся единственной дорогой,
     /// поэтому он спрашивает подтверждение, а не рвёт разговор молча.
+    ///
+    /// **Дальше решение исполняем сами, а не через AppKit.** Это третья попытка
+    /// за 19 августа 2026, и предыдущие две записаны здесь, потому что обе
+    /// выглядели правильно:
+    ///
+    /// 1. `.terminateLater` с ответом `reply(toApplicationShouldTerminate:)` из
+    ///    `Task` — как написано у Apple. Не работает: `.terminateLater` уводит
+    ///    AppKit во вложенный цикл событий внутри `_shouldTerminate` (`sample`
+    ///    показал `ReceiveNextEventCommon`), а тот ждёт события и главную
+    ///    очередь GCD не разбирает — ответ оттуда не приходит никогда. Полтора
+    ///    месяца это скрывал посторонний шум: мышь под рукой у `⌘Q` и второй
+    ///    экземпляр, который перезапуск поднимал рядом.
+    /// 2. `.terminateCancel` и повторный `NSApp.terminate` после отключения.
+    ///    Вложенного цикла больше нет — и на живой машине это сработало **один
+    ///    раз из четырёх**: `sample` показывал обычный цикл, четыре ждущих
+    ///    потомка от четырёх нажатий и продолжающиеся keep-alive, то есть
+    ///    отключение не начиналось вовсе. Почему `terminate:` в этом состоянии
+    ///    до делегата не доходит, выяснить не удалось.
+    ///
+    /// Общее у обеих попыток одно: выход зависел от того, что AppKit сделает с
+    /// нашим намерением дальше. Поэтому теперь он не зависит. Делегат отвечает
+    /// «отказ» — только чтобы вернуть управление, — а всё остальное делает
+    /// `tearDownAndExit()`: снимает регистрацию и завершает процесс сам.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Второй заход, пока идёт первый: решение уже принято.
+        if isTearingDown { return .terminateCancel }
+
         if model.isInCall {
             let alert = NSAlert()
             alert.messageText = NSLocalizedString("Идёт разговор", comment: "вопрос при выходе во время разговора")
@@ -194,15 +226,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             alert.addButton(withTitle: NSLocalizedString("Завершить и выйти", comment: "кнопка выхода во время разговора"))
             alert.addButton(withTitle: NSLocalizedString("Отмена", comment: "кнопка"))
             guard alert.runModal() == .alertFirstButtonReturn else {
+                // Признак не поднимаем: передумали — значит выхода не было
+                // вовсе, и следующий `⌘Q` обязан спросить заново.
                 return .terminateCancel
             }
         }
 
-        Task { @MainActor in
-            await model.disconnect(force: true)
-            NSApp.reply(toApplicationShouldTerminate: true)
+        isTearingDown = true
+        Task { @MainActor in await tearDownAndExit() }
+        return .terminateCancel
+    }
+
+    /// Снять регистрацию и завершить процесс.
+    ///
+    /// **Почему `exit`, а не `NSApp.terminate`.** Разбор — в
+    /// `applicationShouldTerminate`: к этому месту решение уже принято, а
+    /// довести его до конца средствами AppKit надёжно не выходит. Терять при
+    /// этом нечего: настройки пишутся на диск самой правкой (`persistSettings`),
+    /// журнал — построчно, а `applicationWillTerminate` в приложении нет вовсе.
+    /// Кадры окон лежат в `UserDefaults` и дописываются лениво, поэтому
+    /// сбрасываются здесь руками — тем же способом, что кадр мастера в
+    /// `relaunchApplication`.
+    ///
+    /// **Ожидание ограничено.** Снятие регистрации — вежливость к серверу, а не
+    /// условие выхода: не ответит он за две секунды, отпустит по сроку сам.
+    /// Выход, который может не состояться из-за сети, — это ровно та поломка, от
+    /// которой лечит весь этот метод.
+    @MainActor
+    private func tearDownAndExit() async {
+        model.append(level: .info, message: "выход: снимаем регистрацию")
+
+        let teardown = Task { @MainActor in await self.model.disconnect(force: true) }
+        let limit = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            teardown.cancel()
         }
-        return .terminateLater
+        await teardown.value
+        limit.cancel()
+
+        model.append(level: .info, message: "выход")
+        UserDefaults.standard.synchronize()
+        exit(0)
     }
 
     /// Двойной щелчок по файлу `.elitesip`.
@@ -241,7 +305,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 flow.notice = nil
             case .preset:
                 flow.notice = NSLocalizedString(
-                    "Это предустановка, а не конфигурация: в ней нет добавочного и пароля.",
+                    "Это предустановка, а не конфигурация: в ней нет номера и пароля.",
                     comment: "выбран файл предустановки вместо конфигурации"
                 )
             }
@@ -1198,11 +1262,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// иначе перезапуск вернёт приложение к прежнему оформлению и потеряет
     /// правку, ради которой его и затеяли.
     ///
-    /// `open -n` запускается **до** завершения: после `terminate` процесса уже
-    /// нет и запускать новый некому. Регистрация при этом снимается и
-    /// поднимается заново — цена перезапуска, о которой сказано в
-    /// предупреждении.
+    /// **Новый экземпляр поднимается только после смерти старого.**
+    ///
+    /// Это заход второй, и первый — с тем же намерением — 19 августа 2026
+    /// пришлось откатить: приложение переставало перезапускаться вовсе. Причина
+    /// была не здесь, а в `applicationShouldTerminate`, и разобрана она там:
+    /// `.terminateLater` ждал ответа во вложенном цикле, который просыпается
+    /// только от событий, — а событий, пока рядом не поднимался второй
+    /// экземпляр, не было. Перезапуск работал **за счёт** второго экземпляра, и
+    /// убрать второй экземпляр, не починив выход, было нельзя.
+    ///
+    /// Выход починен, и порядок наконец стал честным. Прежний — `open -n` прямо
+    /// перед `terminate` — означал, что новый экземпляр запускается раньше, чем
+    /// заканчивается старый, а тот заканчивается не мгновенно: снимается
+    /// регистрация на АТС, сетевой обмен, секунды. Всё это время в системе жили
+    /// два EliteSIP разом: два значка в строке меню, две панели, два `AppModel`,
+    /// пишущих один и тот же `settings.json`. Кто запишет последним, зависело от
+    /// того, чей `didSet` сработает позже.
+    ///
+    /// Ждём мы завершения по-настоящему, а не паузой: дочерний `sh` крутится на
+    /// `kill -0` по нашему собственному pid и зовёт `open` только тогда, когда
+    /// pid перестал отвечать. Пауза фиксированной длины лечила бы то же самое на
+    /// глазок и разъезжалась бы с медленным `de-REGISTER`. Потомок смерть
+    /// родителя переживает — это проверено пробой на настоящем бандле, а не
+    /// принято на веру: приложение, запущенное LaunchServices, свои дочерние
+    /// процессы за собой не уносит.
+    ///
+    /// `-n` при этом больше не нужен и убран: старого экземпляра к моменту
+    /// запуска нет, и `open` поднимает обычный единственный — без второго места
+    /// в доке. Регистрация снимается и поднимается заново — цена перезапуска, о
+    /// которой сказано в предупреждении.
     @objc func relaunchApplication(_ sender: Any?) {
+        // Второе нажатие, пока идёт первое, не заводит второго потомка.
+        //
+        // Не педантизм: у каждого потомка свой `open`, и все они срабатывают в
+        // один и тот же момент — когда наш pid перестанет отвечать. Четыре
+        // нажатия дали бы четыре экземпляра сразу после выхода. Найдено на живой
+        // машине 19 августа 2026: четыре ждущих `sh` на один процесс.
+        guard !isRelaunching else { return }
+        isRelaunching = true
+
         // Кадр мастера записывается руками и синхронно.
         //
         // `setFrameAutosaveName` сохраняет его сам, но лениво — в `UserDefaults`,
@@ -1216,17 +1315,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             UserDefaults.standard.synchronize()
         }
 
+        // Путь бандла проходит через `sh` строкой, поэтому экранируется
+        // одинарными кавычками: пробел в пути у этого проекта есть уже сейчас
+        // («Swift EliteSIP»), а апостроф в имени папки — дело одного дня.
+        let quotedBundlePath = "'" + Bundle.main.bundleURL.path.replacingOccurrences(
+            of: "'", with: "'\\''"
+        ) + "'"
+        let pid = ProcessInfo.processInfo.processIdentifier
+
         let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        task.arguments = ["-n", Bundle.main.bundleURL.path]
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        task.arguments = [
+            "-c",
+            "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.1; done; "
+                + "exec /usr/bin/open \(quotedBundlePath)",
+        ]
         do {
             try task.run()
         } catch {
             // Не молчим: без нового процесса «перезапуск» превратился бы в
             // выход, а оператор остался бы без софтфона на линии.
             model.append(level: .error, message: "не удалось перезапустить приложение: \(error)")
+            // Перезапуска не случилось — пусть следующее нажатие попробует снова.
+            isRelaunching = false
             return
         }
+        model.append(level: .info, message: "перезапуск: ждущий потомок заведён, выходим")
         NSApp.terminate(nil)
     }
 

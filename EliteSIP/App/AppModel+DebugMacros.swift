@@ -30,7 +30,7 @@ extension AppModel {
             .init(title: "Тех. отдел", sequence: "104"),
         ]
 
-        append(level: .debug, message: "отладка: заведены восемь макросов для проверки сетки")
+        append(level: .debug, message: "отладка: заведены восемь клавиш для проверки сетки")
     }
 }
 #endif

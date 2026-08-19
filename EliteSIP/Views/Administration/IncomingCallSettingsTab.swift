@@ -21,6 +21,50 @@ struct IncomingCallSettingsTab: View {
 
     private var isGuardOn: Bool { model.settings.incomingCall.isEnabled }
 
+    /// Переключатель «Авто ↔ Вручную» слоя случайности.
+    ///
+    /// Возврат на «Авто» **переписывает сами числа**, а не только признак.
+    /// Иначе ползунок остался бы стоять там, куда его увели, и показывал бы не
+    /// то, чем защита пользуется: `normalized` на «Авто» берёт заводские
+    /// значения независимо от записанного. Расхождение показанного и
+    /// действующего — ровно та поломка, от которой этот переключатель заведён.
+    private var randomnessByHand: Binding<Bool> {
+        Binding(
+            get: { model.settings.incomingCall.tunesRandomnessByHand },
+            set: { byHand in
+                model.settings.incomingCall.tunesRandomnessByHand = byHand
+                guard !byHand else { return }
+                let factory = CallGuardPolicy()
+                model.settings.incomingCall.minimumTravel = factory.minimumTravel
+                model.settings.incomingCall.screenMargin = factory.screenMargin
+            }
+        )
+    }
+
+    /// То же для слоя признаков живого человека.
+    private var livenessByHand: Binding<Bool> {
+        Binding(
+            get: { model.settings.incomingCall.tunesLivenessByHand },
+            set: { byHand in
+                model.settings.incomingCall.tunesLivenessByHand = byHand
+                guard !byHand else { return }
+                let factory = CallGuardPolicy()
+                model.settings.incomingCall.requiredCursorTravel = factory.requiredCursorTravel
+                model.settings.incomingCall.requiredCursorSamples = factory.requiredCursorSamples
+            }
+        )
+    }
+
+    /// Один текст на оба слоя: причина у них общая, и разводить её двумя
+    /// формулировками значило бы завести два объяснения одного правила.
+    private var tuningNote: LocalizedStringKey {
+        """
+        На «Авто» стоят проверенные значения, а ползунки заперты: колесо мыши над \
+        незапертым ползунком меняет защиту молча, и заметить это потом не по чему. \
+        «Вручную» отпирает их и отдаёт числа тому, кто их выставил.
+        """
+    }
+
     var body: some View {
         SettingsSection("Защита") {
             SettingsToggleRow("Защита от автокликеров", isOn: policy.isEnabled)
@@ -46,16 +90,26 @@ struct IncomingCallSettingsTab: View {
         SettingsSection("Случайность") {
             SettingsToggleRow("Случайная позиция окна", isOn: policy.isRandomPositionEnabled)
 
+            SettingsRow("Расстояния") {
+                TuningPicker(isByHand: randomnessByHand)
+            }
+
             SettingsRow("Минимальное смещение") {
                 SettingSlider(value: policy.minimumTravel, range: 0...600, step: 25, unit: "pt")
             }
-            .disabled(!model.settings.incomingCall.isRandomPositionEnabled)
+            .disabled(
+                !model.settings.incomingCall.isRandomPositionEnabled
+                    || !model.settings.incomingCall.tunesRandomnessByHand
+            )
 
             SettingsRow("Отступ от краёв") {
                 SettingSlider(value: policy.screenMargin, range: 0...200, step: 8, unit: "pt")
             }
+            .disabled(!model.settings.incomingCall.tunesRandomnessByHand)
 
             SettingsNote("Ломает кликеры, которые бьют по постоянным координатам.")
+
+            SettingsNote(tuningNote)
         }
         .disabled(!isGuardOn)
 
@@ -89,14 +143,23 @@ struct IncomingCallSettingsTab: View {
         SettingsSection("Признаки живого человека") {
             SettingsToggleRow("Требовать движения курсора", isOn: policy.requiresCursorMovement)
 
+            SettingsRow("Расстояния") {
+                TuningPicker(isByHand: livenessByHand)
+            }
+
             SettingsRow("Нужный путь курсора") {
                 SettingSlider(value: policy.requiredCursorTravel, range: 0...200, step: 10, unit: "pt")
             }
-            .disabled(!model.settings.incomingCall.requiresCursorMovement)
+            .disabled(
+                !model.settings.incomingCall.requiresCursorMovement
+                    || !model.settings.incomingCall.tunesLivenessByHand
+            )
 
             SettingsNote("""
                 CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет.
                 """)
+
+            SettingsNote(tuningNote)
 
             SettingsToggleRow("Отклонять синтетические нажатия", isOn: policy.rejectsSyntheticEvents)
 
@@ -148,7 +211,7 @@ struct IncomingCallSettingsTab: View {
             }
 
             SettingsNote("""
-                Вызов по сделке приходит с добавочного самого менеджера: Битрикс поднимает его \
+                Вызов по сделке приходит с номера самого менеджера: Битрикс поднимает его \
                 и только потом набирает клиента. Настройки для этого не нужны — номер берётся \
                 из активного профиля.
                 """)
@@ -162,5 +225,26 @@ struct IncomingCallSettingsTab: View {
                 }
             }
         }
+    }
+}
+
+/// «Авто ↔ Вручную» одной парой сегментов.
+///
+/// Сегменты, а не тумблер «Настроить вручную»: у тумблера включённое состояние
+/// читается как «сделано лучше», а здесь оба положения равноправны — заводское
+/// и своё. Тот же сегментированный вид, что у темы и языка в настройках
+/// менеджера: третьего вида переключателя из двух вариантов в приложении нет.
+private struct TuningPicker: View {
+
+    @Binding var isByHand: Bool
+
+    var body: some View {
+        Picker("", selection: $isByHand) {
+            Text("Авто").tag(false)
+            Text("Вручную").tag(true)
+        }
+        .labelsHidden()
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 180, alignment: .leading)
     }
 }

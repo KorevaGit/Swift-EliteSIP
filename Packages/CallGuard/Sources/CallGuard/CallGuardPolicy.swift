@@ -25,6 +25,23 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
     // MARK: - Слой 1: случайность
 
     public var isRandomPositionEnabled: Bool
+
+    /// Правит ли расстояния этого слоя человек.
+    ///
+    /// **Зачем понадобился отдельный признак.** Ползунок в настройках меняется
+    /// от одного движения колёсика над ним — и меняется молча: в отличие от
+    /// тумблера, у ползунка нет двух состояний, о которых можно сказать «стало
+    /// не так, как было». Администратор, прокручивающий страницу «Входящих»,
+    /// уводил смещение с проверенных 150 точек, узнавал об этом никогда, а
+    /// платил за это оператор — окно вставало не там, где защита рассчитывала.
+    ///
+    /// Поэтому расстояния по умолчанию не редактируются вовсе, а показываются:
+    /// `false` — «как задумано», и `normalized` возвращает сюда заводские
+    /// значения, чем бы ни было записано в файле. Ручной режим включается
+    /// отдельным осознанным действием, и с этого момента числа принадлежат
+    /// человеку.
+    public var tunesRandomnessByHand: Bool
+
     /// Минимальное смещение окна от прошлой позиции, в точках.
     public var minimumTravel: Double
     /// Отступ от краёв рабочей области, в точках.
@@ -52,6 +69,12 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
 
     /// Требовать движения курсора перед приёмом вызова.
     public var requiresCursorMovement: Bool
+
+    /// Правит ли расстояния этого слоя человек. Довод тот же, что у
+    /// `tunesRandomnessByHand`, и цена ошибки здесь выше: заниженный путь
+    /// курсора не ломает ничего на глаз, а защиту снимает.
+    public var tunesLivenessByHand: Bool
+
     /// Сколько точек курсор должен пройти. Телепорт в точку даёт ноль.
     public var requiredCursorTravel: Double
     /// Сколько отдельных перемещений должно случиться. Одно — это прыжок.
@@ -68,10 +91,12 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
         isEnabled: Bool = true,
         isServerManaged: Bool = false,
         isRandomPositionEnabled: Bool = true,
+        tunesRandomnessByHand: Bool = false,
         minimumTravel: Double = 150,
         screenMargin: Double = 24,
         targetCount: Int = 1,
         requiresCursorMovement: Bool = true,
+        tunesLivenessByHand: Bool = false,
         requiredCursorTravel: Double = 40,
         requiredCursorSamples: Int = 3,
         rejectsSyntheticEvents: Bool = false
@@ -79,10 +104,12 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
         self.isEnabled = isEnabled
         self.isServerManaged = isServerManaged
         self.isRandomPositionEnabled = isRandomPositionEnabled
+        self.tunesRandomnessByHand = tunesRandomnessByHand
         self.minimumTravel = minimumTravel
         self.screenMargin = screenMargin
         self.targetCount = targetCount
         self.requiresCursorMovement = requiresCursorMovement
+        self.tunesLivenessByHand = tunesLivenessByHand
         self.requiredCursorTravel = requiredCursorTravel
         self.requiredCursorSamples = requiredCursorSamples
         self.rejectsSyntheticEvents = rejectsSyntheticEvents
@@ -101,10 +128,12 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
         isEnabled = try value(.isEnabled, fallback.isEnabled)
         isServerManaged = try value(.isServerManaged, fallback.isServerManaged)
         isRandomPositionEnabled = try value(.isRandomPositionEnabled, fallback.isRandomPositionEnabled)
+        tunesRandomnessByHand = try value(.tunesRandomnessByHand, fallback.tunesRandomnessByHand)
         minimumTravel = try value(.minimumTravel, fallback.minimumTravel)
         screenMargin = try value(.screenMargin, fallback.screenMargin)
         targetCount = try value(.targetCount, fallback.targetCount)
         requiresCursorMovement = try value(.requiresCursorMovement, fallback.requiresCursorMovement)
+        tunesLivenessByHand = try value(.tunesLivenessByHand, fallback.tunesLivenessByHand)
         requiredCursorTravel = try value(.requiredCursorTravel, fallback.requiredCursorTravel)
         requiredCursorSamples = try value(.requiredCursorSamples, fallback.requiredCursorSamples)
         rejectsSyntheticEvents = try value(.rejectsSyntheticEvents, fallback.rejectsSyntheticEvents)
@@ -116,22 +145,47 @@ public struct CallGuardPolicy: Codable, Sendable, Hashable {
     /// отрицательный путь курсора выключили бы защиту молча, а молчаливо
     /// выключенная защита хуже честно выключенной.
     public var normalized: CallGuardPolicy {
+        let factory = CallGuardPolicy()
         var copy = self
         copy.targetCount = min(max(1, targetCount), CallGuardChallenge.maximumTargets)
-        copy.requiredCursorTravel = max(0, requiredCursorTravel)
-        copy.requiredCursorSamples = max(0, requiredCursorSamples)
-        copy.minimumTravel = max(0, minimumTravel)
-        copy.screenMargin = max(0, screenMargin)
+
+        // Автоматический слой возвращает заводские расстояния, а не подрезает
+        // записанные. Разница видна ровно в том случае, ради которого признак и
+        // заведён: файл настроек, в котором смещение однажды сдвинули, на
+        // «Авто» больше не действует — иначе «Авто» означало бы «то, что
+        // осталось от прошлой правки», а не «как задумано».
+        if tunesRandomnessByHand {
+            copy.minimumTravel = max(0, minimumTravel)
+            copy.screenMargin = max(0, screenMargin)
+        } else {
+            copy.minimumTravel = factory.minimumTravel
+            copy.screenMargin = factory.screenMargin
+        }
+
+        if tunesLivenessByHand {
+            copy.requiredCursorTravel = max(0, requiredCursorTravel)
+            copy.requiredCursorSamples = max(0, requiredCursorSamples)
+        } else {
+            copy.requiredCursorTravel = factory.requiredCursorTravel
+            copy.requiredCursorSamples = factory.requiredCursorSamples
+        }
         return copy
     }
 
     /// Защита, выключенная целиком. Окно ведёт себя как обычное: одна кнопка
     /// в середине экрана, курсор ничего не должен.
+    /// `tunesRandomnessByHand`/`tunesLivenessByHand` здесь **включены**, и это
+    /// не копипаста: на «Авто» `normalized` вернул бы заводские сорок точек
+    /// пути курсора — то есть выключенная защита требовала бы движения мыши.
     public static let disabled = CallGuardPolicy(
         isEnabled: false,
         isRandomPositionEnabled: false,
+        tunesRandomnessByHand: true,
+        minimumTravel: 0,
+        screenMargin: 0,
         targetCount: 1,
         requiresCursorMovement: false,
+        tunesLivenessByHand: true,
         requiredCursorTravel: 0,
         requiredCursorSamples: 0,
         rejectsSyntheticEvents: false

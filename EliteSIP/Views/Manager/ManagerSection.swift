@@ -26,16 +26,20 @@ import SwiftUI
 /// хранить, кроме как снаружи.
 enum ManagerSection: String, CaseIterable, Identifiable {
 
-    case audio, ringtone, appearance, support
+    case work, audio, ringtone, appearance, support
 
     var id: String { rawValue }
 
     /// Порядок — по тому, как часто сюда заходят.
     ///
-    /// «Звук» первым, потому что его правят при каждой смене наушников;
-    /// «Техподдержка» последней, потому что туда идут, когда уже сломалось.
+    /// «Работа» первой с 19 августа 2026: её открывают в начале смены и по
+    /// самому важному поводу — телефон не работает вовсе, пока рабочее место
+    /// выбрано неверно. «Звук» следом, потому что его правят при каждой смене
+    /// наушников; «Техподдержка» последней, потому что туда идут, когда уже
+    /// сломалось.
     var title: String {
         switch self {
+        case .work: NSLocalizedString("Работа", comment: "раздел настроек менеджера")
         case .audio: NSLocalizedString("Звук", comment: "раздел настроек менеджера")
         case .ringtone: NSLocalizedString("Звонок", comment: "раздел настроек менеджера")
         case .appearance: NSLocalizedString("Оформление", comment: "раздел настроек менеджера")
@@ -47,6 +51,11 @@ enum ManagerSection: String, CaseIterable, Identifiable {
     /// перенос дизайна их дорисовку на себя не берёт (долг этапа 7).
     var symbol: String {
         switch self {
+        // Тот же значок, что у «Аккаунта» в «Управлении», и повтор безвреден по
+        // той же причине, что у «Техподдержки»: рядом эти окна не показываются.
+        // По смыслу он здесь ближе прочего в комплекте — раздел про то, где
+        // сидит человек, а не про настройку вообще.
+        case .work: "person.crop.circle"
         case .audio: "mic.fill"
         case .ringtone: "bell"
         // Своего значка у оформления в комплекте нет. `gearshape` — не «тема»,
@@ -69,5 +78,5 @@ enum ManagerSection: String, CaseIterable, Identifiable {
 @MainActor
 final class ManagerRouter: ObservableObject {
 
-    @Published var section: ManagerSection = .audio
+    @Published var section: ManagerSection = .work
 }

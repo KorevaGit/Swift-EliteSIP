@@ -1,7 +1,7 @@
 import MediaCore
 import SwiftUI
 
-/// Раздел «Макросы»: кнопки, которые оператор жмёт в разговоре, и длительности
+/// Раздел «Клавиши»: кнопки, которые оператор жмёт в разговоре, и длительности
 /// тонов, которыми они уходят.
 ///
 /// Назывался «Тоны», пока в нём жила ещё и конференция. Та уехала в «АТС» —
@@ -18,15 +18,15 @@ struct DTMFSettingsTab: View {
     }
 
     var body: some View {
-        SettingsSection("Макросы") {
+        SettingsSection("Клавиши") {
             SettingsOrderedList(
                 items: macros,
-                emptyNote: "Макросов нет. Кнопки появятся на панели во время разговора.",
-                addTitle: "Добавить макрос",
+                emptyNote: "Клавиш нет. Они появятся на панели во время разговора.",
+                addTitle: "Добавить клавишу",
                 keepsSingleColumn: true,
                 limit: AppSettings.DTMFSettings.maximumMacros,
                 limitNote: "больше не влезает в панель",
-                makeElement: { .init(title: NSLocalizedString("Новый", comment: "подпись только что заведённого макроса"), sequence: "") }
+                makeElement: { .init(title: NSLocalizedString("Новый", comment: "подпись только что заведённой клавиши"), sequence: "") }
             ) { macro in
                 MacroRow(macro: macro)
             }
@@ -39,7 +39,7 @@ struct DTMFSettingsTab: View {
 
             SettingsNote("""
                 «Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. \
-                Помеченный макрос оставляет в истории пометку «перевод», и по ней потом \
+                Помеченная клавиша оставляет в истории пометку «перевод», и по ней потом \
                 разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: \
                 на экране останется прежний собеседник.
                 """)
@@ -99,15 +99,15 @@ private struct MacroRow: View {
         let unsupported = DTMFSequence.unsupportedCharacters(in: macro.sequence)
         if !unsupported.isEmpty {
             return String(
-                format: NSLocalizedString("не тоны: %@", comment: "почему макрос негоден"),
+                format: NSLocalizedString("не тоны: %@", comment: "почему клавиша негодна"),
                 String(unsupported)
             )
         }
         if !DTMFSequence(macro.sequence).hasTones {
-            return NSLocalizedString("нет ни одного тона", comment: "почему макрос негоден")
+            return NSLocalizedString("нет ни одного тона", comment: "почему клавиша негодна")
         }
         if macro.title.trimmingCharacters(in: .whitespaces).isEmpty {
-            return NSLocalizedString("нет подписи", comment: "почему макрос негоден")
+            return NSLocalizedString("нет подписи", comment: "почему клавиша негодна")
         }
         return nil
     }

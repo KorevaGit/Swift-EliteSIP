@@ -156,7 +156,7 @@ struct ProfileCard: View {
             ? NSLocalizedString("домен не задан", comment: "профиль без домена")
             : account.domain
         let number = account.username.isEmpty
-            ? NSLocalizedString("номер не задан", comment: "профиль без добавочного")
+            ? NSLocalizedString("номер не задан", comment: "профиль без номера")
             : account.username
         return "\(number) · \(address) · \(account.transport.protocolName)"
     }
