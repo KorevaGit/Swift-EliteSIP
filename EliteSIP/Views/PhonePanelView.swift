@@ -39,7 +39,7 @@ struct PhonePanelView: View {
     /// ответ приходит в том же проходе раскладки.
     @State private var titleBarInset: CGFloat = 28
 
-    /// Замеренные высоты ярусов: строка состояния, середина, нижняя полоса.
+    /// Высота всего содержимого панели, замеренная у него самого.
     ///
     /// **Почему замер, а не расчёт.** Высота панели складывалась из констант, и
     /// на macOS 26 сумма сходилась точно. На живой Big Sur — нет, и ни одна из
@@ -49,20 +49,20 @@ struct PhonePanelView: View {
     /// займут больше, если их содержимому меньше нельзя, а кегли и поля
     /// системных элементов по версиям разные.
     ///
-    /// Поэтому панель больше не считает свою высоту. Каждый ярус сообщает свою
-    /// собственную, окно берёт сумму — и сходится на любой системе, потому что
-    /// складывает не ожидания, а то, что нарисовано.
+    /// Первый заход на это мерил ярусы порознь и складывал их здесь — и в
+    /// сумме нашлось лишнее слагаемое: под кнопкой звонка оставалась пустая
+    /// полоса. Складывать не нужно ничего: у содержимого есть своя высота, и
+    /// она и есть высота окна.
     ///
     /// До первого замера в сумму идут прежние константы: окну нужна высота уже
     /// на первом кадре, а ответы приходят в том же проходе раскладки.
-    @State private var measured: (status: CGFloat?, middle: CGFloat?, bottom: CGFloat?) = (nil, nil, nil)
+    @State private var measuredContentHeight: CGFloat?
 
     var body: some View {
         VStack(spacing: 0) {
             titleBar
 
             statusBar
-                .compatBackground { HeightReader { measured.status = $0 } }
 
             // Середина занимает столько, сколько занимает её содержимое, и
             // сообщает это число наверх. Прежде здесь стоял пустой
@@ -70,14 +70,20 @@ struct PhonePanelView: View {
             // обрезкой снизу: он держал нижнюю полосу на месте, но и срезал
             // всё, что не поместилось в расчётную высоту, — молча.
             middle
-                .compatBackground { HeightReader { measured.middle = $0 } }
 
             bottomBar
                 .padding(.top, Theme.Gap.macrosToAction)
-                .compatBackground { HeightReader { measured.bottom = $0 } }
         }
         .padding(.horizontal, Theme.Metrics.contentPadding)
         .padding(.bottom, Theme.Metrics.contentPadding)
+        // Один замер всего содержимого — и он же высота окна.
+        //
+        // Ярусы мерились порознь, а сумма складывалась здесь: полоса заголовка
+        // плюс строка состояния плюс середина плюс низ плюс поле. Живой прогон
+        // 20 августа 2026 показал под кнопкой звонка пустую полосу — значит в
+        // сумме было лишнее слагаемое, и искать его в пятый раз бессмысленно.
+        // Складывать нечего вовсе: содержимое само знает, сколько занимает.
+        .compatBackground { HeightReader { measuredContentHeight = $0 } }
         .frame(width: Theme.Metrics.panelWidth)
         // Окно прямоугольное, поэтому и подкраска без скругления: своего
         // скругления у содержимого быть не должно, иначе по углам проступят
@@ -158,9 +164,19 @@ struct PhonePanelView: View {
     /// Пока ярус не ответил, за него идёт прежняя константа: окну нужна высота
     /// на первом кадре. Разойтись они могут только на первом проходе.
     private var panelHeight: CGFloat {
-        let status = measured.status ?? Theme.Metrics.statusBarHeight + Theme.Gap.titleToStatus
-        let bottom = measured.bottom ?? Theme.Metrics.actionHeight + Theme.Gap.macrosToAction
-        return titleBarInset + status + (measured.middle ?? fallbackMiddleHeight) + bottom
+        measuredContentHeight ?? fallbackHeight
+    }
+
+    /// Чем считается высота до первого замера — прежний расчёт по константам.
+    /// Он верен на той системе, на которой его выводили, и нужен ровно один
+    /// кадр: замер приходит в том же проходе раскладки.
+    private var fallbackHeight: CGFloat {
+        titleBarInset
+            + Theme.Gap.titleToStatus
+            + Theme.Metrics.statusBarHeight
+            + fallbackMiddleHeight
+            + Theme.Gap.macrosToAction
+            + Theme.Metrics.actionHeight
             + Theme.Metrics.contentPadding
     }
 

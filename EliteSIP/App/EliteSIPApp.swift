@@ -540,7 +540,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.backgroundColor = .clear
 
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: withEnvironment(PhonePanelView()))
+        let panelController = NSHostingController(rootView: withEnvironment(PhonePanelView()))
+        if #available(macOS 13.0, *) {
+            // Контроллер не подгоняет окно под содержимое, и это не мелочь.
+            //
+            // С `.preferredContentSize` (значение по умолчанию с macOS 13)
+            // AppKit берёт идеальную высоту SwiftUI и считает по ней **рамку**
+            // окна — то есть прибавляет полосу заголовка. Панель эту полосу уже
+            // учла сама: `titleBar` держит под неё место, потому что содержимое
+            // при `.fullSizeContentView` идёт под ней. В сумме окно выходило
+            // ровно на высоту полосы больше содержимого, и под кнопкой звонка
+            // оставалась пустая полоса — на macOS 26 её видно, на Big Sur нет,
+            // потому что там `sizingOptions` не существует вовсе.
+            //
+            // Высоту окну задаёт `PanelHeight` — по замеру содержимого, одним
+            // числом и без чужих прибавок.
+            panelController.sizingOptions = []
+        }
+        window.contentViewController = panelController
 
         // Уровень окна задаёт вёрстка (`WindowLevel`): поверх чужих окон панель
         // нужна в разговоре, а в покое она обычное окно. Здесь только
@@ -567,7 +584,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             defaultContentSize: CGSize(
                 width: Theme.Metrics.panelWidth,
                 height: Theme.Metrics.panelInitialHeight
-            )
+            ),
+            restoresHeight: false
         )
 
         phoneWindow = window
@@ -771,13 +789,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// ставит окну через `PanelHeight`. «Управлению» важны обе величины —
     /// разделы просят от 245 до 730 точек высоты, угодить всем одним числом
     /// нельзя, и последнее слово остаётся за человеком.
+    /// - Parameter restoresHeight: брать ли из сохранённого кадра высоту.
+    ///   Панели — не брать: высоту она считает по содержимому и задаёт сама
+    ///   (`PanelHeight`). Сохранённый кадр приезжает **после** этого расчёта, и
+    ///   с ним панель наследовала высоту, посчитанную прошлой версией
+    ///   приложения, — под кнопкой звонка оставалась пустая полоса, которую
+    ///   ничем нельзя было убрать. Нашёл живой прогон 20 августа 2026.
     private func restoreFrame(
         of window: NSWindow,
         autosaveName: String,
-        defaultContentSize: CGSize
+        defaultContentSize: CGSize,
+        restoresHeight: Bool = true
     ) {
+        let ownHeight = window.frame.height
         let restored = window.setFrameUsingName(autosaveName)
         window.setFrameAutosaveName(autosaveName)
+
+        if restored, !restoresHeight, abs(window.frame.height - ownHeight) > 0.5 {
+            // Верхний левый угол на месте: панель растёт вниз, и восстановленная
+            // позиция обязана остаться той же, куда её поставил оператор.
+            let frame = window.frame
+            window.setFrame(
+                CGRect(x: frame.minX, y: frame.maxY - ownHeight, width: frame.width, height: ownHeight),
+                display: false
+            )
+        }
 
         // Сохранённый кадр мог остаться от внешнего монитора, которого сейчас
         // нет: ноутбук отключили от дока, и окно уехало за пределы

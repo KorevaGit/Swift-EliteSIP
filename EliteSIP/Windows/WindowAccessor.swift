@@ -249,13 +249,34 @@ final class HeightReaderView: NSView {
 
     private var reported: CGFloat?
 
-    override func layout() {
-        super.layout()
-        let height = bounds.height
+    /// Замер делается на смене размера, а не в `layout()`.
+    ///
+    /// `layout()` у голой `NSView` без подвидов система может не звать вовсе, и
+    /// замер тогда молчит: панель 20 августа 2026 всю дорогу жила на запасном
+    /// расчёте, а не на измеренной высоте, — и разошлась с содержимым ровно на
+    /// ошибку этого расчёта. `setFrameSize` зовётся всегда, потому что размер
+    /// вью задаёт тот, кто её раскладывает.
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        send(height: newSize.height)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        send(height: bounds.height)
+    }
+
+    private func send(height: CGFloat) {
         // Ноль — это ещё не разложенное вью, а не нулевая высота.
         guard height > 0, reported != height else { return }
         reported = height
-        report?(height)
+        // Через главную очередь: SwiftUI зовёт это посреди своего же прохода
+        // раскладки, а менять состояние вида прямо в нём нельзя — предупреждение
+        // «Modifying state during view update» и мигающая вёрстка.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let report = self.report else { return }
+            report(height)
+        }
     }
 }
 
