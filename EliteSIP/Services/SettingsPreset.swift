@@ -53,6 +53,11 @@ struct SettingsPreset: Identifiable, Codable, Equatable, Sendable {
     private static func stripped(_ settings: AppSettings) -> AppSettings {
         var result = settings
         result.presets = []
+        // Происхождение принадлежит машине, а не шаблону: иначе снимок,
+        // снятый с настроенного места, объявлял бы каждое следующее место
+        // заведённым по той предустановке, по которой заведено оно само.
+        result.appliedPresetName = ""
+        result.appliedPresetAt = nil
         // Весь блок доступа, а не одно поле: пароль администратора — единственный
         // секрет, который в шаблоне опаснее всего, и полагаться на то, что мы
         // помним все его поля, нельзя. Появится второе — оно тоже не уедет.

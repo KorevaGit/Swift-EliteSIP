@@ -12,6 +12,23 @@ import SIPCore
 /// Один плоский `Codable` с версией схемы — под будущую синхронизацию с
 /// EliteDash и баш-скрипт провижининга: им нужен предсказуемый формат, который
 /// можно сгенерировать снаружи и положить в файл.
+extension ClosedRange where Bound == Int {
+
+    /// Те же границы дробными — под ползунок, который умеет только `Double`.
+    /// Иначе пределы пришлось бы писать дважды и однажды разойтись.
+    var asDouble: ClosedRange<Double> { Double(lowerBound)...Double(upperBound) }
+}
+
+extension Comparable {
+
+    /// Загоняет значение в границы. Нужно ровно затем, зачем нужны сами
+    /// границы: правленный руками файл настроек может принести и ноль колонок,
+    /// и тысячу точек высоты, а приложение обязано открыться и с таким файлом.
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
 struct AppSettings: Codable, Sendable, Equatable {
 
     /// Версия схемы. Растёт, когда формат меняется несовместимо.
@@ -88,6 +105,19 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// пустой список — ровно прежнее поведение, когда каждое место настраивали
     /// с нуля.
     var presets: [SettingsPreset] = []
+
+    /// По какой предустановке настроена эта машина и когда.
+    ///
+    /// Пустое имя — «настроена вручную». Нужно затем, что список предустановок
+    /// отвечал на вопрос «какие шаблоны у нас есть», но не отвечал на «а это
+    /// место по какому заведено»: заводская предустановка мастера первого
+    /// запуска в список не попадает вовсе, и администратор, открывший раздел на
+    /// готовой машине, видел пустоту. Живая проверка 19 августа 2026.
+    ///
+    /// В снимок предустановки не идёт: происхождение принадлежит машине, а не
+    /// шаблону, — см. `SettingsPreset.stripped`.
+    var appliedPresetName: String = ""
+    var appliedPresetAt: Date?
 
     /// Административный доступ: пароль и то, кто управляет настройками.
     ///
@@ -262,6 +292,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         // файл: по той же причине, что и блок доступа. Потерять шаблон обидно,
         // потерять из-за него учётную запись — несоизмеримо хуже.
         presets = (try? container.decodeIfPresent([SettingsPreset].self, forKey: .presets)) ?? []
+        appliedPresetName = (try? container.decodeIfPresent(String.self, forKey: .appliedPresetName)) ?? ""
+        appliedPresetAt = try? container.decodeIfPresent(Date.self, forKey: .appliedPresetAt)
         // Отсутствие ключа означает «пройден», а не «нужен»: файл есть — значит
         // машину уже настраивали. Умолчание наоборот погнало бы в мастер все
         // машины беты при обновлении. Незнакомое значение читается так же
@@ -699,6 +731,31 @@ struct AppSettings: Codable, Sendable, Equatable {
         var pauseMilliseconds: Int = DTMFSequence.defaultPauseMilliseconds
         var macros: [Macro] = []
 
+        /// Сколько клавиш в ряду на панели.
+        ///
+        /// Было константой `Theme.Metrics.macroColumns` — три, — и константа
+        /// верна ровно для коротких подписей вроде «Юрист». Живой прогон
+        /// 19 августа 2026 показал обратный случай: у отдела свои названия, они
+        /// длиннее, и три в ряд ужимают их до нечитаемого. Ширина панели при
+        /// этом задана, поэтому выбор простой — меньше кнопок в ряду и шире
+        /// каждая либо наоборот.
+        ///
+        /// Задаёт администратор вместе с самими клавишами: он их и пишет, и
+        /// только он знает, какой длины подписи будут.
+        var macroColumns: Int = 3
+
+        /// Высота клавиши в точках.
+        ///
+        /// Вторая половина того же выбора: подпись в три строки требует места
+        /// по вертикали, а лишняя вертикаль у панели не бесплатна — она стоит
+        /// поверх CRM и растёт вниз.
+        var macroHeight: Int = 58
+
+        /// Пределы того и другого. Ниже — нечитаемо, выше — панель перестаёт
+        /// быть панелью.
+        static let columnRange = 1...4
+        static let heightRange = 44...96
+
         /// Потолок числа макросов.
         ///
         /// Не вкусовщина: высота панели выведена из числа макросов и обязана
@@ -717,12 +774,16 @@ struct AppSettings: Codable, Sendable, Equatable {
             toneMilliseconds: Int = 120,
             gapMilliseconds: Int = 80,
             pauseMilliseconds: Int = DTMFSequence.defaultPauseMilliseconds,
-            macros: [Macro] = []
+            macros: [Macro] = [],
+            macroColumns: Int = 3,
+            macroHeight: Int = 58
         ) {
             self.toneMilliseconds = toneMilliseconds
             self.gapMilliseconds = gapMilliseconds
             self.pauseMilliseconds = pauseMilliseconds
             self.macros = macros
+            self.macroColumns = macroColumns
+            self.macroHeight = macroHeight
         }
 
         init(from decoder: Decoder) throws {
@@ -732,6 +793,14 @@ struct AppSettings: Codable, Sendable, Equatable {
             pauseMilliseconds = try container.decodeIfPresent(Int.self, forKey: .pauseMilliseconds)
                 ?? DTMFSequence.defaultPauseMilliseconds
             macros = try container.decodeIfPresent([Macro].self, forKey: .macros) ?? []
+            // Файл настроек старше 19 августа 2026 этих полей не знает, и
+            // подставляются те же три колонки по 58 точек, что были константами
+            // темы: раскладка панели у таких машин не должна поехать от одного
+            // обновления.
+            macroColumns = (try container.decodeIfPresent(Int.self, forKey: .macroColumns) ?? 3)
+                .clamped(to: Self.columnRange)
+            macroHeight = (try container.decodeIfPresent(Int.self, forKey: .macroHeight) ?? 58)
+                .clamped(to: Self.heightRange)
         }
 
         /// То же самое в терминах MediaCore.

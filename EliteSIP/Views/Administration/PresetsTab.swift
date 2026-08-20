@@ -24,11 +24,47 @@ struct PresetsTab: View {
 
     /// Что и куда применяем. Живёт здесь, а не в модели: до нажатия «Применить»
     /// это ещё не правка, а намерение, и «Отменить» ему не нужно.
+    /// У какой предустановки раскрыто «что внутри». Одна за раз: две
+    /// развёрнутые карточки не сравнивают, а листают.
+    @State private var inspectingID: UUID?
+
     @State private var applyingID: UUID?
     @State private var number = ""
     @State private var targetID: UUID?
 
     var body: some View {
+        SettingsSection("Эта машина") {
+            SettingsRow("Настроена") {
+                Text(originText)
+                    .compatForeground(
+                        model.settings.appliedPresetName.isEmpty
+                            ? Theme.Palette.textSecondary : Theme.Palette.textPrimary
+                    )
+            }
+
+            SettingsNote("""
+                Здесь видно, по какому шаблону заведено это место. Правки, сделанные \
+                после применения, тут не отражаются: строка отвечает на «с чего начали», \
+                а не «что сейчас».
+                """)
+        }
+
+        // Заводские предустановки — те, что предлагает мастер первого запуска.
+        // В списке ниже их не было никогда: они живут в бандле, а не в файле
+        // настроек, — и администратор, открывший раздел на готовой машине,
+        // видел пустоту вместо «Менеджера», по которому она и заведена.
+        SettingsSection("Заводские") {
+            ForEach(Provisioning.factoryPresets, id: \.name) { factory in
+                factoryCard(factory)
+            }
+
+            SettingsNote("""
+                Приезжают вместе с приложением и правке не подлежат — их меняют пересборкой. \
+                Чтобы отступить от заводской на одной машине, настройте её как надо и снимите \
+                свою предустановку ниже.
+                """)
+        }
+
         SettingsSection("Снять с этой машины") {
             SettingsRow("Название") {
                 TextField("Например: Менеджер", text: $newName)
@@ -110,6 +146,11 @@ struct PresetsTab: View {
                     }
                 }
 
+                Button(inspectingID == preset.id ? "Свернуть" : "Что внутри…") {
+                    inspectingID = inspectingID == preset.id ? nil : preset.id
+                }
+                .compatHelp("Показать, что войдёт в машину при применении")
+
                 Button("Выгрузить…") { export(preset) }
                     .compatHelp("Сохранить файл предустановки — перенести её на другую машину")
 
@@ -122,10 +163,111 @@ struct PresetsTab: View {
                 .compatHelp("Удалить предустановку")
             }
 
+            if inspectingID == preset.id {
+                contents(of: preset.snapshot)
+            }
+
             if applyingID == preset.id {
                 applyForm(preset)
             }
         }
+    }
+
+    // MARK: - Заводская карточка
+
+    /// Заводская предустановка: только имя и просмотр. Ни переименования, ни
+    /// удаления, ни выгрузки — она приезжает с приложением.
+    @ViewBuilder
+    private func factoryCard(_ factory: Provisioning.FactoryPreset) -> some View {
+        let snapshot = factory.snapshot(site: model.settings.profiles.active.site)
+        VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                Text(factory.name)
+
+                Text(summary(of: snapshot))
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+
+                Spacer(minLength: 0)
+
+                Button(inspectingID == factoryID(factory) ? "Свернуть" : "Что внутри…") {
+                    inspectingID = inspectingID == factoryID(factory) ? nil : factoryID(factory)
+                }
+            }
+
+            if inspectingID == factoryID(factory) {
+                contents(of: snapshot)
+            }
+        }
+    }
+
+    /// Заводским предустановкам `UUID` не нужен, а раскрытой карточке — нужен.
+    /// Берётся из имени, чтобы не заводить состояние второго вида.
+    private func factoryID(_ factory: Provisioning.FactoryPreset) -> UUID {
+        UUID(uuidString: "00000000-0000-0000-0000-\(String(format: "%012d", abs(factory.name.hashValue % 1_000_000_000_000)))")
+            ?? UUID()
+    }
+
+    // MARK: - Что внутри
+
+    /// Просмотр содержимого — без правки.
+    ///
+    /// Правку решено не делать (19 августа 2026): предустановка редактируется
+    /// там же, где и настраивается, — на образцовой машине, с которой её
+    /// снимают. Форма правки шаблона завела бы второй способ менять те же
+    /// значения, и два способа рано или поздно расходятся.
+    @ViewBuilder
+    private func contents(of snapshot: AppSettings) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
+            contentLine("АТС", snapshot.profiles.active.account.domain)
+            contentLine(
+                "Клавиши",
+                snapshot.dtmf.macros.isEmpty
+                    ? NSLocalizedString("нет", comment: "пусто в просмотре предустановки")
+                    : snapshot.dtmf.macros.map(\.title).joined(separator: ", ")
+            )
+            contentLine(
+                "Очереди",
+                snapshot.queues.queues.isEmpty
+                    ? NSLocalizedString("нет", comment: "пусто в просмотре предустановки")
+                    : snapshot.queues.queues.map(\.number).joined(separator: ", ")
+            )
+            contentLine(
+                "Сетка",
+                String(
+                    format: NSLocalizedString("%1$lld в ряду · %2$lld тчк", comment: "сетка клавиш в просмотре предустановки"),
+                    snapshot.dtmf.macroColumns,
+                    snapshot.dtmf.macroHeight
+                )
+            )
+        }
+        .font(.footnote)
+        .padding(.leading, Theme.Metrics.contentPadding)
+    }
+
+    private func contentLine(_ title: LocalizedStringKey, _ value: String) -> some View {
+        HStack(alignment: .top, spacing: Theme.Metrics.elementSpacing) {
+            Text(title)
+                .compatForeground(Theme.Palette.textSecondary)
+                .frame(width: 72, alignment: .leading)
+            Text(value)
+                .compatForeground(Theme.Palette.textPrimary)
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// Чем настроена машина — строкой для человека.
+    private var originText: String {
+        let name = model.settings.appliedPresetName
+        guard !name.isEmpty else {
+            return NSLocalizedString("вручную, без предустановки", comment: "происхождение настроек машины")
+        }
+        guard let date = model.settings.appliedPresetAt else { return name }
+        return String(
+            format: NSLocalizedString("по предустановке «%1$@», %2$@", comment: "происхождение настроек машины"),
+            name,
+            HistoryDate.stamp(date)
+        )
     }
 
     /// Форма применения: куда и с каким номером.
@@ -171,10 +313,12 @@ struct PresetsTab: View {
 
     // MARK: - Подписи
 
-    private func summary(of preset: SettingsPreset) -> String {
-        let account = preset.snapshot.profiles.active.account
-        let macros = preset.snapshot.dtmf.macros.count
-        let queues = preset.snapshot.queues.queues.count
+    private func summary(of preset: SettingsPreset) -> String { summary(of: preset.snapshot) }
+
+    private func summary(of snapshot: AppSettings) -> String {
+        let account = snapshot.profiles.active.account
+        let macros = snapshot.dtmf.macros.count
+        let queues = snapshot.queues.queues.count
         return String(
             format: NSLocalizedString("%1$@ · %2$lld макр. · %3$lld очер.", comment: "что внутри предустановки"),
             account.domain,

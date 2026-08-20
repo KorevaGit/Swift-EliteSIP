@@ -99,6 +99,12 @@ extension AppModel {
             _ = settings.profiles.add(filled)
         }
 
+        // Чем настроена машина — записывается здесь, а не выводится потом по
+        // совпадению настроек: совпадение теряется от первой же правки на
+        // месте, а вопрос «по какому шаблону это заведено» остаётся.
+        settings.appliedPresetName = preset.name
+        settings.appliedPresetAt = Date()
+
         append(
             level: .info,
             message: "предустановка применена: \(preset.name), номер \(trimmedNumber)"

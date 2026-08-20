@@ -51,7 +51,15 @@ struct CallHistoryWindowView: View {
         // полоса заголовка.
         .padding(.horizontal, Theme.Metrics.contentPadding)
         .padding(.bottom, Theme.Metrics.contentPadding)
-        .padding(.top, Theme.Gap.titleToStatus)
+        // Сверху — полное поле, а не зазор до полосы заголовка.
+        //
+        // Зазор был выведен для стеклянного окна, где содержимое заходит под
+        // полосу и отступает от светофора. Без стекла окно обычное, полоса
+        // своя, и четыре точки под ней прижимали ряд кнопок к самому краю —
+        // кнопки читались обрезанными даже там, где они целы.
+        .padding(.top, Theme.Chrome.usesLiquidGlass
+            ? Theme.Gap.titleToStatus
+            : Theme.Metrics.contentPadding)
         .frame(
             minWidth: Theme.Metrics.historyMinWidth,
             minHeight: Theme.Metrics.historyMinHeight
@@ -131,6 +139,15 @@ struct CallHistoryWindowView: View {
             Spacer()
         }
         .font(.callout)
+        // Ряд не сжимается по вертикали ни при каких обстоятельствах.
+        //
+        // На живой Big Sur кнопки фильтров выглядели срезанными сверху и снизу.
+        // Первая догадка — что ряд уехал под полосу заголовка — не подтвердилась
+        // (окно там уже обычное). Остаётся вторая: стиль кнопки на той версии
+        // просит больше высоты, чем ряд ей даёт, и содержимое режется по краю
+        // своей же рамки. `fixedSize` по вертикали запрещает такое сжатие —
+        // ряд занимает столько, сколько кнопкам нужно.
+        .fixedSize(horizontal: false, vertical: true)
         // Мелкие кнопки, как на странице настроек. На обычном размере пять
         // кнопок в ряд оказывались самым заметным, что есть в окне, — заметнее
         // самих звонков, ради которых его открыли.
@@ -624,8 +641,38 @@ final class HistorySnapshotAnchor {
     /// это список и который час на той машине, вместе с поясом. Без пояса
     /// «21:07» в строке означает разное в Москве и в Новосибирске, а разбирают
     /// по таким снимкам как раз опоздания и пропущенные.
-    func image(profile: String) -> NSImage? {
-        guard let view, let content = view.window?.contentView else { return nil }
+    /// Почему снимок не собрался.
+    ///
+    /// Шаг называется в самой ошибке, и это не педантизм. На живой Big Sur
+    /// кнопка дважды отвечала «Снимок не получился», и обе догадки о причине
+    /// оказались мимо: сначала чинили отсутствующий слой, потом рецепт окна.
+    /// Отказ, который не говорит, где он случился, стоит одного круга сборки и
+    /// одной поездки к машине за каждую догадку.
+    enum Failure: LocalizedError {
+        case noAnchor
+        case noWindow
+        case noLayer
+        case emptyArea
+        case renderFailed
+        case cropFailed
+        case composeFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .noAnchor: NSLocalizedString("нет области списка", comment: "отказ снимка истории")
+            case .noWindow: NSLocalizedString("нет окна", comment: "отказ снимка истории")
+            case .noLayer: NSLocalizedString("нет слоя у окна", comment: "отказ снимка истории")
+            case .emptyArea: NSLocalizedString("область пустая", comment: "отказ снимка истории")
+            case .renderFailed: NSLocalizedString("слой не отрисовался", comment: "отказ снимка истории")
+            case .cropFailed: NSLocalizedString("не вышла обрезка", comment: "отказ снимка истории")
+            case .composeFailed: NSLocalizedString("не собрался холст", comment: "отказ снимка истории")
+            }
+        }
+    }
+
+    func image(profile: String) throws -> NSImage {
+        guard let view else { throw Failure.noAnchor }
+        guard let content = view.window?.contentView else { throw Failure.noWindow }
 
         // Слой у вью окна может отсутствовать, и это не поломка.
         //
@@ -642,11 +689,13 @@ final class HistorySnapshotAnchor {
         // бы пустым прямоугольником, а второй — правильным.
         content.displayIfNeeded()
 
-        guard let layer = content.layer else { return nil }
+        guard let layer = content.layer else { throw Failure.noLayer }
 
         let area = view.convert(view.bounds, to: content)
         let whole = content.bounds
-        guard area.width > 1, area.height > 1, whole.width > 1, whole.height > 1 else { return nil }
+        guard area.width > 1, area.height > 1, whole.width > 1, whole.height > 1 else {
+            throw Failure.emptyArea
+        }
 
         let scale = view.window?.backingScaleFactor ?? 2
 
@@ -658,7 +707,7 @@ final class HistorySnapshotAnchor {
         // забирает и то и другое.
         guard let rendered = Self.render(
             layer: layer, size: whole.size, scale: scale, isFlipped: content.isFlipped
-        ) else { return nil }
+        ) else { throw Failure.renderFailed }
 
         // Обрезка в пикселях. У `CGImage` начало координат сверху слева, а у
         // вьюхи — снизу слева, если она не перевёрнута; `NSHostingView`
@@ -671,14 +720,15 @@ final class HistorySnapshotAnchor {
             width: (area.width * scale).rounded(),
             height: (area.height * scale).rounded()
         )
-        guard let cropped = rendered.cropping(to: crop) else { return nil }
+        guard let cropped = rendered.cropping(to: crop) else { throw Failure.cropFailed }
 
-        return Self.compose(
+        guard let composed = Self.compose(
             cropped,
             size: area.size,
             profile: profile,
             appearanceOf: view
-        )
+        ) else { throw Failure.composeFailed }
+        return composed
     }
 
     /// Подпись справа: который час на этой машине и в каком поясе.
@@ -893,8 +943,18 @@ private struct HistorySnapshotButton: View {
     }
 
     private func copy() {
-        guard let image = anchor.image(profile: profile) else {
-            onResult(NSLocalizedString("Снимок не получился", comment: "снимок списка истории"))
+        let image: NSImage
+        do {
+            image = try anchor.image(profile: profile)
+        } catch {
+            // Причина — в самой надписи. Отказ без причины уже дважды стоил
+            // круга «догадка → сборка → поездка к машине».
+            onResult(
+                String(
+                    format: NSLocalizedString("Снимок не получился: %@", comment: "снимок списка истории"),
+                    error.localizedDescription
+                )
+            )
             return
         }
         NSPasteboard.general.clearContents()
@@ -1025,7 +1085,7 @@ private struct CallHistoryRow: View {
                 // заполняется только тем, что пришло в `From`, а боевой FreePBX
                 // кладёт туда тот же номер. Пустое главное место было бы хуже
                 // повторения — строка выглядела бы сломанной.
-                Text(record.title)
+                Text(title)
                     .compatMonospacedDigit()
                     .lineLimit(1)
 
@@ -1065,6 +1125,34 @@ private struct CallHistoryRow: View {
         // Прежние 6 давали 18 и расходились с ней ровно на две точки, то есть
         // на глаз не читались, а числами не совпадали.
         .padding(.horizontal, Theme.Metrics.sectionSpacing)
+    }
+
+    /// Что стоит главной строкой.
+    ///
+    /// Обычно это `record.title` — имя, а нет имени, номер. Исключение одно:
+    /// входящий со **своего же** добавочного. Это звонок по сделке — Битрикс
+    /// поднимает менеджера с его номера и только потом набирает клиента, — и в
+    /// окне входящего он давно подписан словами. В истории оставался номер, то
+    /// есть та же путаница, от которой окно избавили: строка «176» в списке
+    /// своих звонков ничего не объясняет. Живая проверка 19 августа 2026.
+    ///
+    /// Правило берётся у `IncomingCallSubject`, а не переписывается здесь:
+    /// сравнение по цифрам и сам заголовок обязаны совпадать с окном слово в
+    /// слово. Свой номер — из активного профиля; у записей чужого профиля его
+    /// не бывает, потому что список профилем и отобран.
+    ///
+    /// Очередей это не касается: в истории они и раньше стояли номером, и
+    /// менять это заодно значило бы менять то, о чём не просили.
+    private var title: String {
+        guard record.direction == .incoming else { return record.title }
+        let subject = IncomingCallSubject(
+            callerNumber: record.number,
+            callerName: record.displayName,
+            ownNumber: model.settings.account.username,
+            queues: AppSettings.QueueDirectory()
+        )
+        if case .selfCall = subject { return IncomingCallSubject.dealTitle }
+        return record.title
     }
 
     /// Под именем — то, чем оно подтверждается: сам номер, если наверху стоит

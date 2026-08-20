@@ -174,11 +174,11 @@ struct PhonePanelView: View {
         if model.isTransferEntryVisible {
             return head + Theme.Gap.controlsToMacros + TransferEntry.height
         }
-        let columns = Theme.Metrics.macroColumns
+        let columns = model.settings.dtmf.macroColumns
         let rows = (model.usableMacros.count + columns - 1) / columns
         guard rows > 0 else { return head }
         return head + Theme.Gap.controlsToMacros
-            + CGFloat(rows) * Theme.Metrics.macroMinHeight
+            + CGFloat(rows) * CGFloat(model.settings.dtmf.macroHeight)
             + CGFloat(rows - 1) * Theme.Metrics.elementSpacing
     }
 
@@ -368,6 +368,10 @@ struct PhonePanelView: View {
 
     private func troubleContent(_ trouble: AppModel.Trouble) -> some View {
         HStack(spacing: Theme.Metrics.tightSpacing) {
+            if let symbol = trouble.symbol {
+                CompatSymbol(name: symbol, size: Theme.Icon.small)
+            }
+
             Text(trouble.text)
                 .font(Theme.Text.statusDetail)
                 .lineLimit(1)
@@ -891,10 +895,18 @@ struct MacroGrid: View {
 
     @EnvironmentObject private var model: AppModel
 
+    /// Сколько клавиш в ряду и какой они высоты — задаёт администратор.
+    ///
+    /// Прежде и то и другое было константой темы. Константа верна для коротких
+    /// подписей вроде «Юрист» и неверна для названий отдела: живой прогон
+    /// 19 августа 2026 показал, что три в ряд ужимают их до нечитаемого.
+    private var columns: Int { model.settings.dtmf.macroColumns }
+    private var keyHeight: CGFloat { CGFloat(model.settings.dtmf.macroHeight) }
+
     private var rows: [[AppSettings.DTMFSettings.Macro]] {
         let macros = model.usableMacros
-        return stride(from: 0, to: macros.count, by: Theme.Metrics.macroColumns).map { start in
-            Array(macros[start..<min(start + Theme.Metrics.macroColumns, macros.count)])
+        return stride(from: 0, to: macros.count, by: columns).map { start in
+            Array(macros[start..<min(start + columns, macros.count)])
         }
     }
 
@@ -907,8 +919,8 @@ struct MacroGrid: View {
                     }
                     // Хвост неполного ряда: пустые места, чтобы кнопки не
                     // расползались по ширине и раскладка не менялась.
-                    if row.count < Theme.Metrics.macroColumns {
-                        ForEach(0..<(Theme.Metrics.macroColumns - row.count), id: \.self) { _ in
+                    if row.count < columns {
+                        ForEach(0..<(columns - row.count), id: \.self) { _ in
                             Color.clear.frame(maxWidth: .infinity)
                         }
                     }
@@ -926,7 +938,7 @@ struct MacroGrid: View {
                 // Хуже того, растяжимый ряд делал замер середины бессмысленным:
                 // она сообщала наверх не свою высоту, а высоту окна, и окно
                 // подтверждало само себя.
-                .frame(height: Theme.Metrics.macroMinHeight)
+                .frame(height: keyHeight)
             }
         }
     }
@@ -950,12 +962,16 @@ struct MacroGrid: View {
                 .font(Theme.Text.macro)
                 // Подпись из одного слова переносить некуда: перенос разорвал бы
                 // «Конференция» посреди слова, оставив висячую букву. Такие
-                // подписи держим в строку и ужимаем кеглем, из двух слов —
-                // переносим по пробелу.
-                .lineLimit(macro.title.contains(" ") ? 2 : 1)
+                // подписи держим в строку и ужимаем кеглем, из нескольких слов —
+                // переносим по пробелам, до трёх строк.
+                //
+                // Три, а не две: названия отделов у заказчика длиннее наших
+                // примеров, и на двух строках хвост уходил в многоточие. Больше
+                // трёх бессмысленно — при высоте клавиши по умолчанию четвёртая
+                // строка уже не помещается, а высоту задаёт администратор.
+                .lineLimit(macro.title.contains(" ") ? 3 : 1)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
         }
@@ -968,7 +984,7 @@ struct MacroGrid: View {
         // ряды клавиш разъехались, и на глаз это читалось как разные отступы
         // между ними. Пришпиленная снаружи высота — это высота всей кнопки,
         // сколько бы стиль ни хотел добавить.
-        .frame(height: Theme.Metrics.macroMinHeight)
+        .frame(height: keyHeight)
         .themedControlSurface()
         .hoverHighlight(isEnabled: isEnabled(macro))
         .disabled(!isEnabled(macro))

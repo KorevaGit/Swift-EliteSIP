@@ -26,7 +26,19 @@ struct DTMFSettingsTab: View {
                 keepsSingleColumn: true,
                 limit: AppSettings.DTMFSettings.maximumMacros,
                 limitNote: "больше не влезает в панель",
-                makeElement: { .init(title: NSLocalizedString("Новый", comment: "подпись только что заведённой клавиши"), sequence: "") }
+                // Новая клавиша заводится помеченной как перевод: у заказчика
+                // все клавиши — коды перевода, и снимать галочку в редком
+                // обратном случае дешевле, чем ставить её каждый раз. Умолчание
+                // самого поля при чтении файла осталось прежним — «нет»: там оно
+                // означает «прежняя версия не спрашивала», а не утверждение о
+                // звонке.
+                makeElement: {
+                    .init(
+                        title: NSLocalizedString("Новый", comment: "подпись только что заведённой клавиши"),
+                        sequence: "",
+                        transfersCall: true
+                    )
+                }
             ) { macro in
                 MacroRow(macro: macro)
             }
@@ -35,6 +47,37 @@ struct DTMFSettingsTab: View {
                 Порядок кнопок на панели — этот. Оператор целится в место, а не читает \
                 подписи каждый раз, поэтому менять его стоит один раз при настройке, а не по \
                 ходу работы.
+                """)
+
+            SettingsRow("В ряду") {
+                SettingSlider(
+                    value: Binding(
+                        get: { Double(model.settings.dtmf.macroColumns) },
+                        set: { model.settings.dtmf.macroColumns = Int($0) }
+                    ),
+                    range: AppSettings.DTMFSettings.columnRange.asDouble,
+                    step: 1,
+                    unit: NSLocalizedString("шт.", comment: "единица: число клавиш в ряду")
+                )
+            }
+
+            SettingsRow("Высота клавиши") {
+                SettingSlider(
+                    value: Binding(
+                        get: { Double(model.settings.dtmf.macroHeight) },
+                        set: { model.settings.dtmf.macroHeight = Int($0) }
+                    ),
+                    range: AppSettings.DTMFSettings.heightRange.asDouble,
+                    step: 2,
+                    unit: NSLocalizedString("тчк", comment: "единица: точки экрана")
+                )
+            }
+
+            SettingsNote("""
+                Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире \
+                каждая. Подпись переносится по пробелам до трёх строк, и если она всё равно \
+                ужимается, добавьте высоты. Высота панели считается по этим двум числам: \
+                каждый лишний ряд растит её вниз.
                 """)
 
             SettingsNote("""

@@ -263,6 +263,8 @@ extension Provisioning.FactoryPreset {
         // раздел M4. Признак её закрывает наполовину: состояние линии
         // по-прежнему ведёт сервер, но сам факт перевода в записи появляется.
         macros: [
+            // Все три помечены переводом: это коды Attended Transfer боевой АТС,
+            // и без пометки история не покажет, куда делся клиент.
             .init(title: "Юрист", sequence: "*029999#", transfersCall: true),
             .init(title: "Саммер Бэй", sequence: "*029998#", transfersCall: true),
             .init(title: "ОП", sequence: "*029997#", transfersCall: true),
