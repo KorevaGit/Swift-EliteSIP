@@ -13,5 +13,5 @@
 // CURRENT_PROJECT_VERSION — счётчик сборок, растёт на единицу при каждом
 // выпуске и никогда не убывает. Sparkle сравнивает именно его.
 
-MARKETING_VERSION = 0.1.13
-CURRENT_PROJECT_VERSION = 15
+MARKETING_VERSION = 0.1.14
+CURRENT_PROJECT_VERSION = 16
