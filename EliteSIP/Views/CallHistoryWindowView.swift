@@ -118,7 +118,9 @@ struct CallHistoryWindowView: View {
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
                 .padding(.horizontal, Theme.Metrics.elementSpacing)
-                .padding(.vertical, Theme.Metrics.hairSpacing + 2)
+                // Высота у всех кнопок ряда одна, независимо от того, подпись
+                // внутри или один значок: иначе значковые сидят ниже соседей.
+                .frame(minHeight: Theme.Metrics.filterChipHeight)
                 .compatForeground(isSelected ? Color.white : Color.primary)
                 .compatBackground {
                     if isSelected {
