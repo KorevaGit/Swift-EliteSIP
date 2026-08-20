@@ -971,10 +971,15 @@ private struct HistorySnapshotButton: View {
             CameraGlyph()
                 .stroke(style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
                 .frame(width: Theme.Icon.medium, height: Theme.Icon.medium)
-                .padding(.horizontal, Theme.Metrics.tightSpacing)
-                .padding(.vertical, Theme.Metrics.hairSpacing)
         }
+        // Тот же стиль, что у фильтров и календаря. Пока он был системным, а
+        // соседи переехали на свои капсулы, кнопка стояла в ряду заметно
+        // меньше остальных — живой прогон 20 августа 2026.
+        .buttonStyle(CallHistoryWindowView.FilterChipStyle(isSelected: false))
         .disabled(!isEnabled)
+        // Выключенная кнопка гасится явно: своя капсула системного затемнения
+        // не получает, и без этого «нечего снимать» выглядело бы как «нажми».
+        .opacity(isEnabled ? 1 : Theme.Metrics.disabledOpacity)
         .compatHelp("Скопировать снимок списка в буфер обмена")
         .compatAccessibilityLabel("Снимок списка")
     }

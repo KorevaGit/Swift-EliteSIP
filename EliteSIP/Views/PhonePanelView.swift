@@ -89,6 +89,18 @@ struct PhonePanelView: View {
         // скругления у содержимого быть не должно, иначе по углам проступят
         // углы окна.
         .themedPanelSurface(cornerRadius: 0)
+        // Нижние углы скругляем сами — там, где система этого не делает.
+        //
+        // На macOS 26 окно скругляет своё содержимое само. На Big Sur система
+        // скругляет только верх, у полосы заголовка, а низ отдаёт содержимому:
+        // непрозрачная подложка честно заполняла его до прямого угла, и панель
+        // выглядела обрезанной снизу. Первый заход правил это маской слоя у вью
+        // окна и не сработал вовсе — режем в самой вёрстке, где отрезать точно
+        // есть что.
+        //
+        // Верхние углы не трогаем: там полоса заголовка, и своё скругление
+        // поверх системного дало бы двойную кромку.
+        .clipShape(bottomRoundedShape)
         .compatIgnoreSafeArea()
         .onReceive(clock) { now = $0 }
         .compatBackground {
@@ -178,6 +190,14 @@ struct PhonePanelView: View {
             + Theme.Gap.macrosToAction
             + Theme.Metrics.actionHeight
             + Theme.Metrics.contentPadding
+    }
+
+    /// Чем обрезается панель снизу. Со стеклом — ничем: прямоугольник во всю
+    /// величину, то есть обрезка без последствий.
+    private var bottomRoundedShape: BottomRoundedRectangle {
+        BottomRoundedRectangle(
+            radius: Theme.Chrome.usesLiquidGlass ? 0 : Theme.Radius.systemWindow
+        )
     }
 
     /// По чему пересоздаётся сетка клавиш: число колонок, режим высоты и сами
@@ -1146,5 +1166,35 @@ struct TransferEntry: View {
         }
         .themedControlSurface()
         .hoverHighlight()
+    }
+}
+
+
+/// Прямоугольник со скруглёнными нижними углами.
+///
+/// Готового такого в SwiftUI нет до macOS 13 (`UnevenRoundedRectangle`), а
+/// нижняя планка выпуска — 10.15. Путь строится руками и на всех версиях
+/// одинаков.
+struct BottomRoundedRectangle: Shape {
+
+    let radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let r = min(radius, min(rect.width, rect.height) / 2)
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - r, y: rect.maxY),
+            control: CGPoint(x: rect.maxX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX, y: rect.maxY - r),
+            control: CGPoint(x: rect.minX, y: rect.maxY)
+        )
+        path.closeSubpath()
+        return path
     }
 }
