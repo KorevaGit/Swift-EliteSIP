@@ -1214,6 +1214,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentViewController = NSHostingController(
             rootView: withEnvironment(CallHistoryWindowView())
         )
+        // Слой у вью окна нужен снимку списка: он снимается отрисовкой слоя, а
+        // не `cacheDisplay` — тот теряет весь текст SwiftUI.
+        //
+        // Включается один раз здесь, а не перед съёмкой. Включение на лету
+        // пересобирает иерархию вью, и якорь области списка — слабая ссылка на
+        // `NSView` — обнулялся: первый снимок проходил, второй отвечал «нет
+        // области». На macOS 26 окно слоёное и без этой строки, на Big Sur — нет.
+        window.contentView?.wantsLayer = true
         window.center()
 
         callHistoryWindow = window
