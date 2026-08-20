@@ -99,6 +99,41 @@ struct CallHistoryWindowView: View {
 
     // MARK: - Верх
 
+    /// Кнопка ряда фильтров: своя капсула вместо системного бордюра.
+    ///
+    /// Системный `bordered` рисует бордюр по своим метрикам, а подпись внутри —
+    /// по нашим, и на живой Big Sur они разошлись: текст вылезал за края
+    /// капсулы, а сама она выглядела мелкой. Ужимать подпись нельзя —
+    /// «Пропущенн…» это уже не название фильтра, — а править чужие метрики
+    /// нечем: они меняются от версии к версии, и три захода на них это
+    /// доказали.
+    ///
+    /// Своя капсула считает размер по содержимому и совпадает с ним на любой
+    /// системе. Заодно она наконец одинакова с остальным приложением: те же
+    /// радиус, акцент и поля, что у ряда управления на панели.
+    struct FilterChipStyle: ButtonStyle {
+
+        let isSelected: Bool
+
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .padding(.horizontal, Theme.Metrics.elementSpacing)
+                .padding(.vertical, Theme.Metrics.hairSpacing + 2)
+                .compatForeground(isSelected ? Color.white : Color.primary)
+                .compatBackground {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: Theme.Radius.control)
+                            .fill(Theme.Palette.connecting)
+                    }
+                }
+                // Невыбранная — та же поверхность, что у любой кнопки
+                // приложения; выбранная получает акцент поверх неё.
+                .themedControlSurface()
+                .opacity(configuration.isPressed ? 0.7 : 1)
+                .contentShape(Rectangle())
+        }
+    }
+
     /// Фильтры и календарь одним центрированным рядом.
     ///
     /// Не `Picker(.segmented)`: сегментированный стиль рисует непрозрачную
@@ -121,10 +156,8 @@ struct CallHistoryWindowView: View {
                         // держит `historyMinWidth`.
                         Text(item.title).fixedSize()
                     }
-                    .padding(.horizontal, Theme.Metrics.tightSpacing)
-                    .padding(.vertical, Theme.Metrics.hairSpacing)
                 }
-                .compatProminentButtonStyle(model.historyFilter == item)
+                .buttonStyle(FilterChipStyle(isSelected: model.historyFilter == item))
             }
             HistoryDayButton()
             HistorySnapshotButton(
@@ -150,7 +183,9 @@ struct CallHistoryWindowView: View {
         .fixedSize(horizontal: false, vertical: true)
         // Мелкие кнопки, как на странице настроек. На обычном размере пять
         // кнопок в ряд оказывались самым заметным, что есть в окне, — заметнее
-        // самих звонков, ради которых его открыли.
+        // самих звонков, ради которых его открыли. Капсулы фильтров теперь
+        // свои и на `controlSize` не смотрят, но календарь и снимок внутри
+        // ряда — системные, и им это по-прежнему адресовано.
         .controlSize(.small)
         // При выключенной истории фильтровать нечего и никогда не будет:
         // работающие кнопки над пустым окном обещают, что где-то за ними записи
@@ -656,6 +691,7 @@ final class HistorySnapshotAnchor {
         case renderFailed
         case cropFailed
         case composeFailed
+        case encodeFailed
 
         var errorDescription: String? {
             switch self {
@@ -666,6 +702,7 @@ final class HistorySnapshotAnchor {
             case .renderFailed: NSLocalizedString("слой не отрисовался", comment: "отказ снимка истории")
             case .cropFailed: NSLocalizedString("не вышла обрезка", comment: "отказ снимка истории")
             case .composeFailed: NSLocalizedString("не собрался холст", comment: "отказ снимка истории")
+            case .encodeFailed: NSLocalizedString("картинка не закодировалась", comment: "отказ снимка истории")
             }
         }
     }
@@ -957,8 +994,35 @@ private struct HistorySnapshotButton: View {
             )
             return
         }
+        // В буфер идут **байты PNG**, а не только объект `NSImage`.
+        //
+        // Живая проверка на Big Sur 20 августа 2026: кнопка отвечала «скопирован»,
+        // а вставить снимок не удавалось никуда. `writeObjects([NSImage])` кладёт
+        // картинку в собственном представлении AppKit, и берут его не все — а
+        // тот, кому снимок нужен (мессенджер, письмо, заметка), почти всегда
+        // ждёт готовый PNG. Кладём и то и другое: объект — для тех, кто умеет,
+        // байты — для всех остальных.
+        guard let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:])
+        else {
+            onResult(
+                String(
+                    format: NSLocalizedString("Снимок не получился: %@", comment: "снимок списка истории"),
+                    HistorySnapshotAnchor.Failure.encodeFailed.localizedDescription
+                )
+            )
+            return
+        }
+
+        // Одна запись с двумя представлениями, а не две записи подряд:
+        // `setData` и `writeObjects` кладут в буфер разные элементы, и часть
+        // приложений берёт из него первый попавшийся.
+        let item = NSPasteboardItem()
+        item.setData(png, forType: .png)
+        item.setData(tiff, forType: .tiff)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects([image])
+        NSPasteboard.general.writeObjects([item])
         onResult(NSLocalizedString("Снимок скопирован — вставьте в переписку", comment: "снимок списка истории"))
     }
 }
@@ -1237,10 +1301,8 @@ private struct HistoryDayButton: View {
                             .fixedSize()
                     }
                 }
-                .padding(.horizontal, Theme.Metrics.tightSpacing)
-                .padding(.vertical, Theme.Metrics.hairSpacing)
             }
-            .compatProminentButtonStyle(model.historySelectedDay != nil)
+            .buttonStyle(CallHistoryWindowView.FilterChipStyle(isSelected: model.historySelectedDay != nil))
             .compatHelp("Показать звонки за один день")
 
             // Крестик снимает отбор, не открывая того, что его поставило.

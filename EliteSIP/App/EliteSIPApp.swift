@@ -559,6 +559,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         window.contentViewController = panelController
 
+        // Нижние углы скругляем сами — на системах без стекла.
+        //
+        // На macOS 26 окно скругляет собственное содержимое само. На живой
+        // Big Sur 20 августа 2026 низ панели оказался прямоугольным: там
+        // система скругляет только верх, у полосы заголовка, а низ отдаёт
+        // содержимому — и наша непрозрачная подложка честно заполняла его до
+        // прямого угла. Верх при этом трогать нечем и незачем: его рисует
+        // полоса.
+        if !Theme.Chrome.usesLiquidGlass, let content = window.contentView {
+            content.wantsLayer = true
+            content.layer?.cornerRadius = Theme.Radius.systemWindow
+            content.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+            content.layer?.masksToBounds = true
+        }
+
         // Уровень окна задаёт вёрстка (`WindowLevel`): поверх чужих окон панель
         // нужна в разговоре, а в покое она обычное окно. Здесь только
         // поведение, которое от состояния не зависит: без
