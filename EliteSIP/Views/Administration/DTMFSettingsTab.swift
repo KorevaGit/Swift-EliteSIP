@@ -62,22 +62,38 @@ struct DTMFSettingsTab: View {
             }
 
             SettingsRow("Высота клавиши") {
-                SettingSlider(
-                    value: Binding(
-                        get: { Double(model.settings.dtmf.macroHeight) },
-                        set: { model.settings.dtmf.macroHeight = Int($0) }
-                    ),
-                    range: AppSettings.DTMFSettings.heightRange.asDouble,
-                    step: 2,
-                    unit: NSLocalizedString("тчк", comment: "единица: точки экрана")
-                )
+                Picker("", selection: Binding(
+                    get: { model.settings.dtmf.macroHeightIsManual },
+                    set: { model.settings.dtmf.macroHeightIsManual = $0 }
+                )) {
+                    Text("Авто").tag(false)
+                    Text("Вручную").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 160)
+            }
+
+            if model.settings.dtmf.macroHeightIsManual {
+                SettingsRow("Высота") {
+                        SettingSlider(
+                        value: Binding(
+                            get: { Double(model.settings.dtmf.macroHeight) },
+                            set: { model.settings.dtmf.macroHeight = Int($0) }
+                        ),
+                        range: AppSettings.DTMFSettings.heightRange.asDouble,
+                        step: 2,
+                        unit: NSLocalizedString("тчк", comment: "единица: точки экрана")
+                    )
+                }
             }
 
             SettingsNote("""
                 Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире \
-                каждая. Подпись переносится по пробелам до трёх строк, и если она всё равно \
-                ужимается, добавьте высоты. Высота панели считается по этим двум числам: \
-                каждый лишний ряд растит её вниз.
+                каждая. В режиме «Авто» высота клавиши считается по самой длинной подписи \
+                при нынешней ширине и меняется вместе с ними; «Вручную» нужен там, где важно \
+                именно заданное число — например чтобы две машины выглядели одинаково при \
+                разных подписях. Каждый лишний ряд растит панель вниз.
                 """)
 
             SettingsNote("""

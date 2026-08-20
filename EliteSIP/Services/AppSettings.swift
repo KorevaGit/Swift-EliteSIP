@@ -744,17 +744,38 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// только он знает, какой длины подписи будут.
         var macroColumns: Int = 3
 
-        /// Высота клавиши в точках.
+        /// Высота клавиши в точках. Читается только при `macroHeightIsManual`.
         ///
         /// Вторая половина того же выбора: подпись в три строки требует места
         /// по вертикали, а лишняя вертикаль у панели не бесплатна — она стоит
         /// поверх CRM и растёт вниз.
         var macroHeight: Int = 58
 
+        /// Кто задаёт высоту клавиши — человек или сама панель.
+        ///
+        /// По умолчанию сама: она меряет самую длинную подпись при текущем
+        /// числе колонок и берёт столько, сколько той нужно. Число в ползунке
+        /// администратору обычно не нужно — ему нужно, чтобы подписи влезали, а
+        /// это панель умеет посчитать точнее, чем человек на глаз, и пересчитать
+        /// заново при смене колонок или переименовании клавиши.
+        ///
+        /// Ручной режим оставлен затем же, зачем он у расстояний защиты: бывает
+        /// нужно ровно то число, которое человек решил, — например чтобы две
+        /// машины выглядели одинаково при разных подписях.
+        var macroHeightIsManual: Bool = false
+
         /// Пределы того и другого. Ниже — нечитаемо, выше — панель перестаёт
         /// быть панелью.
         static let columnRange = 1...4
         static let heightRange = 44...96
+
+        /// Высота клавиши, с которой приложение жило до появления настройки.
+        ///
+        /// В режиме «авто» она же — нижняя граница: подпись в одну строку
+        /// требует куда меньше, но клавиша в сорок точек становится полоской, а
+        /// в неё целятся мышью не глядя. Авто добавляет высоты там, где подпись
+        /// не влезла, и не отнимает там, где влезла с запасом.
+        static let defaultMacroHeight = 58
 
         /// Потолок числа макросов.
         ///
@@ -776,7 +797,8 @@ struct AppSettings: Codable, Sendable, Equatable {
             pauseMilliseconds: Int = DTMFSequence.defaultPauseMilliseconds,
             macros: [Macro] = [],
             macroColumns: Int = 3,
-            macroHeight: Int = 58
+            macroHeight: Int = 58,
+            macroHeightIsManual: Bool = false
         ) {
             self.toneMilliseconds = toneMilliseconds
             self.gapMilliseconds = gapMilliseconds
@@ -784,6 +806,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             self.macros = macros
             self.macroColumns = macroColumns
             self.macroHeight = macroHeight
+            self.macroHeightIsManual = macroHeightIsManual
         }
 
         init(from decoder: Decoder) throws {
@@ -801,6 +824,7 @@ struct AppSettings: Codable, Sendable, Equatable {
                 .clamped(to: Self.columnRange)
             macroHeight = (try container.decodeIfPresent(Int.self, forKey: .macroHeight) ?? 58)
                 .clamped(to: Self.heightRange)
+            macroHeightIsManual = (try container.decodeIfPresent(Bool.self, forKey: .macroHeightIsManual)) ?? false
         }
 
         /// То же самое в терминах MediaCore.

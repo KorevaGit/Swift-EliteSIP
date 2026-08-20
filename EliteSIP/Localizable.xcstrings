@@ -69,6 +69,23 @@
         }
       }
     },
+    "%1$lld в ряду · %2$lld тчк": {
+      "comment": "сетка клавиш в просмотре предустановки",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld per row · %2$lld pt"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld в ряду · %2$lld тчк"
+          }
+        }
+      }
+    },
     "%@ · разговор": {
       "comment": "линия в разговоре",
       "localizations": {
@@ -139,36 +156,6 @@
     "%lld вызовов": {
       "comment": "сколько вызовов пришло из очереди",
       "localizations": {
-        "ru": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld вызов"
-                }
-              },
-              "few": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld вызова"
-                }
-              },
-              "many": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld вызовов"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld вызова"
-                }
-              }
-            }
-          }
-        },
         "en": {
           "variations": {
             "plural": {
@@ -182,6 +169,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld calls"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld вызова"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld вызовов"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld вызов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld вызова"
                 }
               }
             }
@@ -208,36 +225,6 @@
     "%lld пакетов": {
       "comment": "сколько пакетов в последовательности стука",
       "localizations": {
-        "ru": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld пакет"
-                }
-              },
-              "few": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld пакета"
-                }
-              },
-              "many": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld пакетов"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld пакета"
-                }
-              }
-            }
-          }
-        },
         "en": {
           "variations": {
             "plural": {
@@ -251,6 +238,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld packets"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld пакета"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld пакетов"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld пакет"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld пакета"
                 }
               }
             }
@@ -475,38 +492,39 @@
     "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки».": {
       "comment": "файл открыт двойным щелчком, применять его некому",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки»."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "“%@” is an EliteSIP preset. It can be loaded in Administration, the Presets section."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки»."
           }
         }
       }
     },
     "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченная клавиша оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченная клавиша оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Set “Transfers the call” on transfer codes — the app cannot recognise them on its own. A marked key leaves a “transfer” mark in the history, and that is what people go by later when working out where the client went. The line state is still driven by the PBX: the screen keeps showing the previous party."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченная клавиша оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник."
           }
         }
       }
     },
     "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченный макрос оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник.": {
       "comment": "пояснение к признаку перевода у макроса",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -520,21 +538,20 @@
             "value": "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченный макрос оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "«Системный» — как у macOS: русский там, где в системе есть русский, английский во всех остальных случаях.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "«Системный» — как у macOS: русский там, где в системе есть русский, английский во всех остальных случаях."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "“System” follows macOS: Russian where the system has Russian, English in every other case."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Системный» — как у macOS: русский там, где в системе есть русский, английский во всех остальных случаях."
           }
         }
       }
@@ -575,16 +592,16 @@
     "АТС не отвечает.": {
       "comment": "исход живой проверки регистрации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "АТС не отвечает."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The PBX is not answering."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "АТС не отвечает."
           }
         }
       }
@@ -592,32 +609,32 @@
     "АТС не отвечает. Проверьте доступ к сети конторы.": {
       "comment": "исход живой проверки регистрации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "АТС не отвечает. Проверьте доступ к сети конторы."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The PBX is not answering. Check access to the company network."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "АТС не отвечает. Проверьте доступ к сети конторы."
           }
         }
       }
     },
     "Авто": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Авто"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Auto"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Авто"
           }
         }
       }
@@ -656,16 +673,16 @@
     },
     "Административный пароль": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Административный пароль"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Administrator password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Административный пароль"
           }
         }
       }
@@ -673,48 +690,48 @@
     "Административный пароль не подошёл.": {
       "comment": "отказ пропуска в мастере первого запуска",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Административный пароль не подошёл."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Wrong administrator password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Административный пароль не подошёл."
           }
         }
       }
     },
     "Адрес АТС": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Адрес АТС"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "PBX address"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес АТС"
           }
         }
       }
     },
     "Адрес АТС активного профиля не из этой пары — переезд ему не достанется.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Адрес АТС активного профиля не из этой пары — переезд ему не достанется."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The active profile’s PBX address is not from this pair — it will not be moved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес АТС активного профиля не из этой пары — переезд ему не достанется."
           }
         }
       }
@@ -722,32 +739,32 @@
     "Адрес АТС не найден. Проверьте адрес.": {
       "comment": "исход живой проверки регистрации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Адрес АТС не найден. Проверьте адрес."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "PBX address not found. Check the address."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес АТС не найден. Проверьте адрес."
           }
         }
       }
     },
     "Адреса площадок": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Адреса площадок"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Site addresses"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адреса площадок"
           }
         }
       }
@@ -771,21 +788,22 @@
     },
     "Аккаунты, клавиши, защита от автокликеров и диагностика.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Аккаунты, клавиши, защита от автокликеров и диагностика."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Accounts, keys, autoclicker protection and diagnostics."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аккаунты, клавиши, защита от автокликеров и диагностика."
+          }
         }
       }
     },
     "Аккаунты, макросы, защита от автокликеров и диагностика.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -799,8 +817,7 @@
             "value": "Аккаунты, макросы, защита от автокликеров и диагностика."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Архив с журналом и сведениями о системе: по нему в поддержке разбирают, что случилось со звонком.": {
       "localizations": {
@@ -836,16 +853,16 @@
     },
     "Без административного пароля регистрацию не проверить.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Без административного пароля регистрацию не проверить."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Registration cannot be checked without the administrator password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без административного пароля регистрацию не проверить."
           }
         }
       }
@@ -900,21 +917,22 @@
     },
     "Будут стёрты настройки, история звонков и журнал. Профили, пароли, клавиши, очереди и последовательность стука исчезнут; пароля администратора на машине не останется, и закрытые настройки будут открыты всем.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Будут стёрты настройки, история звонков и журнал. Профили, пароли, клавиши, очереди и последовательность стука исчезнут; пароля администратора на машине не останется, и закрытые настройки будут открыты всем."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Settings, call history and the log will be erased. Profiles, passwords, keys, queues and the knock sequence will be gone; no administrator password will be left on the machine, and the protected settings will be open to everyone."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будут стёрты настройки, история звонков и журнал. Профили, пароли, клавиши, очереди и последовательность стука исчезнут; пароля администратора на машине не останется, и закрытые настройки будут открыты всем."
+          }
         }
       }
     },
     "Будут стёрты настройки, история звонков и журнал. Профили, пароли, макросы, очереди и последовательность стука исчезнут; пароля администратора на машине не останется, и закрытые настройки будут открыты всем.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -928,8 +946,7 @@
             "value": "Будут стёрты настройки, история звонков и журнал. Профили, пароли, макросы, очереди и последовательность стука исчезнут; пароля администратора на машине не останется, и закрытые настройки будут открыты всем."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Будут удалены записи всех профилей этой машины. Вернуть их «Отменой» нельзя. В журнал уйдёт строка с числом записей.": {
       "localizations": {
@@ -959,6 +976,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "В истории лежат номера лидов и SIP-логины — как пришли, без маскирования. В архив для поддержки она не попадает: там только журнал."
+          }
+        }
+      }
+    },
+    "В ряду": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per row"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В ряду"
           }
         }
       }
@@ -1179,36 +1212,6 @@
     "Вместе с профилем будут удалены его пароль и %lld записей истории звонков. Вернуть их «Отменой» будет нельзя.": {
       "comment": "",
       "localizations": {
-        "ru": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Вместе с профилем будут удалены его пароль и %lld запись истории звонков. Вернуть их «Отменой» будет нельзя."
-                }
-              },
-              "few": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Вместе с профилем будут удалены его пароль и %lld записи истории звонков. Вернуть их «Отменой» будет нельзя."
-                }
-              },
-              "many": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Вместе с профилем будут удалены его пароль и %lld записей истории звонков. Вернуть их «Отменой» будет нельзя."
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Вместе с профилем будут удалены его пароль и %lld записи истории звонков. Вернуть их «Отменой» будет нельзя."
-                }
-              }
-            }
-          }
-        },
         "en": {
           "variations": {
             "plural": {
@@ -1222,6 +1225,36 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Deleting this profile also deletes its password and %lld call history records. This cannot be undone."
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вместе с профилем будут удалены его пароль и %lld записи истории звонков. Вернуть их «Отменой» будет нельзя."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вместе с профилем будут удалены его пароль и %lld записей истории звонков. Вернуть их «Отменой» будет нельзя."
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вместе с профилем будут удалены его пароль и %lld запись истории звонков. Вернуть их «Отменой» будет нельзя."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Вместе с профилем будут удалены его пароль и %lld записи истории звонков. Вернуть их «Отменой» будет нельзя."
                 }
               }
             }
@@ -1246,38 +1279,38 @@
       }
     },
     "Внешний адрес означает стук перед регистрацией, внутренний — нет.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Внешний адрес означает стук перед регистрацией, внутренний — нет."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "An external address means a port knock before registration; an internal one does not."
           }
-        }
-      },
-      "extractionState": "stale"
-    },
-    "Внешний адрес — со стуком, внутренний — без.": {
-      "localizations": {
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Внешний адрес — со стуком, внутренний — без."
+            "value": "Внешний адрес означает стук перед регистрацией, внутренний — нет."
           }
-        },
+        }
+      }
+    },
+    "Внешний адрес — со стуком, внутренний — без.": {
+      "extractionState": "stale",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "An external address knocks, an internal one does not."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внешний адрес — со стуком, внутренний — без."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Внутренний номер": {
       "localizations": {
@@ -1397,6 +1430,7 @@
     },
     "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль добавочного и пароль администратора. На диск это уйдёт только по «Сохранить».": {
       "comment": "предупреждение перед загрузкой настроек из файла",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1410,22 +1444,21 @@
             "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль добавочного и пароль администратора. На диск это уйдёт только по «Сохранить»."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера и пароль администратора. На диск это уйдёт только по «Сохранить».": {
       "comment": "предупреждение перед загрузкой настроек из файла",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера и пароль администратора. На диск это уйдёт только по «Сохранить»."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Every protected setting in this window will be replaced by the contents of the file, including the number’s password and the administrator password. Nothing reaches the disk until you press Save."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера и пароль администратора. На диск это уйдёт только по «Сохранить»."
           }
         }
       }
@@ -1567,16 +1600,16 @@
     },
     "Выбрать другой файл…": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выбрать другой файл…"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Choose another file…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать другой файл…"
           }
         }
       }
@@ -1632,16 +1665,16 @@
     },
     "Выгрузить конфигурацию…": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выгрузить конфигурацию…"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Export a configuration…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить конфигурацию…"
           }
         }
       }
@@ -1729,6 +1762,7 @@
       }
     },
     "Вызов по сделке приходит с добавочного самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1742,21 +1776,20 @@
             "value": "Вызов по сделке приходит с добавочного самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Вызов по сделке приходит с номера самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вызов по сделке приходит с номера самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A deal call arrives from the manager’s own number: Bitrix picks it up first and only then dials the client. No setup is needed — the number comes from the active profile."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вызов по сделке приходит с номера самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля."
           }
         }
       }
@@ -1826,6 +1859,38 @@
         }
       }
     },
+    "Высота": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Height"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Высота"
+          }
+        }
+      }
+    },
+    "Высота клавиши": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key height"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Высота клавиши"
+          }
+        }
+      }
+    },
     "Выход завершит его и снимет регистрацию.": {
       "comment": "вопрос при выходе во время разговора",
       "localizations": {
@@ -1876,38 +1941,38 @@
       }
     },
     "Где стоит машина: от этого зависит адрес АТС и стук.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Где стоит машина: от этого зависит адрес АТС и стук."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Where the machine sits: it decides the PBX address and the knock."
           }
-        }
-      },
-      "extractionState": "stale"
-    },
-    "Где стоит эта машина. От этого зависит адрес АТС и стук.": {
-      "localizations": {
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Где стоит эта машина. От этого зависит адрес АТС и стук."
+            "value": "Где стоит машина: от этого зависит адрес АТС и стук."
           }
-        },
+        }
+      }
+    },
+    "Где стоит эта машина. От этого зависит адрес АТС и стук.": {
+      "extractionState": "stale",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Where this machine sits. It decides the PBX address and the port knock."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где стоит эта машина. От этого зависит адрес АТС и стук."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Говорите — запись, осталось %lld с": {
       "comment": "самопроверка голоса",
@@ -1977,21 +2042,21 @@
       }
     },
     "Готовый слепок машины — когда рабочее место переносят, а не заводят.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Готовый слепок машины — когда рабочее место переносят, а не заводят."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A ready snapshot of a machine — for moving a workstation, not creating one."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовый слепок машины — когда рабочее место переносят, а не заводят."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Громкость": {
       "localizations": {
@@ -2028,32 +2093,32 @@
     },
     "Далее": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Далее"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Continue"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Далее"
           }
         }
       }
     },
     "Два адреса одной и той же АТС. По этой паре менеджер переключает себя между офисом и домом в своих настройках, разделом «Работа»: адрес АТС в профиле меняется на парный, регистрация поднимается заново, а стук уходит сам.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Два адреса одной и той же АТС. По этой паре менеджер переключает себя между офисом и домом в своих настройках, разделом «Работа»: адрес АТС в профиле меняется на парный, регистрация поднимается заново, а стук уходит сам."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Two addresses of one and the same PBX. The manager uses this pair to switch between the office and home in their own settings, in the Work section: the PBX address in the profile changes to its counterpart, registration comes back up, and the knock goes out by itself."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Два адреса одной и той же АТС. По этой паре менеджер переключает себя между офисом и домом в своих настройках, разделом «Работа»: адрес АТС в профиле меняется на парный, регистрация поднимается заново, а стук уходит сам."
           }
         }
       }
@@ -2157,21 +2222,22 @@
     },
     "Добавить клавишу": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавить клавишу"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Add key"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить клавишу"
+          }
         }
       }
     },
     "Добавить макрос": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2185,8 +2251,7 @@
             "value": "Добавить макрос"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Добавить очередь": {
       "localizations": {
@@ -2237,6 +2302,7 @@
       }
     },
     "Добавочный": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2250,28 +2316,28 @@
             "value": "Добавочный"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Добавочный %@, АТС %@.": {
       "comment": "что приехало из файла конфигурации",
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавочный %@, АТС %@."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Extension %1$@, PBX %2$@."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавочный %@, АТС %@."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Добавочный комнаты": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2285,38 +2351,37 @@
             "value": "Добавочный комнаты"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Добавочный, пароль от него и то, как настроено рабочее место.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавочный, пароль от него и то, как настроено рабочее место."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The extension, its password and how the workstation is set up."
           }
-        }
-      },
-      "extractionState": "stale"
-    },
-    "Добро пожаловать в EliteSIP": {
-      "localizations": {
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Добро пожаловать в EliteSIP"
+            "value": "Добавочный, пароль от него и то, как настроено рабочее место."
           }
-        },
+        }
+      }
+    },
+    "Добро пожаловать в EliteSIP": {
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Welcome to EliteSIP"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добро пожаловать в EliteSIP"
           }
         }
       }
@@ -2388,16 +2453,16 @@
     },
     "Если не подключается": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Если не подключается"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "If it will not connect"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если не подключается"
           }
         }
       }
@@ -2566,6 +2631,22 @@
         }
       }
     },
+    "Заводские": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Factory"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заводские"
+          }
+        }
+      }
+    },
     "Загружаются более старые звонки": {
       "localizations": {
         "en": {
@@ -2600,32 +2681,32 @@
     },
     "Загрузить из файла…": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Загрузить из файла…"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Load from a file…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить из файла…"
           }
         }
       }
     },
     "Загрузить конфигурацию…": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Загрузить конфигурацию…"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Load a configuration…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить конфигурацию…"
           }
         }
       }
@@ -2956,6 +3037,22 @@
         }
       }
     },
+    "Здесь видно, по какому шаблону заведено это место. Правки, сделанные после применения, тут не отражаются: строка отвечает на «с чего начали», а не «что сейчас».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This shows which template the machine was set up from. Changes made afterwards are not reflected here: the line answers “what we started from”, not “what it is now”."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь видно, по какому шаблону заведено это место. Правки, сделанные после применения, тут не отражаются: строка отвечает на «с чего начали», а не «что сейчас»."
+          }
+        }
+      }
+    },
     "Здесь появятся входящие и исходящие — вместе с тем, чем они кончились.": {
       "comment": "пустой список истории",
       "localizations": {
@@ -3056,48 +3153,48 @@
     },
     "Идёт разговор — переключить сейчас нельзя.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Идёт разговор — переключить сейчас нельзя."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A call is in progress — switching is not possible right now."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идёт разговор — переключить сейчас нельзя."
           }
         }
       }
     },
     "Из дома": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Из дома"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "From home"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из дома"
           }
         }
       }
     },
     "Из офиса": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Из офиса"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "From the office"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из офиса"
           }
         }
       }
@@ -3268,16 +3365,16 @@
     },
     "Клавиш нет. Они появятся на панели во время разговора.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Клавиш нет. Они появятся на панели во время разговора."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No keys yet. They appear on the panel during a call."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиш нет. Они появятся на панели во время разговора."
           }
         }
       }
@@ -3285,16 +3382,16 @@
     "Клавиши": {
       "comment": "раздел «Управления»",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Клавиши"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Keys"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиши"
           }
         }
       }
@@ -3332,6 +3429,7 @@
       }
     },
     "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. В лаборатории это *3; боевой код нужно сверить с features.conf — в выводе «core show features» с боевого сервера конференции нет вовсе.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3345,10 +3443,10 @@
             "value": "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. В лаборатории это *3; боевой код нужно сверить с features.conf — в выводе «core show features» с боевого сервера конференции нет вовсе."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. На боевом сервере такой фичи нет: «core show features» от 18 августа 2026 знает перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмену перевода *77 — и ничего про конференцию. Прежнее умолчание *3 было догадкой и снято.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3362,8 +3460,7 @@
             "value": "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. На боевом сервере такой фичи нет: «core show features» от 18 августа 2026 знает перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмену перевода *77 — и ничего про конференцию. Прежнее умолчание *3 было догадкой и снято."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Код должен содержать только DTMF-символы и хотя бы один тон.": {
       "localizations": {
@@ -3398,6 +3495,7 @@
       }
     },
     "Код не задан, и кнопка «Конференция» у оператора недоступна. Это верное состояние до тех пор, пока код не появится в features.conf: не совпавший ни с одной фичей код Asterisk не перехватывает, и он уходит собеседнику обычными тонами — клиент слышит писк, а конференции не происходит.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3411,8 +3509,7 @@
             "value": "Код не задан, и кнопка «Конференция» у оператора недоступна. Это верное состояние до тех пор, пока код не появится в features.conf: не совпавший ни с одной фичей код Asterisk не перехватывает, и он уходит собеседнику обычными тонами — клиент слышит писк, а конференции не происходит."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Кодек": {
       "localizations": {
@@ -3499,16 +3596,16 @@
     "Конфигурация": {
       "comment": "имя файла конфигурации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Конфигурация"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Configuration"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация"
           }
         }
       }
@@ -3516,65 +3613,65 @@
     "Конфигурация выгружена в %@.": {
       "comment": "итог выгрузки конфигурации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Конфигурация выгружена в %@."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The configuration was exported to %@."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация выгружена в %@."
+          }
         }
       }
     },
     "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с добавочным и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с добавочным и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A configuration is the same thing in the EliteSIP format: the file the setup assistant accepts on a new machine. Use it to move someone's whole workstation to another computer, extension and password included; reading it drops the audio devices, the custom ringtone, the theme with glass and the administrator password — everything that belongs to that machine rather than to the workstation."
           }
-        }
-      },
-      "extractionState": "stale"
-    },
-    "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с номером и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту.": {
-      "localizations": {
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с номером и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту."
+            "value": "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с добавочным и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту."
           }
-        },
+        }
+      }
+    },
+    "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с номером и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту.": {
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A configuration is the same thing in the EliteSIP format: the file the setup assistant accepts on a new machine. Use it to move someone's whole workstation to another computer, number and password included; reading it drops the audio devices, the custom ringtone, the theme with glass and the administrator password — everything that belongs to that machine rather than to the workstation."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с номером и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту."
           }
         }
       }
     },
     "Кто будет работать за этой машиной.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Кто будет работать за этой машиной."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Who will work at this machine."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кто будет работать за этой машиной."
           }
         }
       }
@@ -3644,6 +3741,7 @@
       }
     },
     "Макросов нет. Кнопки появятся на панели во время разговора.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3657,10 +3755,10 @@
             "value": "Макросов нет. Кнопки появятся на панели во время разговора."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Макросы": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3674,8 +3772,7 @@
             "value": "Макросы"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Маршрут": {
       "localizations": {
@@ -3695,36 +3792,36 @@
     },
     "Матовые поверхности": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Матовые поверхности"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Matte surfaces"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Матовые поверхности"
+          }
         }
       }
     },
     "Матовые поверхности вместо стекла, как на macOS до 26. Приложение откроется заново, чтобы применить выбор.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Матовые поверхности вместо стекла, как на macOS до 26. Приложение откроется заново, чтобы применить выбор."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Matte surfaces instead of glass, as on macOS before 26. The app will open again to apply the choice."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Матовые поверхности вместо стекла, как на macOS до 26. Приложение откроется заново, чтобы применить выбор."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Машина": {
       "comment": "группа разделов «Управления»",
@@ -3810,16 +3907,16 @@
     },
     "На «Авто» стоят проверенные значения, а ползунки заперты: колесо мыши над незапертым ползунком меняет защиту молча, и заметить это потом не по чему. «Вручную» отпирает их и отдаёт числа тому, кто их выставил.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "На «Авто» стоят проверенные значения, а ползунки заперты: колесо мыши над незапертым ползунком меняет защиту молча, и заметить это потом не по чему. «Вручную» отпирает их и отдаёт числа тому, кто их выставил."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "On Auto the values are the vetted ones and the sliders are locked: a scroll wheel over an unlocked slider changes the protection silently, and afterwards there is nothing to notice it by. Manual unlocks them and hands the numbers to whoever set them."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На «Авто» стоят проверенные значения, а ползунки заперты: колесо мыши над незапертым ползунком меняет защиту молча, и заметить это потом не по чему. «Вручную» отпирает их и отдаёт числа тому, кто их выставил."
           }
         }
       }
@@ -3971,19 +4068,35 @@
         }
       }
     },
-    "Настройка EliteSIP": {
-      "comment": "заголовок окна первого запуска",
+    "Настроена": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Настройка EliteSIP"
+            "value": "Настроена"
           }
-        },
+        }
+      }
+    },
+    "Настройка EliteSIP": {
+      "comment": "заголовок окна первого запуска",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "EliteSIP Setup"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройка EliteSIP"
           }
         }
       }
@@ -4170,21 +4283,21 @@
       }
     },
     "Настройку рабочего места заканчивает техподдержка.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Настройку рабочего места заканчивает техподдержка."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Setting up a workstation is finished by support staff."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройку рабочего места заканчивает техподдержка."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Наушники": {
       "localizations": {
@@ -4204,16 +4317,16 @@
     },
     "Начать работу": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Начать работу"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Start working"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать работу"
           }
         }
       }
@@ -4337,16 +4450,16 @@
     "Не удалось выгрузить конфигурацию: %@": {
       "comment": "выгрузка конфигурации не удалась",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось выгрузить конфигурацию: %@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Could not export the configuration: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выгрузить конфигурацию: %@"
           }
         }
       }
@@ -4438,35 +4551,35 @@
     },
     "Неверный добавочный или пароль.": {
       "comment": "исход живой проверки регистрации",
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Неверный добавочный или пароль."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Wrong extension or password."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверный добавочный или пароль."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Неверный номер или пароль.": {
       "comment": "исход живой проверки регистрации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Неверный номер или пароль."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Wrong number or password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверный номер или пароль."
           }
         }
       }
@@ -4506,17 +4619,18 @@
     },
     "Нет выхода": {
       "comment": "состояние в шапке панели: нет звукового выхода",
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет выхода"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No output"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет выхода"
           }
         }
       }
@@ -4557,17 +4671,18 @@
     },
     "Нет звука": {
       "comment": "состояние в шапке панели: ни микрофона, ни выхода",
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет звука"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No sound"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет звука"
           }
         }
       }
@@ -4575,16 +4690,16 @@
     "Нет звукового выхода": {
       "comment": "состояние линии",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет звукового выхода"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No audio output"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет звукового выхода"
           }
         }
       }
@@ -4592,16 +4707,16 @@
     "Нет звуковых устройств": {
       "comment": "состояние линии: ни микрофона, ни выхода",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет звуковых устройств"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No audio devices"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет звуковых устройств"
           }
         }
       }
@@ -4609,16 +4724,16 @@
     "Нет микрофона": {
       "comment": "состояние в шапке панели",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет микрофона"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No microphone"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет микрофона"
           }
         }
       }
@@ -4660,16 +4775,33 @@
     "Нет сети. Проверьте подключение.": {
       "comment": "исход живой проверки регистрации",
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No network. Check the connection."
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Нет сети. Проверьте подключение."
           }
-        },
+        }
+      }
+    },
+    "Нет устройств": {
+      "comment": "состояние в шапке панели: нет звуковых устройств",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No network. Check the connection."
+            "value": "No devices"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет устройств"
           }
         }
       }
@@ -4791,32 +4923,32 @@
     "Номер %@, АТС %@.": {
       "comment": "что приехало из файла конфигурации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Номер %@, АТС %@."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Number %1$@, PBX %2$@."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер %@, АТС %@."
           }
         }
       }
     },
     "Номер комнаты": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Номер комнаты"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Room number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер комнаты"
           }
         }
       }
@@ -5136,16 +5268,16 @@
     },
     "Открывает дорогу до АТС снаружи — один раз и прямо сейчас. Нужно, когда из дома перестало подключаться без видимой причины: у домашнего интернета сменился адрес, а шлюз помнит прежний.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Открывает дорогу до АТС снаружи — один раз и прямо сейчас. Нужно, когда из дома перестало подключаться без видимой причины: у домашнего интернета сменился адрес, а шлюз помнит прежний."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Opens the path to the PBX from outside — once, right now. Needed when connecting from home has stopped working for no visible reason: the home internet address has changed and the gateway still remembers the old one."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывает дорогу до АТС снаружи — один раз и прямо сейчас. Нужно, когда из дома перестало подключаться без видимой причины: у домашнего интернета сменился адрес, а шлюз помнит прежний."
           }
         }
       }
@@ -5200,16 +5332,16 @@
     },
     "Отменить перенос": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отменить перенос"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Cancel the move"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить перенос"
           }
         }
       }
@@ -5297,16 +5429,16 @@
     },
     "Офис": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Офис"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Office"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Офис"
           }
         }
       }
@@ -5475,16 +5607,16 @@
     },
     "Панель висит поверх CRM весь день — важно, чтобы она не била по глазам.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Панель висит поверх CRM весь день — важно, чтобы она не била по глазам."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The panel sits over the CRM all day long, so it had better not hurt the eyes."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панель висит поверх CRM весь день — важно, чтобы она не била по глазам."
           }
         }
       }
@@ -5523,16 +5655,16 @@
     },
     "Пароль SIP": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пароль SIP"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "SIP password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль SIP"
           }
         }
       }
@@ -5635,16 +5767,16 @@
     },
     "Первый пользователь": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Первый пользователь"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "First user"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первый пользователь"
           }
         }
       }
@@ -5717,6 +5849,7 @@
       }
     },
     "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин добавочного приравнивается к номеру.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5730,21 +5863,20 @@
             "value": "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин добавочного приравнивается к номеру."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин приравнивается к номеру.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин приравнивается к номеру."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Overwrites everything the preset covers — both the machine settings and the selected profile. Left alone: numbers and passwords of the other profiles, the selected profile’s password and the administrator password. The login is set equal to the number."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин приравнивается к номеру."
           }
         }
       }
@@ -5783,16 +5915,16 @@
     },
     "Переключение меняет адрес АТС и заново поднимает регистрацию: из дома внутренний адрес недостижим, а из офиса внешний ведёт на тот же сервер длинной дорогой через шлюз.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Переключение меняет адрес АТС и заново поднимает регистрацию: из дома внутренний адрес недостижим, а из офиса внешний ведёт на тот же сервер длинной дорогой через шлюз."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Switching changes the PBX address and brings registration back up: from home the internal address is unreachable, and from the office the external one leads to the same server the long way round through the gateway."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключение меняет адрес АТС и заново поднимает регистрацию: из дома внутренний адрес недостижим, а из офиса внешний ведёт на тот же сервер длинной дорогой через шлюз."
           }
         }
       }
@@ -5993,6 +6125,7 @@
       }
     },
     "Позвонить ещё раз": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6006,10 +6139,10 @@
             "value": "Позвонить ещё раз"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Позвонить на %@": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6023,8 +6156,7 @@
             "value": "Позвонить на %@"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Пока не нажато «Сохранить», на диск не записано ничего.": {
       "localizations": {
@@ -6059,6 +6191,7 @@
       }
     },
     "Показаны короткие номера — раздачи и внутренние добавочные: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6072,21 +6205,20 @@
             "value": "Показаны короткие номера — раздачи и внутренние добавочные: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Показаны короткие номера — раздачи и внутренние: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Показаны короткие номера — раздачи и внутренние: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Short numbers are shown — queues and internal ones: a queue is never a full phone number, and a list of client numbers has no place in a settings window. A long number can still be typed in by hand."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показаны короткие номера — раздачи и внутренние: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками."
           }
         }
       }
@@ -6220,6 +6352,22 @@
         }
       }
     },
+    "Показать, что войдёт в машину при применении": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show what applying this will put on the machine"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать, что войдёт в машину при применении"
+          }
+        }
+      }
+    },
     "Показывает приложение целиком так, как оно выглядит на macOS до 26: матовые поверхности вместо стекла, а в окнах с боковым списком — список слева на системном фоне с разделителем вместо плавающей вставки.": {
       "localizations": {
         "en": {
@@ -6254,16 +6402,16 @@
     },
     "Половина пары пуста — переключение «Работы» адрес не поменяет.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Половина пары пуста — переключение «Работы» адрес не поменяет."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Half of the pair is empty — switching Work will not change the address."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Половина пары пуста — переключение «Работы» адрес не поменяет."
           }
         }
       }
@@ -6271,16 +6419,16 @@
     "Понятно": {
       "comment": "кнопка",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Понятно"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Got it"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Понятно"
           }
         }
       }
@@ -6384,6 +6532,7 @@
       }
     },
     "Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется со списком кодеков добавочного на АТС, а не с наушниками оператора.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6397,21 +6546,20 @@
             "value": "Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется со списком кодеков добавочного на АТС, а не с наушниками оператора."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется со списком кодеков номера на АТС, а не с наушниками оператора.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется со списком кодеков номера на АТС, а не с наушниками оператора."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "An offer, not a demand: the server picks from what is offered. Check it against the number’s codec list on the PBX, not against the operator’s headphones."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется со списком кодеков номера на АТС, а не с наушниками оператора."
           }
         }
       }
@@ -6419,16 +6567,16 @@
     "Предустановка": {
       "comment": "имя файла предустановки",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Предустановка"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Preset"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановка"
           }
         }
       }
@@ -6436,16 +6584,16 @@
     "Предустановка «%@» загружена. Она появится на машине после «Сохранить».": {
       "comment": "итог загрузки предустановки",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Предустановка «%@» загружена. Она появится на машине после «Сохранить»."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The preset “%@” is loaded. It reaches the machine once you press Save."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановка «%@» загружена. Она появится на машине после «Сохранить»."
           }
         }
       }
@@ -6515,6 +6663,22 @@
         }
       }
     },
+    "Приезжают вместе с приложением и правке не подлежат — их меняют пересборкой. Чтобы отступить от заводской на одной машине, настройте её как надо и снимите свою предустановку ниже.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These ship with the app and cannot be edited — changing them takes a rebuild. To depart from the factory one on a single machine, set that machine up as needed and capture your own preset below."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приезжают вместе с приложением и правке не подлежат — их меняют пересборкой. Чтобы отступить от заводской на одной машине, настройте её как надо и снимите свою предустановку ниже."
+          }
+        }
+      }
+    },
     "Признак подделывается, поэтому по умолчанию он только пишется в отчёт.": {
       "localizations": {
         "en": {
@@ -6548,67 +6712,67 @@
       }
     },
     "Приложение живёт в строке меню. Щелчок по значку открывает и убирает панель.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Приложение живёт в строке меню. Щелчок по значку открывает и убирает панель."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The app lives in the menu bar. Clicking its icon shows and hides the panel."
           }
-        }
-      },
-      "extractionState": "stale"
-    },
-    "Приложение закончит настройку и откроется заново — так выбор применится целиком.": {
-      "localizations": {
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Приложение закончит настройку и откроется заново — так выбор применится целиком."
+            "value": "Приложение живёт в строке меню. Щелчок по значку открывает и убирает панель."
           }
-        },
+        }
+      }
+    },
+    "Приложение закончит настройку и откроется заново — так выбор применится целиком.": {
+      "extractionState": "stale",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The app will finish the setup and open again, so the choice applies everywhere."
           }
-        }
-      },
-      "extractionState": "stale"
-    },
-    "Приложение остаётся в доке. Щелчок по иконке возвращает панель.": {
-      "localizations": {
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Приложение остаётся в доке. Щелчок по иконке возвращает панель."
+            "value": "Приложение закончит настройку и откроется заново — так выбор применится целиком."
           }
-        },
+        }
+      }
+    },
+    "Приложение остаётся в доке. Щелчок по иконке возвращает панель.": {
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The app stays in the Dock. Click its icon to bring the panel back."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение остаётся в доке. Щелчок по иконке возвращает панель."
           }
         }
       }
     },
     "Приложение откроется заново, чтобы применить оформление.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Приложение откроется заново, чтобы применить оформление."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The app will open again to apply the appearance."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение откроется заново, чтобы применить оформление."
           }
         }
       }
@@ -6729,16 +6893,16 @@
     },
     "Приятной работы. Телефон зарегистрирован и ждёт звонков.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Приятной работы. Телефон зарегистрирован и ждёт звонков."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Have a good shift. The phone is registered and waiting for calls."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приятной работы. Телефон зарегистрирован и ждёт звонков."
           }
         }
       }
@@ -6843,16 +7007,16 @@
     "Проверяем регистрацию на АТС…": {
       "comment": "ход живой проверки регистрации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проверяем регистрацию на АТС…"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Checking registration with the PBX…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверяем регистрацию на АТС…"
           }
         }
       }
@@ -7005,32 +7169,32 @@
     },
     "Профиль, у которого адрес АТС не из этой пары — лаборатория, чужой сервер, — переключение не трогает: он получает только пометку, а адрес остаётся как вписан. Пустая половина пары выключает переезд целиком.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Профиль, у которого адрес АТС не из этой пары — лаборатория, чужой сервер, — переключение не трогает: он получает только пометку, а адрес остаётся как вписан. Пустая половина пары выключает переезд целиком."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A profile whose PBX address is not from this pair — a lab, someone else’s server — is left alone by the switch: it only gets the mark, and the address stays as typed. An empty half of the pair turns the move off entirely."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиль, у которого адрес АТС не из этой пары — лаборатория, чужой сервер, — переключение не трогает: он получает только пометку, а адрес остаётся как вписан. Пустая половина пары выключает переезд целиком."
           }
         }
       }
     },
     "Прочитать файл предустановки, снятой на другой машине": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Прочитать файл предустановки, снятой на другой машине"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Read a preset file captured on another machine"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочитать файл предустановки, снятой на другой машине"
           }
         }
       }
@@ -7070,48 +7234,48 @@
     "Работа": {
       "comment": "раздел настроек менеджера",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Работа"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Work"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работа"
           }
         }
       }
     },
     "Рабочее место": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Рабочее место"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Workstation"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рабочее место"
           }
         }
       }
     },
     "Рабочее место настраивается один раз. Займёт минуту.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Рабочее место настраивается один раз. Займёт минуту."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A workstation is set up once. It takes a minute."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рабочее место настраивается один раз. Займёт минуту."
           }
         }
       }
@@ -7183,16 +7347,16 @@
     },
     "Расстояния": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Расстояния"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Distances"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расстояния"
           }
         }
       }
@@ -7442,6 +7606,7 @@
       }
     },
     "Сейчас позвонить нельзя": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7455,8 +7620,7 @@
             "value": "Сейчас позвонить нельзя"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. Номера и SIP-логины остаются — по ним и разбирают звонок.": {
       "localizations": {
@@ -7487,6 +7651,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сервер переводит…"
+          }
+        }
+      }
+    },
+    "Сетка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grid"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сетка"
           }
         }
       }
@@ -7818,6 +7998,7 @@
       }
     },
     "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера добавочного, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7831,27 +8012,27 @@
             "value": "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера добавочного, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The snapshot is taken from what is in the window right now, including unsaved edits. It covers everything except the number, the SIP password and the administrator password: a preset travels between machines, each machine has its own number, and a password copied from a template stops being a password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт."
           }
         }
       }
     },
     "Снимок не получился": {
       "comment": "снимок списка истории",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7863,6 +8044,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Снимок не получился"
+          }
+        }
+      }
+    },
+    "Снимок не получился: %@": {
+      "comment": "снимок списка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The snapshot failed: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок не получился: %@"
           }
         }
       }
@@ -8112,36 +8310,36 @@
     },
     "Стекло": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Стекло"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Glass"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стекло"
+          }
         }
       }
     },
     "Стекло или матовые поверхности, как на macOS до 26.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Стекло или матовые поверхности, как на macOS до 26."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Glass, or the matte surfaces of macOS before 26."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стекло или матовые поверхности, как на macOS до 26."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Стирает настройки, историю и журнал — машина станет такой же, как сразу после установки, и пароля администратора на ней не будет. Готовится к передаче рабочего места другому сотруднику.": {
       "localizations": {
@@ -8245,16 +8443,16 @@
     "Телефон зарегистрирован.": {
       "comment": "исход живой проверки регистрации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Телефон зарегистрирован."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The phone is registered."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Телефон зарегистрирован."
           }
         }
       }
@@ -8374,16 +8572,16 @@
     },
     "Требуется macOS 26": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Требуется macOS 26"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Requires macOS 26"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требуется macOS 26"
           }
         }
       }
@@ -8519,16 +8717,16 @@
     },
     "Удалённо": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Удалённо"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Remote"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалённо"
           }
         }
       }
@@ -8634,37 +8832,38 @@
     "Файл EliteSIP": {
       "comment": "заголовок сообщения о файле",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Файл EliteSIP"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "EliteSIP file"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл EliteSIP"
           }
         }
       }
     },
     "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, клавиши, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, клавиши, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The file fills the whole window — profiles, the SIP password, the administrator password, keys, queues, the knock. Nothing reaches the disk until Save, and Cancel puts everything back."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, клавиши, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
+          }
         }
       }
     },
     "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, макросы, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8678,21 +8877,20 @@
             "value": "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, макросы, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Файл не выбран.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Файл не выбран."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No file chosen."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не выбран."
           }
         }
       }
@@ -8734,16 +8932,16 @@
     "Файл повреждён и не читается.": {
       "comment": "битый файл выбран для загрузки",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Файл повреждён и не читается."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The file is damaged and cannot be read."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл повреждён и не читается."
           }
         }
       }
@@ -8751,16 +8949,16 @@
     "Файл сделан версией новее этой (формат %d). Обновите приложение.": {
       "comment": "файл новее, чем приложение",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Файл сделан версией новее этой (формат %d). Обновите приложение."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The file comes from a newer version (format %d). Update the app."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл сделан версией новее этой (формат %d). Обновите приложение."
           }
         }
       }
@@ -8878,6 +9076,22 @@
         }
       }
     },
+    "Что внутри…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What is inside…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что внутри…"
+          }
+        }
+      }
+    },
     "Чтобы ответить, нажмите": {
       "localizations": {
         "en": {
@@ -8910,6 +9124,38 @@
         }
       }
     },
+    "Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире каждая. В режиме «Авто» высота клавиши считается по самой длинной подписи при нынешней ширине и меняется вместе с ними; «Вручную» нужен там, где важно именно заданное число — например чтобы две машины выглядели одинаково при разных подписях. Каждый лишний ряд растит панель вниз.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The panel width is fixed, so the trade-off is simple: fewer keys per row means each one is wider. In “Auto” the key height is worked out from the longest label at the current width and follows it as labels change; “By hand” is for when the exact number matters — for example so that two machines look the same with different labels. Every extra row grows the panel downwards."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире каждая. В режиме «Авто» высота клавиши считается по самой длинной подписи при нынешней ширине и меняется вместе с ними; «Вручную» нужен там, где важно именно заданное число — например чтобы две машины выглядели одинаково при разных подписях. Каждый лишний ряд растит панель вниз."
+          }
+        }
+      }
+    },
+    "Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире каждая. Подпись переносится по пробелам до трёх строк, и если она всё равно ужимается, добавьте высоты. Высота панели считается по этим двум числам: каждый лишний ряд растит её вниз.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The panel width is fixed, so the trade-off is simple: fewer keys per row means each one is wider. A label wraps at spaces over up to three lines, and if it is still being shrunk, add height. The panel height follows these two numbers: every extra row grows it downwards."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире каждая. Подпись переносится по пробелам до трёх строк, и если она всё равно ужимается, добавьте высоты. Высота панели считается по этим двум числам: каждый лишний ряд растит её вниз."
+          }
+        }
+      }
+    },
     "Экран вызова": {
       "comment": "заголовок окна панели",
       "localizations": {
@@ -8927,54 +9173,70 @@
         }
       }
     },
-    "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали.": {
-      "comment": "файл открыт двойным щелчком, применять его некому",
+    "Эта машина": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This machine"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали."
+            "value": "Эта машина"
           }
-        },
+        }
+      }
+    },
+    "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали.": {
+      "comment": "файл открыт двойным щелчком, применять его некому",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This is a workstation configuration. The setup assistant accepts it — on a machine that has not been set up yet."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали."
           }
         }
       }
     },
     "Это конфигурация, а не предустановка: в ней есть добавочный и пароль. Такой файл принимает мастер первоначальной настройки.": {
       "comment": "выбран файл конфигурации вместо предустановки",
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Это конфигурация, а не предустановка: в ней есть добавочный и пароль. Такой файл принимает мастер первоначальной настройки."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This is a configuration, not a preset: it carries an extension and a password. The setup assistant accepts such a file."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это конфигурация, а не предустановка: в ней есть добавочный и пароль. Такой файл принимает мастер первоначальной настройки."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Это конфигурация, а не предустановка: в ней есть номер и пароль. Такой файл принимает мастер первоначальной настройки.": {
       "comment": "выбран файл конфигурации вместо предустановки",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Это конфигурация, а не предустановка: в ней есть номер и пароль. Такой файл принимает мастер первоначальной настройки."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This is a configuration, not a preset: it carries a number and a password. The setup assistant accepts such a file."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это конфигурация, а не предустановка: в ней есть номер и пароль. Такой файл принимает мастер первоначальной настройки."
           }
         }
       }
@@ -8982,51 +9244,51 @@
     "Это не файл EliteSIP.": {
       "comment": "чужой файл выбран для загрузки",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Это не файл EliteSIP."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This is not an EliteSIP file."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не файл EliteSIP."
           }
         }
       }
     },
     "Это предустановка, а не конфигурация: в ней нет добавочного и пароля.": {
       "comment": "выбран файл предустановки вместо конфигурации",
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Это предустановка, а не конфигурация: в ней нет добавочного и пароля."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This is a preset, not a configuration: it carries no extension and no password."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это предустановка, а не конфигурация: в ней нет добавочного и пароля."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Это предустановка, а не конфигурация: в ней нет номера и пароля.": {
       "comment": "выбран файл предустановки вместо конфигурации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Это предустановка, а не конфигурация: в ней нет номера и пароля."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This is a preset, not a configuration: it carries no number and no password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это предустановка, а не конфигурация: в ней нет номера и пароля."
           }
         }
       }
@@ -9082,36 +9344,36 @@
     },
     "Язык интерфейса. Приложение откроется заново на выбранном.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Язык интерфейса. Приложение откроется заново на выбранном."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Interface language. The app will open again in the one you pick."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык интерфейса. Приложение откроется заново на выбранном."
+          }
         }
       }
     },
     "Язык интерфейса. Применится, когда настройка закончится.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Язык интерфейса. Применится, когда настройка закончится."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Interface language. It applies once the setup is done."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык интерфейса. Применится, когда настройка закончится."
+          }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Язык меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся.": {
       "localizations": {
@@ -9228,6 +9490,23 @@
         }
       }
     },
+    "вручную, без предустановки": {
+      "comment": "происхождение настроек машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by hand, no preset"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вручную, без предустановки"
+          }
+        }
+      }
+    },
     "вызова уже нет": {
       "comment": "состояние линии",
       "localizations": {
@@ -9296,6 +9575,7 @@
       }
     },
     "добавочный": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9309,8 +9589,7 @@
             "value": "добавочный"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "домен не задан": {
       "comment": "профиль без домена",
@@ -9445,6 +9724,23 @@
         }
       }
     },
+    "не вышла обрезка": {
+      "comment": "отказ снимка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the crop failed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не вышла обрезка"
+          }
+        }
+      }
+    },
     "не открыта": {
       "comment": "состояние базы истории",
       "localizations": {
@@ -9458,6 +9754,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "не открыта"
+          }
+        }
+      }
+    },
+    "не собрался холст": {
+      "comment": "отказ снимка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the canvas could not be built"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не собрался холст"
           }
         }
       }
@@ -9512,6 +9825,23 @@
         }
       }
     },
+    "нет": {
+      "comment": "пусто в просмотре предустановки",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "none"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет"
+          }
+        }
+      }
+    },
     "нет ни одного тона": {
       "comment": "почему макрос негоден",
       "localizations": {
@@ -9529,6 +9859,40 @@
         }
       }
     },
+    "нет области списка": {
+      "comment": "отказ снимка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no list area"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет области списка"
+          }
+        }
+      }
+    },
+    "нет окна": {
+      "comment": "отказ снимка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no window"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет окна"
+          }
+        }
+      }
+    },
     "нет подписи": {
       "comment": "почему макрос негоден",
       "localizations": {
@@ -9542,6 +9906,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "нет подписи"
+          }
+        }
+      }
+    },
+    "нет слоя у окна": {
+      "comment": "отказ снимка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the window has no layer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет слоя у окна"
           }
         }
       }
@@ -9596,6 +9977,23 @@
         }
       }
     },
+    "область пустая": {
+      "comment": "отказ снимка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the area is empty"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "область пустая"
+          }
+        }
+      }
+    },
     "пароль": {
       "localizations": {
         "en": {
@@ -9625,6 +10023,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "перевод"
+          }
+        }
+      }
+    },
+    "по предустановке «%1$@», %2$@": {
+      "comment": "происхождение настроек машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from preset “%1$@”, %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "по предустановке «%1$@», %2$@"
           }
         }
       }
@@ -9711,6 +10126,23 @@
         }
       }
     },
+    "слой не отрисовался": {
+      "comment": "отказ снимка истории",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the layer did not render"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "слой не отрисовался"
+          }
+        }
+      }
+    },
     "смена профиля недоступна в разговоре": {
       "localizations": {
         "en": {
@@ -9723,6 +10155,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "смена профиля недоступна в разговоре"
+          }
+        }
+      }
+    },
+    "тчк": {
+      "comment": "единица: точки экрана",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pt"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "тчк"
           }
         }
       }
@@ -9755,6 +10204,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "шт"
+          }
+        }
+      }
+    },
+    "шт.": {
+      "comment": "единица: число клавиш в ряду",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pcs"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "шт."
           }
         }
       }

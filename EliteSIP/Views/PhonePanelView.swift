@@ -164,6 +164,14 @@ struct PhonePanelView: View {
             + Theme.Metrics.contentPadding
     }
 
+    /// По чему пересоздаётся сетка клавиш: число колонок, режим высоты и сами
+    /// подписи.
+    private var macroGridKey: String {
+        let dtmf = model.settings.dtmf
+        return "\(dtmf.macroColumns)|\(dtmf.macroHeightIsManual)|\(dtmf.macroHeight)|"
+            + model.usableMacros.map(\.title).joined(separator: "|")
+    }
+
     /// Чем считается середина до первого замера. Ровно прежний расчёт: он
     /// верен на той системе, на которой его выводили, и нужен один кадр.
     private var fallbackMiddleHeight: CGFloat {
@@ -901,7 +909,26 @@ struct MacroGrid: View {
     /// подписей вроде «Юрист» и неверна для названий отдела: живой прогон
     /// 19 августа 2026 показал, что три в ряд ужимают их до нечитаемого.
     private var columns: Int { model.settings.dtmf.macroColumns }
-    private var keyHeight: CGFloat { CGFloat(model.settings.dtmf.macroHeight) }
+
+    /// Самая высокая подпись из всех — столько ей нужно при нынешней ширине
+    /// клавиши. Меряется, а не считается по числу знаков: перенос по пробелам
+    /// зависит от кегля, языка и самих слов.
+    @State private var tallestLabel: CGFloat = 0
+
+    /// Высота клавиши: заданная человеком или посчитанная по подписям.
+    ///
+    /// В «авто» берётся самая длинная подпись плюс поля, но не ниже нижней
+    /// границы: клавиша в одно слово не должна становиться полоской, в неё
+    /// целятся мышью. Верхняя граница та же, что у ползунка, — панель стоит
+    /// поверх CRM, и расти ей вниз не бесконечно.
+    private var keyHeight: CGFloat {
+        let settings = model.settings.dtmf
+        guard !settings.macroHeightIsManual else { return CGFloat(settings.macroHeight) }
+        let needed = tallestLabel + Theme.Metrics.elementSpacing * 2
+        let floor = AppSettings.DTMFSettings.defaultMacroHeight
+        let range = AppSettings.DTMFSettings.heightRange
+        return CGFloat(max(Int(needed.rounded(.up)), floor).clamped(to: range))
+    }
 
     private var rows: [[AppSettings.DTMFSettings.Macro]] {
         let macros = model.usableMacros
@@ -909,6 +936,15 @@ struct MacroGrid: View {
             Array(macros[start..<min(start + columns, macros.count)])
         }
     }
+
+    /// По чему считался прошлый замер. Смена подписей или числа колонок
+    /// меняет и нужную высоту: без сброса клавиша осталась бы высотой под
+    /// подпись, которую уже стёрли.
+    private var measurementKey: String {
+        "\(columns)|" + model.usableMacros.map(\.title).joined(separator: "|")
+    }
+
+    @State private var measuredFor = ""
 
     var body: some View {
         VStack(spacing: Theme.Metrics.elementSpacing) {
@@ -939,6 +975,14 @@ struct MacroGrid: View {
                 // она сообщала наверх не свою высоту, а высоту окна, и окно
                 // подтверждало само себя.
                 .frame(height: keyHeight)
+            }
+        }
+        .compatBackground {
+            HeightReader { _ in
+                if measuredFor != measurementKey {
+                    measuredFor = measurementKey
+                    tallestLabel = 0
+                }
             }
         }
     }
@@ -972,7 +1016,16 @@ struct MacroGrid: View {
                 .lineLimit(macro.title.contains(" ") ? 3 : 1)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                // Подпись сообщает свою естественную высоту: по самой длинной
+                // из них панель и считает высоту клавиши в режиме «авто».
+                // Максимум берётся по всем клавишам — ряды обязаны быть
+                // одинаковыми, иначе сетка перестаёт быть сеткой.
+                .compatBackground {
+                    HeightReader { height in
+                        if height > tallestLabel { tallestLabel = height }
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
