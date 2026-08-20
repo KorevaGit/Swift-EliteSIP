@@ -709,8 +709,35 @@ final class HistorySnapshotAnchor {
         }
     }
 
+    /// Ищет область списка в дереве окна.
+    ///
+    /// Сперва по сохранённой ссылке, потом обходом всех окон приложения. Второе
+    /// нужно не как перестраховка: ссылка слабая и обнуляется на сворачивании
+    /// окна и на переезде между мониторами — то есть на действиях, после
+    /// которых снимок как раз и делают.
+    private static func locateArea(preferring view: NSView?) -> NSView? {
+        if let view, view.window != nil { return view }
+        for window in NSApp.windows {
+            if let content = window.contentView, let found = search(in: content) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    private static func search(in view: NSView) -> HistorySnapshotAreaView? {
+        if let area = view as? HistorySnapshotAreaView { return area }
+        for subview in view.subviews {
+            if let found = search(in: subview) { return found }
+        }
+        return nil
+    }
+
     func image(profile: String) throws -> NSImage {
-        guard let view else { throw Failure.noAnchor }
+        guard var view = Self.locateArea(preferring: view) else { throw Failure.noAnchor }
+        // Найденная область — она же и запомненная: следующий снимок начнётся
+        // с готовой ссылки, а обход останется на случай очередной пересборки.
+        self.view = view
         guard let content = view.window?.contentView else { throw Failure.noWindow }
 
         // Слой включается при сборке окна (`showCallHistoryWindow`), а не здесь.
@@ -721,6 +748,16 @@ final class HistorySnapshotAnchor {
         // пересобирает иерархию вью, вместе с ней пропадает та `NSView`, за
         // которую держится якорь области, и **второй** снимок подряд отвечал
         // «нет области». Первый при этом проходил.
+        // Слой обычно уже есть: его включает `showCallHistoryWindow` при
+        // сборке окна. Здесь — на случай, когда система его сняла (перезод на
+        // монитор с другим масштабом делает и не такое). Включение пересобирает
+        // иерархию вью, поэтому область после него ищется заново.
+        if content.layer == nil {
+            content.wantsLayer = true
+            guard let again = Self.locateArea(preferring: nil) else { throw Failure.noAnchor }
+            view = again
+            self.view = again
+        }
         content.displayIfNeeded()
 
         guard let layer = content.layer else { throw Failure.noLayer }
@@ -937,17 +974,27 @@ final class HistorySnapshotAnchor {
 }
 
 /// Пустая вьюха, которая сообщает якорю свои границы.
+///
+/// Свой класс, а не голая `NSView`, — чтобы её можно было **найти** в дереве
+/// окна. Ссылка в якоре слабая и теряется чаще, чем хотелось бы: сворачивание
+/// окна, разворачивание, переезд на другой монитор — каждый из этих случаев
+/// пересобирает вью, а обновлять якорь SwiftUI зовёт не всегда. Живой прогон
+/// 20 августа 2026: после сворачивания и после переезда снимок отвечал «нет
+/// области». Поиск по классу снимает вопрос целиком — область находится там,
+/// где она нарисована, а не там, где мы её запомнили.
+final class HistorySnapshotAreaView: NSView {}
+
 private struct HistorySnapshotArea: NSViewRepresentable {
 
     let anchor: HistorySnapshotAnchor
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
+    func makeNSView(context: Context) -> HistorySnapshotAreaView {
+        let view = HistorySnapshotAreaView()
         anchor.view = view
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
+    func updateNSView(_ nsView: HistorySnapshotAreaView, context: Context) {
         anchor.view = nsView
     }
 }

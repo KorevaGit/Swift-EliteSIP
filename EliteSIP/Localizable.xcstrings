@@ -1695,6 +1695,22 @@
         }
       }
     },
+    "Выгрузить файл настроек…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить файл настроек…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export the settings file…"
+          }
+        }
+      }
+    },
     "Выгрузить…": {
       "localizations": {
         "en": {
@@ -2204,6 +2220,22 @@
         }
       }
     },
+    "Для поддержки": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для поддержки"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For support"
+          }
+        }
+      }
+    },
     "Добавить": {
       "localizations": {
         "en": {
@@ -2560,6 +2592,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Журнал выгружен в %@."
+          }
+        }
+      }
+    },
+    "Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The log goes out as the same archive as “Collect logs” on the manager page: build and system details inside, secrets masked."
           }
         }
       }
@@ -3296,6 +3344,22 @@
         }
       }
     },
+    "История звонков не выгружается ни тем, ни другим: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История звонков не выгружается ни тем, ни другим: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call history is not exported by either of them: it holds lead numbers and SIP logins unmasked. That was decided in stage 4 and still stands."
+          }
+        }
+      }
+    },
     "История звонков не выгружается: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.": {
       "localizations": {
         "en": {
@@ -3623,6 +3687,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Конфигурация выгружена в %@."
+          }
+        }
+      }
+    },
+    "Конфигурация — слепок этого рабочего места: номер и пароль SIP, клавиши, очереди, приём вызова, адрес АТС, стук, журнал. Ею переносят человека на другой компьютер целиком; файл принимает мастер первоначальной настройки.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация — слепок этого рабочего места: номер и пароль SIP, клавиши, очереди, приём вызова, адрес АТС, стук, журнал. Ею переносят человека на другой компьютер целиком; файл принимает мастер первоначальной настройки."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A configuration is a snapshot of this workplace: number and SIP password, keys, queues, incoming-call rules, PBX address, port knock, logging. Use it to move a person to another computer whole; the file is read by the first-run wizard."
           }
         }
       }
@@ -4344,6 +4424,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не беспокоить"
+          }
+        }
+      }
+    },
+    "Не входит то, что принадлежит машине, а не месту: звуковые устройства, свой рингтон, оформление и административный пароль. Выброшены они уже в самом файле, а не при чтении, — файл содержит ровно то, что здесь написано.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не входит то, что принадлежит машине, а не месту: звуковые устройства, свой рингтон, оформление и административный пароль. Выброшены они уже в самом файле, а не при чтении, — файл содержит ровно то, что здесь написано."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What belongs to the machine rather than the workplace stays out: audio devices, a custom ringtone, the appearance and the administrator password. They are dropped in the file itself, not on reading — the file holds exactly what is described here."
           }
         }
       }
@@ -5961,6 +6057,22 @@
         }
       }
     },
+    "Перенос рабочего места": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенос рабочего места"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moving a workplace"
+          }
+        }
+      }
+    },
     "Переподключить": {
       "localizations": {
         "en": {
@@ -6611,6 +6723,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Предустановка выгружена в %@."
+          }
+        }
+      }
+    },
+    "Предустановка — другая сущность и живёт в своём разделе. Она про отдел, а не про человека: те же клавиши, очереди и правила, но без номера и без паролей, чтобы заводить по ней новые места. Конфигурация — про одно конкретное место со всем его содержимым.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановка — другая сущность и живёт в своём разделе. Она про отдел, а не про человека: те же клавиши, очереди и правила, но без номера и без паролей, чтобы заводить по ней новые места. Конфигурация — про одно конкретное место со всем его содержимым."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A preset is a different thing and lives in its own section. It is about a department, not a person: the same keys, queues and rules, but with no number and no passwords, so that new workplaces can be set up from it. A configuration is about one specific workplace with everything in it."
+          }
+        }
+      }
+    },
+    "Предустановка — про отдел, конфигурация — про одно рабочее место. Первой заводят новые машины по образцу, второй переносят человека со всем его содержимым, включая номер и пароль. Конфигурация выгружается в «Обслуживании».": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановка — про отдел, конфигурация — про одно рабочее место. Первой заводят новые машины по образцу, второй переносят человека со всем его содержимым, включая номер и пароль. Конфигурация выгружается в «Обслуживании»."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A preset is about a department, a configuration about one workplace. The first sets up new machines from a model, the second moves a person with everything they have, number and password included. Configurations are exported in “Maintenance”."
           }
         }
       }
@@ -8875,6 +9019,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, макросы, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
+          }
+        }
+      }
+    },
+    "Файл настроек — сырой `settings.json` как он есть на диске, включая несохранённое из этого окна. Он для разбора жалобы, а не для переноса: другая машина его не примет, и всё машинное в нём остаётся как было.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл настроек — сырой `settings.json` как он есть на диске, включая несохранённое из этого окна. Он для разбора жалобы, а не для переноса: другая машина его не примет, и всё машинное в нём остаётся как было."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings file is the raw `settings.json` as it sits on disk, including anything unsaved in this window. It is for working out a complaint, not for moving a workplace: another machine will not accept it, and everything machine-bound stays in it as it was."
           }
         }
       }
