@@ -212,6 +212,10 @@ extension AppModel {
         /// Файл не разобрался вовсе.
         case unreadable
 
+        /// Наш файл, но не конфигурация: предустановку сюда приносят по ошибке
+        /// — она заводит место с нуля и живёт в своём разделе.
+        case notAConfiguration
+
         var title: String {
             switch self {
             case .newerSchema(let version):
@@ -224,6 +228,12 @@ extension AppModel {
                     version,
                     AppSettings.currentSchemaVersion
                 )
+            case .notAConfiguration:
+                return NSLocalizedString("""
+                    Это файл предустановки, а не конфигурации. Предустановки применяются в \
+                    разделе «Предустановки»: они заводят место по образцу отдела, без номера и \
+                    паролей.
+                    """, comment: "в загрузку конфигурации принесли предустановку")
             case .unreadable:
                 return NSLocalizedString(
                     "Файл не похож на настройки EliteSIP.",
@@ -246,6 +256,30 @@ extension AppModel {
     /// не мимо неё, — то есть «Отменить» возвращает и его.
     func importSettings(from source: URL) throws {
         let data = try Data(contentsOf: source)
+
+        // Файл конфигурации (`.elitesip`) — основной случай, сырой JSON —
+        // запасной.
+        //
+        // Раздел назывался «Загрузка настроек» и принимал только сырой
+        // `settings.json`, тогда как выгружали рядом конфигурацию: то есть
+        // выгруженное этим же окном оно прочитать не могло. Разбираем по
+        // содержимому, а не по расширению: имя файла человек меняет, а
+        // заголовок внутри — нет.
+        if let content = try? EliteSIPDocument.read(data) {
+            guard case .config(let config) = content else {
+                throw SettingsImportFailure.notAConfiguration
+            }
+            // Административный пароль остаётся машинный: в конфигурации его
+            // нет вовсе (вычищен при записи), и «заменить» его нечем — а
+            // обнулить значило бы открыть закрытые настройки всякому.
+            let keptCredential = settings.admin.credential
+            let keptPresets = settings.presets
+            settings = config
+            settings.admin.credential = keptCredential
+            settings.presets = keptPresets
+            append(level: .warning, message: "конфигурация загружена из файла, применение — по «Сохранить»")
+            return
+        }
 
         struct Header: Decodable { var schemaVersion: Int? }
         guard let header = try? JSONDecoder().decode(Header.self, from: data) else {

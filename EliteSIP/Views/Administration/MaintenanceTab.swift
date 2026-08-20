@@ -78,15 +78,21 @@ struct MaintenanceTab: View {
                 """)
         }
 
-        SettingsSection("Загрузка настроек") {
+        SettingsSection("Загрузка конфигурации") {
             SettingsButtonsRow {
-                Button("Загрузить настройки из файла…") { chooseImport() }
+                Button("Загрузить конфигурацию из файла…") { chooseImport() }
             }
 
             SettingsNote("""
-                Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, \
-                клавиши, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» \
-                возвращает как было.
+                Обратная сторона переноса: файл заполняет окно целиком — профили с номером и \
+                паролем SIP, клавиши, очереди, приём, АТС, стук. На диск не уходит ничего до \
+                «Сохранить», и «Отменить» возвращает как было.
+                """)
+
+            SettingsNote("""
+                Административный пароль остаётся машинный: в конфигурации его нет, и заменять \
+                его нечем. Файл предустановки сюда приносить незачем — её применяют в своём \
+                разделе. Сырой `settings.json` тоже принимается: он остался для поддержки.
                 """)
         }
 
@@ -233,7 +239,9 @@ struct MaintenanceTab: View {
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.allowedFileTypes = ["json"]
+        // Оба вида: конфигурация (`.elitesip`) и сырой `settings.json`. Первое —
+        // то, что выгружает соседний раздел, второе осталось для поддержки.
+        panel.allowedFileTypes = [EliteSIPDocument.fileExtension, "json"]
         panel.prompt = NSLocalizedString("Загрузить", comment: "кнопка в окне выбора файла")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         pendingImport = PendingImport(url: url)
@@ -243,8 +251,8 @@ struct MaintenanceTab: View {
         var lines = [
             NSLocalizedString("""
                 Все закрытые настройки в окне будут заменены содержимым файла, включая пароль \
-                номера и пароль администратора. На диск это уйдёт только по «Сохранить».
-                """, comment: "предупреждение перед загрузкой настроек из файла")
+                номера. На диск это уйдёт только по «Сохранить».
+                """, comment: "предупреждение перед загрузкой конфигурации из файла")
         ]
         if model.importWouldRemoveAdminPassword(url) {
             lines.append(NSLocalizedString("""
@@ -258,7 +266,7 @@ struct MaintenanceTab: View {
     private func performImport(_ url: URL) {
         do {
             try model.importSettings(from: url)
-            show(NSLocalizedString("Настройки загружены. Проверьте разделы и нажмите «Сохранить».", comment: "итог загрузки настроек"))
+            show(NSLocalizedString("Конфигурация загружена. Проверьте разделы и нажмите «Сохранить».", comment: "итог загрузки конфигурации"))
         } catch let failure as AppModel.SettingsImportFailure {
             show(failure.title)
         } catch {

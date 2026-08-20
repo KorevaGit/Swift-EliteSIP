@@ -704,6 +704,22 @@
         }
       }
     },
+    "Административный пароль остаётся машинный: в конфигурации его нет, и заменять его нечем. Файл предустановки сюда приносить незачем — её применяют в своём разделе. Сырой `settings.json` тоже принимается: он остался для поддержки.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Административный пароль остаётся машинный: в конфигурации его нет, и заменять его нечем. Файл предустановки сюда приносить незачем — её применяют в своём разделе. Сырой `settings.json` тоже принимается: он остался для поддержки."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The administrator password stays the machine’s own: a configuration does not carry one, so there is nothing to replace it with. A preset file does not belong here — presets are applied in their own section. A raw `settings.json` is accepted too: it stays for support."
+          }
+        }
+      }
+    },
     "Адрес АТС": {
       "localizations": {
         "en": {
@@ -1461,6 +1477,24 @@
             "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера и пароль администратора. На диск это уйдёт только по «Сохранить»."
           }
         }
+      },
+      "extractionState": "stale"
+    },
+    "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера. На диск это уйдёт только по «Сохранить».": {
+      "comment": "предупреждение перед загрузкой конфигурации из файла",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера. На диск это уйдёт только по «Сохранить»."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything in this window will be replaced by the contents of the file, the extension password included. It reaches the disk only on “Save”."
+          }
+        }
       }
     },
     "Вставить": {
@@ -1693,7 +1727,8 @@
             "value": "Выгрузить настройки…"
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Выгрузить файл настроек…": {
       "localizations": {
@@ -1741,7 +1776,8 @@
             "value": "Выгрузка"
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Вызов": {
       "comment": "группа разделов «Управления»",
@@ -2743,6 +2779,22 @@
         }
       }
     },
+    "Загрузить конфигурацию из файла…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить конфигурацию из файла…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load a configuration from a file…"
+          }
+        }
+      }
+    },
     "Загрузить конфигурацию…": {
       "localizations": {
         "en": {
@@ -2787,6 +2839,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Загрузить настройки из файла…"
+          }
+        }
+      }
+    },
+    "Загрузка конфигурации": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка конфигурации"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading a configuration"
           }
         }
       }
@@ -3374,7 +3442,8 @@
             "value": "История звонков не выгружается: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "История звонков — %@": {
       "comment": "заголовок окна истории с профилем",
@@ -3691,6 +3760,23 @@
         }
       }
     },
+    "Конфигурация загружена. Проверьте разделы и нажмите «Сохранить».": {
+      "comment": "итог загрузки конфигурации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация загружена. Проверьте разделы и нажмите «Сохранить»."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuration loaded. Check the sections and press “Save”."
+          }
+        }
+      }
+    },
     "Конфигурация — слепок этого рабочего места: номер и пароль SIP, клавиши, очереди, приём вызова, адрес АТС, стук, журнал. Ею переносят человека на другой компьютер целиком; файл принимает мастер первоначальной настройки.": {
       "localizations": {
         "ru": {
@@ -3738,7 +3824,8 @@
             "value": "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с номером и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Кто будет работать за этой машиной.": {
       "localizations": {
@@ -4228,7 +4315,8 @@
             "value": "Настройки выгружаются такими, какими они видны в окне, — включая несохранённое. Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Настройки выгружены в %@.": {
       "comment": "итог выгрузки настроек",
@@ -4262,7 +4350,8 @@
             "value": "Настройки загружены. Проверьте разделы и нажмите «Сохранить»."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Настройки изменены": {
       "comment": "вопрос при закрытии «Управления»",
@@ -5094,6 +5183,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "О программе EliteSIP"
+          }
+        }
+      }
+    },
+    "Обратная сторона переноса: файл заполняет окно целиком — профили с номером и паролем SIP, клавиши, очереди, приём, АТС, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обратная сторона переноса: файл заполняет окно целиком — профили с номером и паролем SIP, клавиши, очереди, приём, АТС, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The other half of moving a workplace: the file fills this window whole — profiles with the number and SIP password, keys, queues, incoming-call rules, PBX, port knock. Nothing reaches the disk before “Save”, and “Cancel” puts it back."
           }
         }
       }
@@ -9450,6 +9555,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Это предустановка, а не конфигурация: в ней нет номера и пароля."
+          }
+        }
+      }
+    },
+    "Это файл предустановки, а не конфигурации. Предустановки применяются в разделе «Предустановки»: они заводят место по образцу отдела, без номера и паролей.": {
+      "comment": "в загрузку конфигурации принесли предустановку",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это файл предустановки, а не конфигурации. Предустановки применяются в разделе «Предустановки»: они заводят место по образцу отдела, без номера и паролей."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a preset file, not a configuration. Presets are applied in the “Presets” section: they set a workplace up from a department model, with no number and no passwords."
           }
         }
       }
