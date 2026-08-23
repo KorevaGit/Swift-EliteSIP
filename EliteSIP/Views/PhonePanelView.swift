@@ -386,7 +386,12 @@ struct PhonePanelView: View {
     /// Обычное состояние сюда не пишется вовсе, его несёт цвет точки слева.
     @ViewBuilder
     private var troubleLabel: some View {
-        if let trouble = model.trouble {
+        if model.trouble == nil, let version = model.updateReadyVersion {
+            // Слот один, и беда важнее обновления: сломанная машина — это
+            // сейчас, а обновление подождёт до следующего предложения.
+            // Поэтому обновление показывается только когда беды нет.
+            updateLabel(version)
+        } else if let trouble = model.trouble {
             if trouble.opensSettings {
                 // Чинит человек — значит, надпись обязана вести туда, где чинят.
                 // Ведёт в «Настройки», а оттуда в «Управление» по
@@ -408,6 +413,31 @@ struct PhonePanelView: View {
                 troubleContent(trouble)
             }
         }
+    }
+
+    /// «Обновить» — состояние и действие в одном месте (M7h).
+    ///
+    /// Без неё «обновление скачано и ждёт» существовало бы только в момент
+    /// показа окна: между предложениями раз в полчаса панель выглядела бы так,
+    /// будто ничего не происходит. Нажатие ведёт туда же, куда кнопка в
+    /// предложении, и так же не сработает в разговоре.
+    private func updateLabel(_ version: String) -> some View {
+        Button {
+            NSApp.sendAction(#selector(AppDelegate.installUpdate(_:)), to: nil, from: nil)
+        } label: {
+            HStack(spacing: Theme.Metrics.tightSpacing) {
+                CompatSymbol(name: "arrow.down.circle", size: Theme.Icon.small)
+                Text("Обновить до \(version)")
+                    .font(Theme.Text.statusDetail)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .truncationMode(.tail)
+            }
+        }
+        .buttonStyle(.plain)
+        // В разговоре не нажимается по той же причине, по которой не
+        // нажимается капсула профиля: установка снимает регистрацию.
+        .disabled(model.isInCall)
     }
 
     private func troubleContent(_ trouble: AppModel.Trouble) -> some View {

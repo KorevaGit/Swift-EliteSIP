@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Точка входа и владелец окон.
@@ -74,6 +75,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// обновляться сразу после запуска.
     private var phoneMenuInBar: PhoneMenuController?
     private var phoneMenuInStatusItem: PhoneMenuController?
+
+    /// Автообновление (M7h). Живёт с запуска до выхода: предложение приходит
+    /// раз в полчаса и обязано пережить закрытую панель.
+    private(set) var updateService: UpdateService?
+
+    /// Наблюдение за списком линий: предложение обновиться не показывается в
+    /// разговоре, а начавшийся звонок закрывает уже открытое.
+    private var lineWatch: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Тема — до первого окна: иначе панель успевает нарисоваться в
@@ -191,6 +200,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Регистрация поднимается сама: ручного «Подключить» в панели нет.
         model.startAutoConnect()
+
+        startUpdateService()
+    }
+
+    /// Поднять автообновление и связать его с состоянием линий.
+    ///
+    /// Отдельным методом, а не строкой в `applicationDidFinishLaunching`:
+    /// связей у него четыре, и каждая объясняется отдельно.
+    private func startUpdateService() {
+        let service = UpdateService(
+            isBusy: { [weak self] in self?.model.isInCall ?? true },
+            prepareForRestart: { [weak self] done in
+                guard let self else { done(); return }
+                self.deregisterBeforeRestart(then: done)
+            },
+            hostWindow: { [weak self] in self?.phoneWindow },
+            announce: { [weak self] version in self?.model.noteUpdateReady(version) },
+            log: { [weak self] message in self?.model.append(level: .info, message: message) }
+        )
+        updateService = service
+        service.start()
+
+        // `isInCall` — это `!lines.isEmpty`, тот же признак, которым M6b
+        // запрещает отключение профиля в разговоре. Следим за переходами, а не
+        // за каждым изменением: предложение убирается один раз на входе в
+        // разговор и возвращается один раз на выходе.
+        var wasBusy = model.isInCall
+        lineWatch = model.$lines
+            .receive(on: RunLoop.main)
+            .sink { [weak self, weak service] lines in
+                guard let service else { return }
+                _ = self
+                let busy = !lines.isEmpty
+                defer { wasBusy = busy }
+                guard busy != wasBusy else { return }
+                if busy { service.hostBecameBusy() } else { service.hostBecameIdle() }
+            }
+    }
+
+    /// Кнопка «Обновить» в панели, между предложениями.
+    ///
+    /// Через цепочку ответчиков, как и вход в настройки: панель не знает ни об
+    /// `UpdateService`, ни о делегате, и знать не должна.
+    @objc func installUpdate(_ sender: Any?) {
+        updateService?.installNow()
+    }
+
+    /// Снять регистрацию перед подменой бандла и позвать продолжение.
+    ///
+    /// То же, что делает `tearDownAndExit`, минус сам выход: завершать процесс
+    /// будет установщик Sparkle, а не мы. Ограничение по времени обязательно —
+    /// зависшее снятие регистрации повесило бы установщик, и рабочее место
+    /// осталось бы с наполовину заменённым приложением.
+    private func deregisterBeforeRestart(then done: @escaping () -> Void) {
+        Task { @MainActor in
+            let teardown = Task { @MainActor in await self.model.disconnect(force: true) }
+            let limit = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                teardown.cancel()
+            }
+            await teardown.value
+            limit.cancel()
+            self.model.append(level: .info, message: "обновление: регистрация снята, ставим")
+            UserDefaults.standard.synchronize()
+            done()
+        }
     }
 
     /// Закрытая панель приложение не завершает: софтфон обязан оставаться на

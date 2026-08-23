@@ -54,6 +54,17 @@ except Exception as error:
 for key in ("adminPassword", "recoveryCode"):
     if not str(config.get(key, "")).strip():
         sys.exit(f"пустой или отсутствующий ключ «{key}»")
+
+# Канал обновлений (M7h). Проверяется так же строго, и по той же причине:
+# сборка без него внешне рабочая, но обновлять её нечем — а обязанность
+# обновляться и есть смысл всего этапа. Заметить пропажу иначе можно только
+# на рабочем месте и только тогда, когда выйдет следующая версия.
+updates = config.get("updates") or {}
+if not isinstance(updates, dict):
+    sys.exit("ключ «updates» должен быть объектом")
+for key in ("baseURL", "user", "password"):
+    if not str(updates.get(key, "")).strip():
+        sys.exit(f"пустой или отсутствующий ключ «updates.{key}»")
 PYEOF
 then
     echo "error: Config/provisioning.local.json непригоден — подробность строкой выше." >&2

@@ -235,10 +235,12 @@ Tools/sync-strings.py && Tools/check-strings.py
       звонков (сделано, [docs/history.md](docs/history.md)),
       **M7e** подпись, нотарификация и DMG, **M7f** приёмка на живом
       Intel с Catalina, **M7g** отдельный аудио-DSP, **M7h** автообновление
-      через Sparkle с раздачей с сайта EliteSIP. Цепочка зависимостей:
-      M7e → M7f → M7g и M7e → M7h. Разбор подписи, нотарификации, Gatekeeper и
-      двух разных ключей — [docs/release.md](docs/release.md)
-- [ ] **M8** — синхронизация с EliteDash: политика защиты, имена extension,
+      через Sparkle с раздачей с `get.elitesip.vip` (Cloudflare R2). Цепочка
+      зависимостей: M7e → M7f → M7g. M7h нотарификации не требует — Sparkle
+      снимает карантин сам, и этап идёт на самоподписанном сертификате. Разбор
+      подписи, нотарификации, Gatekeeper и двух разных ключей —
+      [docs/release.md](docs/release.md)
+- [ ] **M9** — панель EliteSIP: политика защиты, имена extension,
       макросы, полные CDR/CEL, объединённая история и провижининг удалёнщиков
 
 ### Про FreePBX в M1.5–M1.6

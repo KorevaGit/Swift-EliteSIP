@@ -13,6 +13,7 @@
 		E10000000000000000000027 /* Diagnostics in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000026 /* Diagnostics */; };
 		E10000000000000000000029 /* AdminAccess in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000002A /* AdminAccess */; };
 		E1000000000000000000002C /* CallHistory in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000002D /* CallHistory */; };
+		E10000000000000000000042 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000041 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 				E10000000000000000000027 /* Diagnostics in Frameworks */,
 				E10000000000000000000029 /* AdminAccess in Frameworks */,
 				E1000000000000000000002C /* CallHistory in Frameworks */,
+				E10000000000000000000042 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -98,6 +100,7 @@
 				E10000000000000000000022 /* CallGuard */,
 				E1000000000000000000002A /* AdminAccess */,
 				E1000000000000000000002D /* CallHistory */,
+				E10000000000000000000041 /* Sparkle */,
 			);
 			productName = EliteSIP;
 			productReference = E1000000000000000000000F /* EliteSIP.app */;
@@ -136,6 +139,7 @@
 				E10000000000000000000028 /* XCLocalSwiftPackageReference "Packages/Diagnostics" */,
 				E1000000000000000000002B /* XCLocalSwiftPackageReference "Packages/AdminAccess" */,
 				E1000000000000000000002E /* XCLocalSwiftPackageReference "Packages/CallHistory" */,
+				E10000000000000000000040 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E1000000000000000000000C /* Products */;
@@ -366,6 +370,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		E10000000000000000000040 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		E1000000000000000000001D /* SIPCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -394,6 +409,11 @@
 		E1000000000000000000002D /* CallHistory */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CallHistory;
+		};
+		E10000000000000000000041 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E10000000000000000000040 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -16,7 +16,13 @@ xcuserdata/
 # SwiftPM
 .build/
 .swiftpm/
-Package.resolved
+# У локальных пакетов Package.resolved — шум: разрешать там нечего.
+Packages/*/Package.resolved
+Tools/*/Package.resolved
+# А вот у приложения он хранится намеренно (M7h): с появлением Sparkle это
+# единственное место, где записан точный коммит выкачанной зависимости.
+# Номер версии в project.pbxproj говорит «2.9.6», но метку можно передвинуть —
+# ревизия в Package.resolved зафиксирована.
 
 # Lab secrets — TLS keys are generated locally, never committed
 Lab/certs/*.pem

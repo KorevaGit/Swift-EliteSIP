@@ -140,10 +140,22 @@ else
         *) die "«$identity» — не Developer ID Application. Apple Development и Mac App Distribution для раздачи вне App Store не годятся, а свой сертификат требует флага --self-signed." ;;
     esac
 
-    if ! security find-generic-password -s "com.apple.gke.notary.tool" -a "$notary_profile" >/dev/null 2>&1; then
-        die "профиля notarytool «$notary_profile» нет в связке ключей. Завести: xcrun notarytool store-credentials $notary_profile"
+    # Спрашиваем сам notarytool, а не связку ключей.
+    #
+    # Проверка через `security find-generic-password` выглядела очевидной и была
+    # неверной: современный notarytool кладёт учётные данные в защищённую
+    # связку, которой утилита `security` не видит вовсе. Профиль при этом
+    # исправно работает, а предполётная проверка его «не находит» — то есть
+    # запрещает выпуск на ровном месте. Поймано 20 августа 2026 на первом же
+    # настоящем сертификате.
+    #
+    # Заодно эта проверка сильнее: она доказывает не наличие записи, а то, что
+    # учётные данные приняты Apple. Сеть для выпуска всё равно обязательна —
+    # без неё не будет ни метки времени, ни нотарификации.
+    if ! xcrun notarytool history --keychain-profile "$notary_profile" >/dev/null 2>&1; then
+        die "профиль notarytool «$notary_profile» не работает: его нет, либо учётные данные отвергнуты. Завести: xcrun notarytool store-credentials $notary_profile"
     fi
-    ok "профиль нотарификации найден"
+    ok "профиль нотарификации принят Apple"
 fi
 
 [[ -f Config/provisioning.local.json ]] || die "нет Config/provisioning.local.json — выпуск без административного пароля и заводской предустановки запрещён (M7e, пункт 7)."
@@ -202,6 +214,28 @@ restore_version() {
 }
 
 fail() { restore_version; die "$1"; }
+
+# Всё исполняемое внутри Frameworks, от самого глубокого к внешнему.
+#
+# Порядок обязателен: подпись бандла запечатывает хеши того, что внутри, поэтому
+# внутреннее обязано быть подписано раньше. Сортировка идёт по числу элементов
+# пути, то есть Downloader внутри Downloader.xpc внутри Sparkle.framework
+# подписывается раньше и самого .xpc, и самого фреймворка.
+#
+# Ищем два вида: бандлы (.xpc, .app, .framework) и голые файлы Mach-O.
+# Расширению не доверяем — у Autoupdate и самого Sparkle его нет вовсе.
+# Симлинки не разыменовываем: во фреймворке их полдюжины, и каждая привела бы к
+# повторной подписи одного и того же файла.
+nested_signables() {
+    local root="$1"
+    [[ -d "$root" ]] || return 0
+    {
+        find "$root" -type d \( -name '*.xpc' -o -name '*.app' -o -name '*.framework' \) -print
+        find "$root" -type f -perm +111 -print | while IFS= read -r candidate; do
+            [[ "$(file -b "$candidate")" == Mach-O* ]] && printf '%s\n' "$candidate"
+        done
+    } | awk '{ depth = gsub("/", "/"); print depth "\t" $0 }' | sort -rn | cut -f2-
+}
 
 /usr/bin/sed -i '' \
     -e "s/^MARKETING_VERSION = .*/MARKETING_VERSION = $version/" \
@@ -273,15 +307,23 @@ release_one() {
     # runtime на ней исторически не бывает. Нотарификация требует Hardened
     # Runtime у всего исполняемого содержимого бандла — это одна из самых частых
     # причин отказа.
+    #
+    # До M7h вложенное искалось по маске *.dylib и *.so, и этого хватало, пока
+    # там лежала одна библиотека. Sparkle кладёт туда пять исполняемых файлов, и
+    # ни один под ту маску не подходит: Sparkle и Autoupdate — без расширения,
+    # Updater.app и два .xpc — бандлы, а не файлы. Прежний поиск пропускал их
+    # молча, то есть выпуск уехал бы с неподписанным содержимым, а узнали бы мы
+    # об этом отказом нотарификации или несовпадением подписи у самого Sparkle.
 
     step "[$label] Подпись"
 
     local nested
-    while IFS= read -r -d '' nested; do
+    while IFS= read -r nested; do
+        [[ -n "$nested" ]] || continue
         codesign --force --sign "$identity" $sign_flags "$nested" 2>/dev/null \
             || fail "[$label] не подписалось вложенное: $nested"
-        ok "вложенное подписано: $(basename "$nested")"
-    done < <(find "$app/Contents/Frameworks" -type f \( -name '*.dylib' -o -name '*.so' \) -print0 2>/dev/null)
+        ok "вложенное подписано: ${nested#"$app/Contents/Frameworks/"}"
+    done < <(nested_signables "$app/Contents/Frameworks")
 
     codesign --force --sign "$identity" $sign_flags \
         --entitlements Config/EliteSIP.entitlements "$app" \
@@ -322,13 +364,17 @@ release_one() {
         ok "runtime на месте"
     fi
 
-    local nested_info
-    while IFS= read -r -d '' nested; do
+    local nested_info nested_count=0
+    while IFS= read -r nested; do
+        [[ -n "$nested" ]] || continue
         nested_info=$(codesign -dvv "$nested" 2>&1)
         grep -q "flags=.*runtime" <<<"$nested_info" \
-            || fail "[$label] у вложенного $(basename "$nested") нет флага runtime"
-    done < <(find "$app/Contents/Frameworks" -type f \( -name '*.dylib' -o -name '*.so' \) -print0 2>/dev/null)
-    ok "у вложенного тоже runtime"
+            || fail "[$label] у вложенного ${nested#"$app/Contents/Frameworks/"} нет флага runtime"
+        nested_count=$((nested_count + 1))
+    done < <(nested_signables "$app/Contents/Frameworks")
+    # Ноль проверенных — это не «всё хорошо», а сломанное перечисление.
+    (( nested_count > 0 )) || fail "[$label] во Frameworks не нашлось ничего исполняемого — перечисление сломано"
+    ok "у вложенного тоже runtime ($nested_count шт.)"
 
     # --- Проверки бандла ---
 
@@ -421,6 +467,101 @@ release_one() {
     fi
 
     artifacts+=("$dmg")
+
+    # --- ZIP для канала обновлений (M7h) ---
+    #
+    # В канал едет ZIP, а не DMG: он легче, ставится без монтирования образа и
+    # оставляет открытой дорогу к разностным обновлениям. DMG остаётся формой
+    # первой установки, где важны окно с иконкой и ссылка на /Applications.
+
+    step "[$label] ZIP обновления"
+
+    local zip="$output_dir/EliteSIP-$version-$label$suffix.zip"
+    rm -f "$zip"
+
+    # ditto, а не zip(1). Внутри Sparkle.framework полдюжины символических
+    # ссылок — Versions/Current и всё, что на неё смотрит. Обычный zip
+    # развернул бы их в копии файлов, и подпись фреймворка перестала бы
+    # сходиться уже после первой распаковки.
+    ditto -c -k --sequesterRsrc --keepParent "$app" "$zip" \
+        || fail "[$label] не собрался ZIP обновления"
+
+    # Проверка не формальная: именно этот путь пройдёт установщик Sparkle на
+    # рабочем месте. Если архив теряет ссылки или права, узнать об этом надо
+    # здесь, а не по отвергнутому обновлению у оператора.
+    local unpacked="$output_dir/unpacked-$label"
+    rm -rf "$unpacked"
+    mkdir -p "$unpacked"
+    ditto -x -k "$zip" "$unpacked" || fail "[$label] ZIP не распаковывается обратно"
+    codesign --verify --deep --strict "$unpacked/EliteSIP.app" 2>/dev/null \
+        || fail "[$label] после распаковки ZIP подпись не сходится — архив портит бандл"
+    rm -rf "$unpacked"
+    ok "ZIP собран и проверен распаковкой: $zip"
+
+    # --- Подпись обновления ключом EdDSA ---
+    #
+    # Это вторая подпись, и она про другое: подпись Apple доказывает, что
+    # приложение выпустил зарегистрированный разработчик, а эта — что файл
+    # собрал тот же, кто собрал установленную версию. Разбор — docs/release.md.
+    #
+    # sign_update приезжает вместе с пакетом Sparkle, поэтому лежит внутри
+    # каталога сборки и своей версии соответствует по определению.
+
+    step "[$label] Подпись обновления (EdDSA)"
+
+    local sign_update="$derived/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
+    [[ -x "$sign_update" ]] \
+        || fail "[$label] не нашёл sign_update по пути $sign_update — не разрешилась зависимость Sparkle?"
+
+    local signature
+    signature=$("$sign_update" -p "$zip" 2>/dev/null) \
+        || fail "[$label] не подписалось обновление. Ключ в связке? Проверьте: generate_keys -p"
+    [[ -n "$signature" ]] || fail "[$label] sign_update вернул пустую подпись"
+
+    # Открытый ключ в бандле обязан быть тем же, которым мы только что
+    # подписали. Разойдись они — обновление не встанет ни на одном рабочем
+    # месте, и заметили бы мы это уже после раздачи.
+    local generate_keys="$derived/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
+    local key_in_keychain key_in_bundle
+    key_in_keychain=$("$generate_keys" -p 2>/dev/null | tr -d '\n')
+    key_in_bundle=$(plutil -extract SUPublicEDKey raw "$app/Contents/Info.plist" 2>/dev/null)
+    [[ -n "$key_in_bundle" ]] || fail "[$label] в бандле нет SUPublicEDKey — обновлять его будет нечем"
+    [[ "$key_in_keychain" == "$key_in_bundle" ]] \
+        || fail "[$label] открытый ключ в бандле не тот, которым подписано обновление"
+    ok "обновление подписано, ключ сходится с бандлом"
+
+    # --- Кусок appcast ---
+    #
+    # Целиком appcast собирает Tools/publish.sh: ему нужен текущий фид канала,
+    # чтобы дописать выпуск к прежним, а не затереть их. Здесь готовится только
+    # запись о выпуске — всё, что требует ключа и потому обязано случиться на
+    # машине выпуска.
+
+    local min_os
+    case "$label" in
+        arm64) min_os="11.0" ;;
+        *) min_os="10.15" ;;
+    esac
+
+    local item="$output_dir/EliteSIP-$version-$label$suffix.item.xml"
+    local zip_size
+    zip_size=$(stat -f%z "$zip")
+    cat > "$item" <<ITEM
+        <item>
+            <title>$version</title>
+            <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
+            <sparkle:version>$build_number</sparkle:version>
+            <sparkle:shortVersionString>$version</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>$min_os</sparkle:minimumSystemVersion>
+            <enclosure url="__BASE__/$(basename "$zip")"
+                       sparkle:edSignature="$signature"
+                       length="$zip_size"
+                       type="application/octet-stream" />
+        </item>
+ITEM
+    ok "запись appcast готова: $item"
+
+    artifacts+=("$zip")
 }
 
 for target in "${targets[@]}"; do
@@ -451,8 +592,12 @@ if [[ $self_signed -eq 1 ]]; then
      а это только по учётной записи Apple Developer.
      Если карантин всё-таки прилип, снять его на месте:
      xattr -dr com.apple.quarantine /Applications/EliteSIP.app
-  3. Помнить, что такой выпуск нечем обновлять: Sparkle (M7h) стоит после
-     настоящей подписи.
+  3. Такой выпуск обновляемый: установщик Sparkle снимает карантин с того,
+     что ставит сам, поэтому Gatekeeper в замену уже стоящего приложения не
+     вмешивается, а сверку подписи самоподписанный сертификат проходит.
+     Цена — сертификат становится невосстановимым: перевыпущенный не совпадёт
+     с тем, чем подписаны установленные копии, и обновления отвергнутся у всех.
+     Резервная копия .p12 обязательна. Разбор — docs/release.md.
 
 Полный чек-лист приёмки — docs/release.md.
 REMINDER
