@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"math"
+	"reflect"
 	"time"
 )
 
@@ -133,11 +134,21 @@ func plural(n int, one, few, many string) string {
 	}
 }
 
-func deref(v *int64) int64 {
-	if v == nil {
+// deref и hasValue берут любой указатель, а не только *int64.
+//
+// Через reflect, потому что в шаблоны приезжают и *int64 (номера строк базы), и
+// *int (версия схемы, ревизия предустановки у машины). Две пары функций с
+// именами вроде deref64 читались бы в разметке как разные действия, хотя
+// действие одно.
+func deref(v any) int64 {
+	value := reflect.ValueOf(v)
+	if !value.IsValid() || value.Kind() != reflect.Pointer || value.IsNil() {
 		return 0
 	}
-	return *v
+	return value.Elem().Int()
 }
 
-func hasValue(v *int64) bool { return v != nil }
+func hasValue(v any) bool {
+	value := reflect.ValueOf(v)
+	return value.IsValid() && value.Kind() == reflect.Pointer && !value.IsNil()
+}

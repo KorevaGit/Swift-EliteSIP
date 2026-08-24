@@ -3,56 +3,42 @@
 <div class="toolbar">
     <div class="toolbar-title">
         <h1>{{$d.Employee.Name}}</h1>
-        <p>
-            {{if $d.Employee.DismissedAt}}Уволен {{day $d.Employee.DismissedAt}}
-            {{else}}Работает с {{day $d.Employee.CreatedAt}}{{end}}
-        </p>
+        <p>Заведён {{day $d.Employee.CreatedAt}}</p>
     </div>
     <a class="button" href="/employees">К списку</a>
-    {{if not $d.Employee.DismissedAt}}
-    <form method="post" action="/employees/{{$d.Employee.ID}}/dismiss">
-        <button type="submit" class="button button-danger"
-                data-confirm="Уволить {{$d.Employee.Name}}? Номер освободится, активации будут отозваны. Машина продолжит работать, пока на АТС не сменят SIP-пароль пира.">
-            Уволить
-        </button>
-    </form>
-    {{end}}
 </div>
 
 <div class="grid">
     <div class="card">
-        <div class="card-head"><h2>Рабочее место</h2></div>
+        <div class="card-head"><h2>Карточка</h2></div>
         <div class="card-body">
-            <form method="post" action="/employees/{{$d.Employee.ID}}/number" class="field">
-                <label for="number_id">Номер</label>
-                <div style="display:flex; gap:8px;">
-                    <select id="number_id" name="number_id">
-                        <option value="">не закреплён</option>
-                        {{range $d.FreeNumbers}}
-                        <option value="{{.ID}}" {{if and (hasValue $d.NumberID) (eq (deref $d.NumberID) .ID)}}selected{{end}}>
-                            {{.Number}}{{if .Label}} — {{.Label}}{{end}}
-                        </option>
-                        {{end}}
-                    </select>
-                    <button type="submit" class="button">Сохранить</button>
+            <form method="post" action="/employees/{{$d.Employee.ID}}" class="stack">
+                <div class="field">
+                    <label for="name">Имя</label>
+                    <input id="name" name="name" type="text" value="{{$d.Employee.Name}}" required>
                 </div>
-                <span class="field-hint">
-                    В списке только свободные номера. Занятый номер отбирается у прежнего владельца вручную —
-                    за ним стоит человек, который прямо сейчас снимает по нему звонки.
-                </span>
-            </form>
-
-            <form method="post" action="/employees/{{$d.Employee.ID}}/preset" class="field">
-                <label for="preset_id">Предустановка</label>
-                <div style="display:flex; gap:8px;">
+                <div class="field">
+                    <label for="number">Номер</label>
+                    <input id="number" name="number" type="text" inputmode="numeric" value="{{$d.Employee.Number}}">
+                </div>
+                <div class="field">
+                    <label for="sip_password">SIP-пароль</label>
+                    <input id="sip_password" name="sip_password" type="text" value="{{$d.Employee.SIPPassword}}">
+                    <span class="field-hint">
+                        Показан открытым: снимок этого экрана — готовая учётная запись, и панель нельзя
+                        показывать через плечо. Панель ничего не меняет на самой АТС — пир там заводят руками.
+                    </span>
+                </div>
+                <div class="field">
+                    <label for="preset_id">Предустановка</label>
                     <select id="preset_id" name="preset_id">
                         <option value="">не выбрана</option>
                         {{range $d.Presets}}
                         <option value="{{.ID}}" {{if eq .Name $d.PresetName}}selected{{end}}>{{.Name}}</option>
                         {{end}}
                     </select>
-                    <button type="submit" class="button">Сохранить</button>
                 </div>
+                <button type="submit" class="button button-primary">Сохранить</button>
             </form>
         </div>
     </div>
@@ -94,6 +80,7 @@
                 <th>Ключ</th>
                 <th>Для чего</th>
                 <th>Выпущен</th>
+                <th>Машина</th>
                 <th>Состояние</th>
                 <th></th>
             </tr>
@@ -108,6 +95,18 @@
                     <span class="sub">
                         {{if eq (printf "%s" .State) "ожидает"}}годен ещё {{remaining .ExpiresAt}}{{else}}срок до {{moment .ExpiresAt}}{{end}}
                     </span>
+                </td>
+                <td data-label="Машина">
+                    {{if .Checkin}}
+                        на связи {{ago .Checkin.LastSeenAt}}<br>
+                        <span class="sub">
+                            {{if .Checkin.AppVersion}}версия {{.Checkin.AppVersion}}{{else}}версия неизвестна{{end}}{{if hasValue .Checkin.PresetRevision}}, ревизия {{deref .Checkin.PresetRevision}}{{end}}
+                        </span>
+                    {{else}}
+                        {{/* Панель узнаёт о машинах только из отметок Worker'а:
+                             после активации приложение к ней не ходит вовсе. */}}
+                        <span class="sub">не отмечалась</span>
+                    {{end}}
                 </td>
                 <td data-label="Состояние">
                     {{if eq (printf "%s" .State) "активировано"}}
@@ -141,4 +140,41 @@
     </div>
     {{end}}
 </div>
+
+<div class="card card-danger">
+    <div class="card-head"><h2>Удалить сотрудника</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Стоит отдельно от безобидных кнопок намеренно: прокрутив список машин,
+            человек оказывается прямо над этой.
+        </p>
+        <button type="button" class="button button-danger" data-dialog="delete-employee">Удалить</button>
+    </div>
+</div>
+
+{{/* Настоящее окно, а не window.confirm: последствий пять, и списком они
+     читаются, а сплошной строкой — нет. */}}
+<dialog id="delete-employee" class="sheet">
+    <h2>Удалить {{$d.Employee.Name}}?</h2>
+    <p>Исчезнет без возврата:</p>
+    <ul>
+        <li>карточка, номер {{if $d.Employee.Number}}<span class="mono">{{$d.Employee.Number}}</span>{{else}}(не заполнен){{end}} и SIP-пароль;</li>
+        <li>{{len $d.Activations}} {{plural (len $d.Activations) "активация" "активации" "активаций"}} и отметки о связи его машин;</li>
+        <li>возможность выпустить ему ключ.</li>
+    </ul>
+    <p>Останется строка в журнале с именем и номером — по ней потом отвечают на «кто сидел на этом добавочном».</p>
+    <div class="notice notice-warn">
+        <div>
+            <strong>Смените SIP-пароль пира на АТС</strong>
+            <p>Панель до машины не дотягивается: после активации приложение к ней не обращается.
+               Пока пароль на АТС прежний, эта машина продолжит регистрироваться и снимать звонки из очереди.</p>
+        </div>
+    </div>
+    <div class="sheet-actions">
+        <button type="button" class="button" data-dialog-close>Отмена</button>
+        <form method="post" action="/employees/{{$d.Employee.ID}}/delete">
+            <button type="submit" class="button button-danger">Удалить</button>
+        </form>
+    </div>
+</dialog>
 {{end}}

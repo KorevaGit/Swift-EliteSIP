@@ -35,6 +35,7 @@ type Server struct {
 	DB        *storage.DB
 	Issuer    *panel.Issuer
 	Publisher *panel.BundlePublisher
+	Marks     *panel.MarkCollector
 
 	templates map[string]*template.Template
 	flashes   flashStore
@@ -45,8 +46,8 @@ type Server struct {
 // Шаблоны разбираются при запуске, а не при первом показе: ошибка в шаблоне
 // должна ронять запуск, а не тот единственный экран, который откроют в
 // неудачный момент.
-func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher) (*Server, error) {
-	s := &Server{DB: db, Issuer: issuer, Publisher: publisher}
+func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher, marks *panel.MarkCollector) (*Server, error) {
+	s := &Server{DB: db, Issuer: issuer, Publisher: publisher, Marks: marks}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -54,8 +55,8 @@ func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher)
 }
 
 var pages = []string{
-	"login", "setup", "employees", "employee",
-	"numbers", "presets", "preset", "audit", "settings",
+	"login", "setup", "overview", "employees", "employee",
+	"presets", "preset", "audit", "settings",
 }
 
 func (s *Server) parseTemplates() error {
@@ -89,29 +90,27 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /setup", s.doSetup)
 
 	mux.Handle("GET /{$}", s.guard(s.redirectHome))
+	mux.Handle("GET /overview", s.guard(s.showOverview))
+	mux.Handle("POST /marks/pull", s.guard(s.pullMarks))
 	mux.Handle("GET /employees", s.guard(s.showEmployees))
 	mux.Handle("POST /employees", s.guard(s.createEmployee))
 	mux.Handle("GET /employees/{id}", s.guard(s.showEmployee))
-	mux.Handle("POST /employees/{id}/preset", s.guard(s.setEmployeePreset))
-	mux.Handle("POST /employees/{id}/number", s.guard(s.setEmployeeNumber))
-	mux.Handle("POST /employees/{id}/dismiss", s.guard(s.dismissEmployee))
+	mux.Handle("POST /employees/{id}", s.guard(s.saveEmployee))
+	mux.Handle("POST /employees/{id}/delete", s.guard(s.deleteEmployee))
 	mux.Handle("POST /employees/{id}/issue", s.guard(s.issueKey))
 	mux.Handle("POST /activations/{id}/revoke", s.guard(s.revokeActivation))
-
-	mux.Handle("GET /numbers", s.guard(s.showNumbers))
-	mux.Handle("POST /numbers", s.guard(s.createNumber))
-	mux.Handle("POST /numbers/{id}/password", s.guard(s.setNumberPassword))
-	mux.Handle("POST /numbers/{id}/retire", s.guard(s.retireNumber))
 
 	mux.Handle("GET /presets", s.guard(s.showPresets))
 	mux.Handle("POST /presets", s.guard(s.createPreset))
 	mux.Handle("GET /presets/{id}", s.guard(s.showPreset))
 	mux.Handle("POST /presets/{id}", s.guard(s.savePreset))
+	mux.Handle("POST /presets/{id}/rollback", s.guard(s.rollback))
 	mux.Handle("POST /publish", s.guard(s.publish))
 
 	mux.Handle("GET /audit", s.guard(s.showAudit))
 	mux.Handle("GET /settings", s.guard(s.showSettings))
 	mux.Handle("POST /settings", s.guard(s.saveSettings))
+	mux.Handle("POST /settings/app-link", s.guard(s.saveAppLink))
 
 	return mux
 }
@@ -155,7 +154,7 @@ func (s *Server) sendToLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) redirectHome(w http.ResponseWriter, r *http.Request, _ model.Admin) {
-	http.Redirect(w, r, "/employees", http.StatusSeeOther)
+	http.Redirect(w, r, "/overview", http.StatusSeeOther)
 }
 
 // ------------------------------------------------------------------ сообщения
@@ -166,6 +165,12 @@ type Flash struct {
 	Title   string
 	Text    string
 	KeyOnce string // выданный ключ: показывается ровно один раз
+
+	// Message — готовое сообщение сотруднику с этим же ключом внутри.
+	//
+	// Лежит рядом с ключом, а не собирается в браузере: те же слова видны на
+	// экране, и вторая сборка развела бы показанное с отправленным.
+	Message string
 }
 
 // flashStore держит сообщения в памяти.
@@ -214,10 +219,11 @@ func (s *Server) flashTo(token, kind, title, text string) {
 	s.flashes.add(token, Flash{Kind: kind, Title: title, Text: text})
 }
 
-func (s *Server) flashKey(r *http.Request, key, text string) {
+func (s *Server) flashKey(r *http.Request, key, message, text string) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		s.flashes.add(cookie.Value, Flash{
-			Kind: "ok", Title: "Ключ выпущен", Text: text, KeyOnce: key,
+			Kind: "ok", Title: "Ключ выпущен", Text: text,
+			KeyOnce: key, Message: message,
 		})
 	}
 }

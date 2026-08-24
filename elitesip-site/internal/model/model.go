@@ -22,38 +22,21 @@ type Admin struct {
 // Active говорит, пускают ли этого администратора сегодня.
 func (a Admin) Active() bool { return a.DisabledAt == nil }
 
-// Number — добавочный на АТС.
+// Employee — сотрудник. Единица учёта, и единственная: ключи выписываются на
+// человека, номер и SIP-пароль — его поля.
 //
-// Сущность отдельная от сотрудника, потому что переживает его: номер отдают
-// новому человеку, и вопрос «кто сидел на 172 в марте» должен иметь ответ.
-type Number struct {
-	ID          int64
+// Отдельной сущностью номер был до разбора 24 августа 2026; отменён вместе с
+// увольнением — см. schema.sql и docs/UI.md.
+type Employee struct {
+	ID   int64
+	Name string
+
+	// Пустыми бывают: человека заводят и до того, как на АТС подняли пир.
 	Number      string
 	SIPPassword string
-	Label       string
-	CreatedAt   time.Time
-	RetiredAt   *time.Time
-}
 
-// Employee — сотрудник. Единица учёта: ключи выписываются на человека.
-type Employee struct {
-	ID          int64
-	Name        string
-	PresetID    *int64
-	CreatedAt   time.Time
-	DismissedAt *time.Time
-}
-
-// Assignment — за кем закреплён номер и когда.
-//
-// Действующее назначение — то, у которого ReleasedAt пуст. База следит, чтобы
-// такое было не больше одного на номер и не больше одного на сотрудника.
-type Assignment struct {
-	ID         int64
-	NumberID   int64
-	EmployeeID int64
-	AssignedAt time.Time
-	ReleasedAt *time.Time
+	PresetID  *int64
+	CreatedAt time.Time
 }
 
 // Preset — предустановка: имя, под которым живёт череда ревизий.

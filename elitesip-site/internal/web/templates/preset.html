@@ -21,10 +21,47 @@
 <div class="notice notice-bad"><p>{{.}}</p></div>
 {{end}}
 
+{{if $d.NeedsPublish}}
+<div class="card card-pending">
+    <div class="card-head">
+        <h2>Не выложено</h2>
+        <form method="post" action="/publish">
+            <button type="submit" class="button button-primary">Выложить</button>
+        </form>
+    </div>
+    <div class="card-body">
+        {{if $d.FirstPublish}}
+            <p class="card-note">
+                Первая выкладка этой предустановки: сравнивать не с чем — на машины уедет всё,
+                что в форме ниже.
+            </p>
+        {{else if $d.Pending}}
+            {{/* Словами, а не техническим диффом: список читают перед тем, как правка уедет
+                 на все рабочие места обязательным обновлением, которое сотрудник не может
+                 отложить. Технический дифф в этот момент пролистывают не читая. */}}
+            <p class="card-note">На машинах сейчас прежнее. При выкладке изменится:</p>
+            <ul class="changes">
+                {{range $d.Pending}}<li>{{.}}</li>{{end}}
+            </ul>
+        {{else}}
+            <p class="card-note">
+                Ревизия {{$d.Revision.Revision}} сохранена, но от выложенной ничем не отличается —
+                обычно это значит, что правку не сохранили.
+            </p>
+        {{end}}
+        <p class="card-note">
+            Выкладывается файл целиком: вместе с этой уедут и невыложенные правки других
+            предустановок, если они есть, — весь список видно на обзоре. Машины подхватят
+            в течение получаса, вне разговора и без возможности отложить.
+        </p>
+    </div>
+</div>
+{{end}}
+
 <form id="preset-form" method="post" action="/presets/{{$d.Preset.ID}}" style="display:flex; flex-direction:column; gap:16px;">
 
-<div class="card">
-    <div class="card-head"><h2>Клавиши DTMF</h2></div>
+<details class="card section">
+    <summary class="card-head"><h2>Клавиши DTMF</h2></summary>
     <div class="card-body">
         <p class="card-note">
             Раскладку задаёт администратор, а не менеджер: кнопка перевода, уехавшая на другое место, —
@@ -90,10 +127,10 @@
             </div>
         </div>
     </div>
-</div>
+</details>
 
-<div class="card">
-    <div class="card-head"><h2>Очереди</h2></div>
+<details class="card section">
+    <summary class="card-head"><h2>Очереди</h2></summary>
     <div class="card-body">
         <p class="card-note">
             По какому номеру приходит раздача и как называть её оператору. Половина записи хуже её отсутствия:
@@ -119,10 +156,10 @@
         </div>
         <button type="button" class="button" data-add="queue">Добавить очередь</button>
     </div>
-</div>
+</details>
 
-<div class="card">
-    <div class="card-head"><h2>Защита приёма вызова</h2></div>
+<details class="card section">
+    <summary class="card-head"><h2>Защита приёма вызова</h2></summary>
     <div class="card-body">
         <p class="card-note">
             Каждое послабление здесь стоит одного пункта модели угроз — разбор в docs/anti-autoclicker.md приложения.
@@ -192,19 +229,26 @@
             <span class="switch-text">Отклонять программные нажатия<small>признак подделывается, а честного оператора со средствами доступности может задеть</small></span>
         </label>
     </div>
-</div>
+</details>
 
-<div class="card">
-    <div class="card-head"><h2>АТС</h2></div>
+<details class="card section">
+    <summary class="card-head"><h2>Адреса АТС и стук<span class="lock-mark" aria-hidden="true">заперто</span></h2></summary>
     <div class="card-body">
         <div class="notice notice-warn">
             <p>
                 <strong>Самое опасное, что возит эта линия</strong>
-                Разъехавшийся адрес означает, что телефон не звонит вовсе. Меняйте его отдельно от остального
-                и выкладывайте сразу.
+                Разъехавшийся адрес означает телефон, который не звонит на всех рабочих местах разом.
+                Поэтому здесь замок: тот же приём, которым в приложении заперли ползунки защиты от
+                автокликеров — там значение менялось от случайного движения колёсика, молча.
             </p>
         </div>
 
+        {{/* inert, а не disabled: запертые поля обязаны уезжать в форму как есть.
+             disabled их не отправляет вовсе, и сохранение из-под замка стёрло бы
+             адрес АТС на всех машинах — ровно та беда, от которой замок стоит. */}}
+        <button type="button" class="button" data-unlock="pbx">Разблокировать</button>
+
+        <fieldset class="locked" data-lockable="pbx" inert>
         <div style="display:flex; gap:12px; flex-wrap:wrap;">
             <div class="field" style="flex:1 1 200px;">
                 <label for="office">Адрес изнутри офиса</label>
@@ -217,6 +261,21 @@
             </div>
         </div>
 
+        <label class="switch">
+            <input type="hidden" name="acceptsAnyTLSCertificate" value="0">
+            <input type="checkbox" name="acceptsAnyTLSCertificate" value="1" {{if $f.AcceptsAnyTLSCertificate}}checked{{end}}>
+            <span class="switch-text">
+                Доверять любому сертификату TLS
+                <small>отключает защиту от подмены сервера — в бою должно быть выключено</small>
+            </span>
+        </label>
+        </fieldset>
+    </div>
+</details>
+
+<details class="card section">
+    <summary class="card-head"><h2>Конференция</h2></summary>
+    <div class="card-body">
         <div style="display:flex; gap:12px; flex-wrap:wrap;">
             <div class="field" style="flex:1 1 140px;">
                 <label for="featureCode">Код конференции</label>
@@ -227,25 +286,20 @@
                 <input id="roomExtension" name="roomExtension" type="text" class="mono" value="{{$f.Conference.RoomExtension}}">
             </div>
         </div>
-
-        <label class="switch">
-            <input type="hidden" name="acceptsAnyTLSCertificate" value="0">
-            <input type="checkbox" name="acceptsAnyTLSCertificate" value="1" {{if $f.AcceptsAnyTLSCertificate}}checked{{end}}>
-            <span class="switch-text">
-                Доверять любому сертификату TLS
-                <small>отключает защиту от подмены сервера — в бою должно быть выключено</small>
-            </span>
-        </label>
     </div>
-</div>
+</details>
 
-<div class="card">
-    <div class="card-head"><h2>Стук по портам</h2></div>
+<details class="card section">
+    <summary class="card-head"><h2>Стук по портам<span class="lock-mark" aria-hidden="true">заперто</span></h2></summary>
     <div class="card-body">
         <p class="card-note">
             Последовательность живёт на чужом шлюзе и может измениться без нас. Пустой список означает,
-            что стучать нечем, — так стук выключают.
+            что стучать нечем, — так стук выключают. Заперт по той же причине, что и адреса: ошибка здесь
+            отрезает от АТС всех, кто работает снаружи.
         </p>
+
+        <button type="button" class="button" data-unlock="knock">Разблокировать</button>
+        <fieldset class="locked" data-lockable="knock" inert>
 
         <div data-list="knock" style="display:flex; flex-direction:column; gap:10px;">
             {{range $i, $s := $f.PortKnock.Steps}}
@@ -281,8 +335,9 @@
                 <span class="field-hint">60–3600</span>
             </div>
         </div>
+        </fieldset>
     </div>
-</div>
+</details>
 
 <div class="card">
     <div class="card-head"><h2>Сохранить</h2></div>
@@ -295,13 +350,71 @@
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button type="submit" class="button button-primary">Сохранить ревизию</button>
             <span class="field-hint" style="align-self:center;">
-                Сохранение не выкладывает: до машин правка доедет после «Выложить» в списке предустановок.
+                Сохранение не выкладывает. После него вверху появится «Не выложено» со списком того,
+                что уедет, и кнопкой «Выложить».
             </span>
         </div>
     </div>
 </div>
 
 </form>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Ревизии</h2>
+        <span class="sub">{{len $d.Revisions}} {{plural (len $d.Revisions) "ревизия" "ревизии" "ревизий"}}</span>
+    </div>
+    {{if $d.Revisions}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>Когда</th>
+                <th>Кто</th>
+                <th>Пометка</th>
+                <th>Состояние</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range $i, $r := $d.Revisions}}
+            <tr>
+                <td data-label="№" class="primary-cell mono">{{$r.Revision}}</td>
+                <td data-label="Когда">{{moment $r.CreatedAt}}<br><span class="sub">{{ago $r.CreatedAt}}</span></td>
+                <td data-label="Кто">{{if $r.AuthorLogin}}{{$r.AuthorLogin}}{{else}}<span class="sub">не записан</span>{{end}}</td>
+                <td data-label="Пометка">{{if $r.Note}}{{$r.Note}}{{else}}<span class="sub">—</span>{{end}}</td>
+                <td data-label="Состояние">
+                    {{if $r.Published}}
+                        <span class="badge badge-ok">выложена {{day $r.PublishedAt}}</span>
+                    {{else}}
+                        <span class="badge badge-wait">не выложена</span>
+                    {{end}}
+                </td>
+                <td class="cell-actions">
+                    {{if gt $i 0}}
+                    {{/* Откат выкладывается сразу — исключение из правила «сохранить и выложить
+                         разными нажатиями». Правку готовят заранее, а откатываются, когда на
+                         рабочих местах уже что-то сломалось. */}}
+                    <form method="post" action="/presets/{{$d.Preset.ID}}/rollback" style="display:inline;">
+                        <input type="hidden" name="revision_id" value="{{$r.ID}}">
+                        <button type="submit" class="button"
+                                data-confirm="Вернуться к ревизии {{$r.Revision}}? Она ляжет новой ревизией поверх и будет выложена сразу — машины подхватят её в течение получаса.">
+                            Откатить
+                        </button>
+                    </form>
+                    {{end}}
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty">
+        <strong>Ревизий ещё нет</strong>
+        Первое сохранение станет ревизией 1.
+    </div>
+    {{end}}
+</div>
 
 <template data-template="macro">
     <div data-row style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:10px; border-radius:var(--radius-card); background:var(--surface-sunken);">

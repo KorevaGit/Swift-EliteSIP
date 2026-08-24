@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/koreva/elitesip-site/internal/activation"
+	"github.com/koreva/elitesip-site/internal/model"
 	"github.com/koreva/elitesip-site/internal/storage"
 )
 
@@ -47,10 +48,6 @@ func seedReady(t *testing.T, db *storage.DB) int64 {
 	t.Helper()
 	ctx := context.Background()
 
-	number, err := db.CreateNumber(ctx, nil, "172", "секрет-172", "")
-	if err != nil {
-		t.Fatalf("CreateNumber: %v", err)
-	}
 	preset, err := db.CreatePreset(ctx, nil, "Менеджер")
 	if err != nil {
 		t.Fatalf("CreatePreset: %v", err)
@@ -59,12 +56,11 @@ func seedReady(t *testing.T, db *storage.DB) int64 {
 		json.RawMessage(`{"queues":{"1000":"Раздача"}}`), "первая"); err != nil {
 		t.Fatalf("SaveRevision: %v", err)
 	}
-	employee, err := db.CreateEmployee(ctx, nil, "Пётр", &preset.ID)
+	employee, err := db.CreateEmployee(ctx, nil, model.Employee{
+		Name: "Пётр", Number: "172", SIPPassword: "секрет-172", PresetID: &preset.ID,
+	})
 	if err != nil {
 		t.Fatalf("CreateEmployee: %v", err)
-	}
-	if err := db.AssignNumber(ctx, nil, employee.ID, number.ID); err != nil {
-		t.Fatalf("AssignNumber: %v", err)
 	}
 	if err := db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль-конторы"); err != nil {
 		t.Fatalf("SetSetting: %v", err)
@@ -201,7 +197,7 @@ func TestIssueRequiresNumber(t *testing.T) {
 
 	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
 	db.SaveRevision(ctx, nil, preset.ID, 2, json.RawMessage(`{}`), "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Без номера", &preset.ID)
+	employee, _ := db.CreateEmployee(ctx, nil, model.Employee{Name: "Без номера", PresetID: &preset.ID})
 	db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль")
 
 	_, _, err := issuer.Issue(ctx, nil, employee.ID, "")
@@ -214,10 +210,10 @@ func TestIssueRequiresPresetRevision(t *testing.T) {
 	issuer, _, db := newIssuer(t)
 	ctx := context.Background()
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "секрет", "")
 	preset, _ := db.CreatePreset(ctx, nil, "Пустая")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", &preset.ID)
-	db.AssignNumber(ctx, nil, employee.ID, number.ID)
+	employee, _ := db.CreateEmployee(ctx, nil, model.Employee{
+		Name: "Пётр", Number: "172", SIPPassword: "секрет", PresetID: &preset.ID,
+	})
 	db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль")
 
 	_, _, err := issuer.Issue(ctx, nil, employee.ID, "")
@@ -232,28 +228,30 @@ func TestIssueRequiresAdminPassword(t *testing.T) {
 	issuer, _, db := newIssuer(t)
 	ctx := context.Background()
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "секрет", "")
 	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
 	db.SaveRevision(ctx, nil, preset.ID, 2, json.RawMessage(`{}`), "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", &preset.ID)
-	db.AssignNumber(ctx, nil, employee.ID, number.ID)
+	employee, _ := db.CreateEmployee(ctx, nil, model.Employee{
+		Name: "Пётр", Number: "172", SIPPassword: "секрет", PresetID: &preset.ID,
+	})
 
 	if _, _, err := issuer.Issue(ctx, nil, employee.ID, ""); err == nil {
 		t.Fatal("ключ выпустился без административного пароля конторы")
 	}
 }
 
-func TestIssueRefusesDismissed(t *testing.T) {
+// Удалённому сотруднику ключ не выпускается: увольнения больше нет, есть
+// удаление, и карточки после него не существует.
+func TestIssueRefusesDeleted(t *testing.T) {
 	issuer, _, db := newIssuer(t)
 	ctx := context.Background()
 	employeeID := seedReady(t, db)
 
-	if err := db.DismissEmployee(ctx, nil, employeeID); err != nil {
-		t.Fatalf("DismissEmployee: %v", err)
+	if err := db.DeleteEmployee(ctx, nil, employeeID); err != nil {
+		t.Fatalf("DeleteEmployee: %v", err)
 	}
 	_, _, err := issuer.Issue(ctx, nil, employeeID, "")
-	if !errors.Is(err, storage.ErrEmployeeDismissed) {
-		t.Fatalf("ошибка %v, ожидалась ErrEmployeeDismissed", err)
+	if !errors.Is(err, storage.ErrNotFound) {
+		t.Fatalf("ошибка %v, ожидалась ErrNotFound", err)
 	}
 }
 

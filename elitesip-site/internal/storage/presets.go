@@ -64,8 +64,7 @@ func (db *DB) ListPresets(ctx context.Context, includeArchived bool) ([]PresetSu
 		SELECT p.id, p.public_id, p.name, p.created_at, p.archived_at,
 		       COALESCE(r.revision, 0), COALESCE(r.created_at, ''),
 		       CASE WHEN r.published_at IS NULL THEN 0 ELSE 1 END,
-		       (SELECT COUNT(*) FROM employees e
-		         WHERE e.preset_id = p.id AND e.dismissed_at IS NULL)
+		       (SELECT COUNT(*) FROM employees e WHERE e.preset_id = p.id)
 		  FROM presets p
 		  LEFT JOIN preset_revisions r
 		         ON r.preset_id = p.id
@@ -176,6 +175,68 @@ func (db *DB) LatestRevision(ctx context.Context, presetID int64) (model.PresetR
 	return db.scanRevision(db.QueryRowContext(ctx,
 		`SELECT id, preset_id, revision, schema_version, payload, note, author_id, created_at, published_at
 		   FROM preset_revisions WHERE preset_id = ?
+		  ORDER BY revision DESC LIMIT 1`, presetID))
+}
+
+// RevisionRow — ревизия для списка: с именем автора вместо его номера.
+type RevisionRow struct {
+	model.PresetRevision
+
+	// AuthorLogin пуст у ревизий, автор которых не записан, — так бывает у
+	// сделанных из командной строки и у погашенных администраторов.
+	AuthorLogin string
+}
+
+// ListRevisions перечисляет ревизии предустановки, свежие первыми.
+//
+// Они и так хранятся целиком — осталось показать. Список нужен ради отката:
+// правка уезжает на все машины обязательным обновлением, и «вернуть как было»
+// должно быть действием в одно нажатие.
+func (db *DB) ListRevisions(ctx context.Context, presetID int64) ([]RevisionRow, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT r.id, r.preset_id, r.revision, r.schema_version, r.payload, r.note,
+		       r.author_id, r.created_at, r.published_at, COALESCE(a.login, '')
+		  FROM preset_revisions r
+		  LEFT JOIN admins a ON a.id = r.author_id
+		 WHERE r.preset_id = ?
+		 ORDER BY r.revision DESC`, presetID)
+	if err != nil {
+		return nil, fmt.Errorf("перечислить ревизии предустановки %d: %w", presetID, err)
+	}
+	defer rows.Close()
+
+	var out []RevisionRow
+	for rows.Next() {
+		var (
+			r           RevisionRow
+			payload     string
+			authorID    sql.NullInt64
+			createdAt   string
+			publishedAt sql.NullString
+		)
+		if err := rows.Scan(&r.ID, &r.PresetID, &r.Revision, &r.SchemaVersion, &payload,
+			&r.Note, &authorID, &createdAt, &publishedAt, &r.AuthorLogin); err != nil {
+			return nil, fmt.Errorf("прочитать строку ревизии: %w", err)
+		}
+		r.Payload = json.RawMessage(payload)
+		r.AuthorID = readNullInt64(authorID)
+		r.CreatedAt = readTime(createdAt)
+		r.PublishedAt = readNullTime(publishedAt)
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// LastPublishedRevision возвращает последнюю ревизию, которая уехала наружу.
+//
+// По ней считается список изменений перед выкладкой: сравнивать надо с тем,
+// что сейчас на машинах, а не с предыдущей сохранённой. Между ними бывает
+// несколько несохранённых заходов подряд, и человеку важно, что уедет всё
+// разом.
+func (db *DB) LastPublishedRevision(ctx context.Context, presetID int64) (model.PresetRevision, error) {
+	return db.scanRevision(db.QueryRowContext(ctx,
+		`SELECT id, preset_id, revision, schema_version, payload, note, author_id, created_at, published_at
+		   FROM preset_revisions WHERE preset_id = ? AND published_at IS NOT NULL
 		  ORDER BY revision DESC LIMIT 1`, presetID))
 }
 

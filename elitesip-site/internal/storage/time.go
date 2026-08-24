@@ -55,6 +55,13 @@ func readNullTime(s sql.NullString) *time.Time {
 	return &t
 }
 
+func nullInt(v *int) any {
+	if v == nil {
+		return nil
+	}
+	return *v
+}
+
 func nullInt64(v *int64) any {
 	if v == nil {
 		return nil

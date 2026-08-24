@@ -85,7 +85,7 @@ func serve() error {
 		return err
 	}
 
-	var sink panel.Publisher
+	var sink panel.Store
 	if cfg.PublishDir != "" {
 		sink = publish.Dir{Root: cfg.PublishDir}
 	} else {
@@ -100,6 +100,7 @@ func serve() error {
 	site, err := web.New(db,
 		&panel.Issuer{DB: db, Publisher: sink, Secret: secret},
 		&panel.BundlePublisher{DB: db, Publisher: sink, SigningKey: signingKey},
+		&panel.MarkCollector{DB: db, Reader: sink},
 	)
 	if err != nil {
 		return err
@@ -131,6 +132,29 @@ func serve() error {
 	// однажды придётся на середину выкладки.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	// За отметками панель ходит сама, а не только по нажатию: «ключ забрали»
+	// должно появляться без того, чтобы кто-то за этим следил.
+	//
+	// Отказ пишется в поток ошибок и не роняет панель: бакет недоступен —
+	// значит, сведения о машинах устареют, а всё остальное продолжает работать.
+	// Это ровно то же требование, что предъявлено приложению в M7c.
+	collect, stopCollecting := context.WithCancel(context.Background())
+	defer stopCollecting()
+	go func() {
+		ticker := time.NewTicker(panel.CollectInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-collect.Done():
+				return
+			case <-ticker.C:
+				if _, err := site.Marks.Collect(collect); err != nil {
+					fmt.Fprintf(os.Stderr, "не удалось сходить за отметками: %v\n", err)
+				}
+			}
+		}
+	}()
 
 	errs := make(chan error, 1)
 	go func() {

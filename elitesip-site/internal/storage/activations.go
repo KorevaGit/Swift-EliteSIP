@@ -10,21 +10,20 @@ import (
 	"github.com/koreva/elitesip-site/internal/model"
 )
 
-// ErrNoNumber — сотруднику не закреплён номер.
-var ErrNoNumber = errors.New("сотруднику не закреплён номер")
+// ErrNoNumber — у сотрудника не заполнены номер и SIP-пароль.
+var ErrNoNumber = errors.New("у сотрудника не заполнены номер и SIP-пароль")
 
 // ErrNoPreset — сотруднику не назначена предустановка или у неё нет ревизий.
 var ErrNoPreset = errors.New("сотруднику не назначена предустановка с ревизией")
 
 // IssueSubject — всё, что нужно собрать в пакет активации.
 //
-// Собирается одним запросом, а не тремя: между «прочитали номер» и «прочитали
-// предустановку» администратор в соседнем окне может уволить этого сотрудника,
-// и в пакет уехало бы состояние, которого уже нет.
+// Собирается одним запросом, а не двумя: между «прочитали карточку» и
+// «прочитали предустановку» администратор в соседнем окне может удалить этого
+// сотрудника, и в пакет уехало бы состояние, которого уже нет.
 type IssueSubject struct {
 	EmployeeID     int64
 	EmployeeName   string
-	NumberID       int64
 	Number         string
 	SIPPassword    string
 	PresetID       int64
@@ -49,33 +48,24 @@ type IssueRecord struct {
 // SubjectForIssue читает состояние сотрудника на момент выпуска ключа.
 func (db *DB) SubjectForIssue(ctx context.Context, employeeID int64) (IssueSubject, error) {
 	var (
-		s           IssueSubject
-		dismissedAt sql.NullString
-		numberID    sql.NullInt64
-		presetID    sql.NullInt64
-		presetPub   sql.NullString
-		revisionID  sql.NullInt64
-		revision    sql.NullInt64
-		number      sql.NullString
-		password    sql.NullString
-		presetName  sql.NullString
+		s          IssueSubject
+		presetID   sql.NullInt64
+		presetPub  sql.NullString
+		presetName sql.NullString
+		revisionID sql.NullInt64
+		revision   sql.NullInt64
 	)
 	err := db.QueryRowContext(ctx, `
-		SELECT e.id, e.name, e.dismissed_at,
-		       n.id, n.number, n.sip_password,
+		SELECT e.id, e.name, e.number, e.sip_password,
 		       p.id, p.public_id, p.name,
 		       r.id, r.revision
 		  FROM employees e
-		  LEFT JOIN number_assignments a
-		         ON a.employee_id = e.id AND a.released_at IS NULL
-		  LEFT JOIN numbers n ON n.id = a.number_id AND n.retired_at IS NULL
 		  LEFT JOIN presets p ON p.id = e.preset_id AND p.archived_at IS NULL
 		  LEFT JOIN preset_revisions r
 		         ON r.preset_id = p.id
 		        AND r.revision = (SELECT MAX(revision) FROM preset_revisions WHERE preset_id = p.id)
 		 WHERE e.id = ?`, employeeID).
-		Scan(&s.EmployeeID, &s.EmployeeName, &dismissedAt,
-			&numberID, &number, &password,
+		Scan(&s.EmployeeID, &s.EmployeeName, &s.Number, &s.SIPPassword,
 			&presetID, &presetPub, &presetName,
 			&revisionID, &revision)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -85,19 +75,13 @@ func (db *DB) SubjectForIssue(ctx context.Context, employeeID int64) (IssueSubje
 		return IssueSubject{}, fmt.Errorf("прочитать состояние сотрудника %d: %w", employeeID, err)
 	}
 
-	if dismissedAt.Valid {
-		return IssueSubject{}, ErrEmployeeDismissed
-	}
-	if !numberID.Valid {
+	if s.Number == "" || s.SIPPassword == "" {
 		return IssueSubject{}, ErrNoNumber
 	}
 	if !revisionID.Valid {
 		return IssueSubject{}, ErrNoPreset
 	}
 
-	s.NumberID = numberID.Int64
-	s.Number = number.String
-	s.SIPPassword = password.String
 	s.PresetID = presetID.Int64
 	s.PresetPublicID = presetPub.String
 	s.PresetName = presetName.String

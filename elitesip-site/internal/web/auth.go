@@ -136,12 +136,8 @@ func friendly(err error) string {
 		return "Запись не найдена — возможно, её только что удалили в соседнем окне"
 	case errors.Is(err, storage.ErrNumberTaken):
 		return "Этот номер уже закреплён за другим сотрудником"
-	case errors.Is(err, storage.ErrNumberRetired):
-		return "Номер выведен из обращения"
-	case errors.Is(err, storage.ErrEmployeeDismissed):
-		return "Сотрудник уволен"
 	case errors.Is(err, storage.ErrNoNumber):
-		return "Сотруднику не закреплён номер"
+		return "У сотрудника не заполнены номер и SIP-пароль"
 	case errors.Is(err, storage.ErrNoPreset):
 		return "У сотрудника нет предустановки с сохранённой ревизией"
 	default:

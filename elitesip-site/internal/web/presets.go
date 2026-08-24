@@ -59,6 +59,18 @@ type presetData struct {
 	HasSaved bool
 	Fields   preset.Fields
 	Problems []string
+
+	Revisions []storage.RevisionRow
+
+	// Pending — что уедет на машины при следующей выкладке, словами.
+	//
+	// Считается от последней выложенной ревизии, а не от предыдущей
+	// сохранённой: сравнивать надо с тем, что сейчас стоит на машинах.
+	Pending      []string
+	NeedsPublish bool
+
+	// FirstPublish — выкладок ещё не было, сравнивать не с чем.
+	FirstPublish bool
 }
 
 func (s *Server) showPreset(w http.ResponseWriter, r *http.Request, admin model.Admin) {
@@ -105,9 +117,100 @@ func (s *Server) showPreset(w http.ResponseWriter, r *http.Request, admin model.
 		return
 	}
 
+	revisions, err := s.DB.ListRevisions(r.Context(), id)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	data.Revisions = revisions
+	data.NeedsPublish = data.HasSaved && !data.Revision.Published()
+	if data.NeedsPublish {
+		data.Pending, data.FirstPublish = s.pendingChanges(r, id, data.Revision)
+	}
+
 	s.render(w, r, "preset", page{
 		Title: found.Name, Section: "presets", Admin: admin, Data: data,
 	})
+}
+
+// pendingChanges перечисляет словами, что уедет на машины при выкладке.
+//
+// Возвращает ещё и признак «выкладок не было»: на первой выкладке сравнивать
+// не с чем, и пустой список изменений там означал бы «ничего не поменяется» —
+// ровно наоборот тому, что произойдёт.
+func (s *Server) pendingChanges(r *http.Request, presetID int64, latest model.PresetRevision) ([]string, bool) {
+	published, err := s.DB.LastPublishedRevision(r.Context(), presetID)
+	if errors.Is(err, storage.ErrNotFound) {
+		return nil, true
+	}
+	if err != nil {
+		return []string{"Не удалось сравнить с выложенной ревизией: " + err.Error()}, false
+	}
+
+	before, berr := preset.Parse(published.Payload)
+	after, aerr := preset.Parse(latest.Payload)
+	if berr != nil || aerr != nil {
+		// Ревизия из будущей схемы: строгий разбор её не берёт. Молчать нельзя —
+		// человек прочтёт пустой список как «ничего не меняется».
+		return []string{"Сравнить не с чем: одна из ревизий собрана схемой, которой эта панель не знает"}, false
+	}
+	return preset.Changes(before, after), false
+}
+
+// rollback возвращает предустановку к прежней ревизии.
+//
+// Новой ревизией поверх, а не правкой прошлого: череда ревизий — это история,
+// и переписывать её значило бы терять ответ на «что стояло на машинах в
+// прошлый вторник».
+//
+// Выкладывается сразу, и это намеренное исключение из правила «сохранить и
+// выложить — разные нажатия». Правку готовят заранее, а откатываются, когда на
+// рабочих местах уже что-то сломалось; требовать в этот момент второго нажатия
+// — издевательство.
+func (s *Server) rollback(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	card := "/presets/" + strconv.FormatInt(id, 10)
+
+	target, err := strconv.ParseInt(r.FormValue("revision_id"), 10, 64)
+	if err != nil {
+		s.flash(r, "bad", "Не откачено", "Непонятная ревизия")
+		s.back(w, r, card)
+		return
+	}
+
+	source, err := s.DB.RevisionByID(r.Context(), target)
+	if err != nil || source.PresetID != id {
+		s.flash(r, "bad", "Не откачено", "Такой ревизии у этой предустановки нет")
+		s.back(w, r, card)
+		return
+	}
+
+	created, err := s.DB.SaveRevision(r.Context(), actorOf(admin), id,
+		source.SchemaVersion, source.Payload,
+		"откат на ревизию "+strconv.Itoa(source.Revision))
+	if err != nil {
+		s.flash(r, "bad", "Не откачено", friendly(err))
+		s.back(w, r, card)
+		return
+	}
+
+	if _, err := s.Publisher.Publish(r.Context(), actorOf(admin)); err != nil {
+		// Ревизия уже сохранена, и делать вид, что отката не было, нельзя:
+		// следующая выкладка увезёт именно её.
+		s.flash(r, "bad", "Откат сохранён, но не выложен",
+			"Ревизия "+strconv.Itoa(created.Revision)+" лежит в базе — нажмите «Выложить». Причина: "+err.Error())
+		s.back(w, r, card)
+		return
+	}
+
+	s.flash(r, "ok",
+		"Откачено на ревизию "+strconv.Itoa(source.Revision),
+		"Сохранено ревизией "+strconv.Itoa(created.Revision)+" и выложено сразу — машины подхватят в течение получаса.")
+	s.back(w, r, card)
 }
 
 func (s *Server) savePreset(w http.ResponseWriter, r *http.Request, admin model.Admin) {

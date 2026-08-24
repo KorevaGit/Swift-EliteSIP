@@ -1,0 +1,5 @@
+{
+  "name": "elitesip-worker",
+  "private": true,
+  "type": "module"
+}

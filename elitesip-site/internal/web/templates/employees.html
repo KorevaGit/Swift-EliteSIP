@@ -3,32 +3,43 @@
 <div class="toolbar">
     <div class="toolbar-title">
         <h1>Сотрудники</h1>
-        <p>Ключ выписывается на человека. Машин у человека может быть несколько.</p>
+        <p>Номер живёт и умирает вместе с человеком. Ключ выписывается на человека, машин у него может быть несколько.</p>
     </div>
-    {{if $data.ShowGone}}
-        <a class="button" href="/employees">Только работающие</a>
-    {{else}}
-        <a class="button" href="/employees?all=1">Показать уволенных</a>
-    {{end}}
 </div>
 
 <div class="card">
     <div class="card-head"><h2>Завести сотрудника</h2></div>
     <div class="card-body">
         <form method="post" action="/employees" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
-            <div class="field" style="flex:2 1 220px;">
+            <div class="field" style="flex:2 1 200px;">
                 <label for="name">Имя</label>
                 <input id="name" name="name" type="text" placeholder="Пётр Смирнов" required>
+            </div>
+            <div class="field" style="flex:0 1 120px;">
+                <label for="number">Номер</label>
+                <input id="number" name="number" type="text" inputmode="numeric" placeholder="172">
+            </div>
+            <div class="field" style="flex:1 1 180px;">
+                <label for="sip_password">SIP-пароль</label>
+                <input id="sip_password" name="sip_password" type="text" placeholder="с АТС">
             </div>
             <div class="field" style="flex:1 1 180px;">
                 <label for="preset_id">Предустановка</label>
                 <select id="preset_id" name="preset_id">
                     <option value="">не выбрана</option>
-                    {{range $data.Presets}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+                    {{range $data.Presets}}
+                    <option value="{{.ID}}"
+                        {{if and (hasValue $data.LastPreset) (eq (deref $data.LastPreset) .ID)}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
                 </select>
             </div>
-            <button type="submit" class="button button-primary">Завести</button>
+            <button type="submit" class="button button-primary">Завести и выпустить ключ</button>
         </form>
+        <p class="card-note">
+            Ключ появится сразу за этой кнопкой — вместе с готовым сообщением, которое можно
+            скопировать и отправить. Номер и SIP-пароль берутся с АТС: панель там ничего не заводит.
+            Оставить их пустыми можно, но ключ тогда не выпустится, и карточка скажет об этом.
+        </p>
         {{if not $data.Presets}}
         <p class="card-note">
             Предустановок пока нет. Ключ без предустановки не выпускается —
@@ -39,7 +50,23 @@
 </div>
 
 <div class="card">
-    <div class="card-head"><h2>Список</h2></div>
+    <div class="card-head">
+        <h2>Список</h2>
+        <form method="get" action="/employees" class="search">
+            <input name="q" type="search" value="{{$data.Query}}" placeholder="имя или номер" aria-label="Поиск">
+            <select name="preset" aria-label="Предустановка">
+                <option value="">все предустановки</option>
+                {{range $data.Presets}}
+                <option value="{{.ID}}"
+                    {{if and (hasValue $data.PresetID) (eq (deref $data.PresetID) .ID)}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+            <button type="submit" class="button">Найти</button>
+            {{if or $data.Query (hasValue $data.PresetID)}}
+            <a class="button button-quiet" href="/employees">Сбросить</a>
+            {{end}}
+        </form>
+    </div>
     {{if $data.Employees}}
     <table class="table">
         <thead>
@@ -47,7 +74,6 @@
                 <th>Сотрудник</th>
                 <th>Номер</th>
                 <th>Предустановка</th>
-                <th>Состояние</th>
                 <th></th>
             </tr>
         </thead>
@@ -58,17 +84,10 @@
                     <a href="/employees/{{.ID}}">{{.Name}}</a>
                 </td>
                 <td data-label="Номер">
-                    {{if .Number}}<span class="mono">{{.Number}}</span>{{else}}<span class="sub">не закреплён</span>{{end}}
+                    {{if .Number}}<span class="mono">{{.Number}}</span>{{else}}<span class="sub">не заполнен</span>{{end}}
                 </td>
                 <td data-label="Предустановка">
                     {{if .PresetName}}{{.PresetName}}{{else}}<span class="sub">не выбрана</span>{{end}}
-                </td>
-                <td data-label="Состояние">
-                    {{if .DismissedAt}}
-                        <span class="badge badge-off">уволен {{day .DismissedAt}}</span>
-                    {{else}}
-                        <span class="badge badge-ok">работает</span>
-                    {{end}}
                 </td>
                 <td class="cell-actions">
                     <a class="button" href="/employees/{{.ID}}">Открыть</a>
@@ -77,10 +96,15 @@
         {{end}}
         </tbody>
     </table>
+    {{else if or $data.Query (hasValue $data.PresetID)}}
+    <div class="empty">
+        <strong>Никого не нашлось</strong>
+        Поиск идёт по имени и по номеру — по части того или другого.
+    </div>
     {{else}}
     <div class="empty">
         <strong>Пока никого</strong>
-        Заведите сотрудника, назначьте ему номер и предустановку — и выпустите ключ.
+        Заведите сотрудника с номером и предустановкой — и выпустите ему ключ.
     </div>
     {{end}}
 </div>

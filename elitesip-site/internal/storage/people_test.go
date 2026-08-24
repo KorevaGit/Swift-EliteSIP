@@ -4,237 +4,208 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/koreva/elitesip-site/internal/model"
 )
 
-func TestCreateAndListNumbers(t *testing.T) {
+func person(name, number, password string) model.Employee {
+	return model.Employee{Name: name, Number: number, SIPPassword: password}
+}
+
+// Сотрудник заводится одной записью — вместе с номером и паролем.
+func TestCreateEmployeeWithNumber(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	if _, err := db.CreateNumber(ctx, nil, "172", "secret-172", "Первая линия"); err != nil {
-		t.Fatalf("CreateNumber: %v", err)
+	created, err := db.CreateEmployee(ctx, nil, person("Пётр Смирнов", "172", "секрет-172"))
+	if err != nil {
+		t.Fatalf("CreateEmployee: %v", err)
 	}
-	if _, err := db.CreateNumber(ctx, nil, "173", "secret-173", ""); err != nil {
-		t.Fatalf("CreateNumber: %v", err)
+	if created.ID == 0 || created.CreatedAt.IsZero() {
+		t.Fatalf("вернулась пустая запись: %+v", created)
 	}
 
-	list, err := db.ListNumbers(ctx, false)
+	stored, err := db.EmployeeByID(ctx, created.ID)
 	if err != nil {
-		t.Fatalf("ListNumbers: %v", err)
+		t.Fatalf("EmployeeByID: %v", err)
 	}
-	if len(list) != 2 {
-		t.Fatalf("номеров %d, ожидалось 2", len(list))
-	}
-	if list[0].Number != "172" || list[0].HolderID != nil {
-		t.Errorf("первый номер %q, владелец %v", list[0].Number, list[0].HolderID)
+	if stored.Number != "172" || stored.SIPPassword != "секрет-172" {
+		t.Errorf("номер %q, пароль %q", stored.Number, stored.SIPPassword)
 	}
 }
 
-func TestNumberIsUnique(t *testing.T) {
+// Двое на одном добавочном — это двое, снимающих звонки друг друга.
+func TestNumberIsTakenByOneEmployee(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	if _, err := db.CreateNumber(ctx, nil, "172", "secret", ""); err != nil {
-		t.Fatalf("CreateNumber: %v", err)
+	if _, err := db.CreateEmployee(ctx, nil, person("Первый", "172", "секрет")); err != nil {
+		t.Fatalf("первый: %v", err)
 	}
-	if _, err := db.CreateNumber(ctx, nil, "172", "other", ""); err == nil {
-		t.Fatal("номер 172 завёлся дважды")
-	}
-}
-
-func TestAssignNumberShowsHolder(t *testing.T) {
-	db := openTemp(t)
-	ctx := context.Background()
-
-	number, _ := db.CreateNumber(ctx, nil, "172", "secret", "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", nil)
-
-	if err := db.AssignNumber(ctx, nil, employee.ID, number.ID); err != nil {
-		t.Fatalf("AssignNumber: %v", err)
-	}
-
-	list, err := db.ListNumbers(ctx, false)
-	if err != nil {
-		t.Fatalf("ListNumbers: %v", err)
-	}
-	if list[0].HolderName != "Пётр" {
-		t.Errorf("владелец %q, ожидался Пётр", list[0].HolderName)
-	}
-
-	people, err := db.ListEmployees(ctx, false)
-	if err != nil {
-		t.Fatalf("ListEmployees: %v", err)
-	}
-	if people[0].Number != "172" {
-		t.Errorf("у сотрудника номер %q, ожидался 172", people[0].Number)
-	}
-}
-
-// За занятым номером стоит живой человек, снимающий по нему звонки. Отобрать
-// его молча нельзя.
-func TestAssignTakenNumberFails(t *testing.T) {
-	db := openTemp(t)
-	ctx := context.Background()
-
-	number, _ := db.CreateNumber(ctx, nil, "172", "secret", "")
-	first, _ := db.CreateEmployee(ctx, nil, "Первый", nil)
-	second, _ := db.CreateEmployee(ctx, nil, "Второй", nil)
-
-	if err := db.AssignNumber(ctx, nil, first.ID, number.ID); err != nil {
-		t.Fatalf("AssignNumber: %v", err)
-	}
-	err := db.AssignNumber(ctx, nil, second.ID, number.ID)
+	_, err := db.CreateEmployee(ctx, nil, person("Второй", "172", "другой"))
 	if !errors.Is(err, ErrNumberTaken) {
 		t.Fatalf("ошибка %v, ожидалась ErrNumberTaken", err)
 	}
 }
 
-// Повторное закрепление того же номера за тем же человеком — не ошибка:
-// администратор мог нажать дважды.
-func TestAssignSameNumberTwiceIsFine(t *testing.T) {
+// Незаполненных номеров может быть сколько угодно: пустая строка — это «пир на
+// АТС ещё не подняли», а не значение.
+func TestEmptyNumbersDoNotCollide(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "secret", "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", nil)
-
-	if err := db.AssignNumber(ctx, nil, employee.ID, number.ID); err != nil {
-		t.Fatalf("первое закрепление: %v", err)
+	if _, err := db.CreateEmployee(ctx, nil, person("Первый", "", "")); err != nil {
+		t.Fatalf("первый: %v", err)
 	}
-	if err := db.AssignNumber(ctx, nil, employee.ID, number.ID); err != nil {
-		t.Fatalf("повторное закрепление: %v", err)
+	if _, err := db.CreateEmployee(ctx, nil, person("Второй", "", "")); err != nil {
+		t.Fatalf("второй без номера не завёлся: %v", err)
 	}
 }
 
-// Пересадка сотрудника на другой номер освобождает прежний сама.
-func TestAssignReleasesPreviousNumber(t *testing.T) {
+// Номер освобождается вместе с человеком: удалили — можно отдавать следующему.
+func TestNumberIsFreeAfterDeletion(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	first, _ := db.CreateNumber(ctx, nil, "172", "secret", "")
-	second, _ := db.CreateNumber(ctx, nil, "173", "secret", "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", nil)
-
-	if err := db.AssignNumber(ctx, nil, employee.ID, first.ID); err != nil {
-		t.Fatalf("первое закрепление: %v", err)
-	}
-	if err := db.AssignNumber(ctx, nil, employee.ID, second.ID); err != nil {
-		t.Fatalf("пересадка: %v", err)
-	}
-
-	list, err := db.ListNumbers(ctx, false)
+	first, err := db.CreateEmployee(ctx, nil, person("Первый", "172", "секрет"))
 	if err != nil {
-		t.Fatalf("ListNumbers: %v", err)
+		t.Fatalf("первый: %v", err)
 	}
-	byNumber := map[string]NumberWithHolder{}
-	for _, n := range list {
-		byNumber[n.Number] = n
+	if err := db.DeleteEmployee(ctx, nil, first.ID); err != nil {
+		t.Fatalf("DeleteEmployee: %v", err)
 	}
-	if byNumber["172"].HolderID != nil {
-		t.Error("прежний номер остался закреплённым")
-	}
-	if byNumber["173"].HolderID == nil {
-		t.Error("новый номер не закрепился")
+	if _, err := db.CreateEmployee(ctx, nil, person("Второй", "172", "новый")); err != nil {
+		t.Fatalf("номер не освободился: %v", err)
 	}
 }
 
-// Номер переживает сотрудника: история назначений остаётся.
-func TestNumberKeepsAssignmentHistory(t *testing.T) {
+// Удаление стирает карточку, активации и отметки о связи разом. Порознь это
+// три дела, о двух из которых в спешке забывают.
+func TestDeleteEmployeeTakesActivationsWithIt(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "secret", "")
-	first, _ := db.CreateEmployee(ctx, nil, "Первый", nil)
-	second, _ := db.CreateEmployee(ctx, nil, "Второй", nil)
+	employee, _ := db.CreateEmployee(ctx, nil, person("Пётр", "172", "секрет"))
+	seedActivation(t, db, employee.ID)
 
-	if err := db.AssignNumber(ctx, nil, first.ID, number.ID); err != nil {
-		t.Fatalf("закрепление: %v", err)
-	}
-	if err := db.DismissEmployee(ctx, nil, first.ID); err != nil {
-		t.Fatalf("увольнение: %v", err)
-	}
-	if err := db.AssignNumber(ctx, nil, second.ID, number.ID); err != nil {
-		t.Fatalf("передача номера: %v", err)
+	if err := db.DeleteEmployee(ctx, nil, employee.ID); err != nil {
+		t.Fatalf("DeleteEmployee: %v", err)
 	}
 
-	var count int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM number_assignments WHERE number_id = ?`, number.ID).
-		Scan(&count); err != nil {
-		t.Fatalf("история: %v", err)
+	for _, table := range []string{"employees", "activations", "checkins"} {
+		var count int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&count); err != nil {
+			t.Fatalf("%s: %v", table, err)
+		}
+		if count != 0 {
+			t.Errorf("в %s осталось строк: %d", table, count)
+		}
 	}
-	if count != 2 {
-		t.Errorf("записей в истории %d, ожидалось 2", count)
+
+	if _, err := db.EmployeeByID(ctx, employee.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("карточка читается после удаления: %v", err)
 	}
 }
 
-// Увольнение — одно действие: номер освобождён, активации отозваны.
-func TestDismissReleasesNumberAndRevokesActivations(t *testing.T) {
+// Единственное, что переживает удаление, — строка журнала с именем и номером.
+// На неё опирается разбор жалобы через неделю после ухода человека.
+func TestDeletionLeavesNameAndNumberInAudit(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "secret", "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", nil)
-	if err := db.AssignNumber(ctx, nil, employee.ID, number.ID); err != nil {
-		t.Fatalf("закрепление: %v", err)
+	employee, _ := db.CreateEmployee(ctx, nil, person("Пётр Смирнов", "172", "секрет"))
+	if err := db.DeleteEmployee(ctx, nil, employee.ID); err != nil {
+		t.Fatalf("DeleteEmployee: %v", err)
 	}
 
-	if _, err := db.Exec(`INSERT INTO presets (id, public_id, name, created_at)
-		VALUES (1, '6D1F5A20-0000-4000-8000-000000000001', 'Менеджер', '2026-08-24T09:00:00Z')`); err != nil {
-		t.Fatalf("предустановка: %v", err)
+	entries, err := db.AuditPage(ctx, 10)
+	if err != nil {
+		t.Fatalf("AuditPage: %v", err)
 	}
-	if _, err := db.Exec(`INSERT INTO activations
-		(employee_id, preset_id, key_hash, key_prefix, object_key, installation_id, issued_at, expires_at)
-		VALUES (?, 1, 'hash', 'K7M2', 'obj', 'inst', '2026-08-24T09:00:00Z', '2026-08-26T09:00:00Z')`,
-		employee.ID); err != nil {
-		t.Fatalf("активация: %v", err)
+	if entries[0].Action != "сотрудник удалён" {
+		t.Fatalf("свежая строка %q", entries[0].Action)
 	}
-
-	if err := db.DismissEmployee(ctx, nil, employee.ID); err != nil {
-		t.Fatalf("DismissEmployee: %v", err)
+	if entries[0].Details != "Пётр Смирнов, номер 172" {
+		t.Errorf("подробности %q — по ним не ответить, кто сидел на 172", entries[0].Details)
 	}
-
-	var revoked int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM activations WHERE revoked_at IS NOT NULL`).Scan(&revoked); err != nil {
-		t.Fatalf("активации: %v", err)
-	}
-	if revoked != 1 {
-		t.Errorf("отозвано активаций %d, ожидалась 1", revoked)
-	}
-
-	list, _ := db.ListNumbers(ctx, false)
-	if list[0].HolderID != nil {
-		t.Error("номер уволенного остался закреплённым")
+	// Ссылаться некуда: строки, на которую указывал бы entity_id, больше нет.
+	if entries[0].EntityID != nil {
+		t.Errorf("строка журнала ссылается на удалённую карточку: %v", *entries[0].EntityID)
 	}
 }
 
-func TestAssignToDismissedFails(t *testing.T) {
+func TestUpdateEmployee(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "secret", "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", nil)
-	if err := db.DismissEmployee(ctx, nil, employee.ID); err != nil {
-		t.Fatalf("увольнение: %v", err)
+	employee, _ := db.CreateEmployee(ctx, nil, person("Пётр", "172", "секрет"))
+	employee.Name = "Пётр Смирнов"
+	employee.Number = "173"
+	employee.SIPPassword = "новый-секрет"
+
+	if err := db.UpdateEmployee(ctx, nil, employee); err != nil {
+		t.Fatalf("UpdateEmployee: %v", err)
 	}
 
-	err := db.AssignNumber(ctx, nil, employee.ID, number.ID)
-	if !errors.Is(err, ErrEmployeeDismissed) {
-		t.Fatalf("ошибка %v, ожидалась ErrEmployeeDismissed", err)
+	stored, _ := db.EmployeeByID(ctx, employee.ID)
+	if stored.Name != "Пётр Смирнов" || stored.Number != "173" || stored.SIPPassword != "новый-секрет" {
+		t.Errorf("сохранилось не всё: %+v", stored)
 	}
 }
 
-func TestRetiredNumberIsNotAssignable(t *testing.T) {
+// Пересадка на чужой номер отвергается: за ним стоит живой человек.
+func TestUpdateToTakenNumberFails(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "secret", "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", nil)
+	db.CreateEmployee(ctx, nil, person("Первый", "172", "секрет"))
+	second, _ := db.CreateEmployee(ctx, nil, person("Второй", "173", "секрет"))
 
-	if err := db.RetireNumber(ctx, nil, number.ID); err != nil {
-		t.Fatalf("RetireNumber: %v", err)
+	second.Number = "172"
+	if err := db.UpdateEmployee(ctx, nil, second); !errors.Is(err, ErrNumberTaken) {
+		t.Fatalf("ошибка %v, ожидалась ErrNumberTaken", err)
 	}
-	err := db.AssignNumber(ctx, nil, employee.ID, number.ID)
-	if !errors.Is(err, ErrNumberRetired) {
-		t.Fatalf("ошибка %v, ожидалась ErrNumberRetired", err)
+}
+
+// Поиск идёт по имени и по номеру сразу: администратор помнит либо одно, либо
+// другое, и заставлять его выбирать поле незачем.
+func TestListEmployeesSearchesNameAndNumber(t *testing.T) {
+	db := openTemp(t)
+	ctx := context.Background()
+
+	db.CreateEmployee(ctx, nil, person("Пётр Смирнов", "172", "секрет"))
+	db.CreateEmployee(ctx, nil, person("Анна Иванова", "173", "секрет"))
+
+	byName, err := db.ListEmployees(ctx, EmployeeFilter{Query: "Смирнов"})
+	if err != nil {
+		t.Fatalf("ListEmployees: %v", err)
+	}
+	if len(byName) != 1 || byName[0].Name != "Пётр Смирнов" {
+		t.Errorf("поиск по части фамилии нашёл %d строк", len(byName))
+	}
+
+	byNumber, _ := db.ListEmployees(ctx, EmployeeFilter{Query: "173"})
+	if len(byNumber) != 1 || byNumber[0].Name != "Анна Иванова" {
+		t.Errorf("поиск по номеру нашёл %d строк", len(byNumber))
+	}
+}
+
+func TestListEmployeesFiltersByPreset(t *testing.T) {
+	db := openTemp(t)
+	ctx := context.Background()
+
+	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	with := person("С предустановкой", "172", "секрет")
+	with.PresetID = &preset.ID
+	db.CreateEmployee(ctx, nil, with)
+	db.CreateEmployee(ctx, nil, person("Без предустановки", "173", "секрет"))
+
+	list, err := db.ListEmployees(ctx, EmployeeFilter{PresetID: &preset.ID})
+	if err != nil {
+		t.Fatalf("ListEmployees: %v", err)
+	}
+	if len(list) != 1 || list[0].PresetName != "Менеджер" {
+		t.Errorf("отбор по предустановке дал %d строк", len(list))
 	}
 }
 
@@ -250,20 +221,23 @@ func TestActionsAreLogged(t *testing.T) {
 	}
 	actor := int64(7)
 
-	number, _ := db.CreateNumber(ctx, &actor, "172", "secret", "")
-	employee, _ := db.CreateEmployee(ctx, &actor, "Пётр", nil)
-	if err := db.AssignNumber(ctx, &actor, employee.ID, number.ID); err != nil {
-		t.Fatalf("закрепление: %v", err)
+	employee, err := db.CreateEmployee(ctx, &actor, person("Пётр", "172", "секрет"))
+	if err != nil {
+		t.Fatalf("CreateEmployee: %v", err)
+	}
+	employee.Number = "173"
+	if err := db.UpdateEmployee(ctx, &actor, employee); err != nil {
+		t.Fatalf("UpdateEmployee: %v", err)
 	}
 
 	entries, err := db.AuditPage(ctx, 10)
 	if err != nil {
 		t.Fatalf("AuditPage: %v", err)
 	}
-	if len(entries) != 3 {
-		t.Fatalf("строк журнала %d, ожидалось 3", len(entries))
+	if len(entries) != 2 {
+		t.Fatalf("строк журнала %d, ожидалось 2", len(entries))
 	}
-	if entries[0].Action != "номер закреплён" {
+	if entries[0].Action != "карточка изменена" {
 		t.Errorf("свежая строка %q", entries[0].Action)
 	}
 	if entries[0].AdminID == nil || *entries[0].AdminID != actor {
@@ -271,14 +245,18 @@ func TestActionsAreLogged(t *testing.T) {
 	}
 }
 
-// Пароль номера в журнал не попадает: журнал читают чаще, чем карточку.
+// SIP-пароль в журнал не попадает: журнал читают чаще, чем карточку.
 func TestPasswordsStayOutOfAuditLog(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "очень-секретный-пароль", "")
-	if err := db.SetNumberPassword(ctx, nil, number.ID, "новый-секрет"); err != nil {
-		t.Fatalf("SetNumberPassword: %v", err)
+	employee, _ := db.CreateEmployee(ctx, nil, person("Пётр", "172", "очень-секретный-пароль"))
+	employee.SIPPassword = "новый-секрет"
+	if err := db.UpdateEmployee(ctx, nil, employee); err != nil {
+		t.Fatalf("UpdateEmployee: %v", err)
+	}
+	if err := db.DeleteEmployee(ctx, nil, employee.ID); err != nil {
+		t.Fatalf("DeleteEmployee: %v", err)
 	}
 
 	entries, err := db.AuditPage(ctx, 10)
@@ -290,12 +268,25 @@ func TestPasswordsStayOutOfAuditLog(t *testing.T) {
 			t.Fatalf("пароль попал в журнал: %q", e.Details)
 		}
 	}
+}
 
-	stored, err := db.NumberByID(ctx, number.ID)
-	if err != nil {
-		t.Fatalf("NumberByID: %v", err)
+// seedActivation кладёт активацию с отметкой о связи — то, что при удалении
+// сотрудника обязано уйти каскадом.
+func seedActivation(t *testing.T, db *DB, employeeID int64) {
+	t.Helper()
+
+	if _, err := db.Exec(`INSERT INTO presets (id, public_id, name, created_at)
+		VALUES (1, '6D1F5A20-0000-4000-8000-000000000001', 'Менеджер', '2026-08-24T09:00:00Z')`); err != nil {
+		t.Fatalf("предустановка: %v", err)
 	}
-	if stored.SIPPassword != "новый-секрет" {
-		t.Errorf("пароль %q, ожидался новый-секрет", stored.SIPPassword)
+	if _, err := db.Exec(`INSERT INTO activations
+		(employee_id, preset_id, key_hash, key_prefix, object_key, installation_id, issued_at, expires_at)
+		VALUES (?, 1, 'hash', 'K7M2', 'obj', 'inst', '2026-08-24T09:00:00Z', '2026-08-26T09:00:00Z')`,
+		employeeID); err != nil {
+		t.Fatalf("активация: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO checkins (installation_id, last_seen_at)
+		VALUES ('inst', '2026-08-24T10:00:00Z')`); err != nil {
+		t.Fatalf("отметка о связи: %v", err)
 	}
 }

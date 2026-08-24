@@ -2,17 +2,24 @@ package web
 
 import (
 	"context"
+	"crypto/ed25519"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/koreva/elitesip-site/internal/model"
 	"github.com/koreva/elitesip-site/internal/panel"
+	"github.com/koreva/elitesip-site/internal/preset"
+	"github.com/koreva/elitesip-site/internal/publish"
 	"github.com/koreva/elitesip-site/internal/storage"
 )
 
+// sink — бакет в памяти: и кладём, и читаем.
 type sink struct{ objects map[string][]byte }
 
 func (s *sink) Put(_ context.Context, key string, data []byte) error {
@@ -21,6 +28,25 @@ func (s *sink) Put(_ context.Context, key string, data []byte) error {
 	}
 	s.objects[key] = data
 	return nil
+}
+
+func (s *sink) Get(_ context.Context, key string) ([]byte, error) {
+	data, ok := s.objects[key]
+	if !ok {
+		return nil, publish.ErrNoObject
+	}
+	return data, nil
+}
+
+func (s *sink) List(_ context.Context, prefix string) ([]string, error) {
+	var out []string
+	for key := range s.objects {
+		if strings.HasPrefix(key, prefix) {
+			out = append(out, key)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func newServer(t *testing.T) (*Server, *storage.DB) {
@@ -32,10 +58,18 @@ func newServer(t *testing.T) (*Server, *storage.DB) {
 	}
 	t.Cleanup(func() { db.Close() })
 
+	// Ключ подписи настоящий, а не пустой: без него выкладка не проходит вовсе,
+	// и проверять на ней было бы нечего.
+	_, signing, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("ключ подписи: %v", err)
+	}
+
 	out := &sink{}
 	s, err := New(db,
 		&panel.Issuer{DB: db, Publisher: out, Secret: []byte("секрет-сервера-для-проверки")},
-		&panel.BundlePublisher{DB: db, Publisher: out},
+		&panel.BundlePublisher{DB: db, Publisher: out, SigningKey: signing},
+		&panel.MarkCollector{DB: db, Reader: out},
 	)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -59,7 +93,7 @@ func TestGuardSendsAnonymousToLogin(t *testing.T) {
 	s, db := newServer(t)
 	db.CreateAdmin(context.Background(), nil, "eugene", "хеш")
 
-	for _, path := range []string{"/", "/employees", "/numbers", "/presets", "/audit", "/settings"} {
+	for _, path := range []string{"/", "/overview", "/employees", "/presets", "/audit", "/settings"} {
 		w := httptest.NewRecorder()
 		s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 
@@ -176,11 +210,11 @@ func TestIssuedKeyIsShownOnce(t *testing.T) {
 	token, _ := db.StartSession(ctx, admin.ID)
 	cookie := &http.Cookie{Name: sessionCookie, Value: token}
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "секрет-172", "")
 	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
 	db.SaveRevision(ctx, nil, preset.ID, 2, []byte(`{}`), "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", &preset.ID)
-	db.AssignNumber(ctx, nil, employee.ID, number.ID)
+	db.CreateEmployee(ctx, nil, model.Employee{
+		Name: "Пётр", Number: "172", SIPPassword: "секрет-172", PresetID: &preset.ID,
+	})
 	db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль-конторы")
 
 	issue := post("/employees/1/issue", url.Values{"note": {"ноутбук"}})
@@ -222,7 +256,7 @@ func TestEmployeeCardExplainsWhatBlocksIssue(t *testing.T) {
 	token, _ := db.StartSession(ctx, admin.ID)
 	cookie := &http.Cookie{Name: sessionCookie, Value: token}
 
-	db.CreateEmployee(ctx, nil, "Без всего", nil)
+	db.CreateEmployee(ctx, nil, model.Employee{Name: "Без всего"})
 
 	r := httptest.NewRequest(http.MethodGet, "/employees/1", nil)
 	r.AddCookie(cookie)
@@ -233,7 +267,7 @@ func TestEmployeeCardExplainsWhatBlocksIssue(t *testing.T) {
 	if !strings.Contains(body, "Ключ выпустить нельзя") {
 		t.Fatal("карточка не объясняет, почему ключ недоступен")
 	}
-	if !strings.Contains(body, "не закреплён номер") {
+	if !strings.Contains(body, "не заполнены номер и SIP-пароль") {
 		t.Errorf("не сказано, чего именно не хватает")
 	}
 }
@@ -249,11 +283,11 @@ func TestKeyNeverTravelsInURL(t *testing.T) {
 	token, _ := db.StartSession(ctx, admin.ID)
 	cookie := &http.Cookie{Name: sessionCookie, Value: token}
 
-	number, _ := db.CreateNumber(ctx, nil, "172", "секрет", "")
 	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
 	db.SaveRevision(ctx, nil, preset.ID, 2, []byte(`{}`), "")
-	employee, _ := db.CreateEmployee(ctx, nil, "Пётр", &preset.ID)
-	db.AssignNumber(ctx, nil, employee.ID, number.ID)
+	db.CreateEmployee(ctx, nil, model.Employee{
+		Name: "Пётр", Number: "172", SIPPassword: "секрет", PresetID: &preset.ID,
+	})
 	db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль-конторы")
 
 	issue := post("/employees/1/issue", nil)
@@ -264,6 +298,385 @@ func TestKeyNeverTravelsInURL(t *testing.T) {
 	location := w.Header().Get("Location")
 	if strings.ContainsAny(location, "?&") {
 		t.Errorf("в адресе перенаправления что-то есть: %q", location)
+	}
+}
+
+// Первый экран после входа — обзор, а не список людей: он объясняет, с чего
+// начать, тому, кто наших документов не читал.
+func TestRootGoesToOverview(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	if got := w.Header().Get("Location"); got != "/overview" {
+		t.Errorf("корень ведёт на %q", got)
+	}
+}
+
+// Свежая панель объясняет, чего в ней не хватает, — иначе первый ключ не
+// выпускается, а почему, видно только по отказу в карточке.
+func TestOverviewExplainsUnconfiguredPanel(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	r := httptest.NewRequest(http.MethodGet, "/overview", nil)
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	body := w.Body.String()
+	for _, want := range []string{
+		"Не задан административный пароль конторы",
+		"Нет ни одной предустановки",
+		"Не задан адрес, откуда качать приложение",
+		"Выдать ключ новому человеку",
+		"Человек уходит",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("на обзоре нет %q", want)
+		}
+	}
+
+	// Плитки «отставшие по версии» быть не должно: панели о версиях машин
+	// узнать неоткуда, и пустая плитка без объяснения читается как поломка.
+	if strings.Contains(body, "отставш") {
+		t.Error("показана плитка, которой пока нечем наполниться")
+	}
+}
+
+// Хвост со ссылкой на то место, где чинится: без ссылки он сообщает о беде и
+// оставляет искать, где её править.
+func TestOverviewTailLinksToWhereItIsFixed(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	db.CreateEmployee(ctx, nil, model.Employee{Name: "Без всего"})
+
+	r := httptest.NewRequest(http.MethodGet, "/overview", nil)
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	body := w.Body.String()
+	if !strings.Contains(body, `href="/employees/1"`) {
+		t.Error("хвост не ведёт в карточку")
+	}
+	if !strings.Contains(body, "ключ такому не выпустится") {
+		t.Error("не сказано, чем этот хвост плох")
+	}
+}
+
+// Главный путь панели: одна форма заводит человека и сразу отдаёт ключ вместе
+// с готовым сообщением. Раздельные «завести» и «выпустить» — лишнее нажатие
+// каждую неделю и один забытый ключ на десяток заведений.
+func TestCreateAndIssueInOneAction(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	db.SaveRevision(ctx, nil, preset.ID, 2, []byte(`{}`), "")
+	db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль-конторы")
+	db.SetSetting(ctx, nil, storage.SettingAppLink, "https://elitesip.vip/download")
+
+	create := post("/employees", url.Values{
+		"name":         {"Пётр Смирнов"},
+		"number":       {"172"},
+		"sip_password": {"секрет-172"},
+		"preset_id":    {strconv.FormatInt(preset.ID, 10)},
+	})
+	create.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, create)
+	if got := w.Header().Get("Location"); got != "/employees/1" {
+		t.Fatalf("после заведения отправило на %q", got)
+	}
+
+	card := httptest.NewRequest(http.MethodGet, "/employees/1", nil)
+	card.AddCookie(cookie)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, card)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Ключ выпущен") || !strings.Contains(body, "key-value") {
+		t.Fatal("ключ не показан сразу за формой")
+	}
+	if !strings.Contains(body, "Скопировать сообщение") {
+		t.Error("готового сообщения сотруднику нет")
+	}
+	if !strings.Contains(body, "elitesip.vip/download") {
+		t.Error("в сообщении нет адреса, откуда качать приложение")
+	}
+
+	list, err := db.ListActivations(ctx, 1)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("активаций записано %d (%v)", len(list), err)
+	}
+}
+
+// Не из чего собрать пакет — сотрудник всё равно остаётся заведённым: человек
+// вбил имя, номер и пароль, и терять их из-за незаполненной настройки не за что.
+func TestCreateKeepsEmployeeWhenKeyCannotBeIssued(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	create := post("/employees", url.Values{"name": {"Без всего"}})
+	create.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, create)
+
+	card := httptest.NewRequest(http.MethodGet, "/employees/1", nil)
+	card.AddCookie(cookie)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, card)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Сотрудник заведён, но ключ не выпущен") {
+		t.Error("не сказано, что ключа не будет")
+	}
+	if !strings.Contains(body, "Ключ выпустить нельзя") {
+		t.Error("карточка не объясняет, чего не хватает")
+	}
+	if _, err := db.EmployeeByID(ctx, 1); err != nil {
+		t.Errorf("сотрудник не сохранился: %v", err)
+	}
+}
+
+// Раздела «Номера» больше нет: номер живёт и умирает вместе с сотрудником, и
+// второе место, где то же самое можно править, было бы вторым источником одной
+// правды.
+func TestNumbersSectionIsGone(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+
+	r := httptest.NewRequest(http.MethodGet, "/numbers", nil)
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("/numbers ответил %d, ожидалось 404", w.Code)
+	}
+}
+
+// Удаление сотрудника уносит его машины и предупреждает про пароль пира: панель
+// после активации до машины не дотягивается, и это единственное, чем её
+// останавливают.
+func TestDeleteEmployeeWarnsAboutPeerPassword(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	employee, _ := db.CreateEmployee(ctx, nil, model.Employee{
+		Name: "Анна Иванова", Number: "172", SIPPassword: "секрет",
+	})
+
+	del := post("/employees/1/delete", nil)
+	del.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, del)
+	if got := w.Header().Get("Location"); got != "/employees" {
+		t.Fatalf("после удаления отправило на %q", got)
+	}
+
+	list := httptest.NewRequest(http.MethodGet, "/employees", nil)
+	list.AddCookie(cookie)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, list)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "сменят SIP-пароль пира") {
+		t.Error("не предупредило про пароль пира на АТС")
+	}
+	if strings.Contains(body, "Анна Иванова") {
+		t.Error("удалённый сотрудник остался в списке")
+	}
+
+	if _, err := db.EmployeeByID(ctx, employee.ID); err == nil {
+		t.Error("карточка читается после удаления")
+	}
+}
+
+// Предустановка подставляется та же, что в прошлый раз: стажёры приходят
+// пачками и все по одной.
+func TestLastPresetIsOfferedAgain(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	db.CreatePreset(ctx, nil, "Секретарь")
+
+	create := post("/employees", url.Values{
+		"name":      {"Пётр"},
+		"number":    {"172"},
+		"preset_id": {strconv.FormatInt(preset.ID, 10)},
+	})
+	create.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, create)
+
+	stored, err := db.Setting(ctx, storage.SettingLastPreset)
+	if err != nil || stored != strconv.FormatInt(preset.ID, 10) {
+		t.Fatalf("выбор не запомнился: %q (%v)", stored, err)
+	}
+
+	list := httptest.NewRequest(http.MethodGet, "/employees", nil)
+	list.AddCookie(cookie)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, list)
+
+	if !strings.Contains(w.Body.String(), "selected>Менеджер") {
+		t.Error("прошлая предустановка не подставлена в форму заведения")
+	}
+}
+
+// Перед выкладкой видно словами, что уедет: список читает техподдержка перед
+// тем, как правка станет обязательным обновлением на всех машинах.
+func TestPendingChangesAreShownInWords(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	p, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	db.SaveRevision(ctx, nil, p.ID, preset.SchemaVersion,
+		[]byte(`{"siteAddresses":{"office":"192.168.1.2","remote":"crm.elitesochi.com"}}`), "первая")
+	if _, err := s.Publisher.Publish(ctx, nil); err != nil {
+		t.Fatalf("первая выкладка: %v", err)
+	}
+	db.SaveRevision(ctx, nil, p.ID, preset.SchemaVersion,
+		[]byte(`{"siteAddresses":{"office":"192.168.1.2","remote":"crm2.elitesochi.com"}}`), "переезд")
+
+	r := httptest.NewRequest(http.MethodGet, "/presets/1", nil)
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Не выложено") {
+		t.Fatal("не сказано, что ревизия не уехала")
+	}
+	if !strings.Contains(body, "crm2.elitesochi.com") || !strings.Contains(body, "Адрес АТС снаружи") {
+		t.Errorf("изменение не показано словами")
+	}
+	// Технического диффа быть не должно — его пролистают не читая.
+	if strings.Contains(body, "siteAddresses") {
+		t.Error("на экран уехал технический дифф")
+	}
+}
+
+// Откат ложится новой ревизией поверх и выкладывается сразу: откатываются,
+// когда на рабочих местах уже что-то сломалось.
+func TestRollbackCreatesNewRevisionAndPublishesIt(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	p, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	first, _ := db.SaveRevision(ctx, nil, p.ID, preset.SchemaVersion,
+		[]byte(`{"conference":{"featureCode":"*3","roomExtension":"8000"}}`), "первая")
+	db.SaveRevision(ctx, nil, p.ID, preset.SchemaVersion,
+		[]byte(`{"conference":{"featureCode":"*9","roomExtension":"8000"}}`), "сломали")
+
+	back := post("/presets/1/rollback", url.Values{
+		"revision_id": {strconv.FormatInt(first.ID, 10)},
+	})
+	back.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, back)
+
+	revisions, err := db.ListRevisions(ctx, p.ID)
+	if err != nil {
+		t.Fatalf("ListRevisions: %v", err)
+	}
+	if len(revisions) != 3 {
+		t.Fatalf("ревизий %d, ожидалось 3 — откат обязан лечь поверх, а не переписать прошлое", len(revisions))
+	}
+
+	latest := revisions[0]
+	if string(latest.Payload) != string(first.Payload) {
+		t.Errorf("откат вернул не то: %s", latest.Payload)
+	}
+	if !latest.Published() {
+		t.Error("откат не выложен — а он выкладывается сразу")
+	}
+	if !strings.Contains(latest.Note, "откат на ревизию 1") {
+		t.Errorf("пометка отката вышла такая: %q", latest.Note)
+	}
+}
+
+// Ревизия чужой предустановки откатом не берётся: идентификатор приходит из
+// формы, и проверять его принадлежность — не роскошь.
+func TestRollbackRefusesForeignRevision(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	db.CreatePreset(ctx, nil, "Менеджер")
+	other, _ := db.CreatePreset(ctx, nil, "Секретарь")
+	foreign, _ := db.SaveRevision(ctx, nil, other.ID, preset.SchemaVersion, []byte(`{}`), "чужая")
+
+	back := post("/presets/1/rollback", url.Values{
+		"revision_id": {strconv.FormatInt(foreign.ID, 10)},
+	})
+	back.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, back)
+
+	revisions, _ := db.ListRevisions(ctx, 1)
+	if len(revisions) != 0 {
+		t.Errorf("чужая ревизия перетекла в другую предустановку: %d", len(revisions))
 	}
 }
 

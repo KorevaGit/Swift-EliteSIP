@@ -35,13 +35,13 @@
         </div>
 
         <nav class="nav">
+            <a class="nav-item" href="/overview" {{if eq .Section "overview"}}aria-current="page"{{end}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Обзор
+            </a>
             <a class="nav-item" href="/employees" {{if eq .Section "employees"}}aria-current="page"{{end}}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Сотрудники
-            </a>
-            <a class="nav-item" href="/numbers" {{if eq .Section "numbers"}}aria-current="page"{{end}}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
-                Номера
             </a>
             <a class="nav-item" href="/presets" {{if eq .Section "presets"}}aria-current="page"{{end}}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
@@ -86,7 +86,16 @@
                         <div class="key-reveal" style="margin-top:12px;">
                             <span class="field-label">Ключ активации</span>
                             <span class="key-value" data-key>{{.KeyOnce}}</span>
-                            <button type="button" class="button" data-copy="[data-key]">Скопировать</button>
+                            <button type="button" class="button" data-copy="[data-key]">Скопировать ключ</button>
+                        </div>
+                    {{end}}
+                    {{if .Message}}
+                        {{/* Готовое сообщение рядом с ключом, а не вместо него: ключ диктуют
+                             и по телефону, а сообщение вставляют в мессенджер целиком. */}}
+                        <div class="key-reveal" style="margin-top:10px; align-items:flex-start;">
+                            <span class="field-label">Сообщение сотруднику</span>
+                            <pre class="message" data-message>{{.Message}}</pre>
+                            <button type="button" class="button button-primary" data-copy="[data-message]">Скопировать сообщение</button>
                         </div>
                     {{end}}
                 </div>

@@ -33,6 +33,25 @@
 </div>
 
 <div class="card">
+    <div class="card-head"><h2>Откуда сотруднику качать приложение</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Адрес попадает в готовое сообщение, которое вы копируете при выдаче ключа. Пустой —
+            в сообщении останется «Установите EliteSIP» без ссылки, и откуда качать, придётся
+            говорить отдельно.
+        </p>
+        <form method="post" action="/settings/app-link" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 320px;">
+                <label for="app_link">Адрес</label>
+                <input id="app_link" name="app_link" type="text" value="{{.Data.AppLink}}"
+                       placeholder="https://elitesip.vip/download" autocomplete="off">
+            </div>
+            <button type="submit" class="button button-primary">Сохранить</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
     <div class="card-head"><h2>Что панель не умеет — и не должна</h2></div>
     <div class="card-body">
         <p class="card-note">

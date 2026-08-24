@@ -122,8 +122,15 @@ func TestObjectKeyIsDerivedAndStable(t *testing.T) {
 	if first != key.ObjectKey() {
 		t.Fatal("адрес пакета непостоянен")
 	}
-	if len(first) != 32 {
-		t.Errorf("длина адреса %d, ожидалась 32: %q", len(first), first)
+	if !strings.HasPrefix(first, ObjectPrefix) {
+		t.Errorf("адрес без приставки: %q", first)
+	}
+
+	// Приложение считает из ключа только шестнадцатеричную часть: приставка
+	// входит в адрес канала раздачи, который ему провижинится.
+	name := strings.TrimPrefix(first, ObjectPrefix)
+	if len(name) != 32 {
+		t.Errorf("длина имени %d, ожидалась 32: %q", len(name), name)
 	}
 
 	other := Key("K7M29XQP4TFC")

@@ -65,10 +65,50 @@
             return;
         }
 
-        /* Действия, которые трудно отменить, спрашивают подтверждения. */
+        /* Действия, которые трудно отменить, спрашивают подтверждения.
+           Коротким вопросом — window.confirm, длинным со списком — окном ниже. */
         var risky = event.target.closest("[data-confirm]");
         if (risky && !window.confirm(risky.getAttribute("data-confirm"))) {
             event.preventDefault();
+            return;
+        }
+
+        var opener = event.target.closest("[data-dialog]");
+        if (opener) {
+            event.preventDefault();
+            var sheet = document.getElementById(opener.getAttribute("data-dialog"));
+            /* showModal, а не open: он забирает фокус и не даёт нажать то, что
+               под окном, — а под окном здесь стоит та же кнопка «Удалить». */
+            if (sheet && sheet.showModal) { sheet.showModal(); }
+            return;
+        }
+
+        /* Замок на адресах АТС и стуке.
+           Снимается насовсем до перезагрузки страницы: запирать обратно нечего —
+           замок сторожит случайное движение, а не злой умысел. */
+        var unlocker = event.target.closest("[data-unlock]");
+        if (unlocker) {
+            event.preventDefault();
+            var name = unlocker.getAttribute("data-unlock");
+            var guarded = document.querySelector('[data-lockable="' + name + '"]');
+            if (guarded) {
+                guarded.removeAttribute("inert");
+                guarded.classList.remove("locked");
+            }
+            var section = unlocker.closest("details");
+            if (section) {
+                var mark = section.querySelector(".lock-mark");
+                if (mark) { mark.remove(); }
+            }
+            unlocker.remove();
+            return;
+        }
+
+        var closer = event.target.closest("[data-dialog-close]");
+        if (closer) {
+            event.preventDefault();
+            var open = closer.closest("dialog");
+            if (open) { open.close(); }
             return;
         }
 

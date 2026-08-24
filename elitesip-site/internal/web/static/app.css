@@ -50,12 +50,32 @@
     --text-secondary: rgba(60, 60, 67, 0.62);
     --text-tertiary: rgba(60, 60, 67, 0.38);
 
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
-    --shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.08), 0 16px 40px rgba(0, 0, 0, 0.14);
+    /* Поверхности лежат плоско, форму держит волосяная линия. Прежняя тень в
+     * 24 точки отрывала каждую карточку от фона и превращала экран в стопку
+     * плашек — в окне «Управления» ничего подобного нет. */
+    --shadow-soft: 0 0.5px 1px rgba(0, 0, 0, 0.05);
+    --shadow-raised: 0 2px 8px rgba(0, 0, 0, 0.10);
 
-    --radius-window: 20px;
-    --radius-card: 14px;
-    --radius-control: 9px;
+    /* Плотность взята числами из Theme.Metrics приложения, а не подобрана на
+     * глаз: панель и «Управление» открывает один и тот же человек в один и тот
+     * же день, и разная плотность читается как две разные программы.
+     *
+     *   contentPadding 12 · sectionSpacing 8 · elementSpacing 6 · tightSpacing 4
+     */
+    --pad: 12px;
+    --pad-tight: 8px;
+    --gap-section: 8px;
+    --gap-element: 6px;
+    --gap-tight: 4px;
+
+    /* Ширина колонки под метки — adminLabelColumn: 132. */
+    --label-column: 132px;
+
+    /* Radius.surface 12, Radius.control 8. Прежние 20 и 9 делали из каждой
+     * карточки плашку, а из панели — набор плашек. */
+    --radius-window: 12px;
+    --radius-card: 10px;
+    --radius-control: 8px;
     --radius-capsule: 999px;
 
     --blur: saturate(180%) blur(30px);
@@ -96,8 +116,8 @@
         --text-secondary: rgba(235, 235, 245, 0.62);
         --text-tertiary: rgba(235, 235, 245, 0.34);
 
-        --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.45);
-        --shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.6);
+        --shadow-soft: 0 0.5px 1px rgba(0, 0, 0, 0.35);
+        --shadow-raised: 0 2px 8px rgba(0, 0, 0, 0.5);
     }
 }
 
@@ -128,8 +148,8 @@
     --text-secondary: rgba(235, 235, 245, 0.62);
     --text-tertiary: rgba(235, 235, 245, 0.34);
 
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.45);
-    --shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.6);
+    --shadow-soft: 0 0.5px 1px rgba(0, 0, 0, 0.35);
+    --shadow-raised: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 /* ------------------------------------------------------------------ основа */
@@ -148,8 +168,8 @@ body {
     margin: 0;
     min-height: 100vh;
     font-family: var(--font);
-    font-size: 14px;
-    line-height: 1.45;
+    font-size: 13px;
+    line-height: 1.4;
     color: var(--text);
     background-color: var(--bg);
     -webkit-font-smoothing: antialiased;
@@ -183,9 +203,12 @@ h1, h2, h3 {
     font-weight: 600;
 }
 
-h1 { font-size: 26px; letter-spacing: -0.02em; }
-h2 { font-size: 17px; }
-h3 { font-size: 14px; }
+/* Заголовок страницы — размером с заголовок окна (13pt semibold), а не с
+ * баннер. Двадцать шесть точек занимали в панели место целой строки таблицы и
+ * сообщали ровно то же, что подпись выбранного пункта в боковой панели. */
+h1 { font-size: 15px; letter-spacing: -0.01em; }
+h2 { font-size: 13px; }
+h3 { font-size: 12px; }
 
 /* Видимая рамка фокуса обязательна: панель заполняют с клавиатуры, полей в
  * форме предустановки десятки, и потерянный фокус означает потерянное место. */
@@ -199,10 +222,10 @@ h3 { font-size: 14px; }
 
 .shell {
     display: grid;
-    grid-template-columns: 232px minmax(0, 1fr);
-    gap: 16px;
-    padding: 16px;
-    max-width: 1440px;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: var(--pad);
+    padding: var(--pad);
+    max-width: 1280px;
     margin: 0 auto;
     min-height: 100vh;
 
@@ -215,13 +238,13 @@ h3 { font-size: 14px; }
 
 .sidebar {
     position: sticky;
-    top: 16px;
+    top: var(--pad);
     align-self: start;
-    max-height: calc(100vh - 32px);
+    max-height: calc(100vh - var(--pad) * 2);
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 12px;
+    gap: var(--gap-tight);
+    padding: var(--pad-tight);
     border-radius: var(--radius-window);
     background: var(--surface);
     border: 0.5px solid var(--hairline);
@@ -240,13 +263,13 @@ h3 { font-size: 14px; }
 .brand {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 6px 8px 14px;
+    gap: var(--gap-element);
+    padding: 2px 4px 10px;
 }
 
 .brand-mark {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     flex: none;
     border-radius: 8px;
     display: grid;
@@ -261,8 +284,12 @@ h3 { font-size: 14px; }
     letter-spacing: -0.01em;
 }
 
+.brand-name {
+    font-size: 12px;
+}
+
 .brand-note {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-secondary);
 }
 
@@ -273,12 +300,14 @@ h3 { font-size: 14px; }
     overflow-y: auto;
 }
 
+/* Шаг строки как в системном сайдбаре: значок 15, поле 4/8. Прежние 7/10 при
+ * пяти пунктах давали боковой панели высоту, которой ей нечем занять. */
 .nav-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 10px;
-    border-radius: var(--radius-control);
+    gap: var(--gap-element);
+    padding: 4px 8px;
+    border-radius: var(--gap-element);
     color: var(--text);
     font-weight: 500;
     white-space: nowrap;
@@ -297,15 +326,15 @@ h3 { font-size: 14px; }
 /* Значок подписан рядом текстом всегда. Значок без подписи на чужом рабочем
  * месте просто не находят — та же беда, что со значком в строке меню. */
 .nav-item svg {
-    width: 17px;
-    height: 17px;
+    width: 15px;
+    height: 15px;
     flex: none;
     opacity: 0.9;
 }
 
 .sidebar-footer {
     margin-top: auto;
-    padding-top: 12px;
+    padding-top: var(--pad-tight);
     border-top: 0.5px solid var(--hairline);
     display: flex;
     align-items: center;
@@ -315,7 +344,7 @@ h3 { font-size: 14px; }
 
 .who {
     min-width: 0;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .who strong {
@@ -333,15 +362,15 @@ h3 { font-size: 14px; }
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--gap-section);
 }
 
 .toolbar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--pad-tight);
     flex-wrap: wrap;
-    padding: 14px 18px;
+    padding: var(--pad-tight) var(--pad);
     border-radius: var(--radius-window);
     background: var(--surface);
     border: 0.5px solid var(--hairline);
@@ -351,7 +380,7 @@ h3 { font-size: 14px; }
 .toolbar-title {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
     margin-right: auto;
     min-width: 0;
 }
@@ -359,7 +388,7 @@ h3 { font-size: 14px; }
 .toolbar-title p {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 11px;
 }
 
 /* ------------------------------------------------------------------ блоки */
@@ -375,8 +404,8 @@ h3 { font-size: 14px; }
 .card-head {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
+    gap: var(--pad-tight);
+    padding: var(--pad-tight) var(--pad);
     border-bottom: 0.5px solid var(--hairline);
 }
 
@@ -385,22 +414,44 @@ h3 { font-size: 14px; }
 }
 
 .card-body {
-    padding: 18px;
+    padding: var(--pad);
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--gap-section);
+}
+
+/* Кнопка в колонке карточки тянется во всю ширину, если её не остановить, —
+   и «Удалить» во всю ширину читается как полоса, а не как кнопка. */
+.card-body > .button,
+.card-body > form > .button {
+    align-self: flex-start;
 }
 
 .card-note {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 11px;
+    line-height: 1.45;
 }
 
+/* Опасное отделяется от безобидного цветом рамки, а не одним лишь положением
+   внизу страницы: прокрутив список машин, человек оказывается прямо над
+   кнопкой удаления. */
+.card-danger {
+    border-color: color-mix(in srgb, var(--red) 40%, var(--hairline));
+}
+
+.card-danger .card-head h2 {
+    color: var(--red);
+}
+
+/* Две колонки только там, где им есть где стоять. Порог тот же, что у окна
+   «Управления» (adminTwoColumnThreshold: 700): ниже него колонки сжимаются до
+   ширины, на которой подпись поля не помещается в строку. */
 .grid {
     display: grid;
-    gap: 16px;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--gap-section);
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 /* --------------------------------------------------------------- элементы */
@@ -409,8 +460,8 @@ h3 { font-size: 14px; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 6px 14px;
+    gap: var(--gap-tight);
+    padding: 4px 10px;
     border: 0.5px solid var(--hairline-strong);
     border-radius: var(--radius-capsule);
     background: var(--surface-raised);
@@ -464,20 +515,69 @@ h3 { font-size: 14px; }
 .field {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--gap-tight);
     min-width: 0;
+}
+
+/* Форма из нескольких полей и одной кнопки. Без неё поля слипаются: .card-body
+   раздаёт свой промежуток прямым детям, а внутри формы их некому раздать. */
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-element);
+    align-items: flex-start;
+}
+
+.stack > .field {
+    align-self: stretch;
 }
 
 .field > label,
 .field-label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 590;
     color: var(--text-secondary);
 }
 
 .field-hint {
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.4;
     color: var(--text-tertiary);
+}
+
+/* Метка уходит в левую колонку — так стоит вся форма «Управления»
+   (adminLabelColumn: 132).
+   
+   Это не украшение, а половина всей плотности: метка над полем удваивает
+   высоту каждой строки формы, и карточка из четырёх полей занимает экран,
+   которому нечего показать, кроме четырёх полей.
+   
+   Только в вертикальных формах (.stack). В горизонтальных рядах — форма
+   заведения сотрудника, поиск, ряды предустановки — метка остаётся сверху:
+   там поля стоят бок о бок, и колонка слева у каждого разорвала бы ряд. */
+@media (min-width: 620px) {
+    .stack > .field {
+        display: grid;
+        grid-template-columns: var(--label-column) minmax(0, 1fr);
+        align-items: first baseline;
+        column-gap: var(--pad-tight);
+        row-gap: 2px;
+    }
+
+    /* Метка прижата к полю, а не к левому краю: глаз ведёт от подписи к
+       значению по кратчайшему пути, и рваный левый край колонки здесь мешает
+       меньше, чем рваный промежуток посередине. */
+    .stack > .field > label {
+        grid-column: 1;
+        text-align: right;
+        /* Поле — 7px поля плюс волосяная рамка; метка садится на ту же
+           базовую линию, что и текст внутри поля. */
+        padding-top: 1px;
+    }
+
+    .stack > .field > :not(label) {
+        grid-column: 2;
+    }
 }
 
 input[type="text"],
@@ -487,13 +587,35 @@ input[type="search"],
 select,
 textarea {
     width: 100%;
-    padding: 7px 11px;
+    padding: 5px 8px;
     font: inherit;
     color: var(--text);
     background: var(--surface-solid);
     border: 0.5px solid var(--hairline-strong);
     border-radius: var(--radius-control);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Поиск стоит в шапке карточки, рядом с её названием. Поля там ужимаются до
+   содержимого, а не растягиваются: растянутые они выдавливают кнопку на
+   вторую строку, и шапка становится в три раза выше самой себя. */
+.search {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search input,
+.search select {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+/* Ширина задана явно: без неё поле берёт всю свободную ширину шапки и
+   выдавливает кнопку на вторую строку. */
+.search input {
+    width: 200px;
 }
 
 input::placeholder {
@@ -521,15 +643,15 @@ textarea {
 .switch {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--pad-tight);
     cursor: pointer;
 }
 
 .switch input {
     appearance: none;
     margin: 0;
-    width: 38px;
-    height: 23px;
+    width: 32px;
+    height: 20px;
     flex: none;
     border-radius: var(--radius-capsule);
     background: var(--surface-sunken);
@@ -544,8 +666,8 @@ textarea {
     position: absolute;
     top: 1.5px;
     left: 1.5px;
-    width: 19px;
-    height: 19px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #ffffff;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -558,7 +680,7 @@ textarea {
 }
 
 .switch input:checked::after {
-    transform: translateX(15px);
+    transform: translateX(12px);
 }
 
 .switch-text {
@@ -569,6 +691,8 @@ textarea {
 
 .switch-text small {
     color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.35;
 }
 
 /* ---------------------------------------------------------------- таблицы */
@@ -578,19 +702,22 @@ textarea {
     border-collapse: collapse;
 }
 
+/* Строки таблицы плотнее прежнего почти вдвое: списки читают глазами сверху
+   вниз, и лишний воздух между строками заставляет прокручивать там, где всё
+   помещалось на экран. */
 .table th {
     text-align: left;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 590;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-tertiary);
-    padding: 10px 18px;
+    padding: var(--gap-tight) var(--pad);
     border-bottom: 0.5px solid var(--hairline);
 }
 
 .table td {
-    padding: 11px 18px;
+    padding: var(--gap-element) var(--pad);
     border-bottom: 0.5px solid var(--hairline);
     vertical-align: middle;
 }
@@ -650,9 +777,9 @@ textarea {
 
 .notice {
     display: flex;
-    gap: 12px;
+    gap: var(--pad-tight);
     align-items: flex-start;
-    padding: 12px 16px;
+    padding: var(--pad-tight) var(--pad);
     border-radius: var(--radius-card);
     border: 0.5px solid var(--hairline);
     background: var(--surface-raised);
@@ -682,16 +809,20 @@ textarea {
     margin-bottom: 2px;
 }
 
+/* Пустое место здесь осмысленное — оно говорит «тут ничего нет», — но сорок
+   точек сверху и снизу говорили это громче, чем нужно. */
 .empty {
-    padding: 40px 18px;
+    padding: 20px var(--pad);
     text-align: center;
     color: var(--text-secondary);
+    font-size: 11px;
 }
 
 .empty strong {
     display: block;
     color: var(--text);
-    margin-bottom: 4px;
+    font-size: 13px;
+    margin-bottom: 2px;
 }
 
 /* ------------------------------------------------------------------- вход */
@@ -704,11 +835,11 @@ textarea {
 }
 
 .login-card {
-    width: min(380px, 100%);
-    padding: 28px;
+    width: min(320px, 100%);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--pad);
     text-align: center;
     border-radius: var(--radius-window);
     background: var(--surface);
@@ -719,9 +850,9 @@ textarea {
 }
 
 .login-card .brand-mark {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
     margin: 0 auto;
 }
 
@@ -740,9 +871,9 @@ textarea {
 .key-reveal {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--gap-element);
     align-items: center;
-    padding: 22px;
+    padding: var(--pad);
     border-radius: var(--radius-card);
     background: var(--surface-sunken);
     border: 0.5px dashed var(--hairline-strong);
@@ -750,12 +881,250 @@ textarea {
 
 .key-value {
     font-family: var(--font-mono);
-    font-size: clamp(20px, 5vw, 30px);
+    font-size: clamp(18px, 4vw, 24px);
     font-weight: 600;
     letter-spacing: 0.06em;
     user-select: all;
     word-break: break-all;
     text-align: center;
+}
+
+/* Готовое сообщение показывается ровно так, как уедет в мессенджер: своими
+   переносами и пустыми строками. Отформатировать его «красиво» значило бы
+   показать не то, что скопируется. */
+.message {
+    margin: 0;
+    align-self: stretch;
+    max-height: 220px;
+    overflow: auto;
+    padding: var(--pad-tight) var(--pad);
+    border-radius: var(--radius-control);
+    background: var(--surface-solid);
+    border: 0.5px solid var(--hairline);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: all;
+}
+
+/* --------------------------------------------------- разделы предустановки */
+
+/* Свёрнуты намеренно, а не ради красоты: форму открывают раз в квартал, забыв
+   её устройство, и любая случайно тронутая мелочь уезжает на все машины
+   обязательным обновлением, которое сотрудник не может отложить. */
+.section > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.section > summary::-webkit-details-marker {
+    display: none;
+}
+
+.section > summary::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid var(--text-tertiary);
+    border-bottom: 1.5px solid var(--text-tertiary);
+    transform: rotate(-45deg);
+    transition: transform 0.15s ease;
+}
+
+.section[open] > summary::before {
+    transform: rotate(45deg);
+}
+
+.section[open] > summary {
+    border-bottom: 0.5px solid var(--hairline);
+}
+
+.section:not([open]) > summary {
+    border-bottom: 0;
+}
+
+.lock-mark {
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--surface-sunken);
+    border: 0.5px solid var(--hairline-strong);
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+}
+
+/* Запертое видно, но не трогается. inert, а не disabled: disabled не отправил
+   бы поля в форме вовсе, и сохранение из-под замка стёрло бы адрес АТС. */
+.locked {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0.55;
+}
+
+.changes {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.card-pending {
+    border-color: color-mix(in srgb, var(--orange) 45%, var(--hairline));
+}
+
+/* ------------------------------------------------------------------ обзор */
+
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--gap-section);
+}
+
+.tile {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: var(--pad);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+    border: 0.5px solid var(--hairline);
+    box-shadow: var(--shadow-soft), inset 0 0.5px 0 var(--highlight);
+    color: inherit;
+    text-decoration: none;
+}
+
+a.tile:hover {
+    border-color: var(--hairline-strong);
+}
+
+.tile-value {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.tile-name {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.tile-note {
+    margin-top: var(--gap-tight);
+    color: var(--text-tertiary);
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.ends {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.end {
+    display: flex;
+    gap: var(--pad-tight);
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding: var(--gap-element) var(--pad);
+    border-bottom: 0.5px solid var(--hairline);
+    font-size: 12px;
+}
+
+.end:last-child {
+    border-bottom: 0;
+}
+
+/* Цветная метка слева, а не значок: три вида дел, и различать их надо боковым
+   зрением, пролистывая список. */
+.end {
+    border-left: 3px solid transparent;
+}
+
+.end-preset { border-left-color: var(--accent); }
+.end-key { border-left-color: var(--orange); }
+.end-employee { border-left-color: var(--red); }
+
+/* Инструкции свёрнуты: их четыре, читают по одной, и развёрнутые они делают
+   экран длиннее того, ради чего его открыли. */
+.howto {
+    border-top: 0.5px solid var(--hairline);
+    padding-top: var(--pad-tight);
+}
+
+.howto:first-of-type {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.howto > summary {
+    cursor: pointer;
+    font-weight: 590;
+}
+
+.howto ol,
+.howto p {
+    margin: var(--gap-element) 0 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.howto ol {
+    padding-left: 20px;
+}
+
+/* ------------------------------------------------------------------- окна */
+
+/* Подтверждение с длинными последствиями. window.confirm сюда не годится:
+   он показывает одну строку без списка и без выделения главного. */
+.sheet {
+    width: min(420px, calc(100vw - 32px));
+    padding: var(--pad);
+    border: 0.5px solid var(--hairline-strong);
+    border-radius: var(--radius-window);
+    background: var(--surface-solid);
+    color: var(--text);
+    box-shadow: var(--shadow-soft);
+}
+
+.sheet::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.sheet h2 {
+    margin: 0 0 var(--pad-tight);
+}
+
+.sheet p {
+    margin: 0 0 var(--gap-element);
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.sheet ul {
+    margin: 0 0 var(--pad-tight);
+    padding-left: 18px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.sheet-actions {
+    display: flex;
+    gap: var(--gap-element);
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: var(--pad);
 }
 
 /* ------------------------------------------------------------- адаптивность */

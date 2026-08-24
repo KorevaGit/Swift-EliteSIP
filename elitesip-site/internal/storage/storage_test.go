@@ -21,9 +21,8 @@ func TestOpenCreatesSchema(t *testing.T) {
 	db := openTemp(t)
 
 	want := []string{
-		"admins", "sessions", "numbers", "employees", "number_assignments",
-		"presets", "preset_revisions", "activations", "checkins",
-		"worker_log_cursor", "audit_log",
+		"admins", "sessions", "employees",
+		"presets", "preset_revisions", "activations", "checkins", "audit_log",
 	}
 	for _, table := range want {
 		var name string
@@ -80,96 +79,20 @@ func TestOpenRefusesNewerSchema(t *testing.T) {
 	}
 }
 
-// Два действующих владельца одного номера — это двое, снимающих звонки друг
-// друга. Правило держит база, и проверяется оно здесь.
-func TestNumberHasSingleHolder(t *testing.T) {
-	db := openTemp(t)
-	seedTwoEmployeesOneNumber(t, db)
-
-	_, err := db.Exec(`INSERT INTO number_assignments
-		(number_id, employee_id, assigned_at) VALUES (1, 1, '2026-08-24T10:00:00Z')`)
-	if err != nil {
-		t.Fatalf("первое назначение: %v", err)
-	}
-
-	_, err = db.Exec(`INSERT INTO number_assignments
-		(number_id, employee_id, assigned_at) VALUES (1, 2, '2026-08-24T11:00:00Z')`)
-	if err == nil {
-		t.Fatal("номер достался двоим одновременно")
-	}
-}
-
-// Передача номера новому сотруднику после освобождения проходить обязана —
-// иначе правило выше запрещало бы не двойное владение, а саму передачу.
-func TestNumberCanBeHandedOver(t *testing.T) {
-	db := openTemp(t)
-	seedTwoEmployeesOneNumber(t, db)
-
-	if _, err := db.Exec(`INSERT INTO number_assignments
-		(number_id, employee_id, assigned_at, released_at)
-		VALUES (1, 1, '2026-03-01T10:00:00Z', '2026-08-01T10:00:00Z')`); err != nil {
-		t.Fatalf("прошлое назначение: %v", err)
-	}
-	if _, err := db.Exec(`INSERT INTO number_assignments
-		(number_id, employee_id, assigned_at) VALUES (1, 2, '2026-08-24T10:00:00Z')`); err != nil {
-		t.Fatalf("передача номера: %v", err)
-	}
-
-	var holder int
-	err := db.QueryRow(`SELECT employee_id FROM number_assignments
-		WHERE number_id = 1 AND released_at IS NULL`).Scan(&holder)
-	if err != nil {
-		t.Fatalf("действующий владелец: %v", err)
-	}
-	if holder != 2 {
-		t.Errorf("номер у сотрудника %d, ожидался 2", holder)
-	}
-}
-
-// У сотрудника один действующий номер — обратная половина того же правила.
-func TestEmployeeHasSingleNumber(t *testing.T) {
-	db := openTemp(t)
-	seedTwoEmployeesOneNumber(t, db)
-
-	if _, err := db.Exec(`INSERT INTO numbers (id, number, sip_password, created_at)
-		VALUES (2, '173', 'secret-173', '2026-08-24T09:00:00Z')`); err != nil {
-		t.Fatalf("второй номер: %v", err)
-	}
-	if _, err := db.Exec(`INSERT INTO number_assignments
-		(number_id, employee_id, assigned_at) VALUES (1, 1, '2026-08-24T10:00:00Z')`); err != nil {
-		t.Fatalf("первое назначение: %v", err)
-	}
-
-	_, err := db.Exec(`INSERT INTO number_assignments
-		(number_id, employee_id, assigned_at) VALUES (2, 1, '2026-08-24T11:00:00Z')`)
-	if err == nil {
-		t.Fatal("у сотрудника оказалось два действующих номера")
-	}
-}
-
-// Ссылочная целостность включена: назначение несуществующему сотруднику
-// должно отвергаться базой, а не обнаруживаться потом пустым экраном.
+// Ссылочная целостность включена: активация несуществующему сотруднику должна
+// отвергаться базой, а не обнаруживаться потом пустым экраном.
 func TestForeignKeysAreEnforced(t *testing.T) {
 	db := openTemp(t)
-	seedTwoEmployeesOneNumber(t, db)
 
-	_, err := db.Exec(`INSERT INTO number_assignments
-		(number_id, employee_id, assigned_at) VALUES (1, 99, '2026-08-24T10:00:00Z')`)
+	if _, err := db.Exec(`INSERT INTO presets (id, public_id, name, created_at)
+		VALUES (1, '6D1F5A20-0000-4000-8000-000000000001', 'Менеджер', '2026-08-24T09:00:00Z')`); err != nil {
+		t.Fatalf("предустановка: %v", err)
+	}
+
+	_, err := db.Exec(`INSERT INTO activations
+		(employee_id, preset_id, key_hash, key_prefix, object_key, installation_id, issued_at, expires_at)
+		VALUES (99, 1, 'hash', 'K7M2', 'obj', 'inst', '2026-08-24T09:00:00Z', '2026-08-26T09:00:00Z')`)
 	if err == nil {
-		t.Fatal("назначение несуществующему сотруднику прошло")
-	}
-}
-
-func seedTwoEmployeesOneNumber(t *testing.T, db *DB) {
-	t.Helper()
-
-	if _, err := db.Exec(`INSERT INTO numbers (id, number, sip_password, created_at)
-		VALUES (1, '172', 'secret-172', '2026-08-24T09:00:00Z')`); err != nil {
-		t.Fatalf("номер: %v", err)
-	}
-	if _, err := db.Exec(`INSERT INTO employees (id, name, created_at) VALUES
-		(1, 'Первый', '2026-08-24T09:00:00Z'),
-		(2, 'Второй', '2026-08-24T09:00:00Z')`); err != nil {
-		t.Fatalf("сотрудники: %v", err)
+		t.Fatal("активация несуществующему сотруднику прошла")
 	}
 }

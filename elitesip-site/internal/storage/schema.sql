@@ -54,58 +54,43 @@ CREATE TABLE sessions (
 CREATE INDEX sessions_by_admin ON sessions(admin_id);
 
 -- --------------------------------------------------------------------------
--- Номера
+-- Сотрудники
 -- --------------------------------------------------------------------------
 
--- Номер — отдельная сущность, а не поле сотрудника: он переживает человека.
--- Уволился один, номер отдали другому — и вопрос «кто сидел на 172 в марте»
--- должен иметь ответ.
+-- Единица учёта, и единственная: номер и SIP-пароль — её поля.
+--
+-- Отдельной сущностью номер был до разбора 24 августа 2026 и стоил двух таблиц
+-- с историей назначений. Отменён вместе с увольнением: сотрудник больше не
+-- гасится, а удаляется целиком, и переживать номеру нечего. Ответ на «кто
+-- сидел на 172 в прошлый вторник» остаётся в журнале — удаление пишет туда имя
+-- и номер, и это единственное место, где они переживают карточку.
+--
+-- Ключ выписывается на человека, машин у человека может быть несколько — см.
+-- activations.
 --
 -- SIP-пароль лежит открытым текстом. Это принятое решение, а не недосмотр:
 -- сервер стоит внутри и наружу не открыт. Цена записана в DECISIONS.md и
 -- обязывает шифровать выгрузку бэкапа — там же.
-CREATE TABLE numbers (
-    id           INTEGER PRIMARY KEY,
-    number       TEXT    NOT NULL UNIQUE,
-    sip_password TEXT    NOT NULL,
-    label        TEXT    NOT NULL DEFAULT '',
-    created_at   TEXT    NOT NULL,
-    retired_at   TEXT
-);
-
--- --------------------------------------------------------------------------
--- Сотрудники
--- --------------------------------------------------------------------------
-
--- Единица учёта. Ключ выписывается на человека, машин у человека может быть
--- несколько — см. activations.
 CREATE TABLE employees (
     id           INTEGER PRIMARY KEY,
     name         TEXT    NOT NULL,
+
+    -- Пустыми они бывают: человека заводят и до того, как на АТС подняли пир.
+    -- Такой сотрудник виден на обзоре незакрытым хвостом, а ключ ему не
+    -- выпускается.
+    number       TEXT    NOT NULL DEFAULT '',
+    sip_password TEXT    NOT NULL DEFAULT '',
+
     preset_id    INTEGER REFERENCES presets(id),
-    created_at   TEXT    NOT NULL,
-    dismissed_at TEXT
+    created_at   TEXT    NOT NULL
 );
 
--- Назначение номера — история, а не поле в employees.
+-- Двое на одном добавочном — это двое, снимающих звонки друг друга, и заметно
+-- это будет не сразу. Правило держит база, а не код.
 --
--- Полем оно было бы дешевле ровно до первой передачи номера: перезапись
--- стирает предыдущего владельца, и восстановить его потом неоткуда.
-CREATE TABLE number_assignments (
-    id          INTEGER PRIMARY KEY,
-    number_id   INTEGER NOT NULL REFERENCES numbers(id),
-    employee_id INTEGER NOT NULL REFERENCES employees(id),
-    assigned_at TEXT    NOT NULL,
-    released_at TEXT
-);
-
--- У номера один действующий владелец, у сотрудника один действующий номер.
--- Оба правила держит база, а не код: два человека на одном добавочном — это
--- двое, снимающих звонки друг друга, и заметно это будет не сразу.
-CREATE UNIQUE INDEX numbers_single_holder
-    ON number_assignments(number_id) WHERE released_at IS NULL;
-CREATE UNIQUE INDEX employees_single_number
-    ON number_assignments(employee_id) WHERE released_at IS NULL;
+-- Индекс частичный, потому что незаполненных номеров может быть сколько
+-- угодно: пустая строка означает «ещё не завели», а не значение.
+CREATE UNIQUE INDEX employees_single_number ON employees(number) WHERE number <> '';
 
 -- --------------------------------------------------------------------------
 -- Предустановки
@@ -162,7 +147,7 @@ CREATE TABLE preset_revisions (
 -- --------------------------------------------------------------------------
 
 -- Активация — это машина. Отдельной сущности «рабочее место» нет: машина
--- существует ровно как активация сотрудника.
+-- существует ровно как активация сотрудника — и исчезает вместе с ним.
 --
 -- Самого ключа здесь нет и быть не может: он же служит ключом расшифровки
 -- пакета на R2, и хранить его рядом с адресом шифротекста значило бы держать
@@ -170,7 +155,10 @@ CREATE TABLE preset_revisions (
 -- выпускается новый.
 CREATE TABLE activations (
     id              INTEGER PRIMARY KEY,
-    employee_id     INTEGER NOT NULL REFERENCES employees(id),
+    -- Каскад, потому что сотрудник теперь удаляется целиком: активация без
+    -- человека — это строка, на которую некому смотреть, а её installation_id
+    -- панель после удаления встречает в журнале Worker'а и молча пропускает.
+    employee_id     INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     preset_id       INTEGER NOT NULL REFERENCES presets(id),
 
     key_hash        TEXT    NOT NULL UNIQUE,
@@ -207,23 +195,21 @@ CREATE INDEX activations_by_employee ON activations(employee_id);
 
 -- Что панель знает о живых рабочих местах.
 --
--- Всё это приходит из журнала Worker'а, раздающего файл предустановок, а не от
--- приложения. Больше узнать нечего, не заводя канал, которого мы сознательно
--- не завели.
+-- Всё это приходит из отметок, которые Worker оставляет в бакете, раздавая
+-- файл предустановок, а не от приложения. Больше узнать нечего, не заводя
+-- канал, которого мы сознательно не завели.
+--
+-- Своей таблицы под «докуда разобрано» нет намеренно: отметки — это состояние,
+-- а не череда событий. Забранный пакет виден по пустому fetched_at, а отметка
+-- машины перезаписывается целиком, и перечитать её лишний раз ничего не стоит.
 CREATE TABLE checkins (
-    installation_id TEXT    PRIMARY KEY REFERENCES activations(installation_id),
+    installation_id TEXT    PRIMARY KEY REFERENCES activations(installation_id) ON DELETE CASCADE,
     last_seen_at    TEXT    NOT NULL,
     app_version     TEXT    NOT NULL DEFAULT '',
     -- Версия схемы AppSettings у машины. По ней видно, кто отстал настолько,
     -- что новые поля предустановки до него не доезжают.
     schema_version  INTEGER,
     preset_revision INTEGER
-);
-
--- Докуда разобран журнал Worker'а, чтобы не тянуть его с начала времён.
-CREATE TABLE worker_log_cursor (
-    id     INTEGER PRIMARY KEY CHECK (id = 1),
-    cursor TEXT NOT NULL DEFAULT ''
 );
 
 -- --------------------------------------------------------------------------
