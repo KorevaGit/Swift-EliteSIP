@@ -1,0 +1,87 @@
+{{define "content"}}
+{{$data := .Data}}
+<div class="toolbar">
+    <div class="toolbar-title">
+        <h1>Сотрудники</h1>
+        <p>Ключ выписывается на человека. Машин у человека может быть несколько.</p>
+    </div>
+    {{if $data.ShowGone}}
+        <a class="button" href="/employees">Только работающие</a>
+    {{else}}
+        <a class="button" href="/employees?all=1">Показать уволенных</a>
+    {{end}}
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Завести сотрудника</h2></div>
+    <div class="card-body">
+        <form method="post" action="/employees" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+            <div class="field" style="flex:2 1 220px;">
+                <label for="name">Имя</label>
+                <input id="name" name="name" type="text" placeholder="Пётр Смирнов" required>
+            </div>
+            <div class="field" style="flex:1 1 180px;">
+                <label for="preset_id">Предустановка</label>
+                <select id="preset_id" name="preset_id">
+                    <option value="">не выбрана</option>
+                    {{range $data.Presets}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+                </select>
+            </div>
+            <button type="submit" class="button button-primary">Завести</button>
+        </form>
+        {{if not $data.Presets}}
+        <p class="card-note">
+            Предустановок пока нет. Ключ без предустановки не выпускается —
+            заведите её в разделе «Предустановки».
+        </p>
+        {{end}}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Список</h2></div>
+    {{if $data.Employees}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Сотрудник</th>
+                <th>Номер</th>
+                <th>Предустановка</th>
+                <th>Состояние</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range $data.Employees}}
+            <tr>
+                <td data-label="Сотрудник" class="primary-cell">
+                    <a href="/employees/{{.ID}}">{{.Name}}</a>
+                </td>
+                <td data-label="Номер">
+                    {{if .Number}}<span class="mono">{{.Number}}</span>{{else}}<span class="sub">не закреплён</span>{{end}}
+                </td>
+                <td data-label="Предустановка">
+                    {{if .PresetName}}{{.PresetName}}{{else}}<span class="sub">не выбрана</span>{{end}}
+                </td>
+                <td data-label="Состояние">
+                    {{if .DismissedAt}}
+                        <span class="badge badge-off">уволен {{day .DismissedAt}}</span>
+                    {{else}}
+                        <span class="badge badge-ok">работает</span>
+                    {{end}}
+                </td>
+                <td class="cell-actions">
+                    <a class="button" href="/employees/{{.ID}}">Открыть</a>
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty">
+        <strong>Пока никого</strong>
+        Заведите сотрудника, назначьте ему номер и предустановку — и выпустите ключ.
+    </div>
+    {{end}}
+</div>
+{{end}}

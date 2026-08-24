@@ -1,0 +1,300 @@
+// Package web — интерфейс панели.
+//
+// Серверный HTML без сборки фронта: шаблоны и один файл оформления вшиты в
+// бинарник. Панель ставят на сервер, куда не ходят месяцами, и второй способ
+// собрать её означал бы второй способ её сломать.
+package web
+
+import (
+	"context"
+	"embed"
+	"errors"
+	"fmt"
+	"html/template"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/koreva/elitesip-site/internal/model"
+	"github.com/koreva/elitesip-site/internal/panel"
+	"github.com/koreva/elitesip-site/internal/storage"
+)
+
+//go:embed templates/*.html
+var templateFS embed.FS
+
+//go:embed static/*
+var staticFS embed.FS
+
+const sessionCookie = "elitesip_session"
+
+// Server — панель целиком.
+type Server struct {
+	DB        *storage.DB
+	Issuer    *panel.Issuer
+	Publisher *panel.BundlePublisher
+
+	templates map[string]*template.Template
+	flashes   flashStore
+}
+
+// New собирает панель и разбирает шаблоны.
+//
+// Шаблоны разбираются при запуске, а не при первом показе: ошибка в шаблоне
+// должна ронять запуск, а не тот единственный экран, который откроют в
+// неудачный момент.
+func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher) (*Server, error) {
+	s := &Server{DB: db, Issuer: issuer, Publisher: publisher}
+	if err := s.parseTemplates(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+var pages = []string{
+	"login", "setup", "employees", "employee",
+	"numbers", "presets", "preset", "audit", "settings",
+}
+
+func (s *Server) parseTemplates() error {
+	s.templates = make(map[string]*template.Template, len(pages))
+
+	for _, name := range pages {
+		t, err := template.New("base.html").Funcs(templateFuncs).
+			ParseFS(templateFS, "templates/base.html", "templates/"+name+".html")
+		if err != nil {
+			return fmt.Errorf("разобрать шаблон %s: %w", name, err)
+		}
+		s.templates[name] = t
+	}
+	return nil
+}
+
+// Handler собирает маршруты.
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+
+	mux.Handle("GET /static/", http.FileServerFS(staticFS))
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprintln(w, "ok")
+	})
+
+	mux.HandleFunc("GET /login", s.showLogin)
+	mux.HandleFunc("POST /login", s.doLogin)
+	mux.HandleFunc("POST /logout", s.doLogout)
+	mux.HandleFunc("GET /setup", s.showSetup)
+	mux.HandleFunc("POST /setup", s.doSetup)
+
+	mux.Handle("GET /{$}", s.guard(s.redirectHome))
+	mux.Handle("GET /employees", s.guard(s.showEmployees))
+	mux.Handle("POST /employees", s.guard(s.createEmployee))
+	mux.Handle("GET /employees/{id}", s.guard(s.showEmployee))
+	mux.Handle("POST /employees/{id}/preset", s.guard(s.setEmployeePreset))
+	mux.Handle("POST /employees/{id}/number", s.guard(s.setEmployeeNumber))
+	mux.Handle("POST /employees/{id}/dismiss", s.guard(s.dismissEmployee))
+	mux.Handle("POST /employees/{id}/issue", s.guard(s.issueKey))
+	mux.Handle("POST /activations/{id}/revoke", s.guard(s.revokeActivation))
+
+	mux.Handle("GET /numbers", s.guard(s.showNumbers))
+	mux.Handle("POST /numbers", s.guard(s.createNumber))
+	mux.Handle("POST /numbers/{id}/password", s.guard(s.setNumberPassword))
+	mux.Handle("POST /numbers/{id}/retire", s.guard(s.retireNumber))
+
+	mux.Handle("GET /presets", s.guard(s.showPresets))
+	mux.Handle("POST /presets", s.guard(s.createPreset))
+	mux.Handle("GET /presets/{id}", s.guard(s.showPreset))
+	mux.Handle("POST /presets/{id}", s.guard(s.savePreset))
+	mux.Handle("POST /publish", s.guard(s.publish))
+
+	mux.Handle("GET /audit", s.guard(s.showAudit))
+	mux.Handle("GET /settings", s.guard(s.showSettings))
+	mux.Handle("POST /settings", s.guard(s.saveSettings))
+
+	return mux
+}
+
+// ---------------------------------------------------------------- контекст
+
+type contextKey string
+
+const adminKey contextKey = "admin"
+
+// guard пускает дальше только вошедших.
+func (s *Server) guard(next func(http.ResponseWriter, *http.Request, model.Admin)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(sessionCookie)
+		if err != nil {
+			s.sendToLogin(w, r)
+			return
+		}
+
+		admin, err := s.DB.AdminBySession(r.Context(), cookie.Value)
+		if err != nil {
+			// Кука осталась от истёкшего или оборванного сеанса — убираем её,
+			// иначе браузер будет слать её до конца времён.
+			http.SetCookie(w, expiredCookie())
+			s.sendToLogin(w, r)
+			return
+		}
+		next(w, r.WithContext(context.WithValue(r.Context(), adminKey, admin)), admin)
+	})
+}
+
+func (s *Server) sendToLogin(w http.ResponseWriter, r *http.Request) {
+	count, err := s.DB.AdminCount(r.Context())
+	if err == nil && count == 0 {
+		// Панель без администраторов должна предложить завести первого, а не
+		// показать форму входа, в которую нечего вводить.
+		http.Redirect(w, r, "/setup", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func (s *Server) redirectHome(w http.ResponseWriter, r *http.Request, _ model.Admin) {
+	http.Redirect(w, r, "/employees", http.StatusSeeOther)
+}
+
+// ------------------------------------------------------------------ сообщения
+
+// Flash — сообщение, которое показывается один раз после действия.
+type Flash struct {
+	Kind    string // ok, warn, bad
+	Title   string
+	Text    string
+	KeyOnce string // выданный ключ: показывается ровно один раз
+}
+
+// flashStore держит сообщения в памяти.
+//
+// В памяти, а не в адресе страницы, и вот главная причина: сюда попадает
+// выданный ключ активации, а адрес оседает в истории браузера, в журнале
+// обратного прокси и в закладках. Панель на одну контору, перезапуск теряет
+// разве что непрочитанное «сохранено» — цена, которую можно назвать вслух.
+type flashStore struct {
+	mu   sync.Mutex
+	byID map[string][]Flash
+}
+
+func (f *flashStore) add(token string, flash Flash) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.byID == nil {
+		f.byID = make(map[string][]Flash)
+	}
+	f.byID[token] = append(f.byID[token], flash)
+}
+
+func (f *flashStore) take(token string) []Flash {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	out := f.byID[token]
+	delete(f.byID, token)
+	return out
+}
+
+func (s *Server) flash(r *http.Request, kind, title, text string) {
+	if cookie, err := r.Cookie(sessionCookie); err == nil {
+		s.flashes.add(cookie.Value, Flash{Kind: kind, Title: title, Text: text})
+	}
+}
+
+// flashTo кладёт сообщение по токену, которого в запросе ещё нет.
+//
+// Нужен ровно там, где сеанс заводится в этом же ответе: кука уходит вместе с
+// перенаправлением, и прочитать её из запроса нельзя — она в нём ещё не
+// приходила. Первая же живая проверка нашла это именно так: сообщение о том,
+// что надо задать пароль конторы, не показывалось после первого входа.
+func (s *Server) flashTo(token, kind, title, text string) {
+	s.flashes.add(token, Flash{Kind: kind, Title: title, Text: text})
+}
+
+func (s *Server) flashKey(r *http.Request, key, text string) {
+	if cookie, err := r.Cookie(sessionCookie); err == nil {
+		s.flashes.add(cookie.Value, Flash{
+			Kind: "ok", Title: "Ключ выпущен", Text: text, KeyOnce: key,
+		})
+	}
+}
+
+// ------------------------------------------------------------------- показ
+
+// page — общее для всех страниц.
+type page struct {
+	Title   string
+	Section string
+	Admin   model.Admin
+	Flashes []Flash
+	Data    any
+}
+
+func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p page) {
+	if cookie, err := r.Cookie(sessionCookie); err == nil {
+		p.Flashes = s.flashes.take(cookie.Value)
+	}
+
+	t, ok := s.templates[name]
+	if !ok {
+		s.fail(w, fmt.Errorf("шаблона %q нет", name))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := t.Execute(w, p); err != nil {
+		// Заголовки уже ушли, поэтому подменить ответ нечем: пишем в журнал и
+		// оставляем страницу оборванной — это заметнее, чем тихая пустота.
+		fmt.Printf("панель: показать %s: %v\n", name, err)
+	}
+}
+
+func (s *Server) fail(w http.ResponseWriter, err error) {
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+}
+
+// back возвращает на страницу, с которой пришли.
+func (s *Server) back(w http.ResponseWriter, r *http.Request, fallback string) {
+	target := r.Header.Get("Referer")
+	if target == "" || !strings.HasPrefix(target, "/") {
+		// Referer приходит полным адресом или не приходит вовсе, а доверять
+		// чужому адресу нельзя: это открытый редирект.
+		target = fallback
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
+}
+
+func pathID(r *http.Request) (int64, error) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		return 0, errors.New("непонятный идентификатор в адресе")
+	}
+	return id, nil
+}
+
+func expiredCookie() *http.Cookie {
+	return &http.Cookie{
+		Name:     sessionCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func sessionCookieFor(token string) *http.Cookie {
+	return &http.Cookie{
+		Name:  sessionCookie,
+		Value: token,
+		Path:  "/",
+		// Secure не ставится: панель живёт внутри сети и открывается по http.
+		// Поставленный флаг просто выключил бы вход, а не добавил защиты.
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(storage.SessionLifetime / time.Second),
+	}
+}

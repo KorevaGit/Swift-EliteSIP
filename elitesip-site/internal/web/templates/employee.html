@@ -1,0 +1,144 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="toolbar">
+    <div class="toolbar-title">
+        <h1>{{$d.Employee.Name}}</h1>
+        <p>
+            {{if $d.Employee.DismissedAt}}Уволен {{day $d.Employee.DismissedAt}}
+            {{else}}Работает с {{day $d.Employee.CreatedAt}}{{end}}
+        </p>
+    </div>
+    <a class="button" href="/employees">К списку</a>
+    {{if not $d.Employee.DismissedAt}}
+    <form method="post" action="/employees/{{$d.Employee.ID}}/dismiss">
+        <button type="submit" class="button button-danger"
+                data-confirm="Уволить {{$d.Employee.Name}}? Номер освободится, активации будут отозваны. Машина продолжит работать, пока на АТС не сменят SIP-пароль пира.">
+            Уволить
+        </button>
+    </form>
+    {{end}}
+</div>
+
+<div class="grid">
+    <div class="card">
+        <div class="card-head"><h2>Рабочее место</h2></div>
+        <div class="card-body">
+            <form method="post" action="/employees/{{$d.Employee.ID}}/number" class="field">
+                <label for="number_id">Номер</label>
+                <div style="display:flex; gap:8px;">
+                    <select id="number_id" name="number_id">
+                        <option value="">не закреплён</option>
+                        {{range $d.FreeNumbers}}
+                        <option value="{{.ID}}" {{if and (hasValue $d.NumberID) (eq (deref $d.NumberID) .ID)}}selected{{end}}>
+                            {{.Number}}{{if .Label}} — {{.Label}}{{end}}
+                        </option>
+                        {{end}}
+                    </select>
+                    <button type="submit" class="button">Сохранить</button>
+                </div>
+                <span class="field-hint">
+                    В списке только свободные номера. Занятый номер отбирается у прежнего владельца вручную —
+                    за ним стоит человек, который прямо сейчас снимает по нему звонки.
+                </span>
+            </form>
+
+            <form method="post" action="/employees/{{$d.Employee.ID}}/preset" class="field">
+                <label for="preset_id">Предустановка</label>
+                <div style="display:flex; gap:8px;">
+                    <select id="preset_id" name="preset_id">
+                        <option value="">не выбрана</option>
+                        {{range $d.Presets}}
+                        <option value="{{.ID}}" {{if eq .Name $d.PresetName}}selected{{end}}>{{.Name}}</option>
+                        {{end}}
+                    </select>
+                    <button type="submit" class="button">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head"><h2>Выпустить ключ</h2></div>
+        <div class="card-body">
+            {{if $d.Ready}}
+                <p class="card-note">
+                    Ключ соберёт пакет — номер, SIP-пароль, административный пароль конторы и предустановку, —
+                    зашифрует его и выложит наружу. Показан он будет один раз.
+                </p>
+                <form method="post" action="/employees/{{$d.Employee.ID}}/issue"
+                      style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+                    <div class="field" style="flex:1 1 180px;">
+                        <label for="note">Для какой машины</label>
+                        <input id="note" name="note" type="text" placeholder="рабочий ноутбук, домашний">
+                    </div>
+                    <button type="submit" class="button button-primary">Выпустить</button>
+                </form>
+            {{else}}
+                <div class="notice notice-warn">
+                    <p><strong>Ключ выпустить нельзя</strong>{{$d.Blocker}}</p>
+                </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Машины</h2>
+        <span class="sub">{{len $d.Activations}} {{plural (len $d.Activations) "активация" "активации" "активаций"}}</span>
+    </div>
+    {{if $d.Activations}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Ключ</th>
+                <th>Для чего</th>
+                <th>Выпущен</th>
+                <th>Состояние</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range $d.Activations}}
+            <tr>
+                <td data-label="Ключ" class="mono primary-cell">{{.KeyPrefix}}…</td>
+                <td data-label="Для чего">{{if .Note}}{{.Note}}{{else}}<span class="sub">—</span>{{end}}</td>
+                <td data-label="Выпущен">
+                    {{moment .IssuedAt}}<br>
+                    <span class="sub">
+                        {{if eq (printf "%s" .State) "ожидает"}}годен ещё {{remaining .ExpiresAt}}{{else}}срок до {{moment .ExpiresAt}}{{end}}
+                    </span>
+                </td>
+                <td data-label="Состояние">
+                    {{if eq (printf "%s" .State) "активировано"}}
+                        <span class="badge badge-ok">активировано</span>
+                    {{else if eq (printf "%s" .State) "ожидает"}}
+                        <span class="badge badge-wait">ждёт активации</span>
+                    {{else if eq (printf "%s" .State) "просрочено"}}
+                        <span class="badge badge-off">просрочено</span>
+                    {{else}}
+                        <span class="badge badge-bad">отозвано</span>
+                    {{end}}
+                </td>
+                <td class="cell-actions">
+                    {{if not .RevokedAt}}
+                    <form method="post" action="/activations/{{.ID}}/revoke" style="display:inline;">
+                        <button type="submit" class="button button-danger"
+                                data-confirm="Отозвать активацию? Это учётная запись: машина продолжит работать, пока на АТС не сменят SIP-пароль пира.">
+                            Отозвать
+                        </button>
+                    </form>
+                    {{end}}
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty">
+        <strong>Ключей не выпускалось</strong>
+        Как только сотруднику назначены номер и предустановка, можно выпустить первый.
+    </div>
+    {{end}}
+</div>
+{{end}}

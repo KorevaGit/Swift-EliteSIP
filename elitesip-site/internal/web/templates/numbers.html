@@ -1,0 +1,85 @@
+{{define "content"}}
+<div class="toolbar">
+    <div class="toolbar-title">
+        <h1>Номера</h1>
+        <p>Пир на АТС заводится отдельно. Панель только хранит выданную пару и отдаёт её машине.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Завести номер</h2></div>
+    <div class="card-body">
+        <form method="post" action="/numbers" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+            <div class="field" style="flex:1 1 120px;">
+                <label for="number">Номер</label>
+                <input id="number" name="number" type="text" class="mono" placeholder="172" required>
+            </div>
+            <div class="field" style="flex:2 1 200px;">
+                <label for="sip_password">SIP-пароль</label>
+                <input id="sip_password" name="sip_password" type="text" class="mono" required>
+            </div>
+            <div class="field" style="flex:1 1 160px;">
+                <label for="label">Пометка</label>
+                <input id="label" name="label" type="text" placeholder="первая линия">
+            </div>
+            <button type="submit" class="button button-primary">Завести</button>
+        </form>
+        <p class="card-note">
+            Пароль виден в открытую и здесь, и в базе — панель обязана отдать его машине при активации.
+            Поэтому она и стоит внутри сети. Бэкап базы шифруйте.
+        </p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Список</h2></div>
+    {{if .Data}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Номер</th>
+                <th>За кем</th>
+                <th>SIP-пароль</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range .Data}}
+            <tr>
+                <td data-label="Номер" class="primary-cell mono">
+                    {{.Number}}
+                    {{if .Label}}<br><span class="sub" style="font-family:var(--font)">{{.Label}}</span>{{end}}
+                </td>
+                <td data-label="За кем">
+                    {{if .HolderID}}
+                        <a href="/employees/{{.HolderID}}">{{.HolderName}}</a>
+                    {{else}}
+                        <span class="badge badge-plain">свободен</span>
+                    {{end}}
+                </td>
+                <td data-label="SIP-пароль">
+                    <form method="post" action="/numbers/{{.ID}}/password" style="display:flex; gap:6px;">
+                        <input name="sip_password" type="text" class="mono" value="{{.SIPPassword}}" style="max-width:220px;">
+                        <button type="submit" class="button">Записать</button>
+                    </form>
+                </td>
+                <td class="cell-actions">
+                    <form method="post" action="/numbers/{{.ID}}/retire" style="display:inline;">
+                        <button type="submit" class="button button-danger"
+                                data-confirm="Вывести номер {{.Number}} из обращения? Он освободится и перестанет выдаваться.">
+                            Вывести
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty">
+        <strong>Номеров нет</strong>
+        Заведите первый — номер и SIP-пароль берутся с АТС как есть.
+    </div>
+    {{end}}
+</div>
+{{end}}

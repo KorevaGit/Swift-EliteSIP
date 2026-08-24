@@ -1,0 +1,361 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$f := $d.Fields}}
+<div class="toolbar">
+    <div class="toolbar-title">
+        <h1>{{$d.Preset.Name}}</h1>
+        <p>
+            {{if $d.HasSaved}}
+                Ревизия {{$d.Revision.Revision}} от {{moment $d.Revision.CreatedAt}} ·
+                {{if $d.Revision.Published}}выложена{{else}}не выложена{{end}}
+            {{else}}
+                Ревизий ещё нет — показаны заводские значения
+            {{end}}
+        </p>
+    </div>
+    <a class="button" href="/presets">К списку</a>
+    <button type="submit" form="preset-form" class="button button-primary">Сохранить ревизию</button>
+</div>
+
+{{range $d.Problems}}
+<div class="notice notice-bad"><p>{{.}}</p></div>
+{{end}}
+
+<form id="preset-form" method="post" action="/presets/{{$d.Preset.ID}}" style="display:flex; flex-direction:column; gap:16px;">
+
+<div class="card">
+    <div class="card-head"><h2>Клавиши DTMF</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Раскладку задаёт администратор, а не менеджер: кнопка перевода, уехавшая на другое место, —
+            это набранный не тот код, и разбирать такой звонок будет уже не тот, кто её двигал.
+        </p>
+
+        <div data-list="macro" style="display:flex; flex-direction:column; gap:10px;">
+            {{range $i, $m := $f.DTMF.Macros}}
+            <div data-row style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:10px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+                <input type="hidden" name="macroIndex" value="{{$i}}">
+                <input type="hidden" name="macroID_{{$i}}" value="{{$m.ID}}">
+                <div class="field" style="flex:1 1 160px;">
+                    <label>Подпись</label>
+                    <input name="macroTitle_{{$i}}" type="text" value="{{$m.Title}}" placeholder="ЮРИСТ">
+                </div>
+                <div class="field" style="flex:1 1 140px;">
+                    <label>Набор</label>
+                    <input name="macroSequence_{{$i}}" type="text" class="mono" value="{{$m.Sequence}}" placeholder="*02,101">
+                </div>
+                <label class="switch" style="flex:1 1 200px;">
+                    <input type="hidden" name="macroTransfers_{{$i}}" value="0">
+                    <input type="checkbox" name="macroTransfers_{{$i}}" value="1" {{if $m.TransfersCall}}checked{{end}}>
+                    <span class="switch-text">Уводит звонок<small>идёт в историю как перевод</small></span>
+                </label>
+                <button type="button" class="button button-danger" data-remove>Убрать</button>
+            </div>
+            {{end}}
+        </div>
+
+        <button type="button" class="button" data-add="macro">Добавить клавишу</button>
+        <span class="field-hint">Не больше восемнадцати: высота панели выведена из числа клавиш и обязана оставаться постоянной.</span>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 120px;">
+                <label for="macroColumns">Клавиш в ряду</label>
+                <input id="macroColumns" name="macroColumns" type="number" min="1" max="4" value="{{$f.DTMF.MacroColumns}}">
+                <span class="field-hint">1–4</span>
+            </div>
+            <div class="field" style="flex:1 1 120px;">
+                <label for="macroHeight">Высота клавиши</label>
+                <input id="macroHeight" name="macroHeight" type="number" min="44" max="96" value="{{$f.DTMF.MacroHeight}}">
+                <span class="field-hint">44–96 точек</span>
+            </div>
+            <label class="switch" style="flex:1 1 220px; align-self:flex-end; padding-bottom:6px;">
+                <input type="hidden" name="macroHeightIsManual" value="0">
+                <input type="checkbox" name="macroHeightIsManual" value="1" {{if $f.DTMF.MacroHeightIsManual}}checked{{end}}>
+                <span class="switch-text">Высоту задаёт человек<small>иначе панель меряет подписи сама</small></span>
+            </label>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 120px;">
+                <label for="toneMilliseconds">Тон, мс</label>
+                <input id="toneMilliseconds" name="toneMilliseconds" type="number" value="{{$f.DTMF.ToneMilliseconds}}">
+            </div>
+            <div class="field" style="flex:1 1 120px;">
+                <label for="gapMilliseconds">Промежуток, мс</label>
+                <input id="gapMilliseconds" name="gapMilliseconds" type="number" value="{{$f.DTMF.GapMilliseconds}}">
+            </div>
+            <div class="field" style="flex:1 1 120px;">
+                <label for="pauseMilliseconds">Пауза (запятая), мс</label>
+                <input id="pauseMilliseconds" name="pauseMilliseconds" type="number" value="{{$f.DTMF.PauseMilliseconds}}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Очереди</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            По какому номеру приходит раздача и как называть её оператору. Половина записи хуже её отсутствия:
+            номер без названия уберёт номер из окна входящего и не даст взамен ничего.
+        </p>
+
+        <div data-list="queue" style="display:flex; flex-direction:column; gap:10px;">
+            {{range $i, $q := $f.Queues.Queues}}
+            <div data-row style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:10px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+                <input type="hidden" name="queueIndex" value="{{$i}}">
+                <input type="hidden" name="queueID_{{$i}}" value="{{$q.ID}}">
+                <div class="field" style="flex:1 1 120px;">
+                    <label>Номер</label>
+                    <input name="queueNumber_{{$i}}" type="text" class="mono" value="{{$q.Number}}" placeholder="2929">
+                </div>
+                <div class="field" style="flex:2 1 200px;">
+                    <label>Название</label>
+                    <input name="queueTitle_{{$i}}" type="text" value="{{$q.Title}}" placeholder="Горячий лид">
+                </div>
+                <button type="button" class="button button-danger" data-remove>Убрать</button>
+            </div>
+            {{end}}
+        </div>
+        <button type="button" class="button" data-add="queue">Добавить очередь</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Защита приёма вызова</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Каждое послабление здесь стоит одного пункта модели угроз — разбор в docs/anti-autoclicker.md приложения.
+        </p>
+
+        <label class="switch">
+            <input type="hidden" name="guardEnabled" value="0">
+            <input type="checkbox" name="guardEnabled" value="1" {{if $f.IncomingCall.IsEnabled}}checked{{end}}>
+            <span class="switch-text">Защита включена<small>выключение пишется в журнал машины</small></span>
+        </label>
+
+        <label class="switch">
+            <input type="hidden" name="randomPosition" value="0">
+            <input type="checkbox" name="randomPosition" value="1" {{if $f.IncomingCall.IsRandomPositionEnabled}}checked{{end}}>
+            <span class="switch-text">Случайная позиция окна<small>основная мера: ломает кликер по координатам и ничего не стоит оператору</small></span>
+        </label>
+
+        <label class="switch">
+            <input type="hidden" name="tunesRandomness" value="0">
+            <input type="checkbox" name="tunesRandomness" value="1" {{if $f.IncomingCall.TunesRandomnessByHand}}checked{{end}}>
+            <span class="switch-text">Расстояния задаёт человек<small>иначе действуют проверенные значения</small></span>
+        </label>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 140px;">
+                <label for="minimumTravel">Смещение окна, точек</label>
+                <input id="minimumTravel" name="minimumTravel" type="text" value="{{$f.IncomingCall.MinimumTravel}}">
+            </div>
+            <div class="field" style="flex:1 1 140px;">
+                <label for="screenMargin">Отступ от краёв, точек</label>
+                <input id="screenMargin" name="screenMargin" type="text" value="{{$f.IncomingCall.ScreenMargin}}">
+            </div>
+            <div class="field" style="flex:1 1 140px;">
+                <label for="targetCount">Кнопок-целей</label>
+                <input id="targetCount" name="targetCount" type="number" min="1" max="9" value="{{$f.IncomingCall.TargetCount}}">
+                <span class="field-hint">1 — обычная кнопка «Ответить»</span>
+            </div>
+        </div>
+
+        <label class="switch">
+            <input type="hidden" name="requiresCursor" value="0">
+            <input type="checkbox" name="requiresCursor" value="1" {{if $f.IncomingCall.RequiresCursorMovement}}checked{{end}}>
+            <span class="switch-text">Требовать движения курсора<small>с нулевым порогом защита выглядит включённой и не работает</small></span>
+        </label>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 140px;">
+                <label for="cursorTravel">Путь курсора, точек</label>
+                <input id="cursorTravel" name="cursorTravel" type="text" value="{{$f.IncomingCall.RequiredCursorTravel}}">
+            </div>
+            <div class="field" style="flex:1 1 140px;">
+                <label for="cursorSamples">Перемещений</label>
+                <input id="cursorSamples" name="cursorSamples" type="number" value="{{$f.IncomingCall.RequiredCursorSamples}}">
+                <span class="field-hint">одно — это прыжок</span>
+            </div>
+        </div>
+
+        <label class="switch">
+            <input type="hidden" name="tunesLiveness" value="0">
+            <input type="checkbox" name="tunesLiveness" value="1" {{if $f.IncomingCall.TunesLivenessByHand}}checked{{end}}>
+            <span class="switch-text">Пороги живого человека задаёт человек</span>
+        </label>
+
+        <label class="switch">
+            <input type="hidden" name="rejectsSynthetic" value="0">
+            <input type="checkbox" name="rejectsSynthetic" value="1" {{if $f.IncomingCall.RejectsSyntheticEvents}}checked{{end}}>
+            <span class="switch-text">Отклонять программные нажатия<small>признак подделывается, а честного оператора со средствами доступности может задеть</small></span>
+        </label>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>АТС</h2></div>
+    <div class="card-body">
+        <div class="notice notice-warn">
+            <p>
+                <strong>Самое опасное, что возит эта линия</strong>
+                Разъехавшийся адрес означает, что телефон не звонит вовсе. Меняйте его отдельно от остального
+                и выкладывайте сразу.
+            </p>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 200px;">
+                <label for="office">Адрес изнутри офиса</label>
+                <input id="office" name="office" type="text" class="mono" value="{{$f.SiteAddress.Office}}">
+            </div>
+            <div class="field" style="flex:1 1 200px;">
+                <label for="remote">Адрес снаружи</label>
+                <input id="remote" name="remote" type="text" class="mono" value="{{$f.SiteAddress.Remote}}">
+                <span class="field-hint">именно на него открывает дорогу стук</span>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 140px;">
+                <label for="featureCode">Код конференции</label>
+                <input id="featureCode" name="featureCode" type="text" class="mono" value="{{$f.Conference.FeatureCode}}">
+            </div>
+            <div class="field" style="flex:1 1 140px;">
+                <label for="roomExtension">Добавочный комнаты</label>
+                <input id="roomExtension" name="roomExtension" type="text" class="mono" value="{{$f.Conference.RoomExtension}}">
+            </div>
+        </div>
+
+        <label class="switch">
+            <input type="hidden" name="acceptsAnyTLSCertificate" value="0">
+            <input type="checkbox" name="acceptsAnyTLSCertificate" value="1" {{if $f.AcceptsAnyTLSCertificate}}checked{{end}}>
+            <span class="switch-text">
+                Доверять любому сертификату TLS
+                <small>отключает защиту от подмены сервера — в бою должно быть выключено</small>
+            </span>
+        </label>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Стук по портам</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Последовательность живёт на чужом шлюзе и может измениться без нас. Пустой список означает,
+            что стучать нечем, — так стук выключают.
+        </p>
+
+        <div data-list="knock" style="display:flex; flex-direction:column; gap:10px;">
+            {{range $i, $s := $f.PortKnock.Steps}}
+            <div data-row style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:10px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+                <input type="hidden" name="knockIndex" value="{{$i}}">
+                <div class="field" style="flex:2 1 200px;">
+                    <label>Адрес</label>
+                    <input name="knockHost_{{$i}}" type="text" class="mono" value="{{$s.Host}}" placeholder="основной адрес АТС">
+                </div>
+                <div class="field" style="flex:1 1 120px;">
+                    <label>Байт в пакете</label>
+                    <input name="knockBytes_{{$i}}" type="number" value="{{$s.PayloadBytes}}">
+                </div>
+                <div class="field" style="flex:1 1 100px;">
+                    <label>Пакетов</label>
+                    <input name="knockCount_{{$i}}" type="number" value="{{$s.Count}}">
+                </div>
+                <button type="button" class="button button-danger" data-remove>Убрать</button>
+            </div>
+            {{end}}
+        </div>
+        <button type="button" class="button" data-add="knock">Добавить шаг</button>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 160px;">
+                <label for="spacingSeconds">Промежуток, с</label>
+                <input id="spacingSeconds" name="spacingSeconds" type="text" value="{{$f.PortKnock.SpacingSeconds}}">
+                <span class="field-hint">0,1–10</span>
+            </div>
+            <div class="field" style="flex:1 1 160px;">
+                <label for="repeatIntervalSeconds">Повтор, с</label>
+                <input id="repeatIntervalSeconds" name="repeatIntervalSeconds" type="text" value="{{$f.PortKnock.RepeatIntervalSeconds}}">
+                <span class="field-hint">60–3600</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Сохранить</h2></div>
+    <div class="card-body">
+        <div class="field">
+            <label for="note">Что изменилось</label>
+            <input id="note" name="note" type="text" placeholder="добавлена клавиша «Юрист»">
+            <span class="field-hint">Видно в списке ревизий: через месяц по номеру ревизии уже ничего не вспомнить.</span>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="submit" class="button button-primary">Сохранить ревизию</button>
+            <span class="field-hint" style="align-self:center;">
+                Сохранение не выкладывает: до машин правка доедет после «Выложить» в списке предустановок.
+            </span>
+        </div>
+    </div>
+</div>
+
+</form>
+
+<template data-template="macro">
+    <div data-row style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:10px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+        <input type="hidden" name="macroIndex" value="__INDEX__">
+        <input type="hidden" name="macroID___INDEX__" value="">
+        <div class="field" style="flex:1 1 160px;">
+            <label>Подпись</label>
+            <input name="macroTitle___INDEX__" type="text" placeholder="ЮРИСТ">
+        </div>
+        <div class="field" style="flex:1 1 140px;">
+            <label>Набор</label>
+            <input name="macroSequence___INDEX__" type="text" class="mono" placeholder="*02,101">
+        </div>
+        <label class="switch" style="flex:1 1 200px;">
+            <input type="hidden" name="macroTransfers___INDEX__" value="0">
+            <input type="checkbox" name="macroTransfers___INDEX__" value="1">
+            <span class="switch-text">Уводит звонок<small>идёт в историю как перевод</small></span>
+        </label>
+        <button type="button" class="button button-danger" data-remove>Убрать</button>
+    </div>
+</template>
+
+<template data-template="queue">
+    <div data-row style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:10px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+        <input type="hidden" name="queueIndex" value="__INDEX__">
+        <input type="hidden" name="queueID___INDEX__" value="">
+        <div class="field" style="flex:1 1 120px;">
+            <label>Номер</label>
+            <input name="queueNumber___INDEX__" type="text" class="mono" placeholder="2929">
+        </div>
+        <div class="field" style="flex:2 1 200px;">
+            <label>Название</label>
+            <input name="queueTitle___INDEX__" type="text" placeholder="Горячий лид">
+        </div>
+        <button type="button" class="button button-danger" data-remove>Убрать</button>
+    </div>
+</template>
+
+<template data-template="knock">
+    <div data-row style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:10px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+        <input type="hidden" name="knockIndex" value="__INDEX__">
+        <div class="field" style="flex:2 1 200px;">
+            <label>Адрес</label>
+            <input name="knockHost___INDEX__" type="text" class="mono" placeholder="основной адрес АТС">
+        </div>
+        <div class="field" style="flex:1 1 120px;">
+            <label>Байт в пакете</label>
+            <input name="knockBytes___INDEX__" type="number" value="228">
+        </div>
+        <div class="field" style="flex:1 1 100px;">
+            <label>Пакетов</label>
+            <input name="knockCount___INDEX__" type="number" value="1">
+        </div>
+        <button type="button" class="button button-danger" data-remove>Убрать</button>
+    </div>
+</template>
+{{end}}
