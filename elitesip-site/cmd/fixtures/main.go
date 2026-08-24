@@ -1,0 +1,106 @@
+// Команда fixtures печатает образцы для тестов приложения.
+//
+// Тесты Swift-пакета PanelLink открывают пакет активации и проверяют подпись
+// файла предустановок на том, что собрала **эта** панель, а не на собранном
+// рядом своим же кодом. Своё проверяло бы только то, что мы согласны сами с
+// собой; разойдутся стороны — разойдётся в тесте, а не на живой машине.
+//
+// Поэтому образцы не выдуманы, а выпущены отсюда — и перевыпускаются отсюда же,
+// когда меняется формат:
+//
+//	go run ./cmd/fixtures
+//
+// Печатаемое вставляется в Packages/PanelLink/Tests/PanelLinkTests.
+package main
+
+import (
+	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/koreva/elitesip-site/internal/activation"
+	"github.com/koreva/elitesip-site/internal/preset"
+)
+
+func main() {
+	activationFixture()
+	fmt.Println()
+	bundleFixture()
+}
+
+// activationFixture — пакет активации под ActivationTests.swift.
+//
+// Ключ постоянный, а не случайный: тест сверяет ещё и выведенный из него адрес
+// пакета, и случайный ключ пришлось бы переписывать при каждом запуске.
+func activationFixture() {
+	key := activation.Key("K7M29XQP4TFB")
+
+	payload := activation.Payload{
+		Format:         activation.PayloadFormat,
+		InstallationID: "8f2c4a1b9d3e5f60",
+		Employee:       "Пётр Смирнов",
+		Number:         "172",
+		SIPPassword:    "s3cret-172",
+		AdminPassword:  "пароль-конторы",
+		Preset: activation.PresetPayload{
+			ID:            "6D1F5A20-0000-4000-8000-000000000001",
+			Name:          "Менеджер",
+			Revision:      7,
+			SchemaVersion: 2,
+			Settings: json.RawMessage(
+				`{"dtmf":{"toneMilliseconds":120,"macros":[` +
+					`{"id":"a","title":"ЮРИСТ","sequence":"*02,101","transfersCall":true}]}}`),
+		},
+	}
+
+	plaintext, err := json.Marshal(payload)
+	if err != nil {
+		panic(err)
+	}
+	sealed, err := activation.Seal(key, plaintext)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("=== пакет активации ===")
+	fmt.Println("ключ:  ", key.String())
+	fmt.Println("адрес: ", key.ObjectKey())
+	fmt.Println("пакет: ", base64.StdEncoding.EncodeToString(sealed))
+}
+
+// bundleFixture — подписанный файл предустановок под PresetBundleTests.swift.
+//
+// Ключ подписи выведен из постоянного зерна по той же причине: образец обязан
+// быть воспроизводимым. Настоящий ключ линии сюда не попадает и попасть не
+// может — он лежит файлом на офисном сервере.
+func bundleFixture() {
+	seed := make([]byte, ed25519.SeedSize)
+	for i := range seed {
+		seed[i] = byte(i)
+	}
+	private := ed25519.NewKeyFromSeed(seed)
+
+	bundle := preset.Bundle{
+		Format:      preset.BundleFormat,
+		GeneratedAt: time.Date(2026, 8, 24, 15, 30, 0, 0, time.UTC),
+		Presets: []preset.Entry{{
+			ID:            "6D1F5A20-0000-4000-8000-000000000001",
+			Name:          "Менеджер",
+			Revision:      12,
+			SchemaVersion: 2,
+			Fields: json.RawMessage(
+				`{"siteAddresses":{"office":"192.168.1.2","remote":"crm.elitesochi.com"}}`),
+		}},
+	}
+
+	signed, err := preset.Sign(bundle, private)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("=== файл предустановок ===")
+	fmt.Println("открытый ключ:", base64.StdEncoding.EncodeToString(private.Public().(ed25519.PublicKey)))
+	fmt.Println("файл:         ", base64.StdEncoding.EncodeToString(signed))
+}

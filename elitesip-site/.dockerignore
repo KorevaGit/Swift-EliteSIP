@@ -1,0 +1,6 @@
+/data
+/secrets
+/docs
+*.db
+*.db-wal
+*.db-shm

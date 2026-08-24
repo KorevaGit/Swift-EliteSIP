@@ -1,0 +1,180 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="toolbar">
+    <div class="toolbar-title">
+        <h1>{{$d.Employee.Name}}</h1>
+        <p>Заведён {{day $d.Employee.CreatedAt}}</p>
+    </div>
+    <a class="button" href="/employees">К списку</a>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <div class="card-head"><h2>Карточка</h2></div>
+        <div class="card-body">
+            <form method="post" action="/employees/{{$d.Employee.ID}}" class="stack">
+                <div class="field">
+                    <label for="name">Имя</label>
+                    <input id="name" name="name" type="text" value="{{$d.Employee.Name}}" required>
+                </div>
+                <div class="field">
+                    <label for="number">Номер</label>
+                    <input id="number" name="number" type="text" inputmode="numeric" value="{{$d.Employee.Number}}">
+                </div>
+                <div class="field">
+                    <label for="sip_password">SIP-пароль</label>
+                    <input id="sip_password" name="sip_password" type="text" value="{{$d.Employee.SIPPassword}}">
+                    <span class="field-hint">
+                        Показан открытым: снимок этого экрана — готовая учётная запись, и панель нельзя
+                        показывать через плечо. Панель ничего не меняет на самой АТС — пир там заводят руками.
+                    </span>
+                </div>
+                <div class="field">
+                    <label for="preset_id">Предустановка</label>
+                    <select id="preset_id" name="preset_id">
+                        <option value="">не выбрана</option>
+                        {{range $d.Presets}}
+                        <option value="{{.ID}}" {{if eq .Name $d.PresetName}}selected{{end}}>{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <button type="submit" class="button button-primary">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head"><h2>Выпустить ключ</h2></div>
+        <div class="card-body">
+            {{if $d.Ready}}
+                <p class="card-note">
+                    Ключ соберёт пакет — номер, SIP-пароль, административный пароль конторы и предустановку, —
+                    зашифрует его и выложит наружу. Показан он будет один раз.
+                </p>
+                <form method="post" action="/employees/{{$d.Employee.ID}}/issue"
+                      style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+                    <div class="field" style="flex:1 1 180px;">
+                        <label for="note">Для какой машины</label>
+                        <input id="note" name="note" type="text" placeholder="рабочий ноутбук, домашний">
+                    </div>
+                    <button type="submit" class="button button-primary">Выпустить</button>
+                </form>
+            {{else}}
+                <div class="notice notice-warn">
+                    <p><strong>Ключ выпустить нельзя</strong>{{$d.Blocker}}</p>
+                </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Машины</h2>
+        <span class="sub">{{len $d.Activations}} {{plural (len $d.Activations) "активация" "активации" "активаций"}}</span>
+    </div>
+    {{if $d.Activations}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Ключ</th>
+                <th>Для чего</th>
+                <th>Выпущен</th>
+                <th>Машина</th>
+                <th>Состояние</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range $d.Activations}}
+            <tr>
+                <td data-label="Ключ" class="mono primary-cell">{{.KeyPrefix}}…</td>
+                <td data-label="Для чего">{{if .Note}}{{.Note}}{{else}}<span class="sub">—</span>{{end}}</td>
+                <td data-label="Выпущен">
+                    {{moment .IssuedAt}}<br>
+                    <span class="sub">
+                        {{if eq (printf "%s" .State) "ожидает"}}годен ещё {{remaining .ExpiresAt}}{{else}}срок до {{moment .ExpiresAt}}{{end}}
+                    </span>
+                </td>
+                <td data-label="Машина">
+                    {{if .Checkin}}
+                        на связи {{ago .Checkin.LastSeenAt}}<br>
+                        <span class="sub">
+                            {{if .Checkin.AppVersion}}версия {{.Checkin.AppVersion}}{{else}}версия неизвестна{{end}}{{if hasValue .Checkin.PresetRevision}}, ревизия {{deref .Checkin.PresetRevision}}{{end}}
+                        </span>
+                    {{else}}
+                        {{/* Панель узнаёт о машинах только из отметок Worker'а:
+                             после активации приложение к ней не ходит вовсе. */}}
+                        <span class="sub">не отмечалась</span>
+                    {{end}}
+                </td>
+                <td data-label="Состояние">
+                    {{if eq (printf "%s" .State) "активировано"}}
+                        <span class="badge badge-ok">активировано</span>
+                    {{else if eq (printf "%s" .State) "ожидает"}}
+                        <span class="badge badge-wait">ждёт активации</span>
+                    {{else if eq (printf "%s" .State) "просрочено"}}
+                        <span class="badge badge-off">просрочено</span>
+                    {{else}}
+                        <span class="badge badge-bad">отозвано</span>
+                    {{end}}
+                </td>
+                <td class="cell-actions">
+                    {{if not .RevokedAt}}
+                    <form method="post" action="/activations/{{.ID}}/revoke" style="display:inline;">
+                        <button type="submit" class="button button-danger"
+                                data-confirm="Отозвать активацию? Это учётная запись: машина продолжит работать, пока на АТС не сменят SIP-пароль пира.">
+                            Отозвать
+                        </button>
+                    </form>
+                    {{end}}
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty">
+        <strong>Ключей не выпускалось</strong>
+        Как только сотруднику назначены номер и предустановка, можно выпустить первый.
+    </div>
+    {{end}}
+</div>
+
+<div class="card card-danger">
+    <div class="card-head"><h2>Удалить сотрудника</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Стоит отдельно от безобидных кнопок намеренно: прокрутив список машин,
+            человек оказывается прямо над этой.
+        </p>
+        <button type="button" class="button button-danger" data-dialog="delete-employee">Удалить</button>
+    </div>
+</div>
+
+{{/* Настоящее окно, а не window.confirm: последствий пять, и списком они
+     читаются, а сплошной строкой — нет. */}}
+<dialog id="delete-employee" class="sheet">
+    <h2>Удалить {{$d.Employee.Name}}?</h2>
+    <p>Исчезнет без возврата:</p>
+    <ul>
+        <li>карточка, номер {{if $d.Employee.Number}}<span class="mono">{{$d.Employee.Number}}</span>{{else}}(не заполнен){{end}} и SIP-пароль;</li>
+        <li>{{len $d.Activations}} {{plural (len $d.Activations) "активация" "активации" "активаций"}} и отметки о связи его машин;</li>
+        <li>возможность выпустить ему ключ.</li>
+    </ul>
+    <p>Останется строка в журнале с именем и номером — по ней потом отвечают на «кто сидел на этом добавочном».</p>
+    <div class="notice notice-warn">
+        <div>
+            <strong>Смените SIP-пароль пира на АТС</strong>
+            <p>Панель до машины не дотягивается: после активации приложение к ней не обращается.
+               Пока пароль на АТС прежний, эта машина продолжит регистрироваться и снимать звонки из очереди.</p>
+        </div>
+    </div>
+    <div class="sheet-actions">
+        <button type="button" class="button" data-dialog-close>Отмена</button>
+        <form method="post" action="/employees/{{$d.Employee.ID}}/delete">
+            <button type="submit" class="button button-danger">Удалить</button>
+        </form>
+    </div>
+</dialog>
+{{end}}

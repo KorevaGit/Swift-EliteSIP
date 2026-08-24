@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{.Title}} · Панель EliteSIP</title>
+<link rel="stylesheet" href="/static/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23007aff'/><path d='M9 11a2 2 0 0 1 2-2h2l2 5-2 1a10 10 0 0 0 4 4l1-2 5 2v2a2 2 0 0 1-2 2A12 12 0 0 1 9 11z' fill='white'/></svg>">
+<script>
+    /* Тема ставится до первой отрисовки: иначе тёмная система на мгновение
+       получает светлую страницу, и это мигание видно каждый раз. */
+    (function () {
+        try {
+            var choice = localStorage.getItem("elitesip-theme");
+            if (choice === "light" || choice === "dark") {
+                document.documentElement.setAttribute("data-theme", choice);
+            }
+        } catch (e) { /* приватный режим — остаётся системная тема */ }
+    })();
+</script>
+</head>
+<body>
+
+{{if .Admin.Login}}
+<div class="shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </span>
+            <span>
+                <span class="brand-name">EliteSIP</span><br>
+                <span class="brand-note">панель управления</span>
+            </span>
+        </div>
+
+        <nav class="nav">
+            <a class="nav-item" href="/overview" {{if eq .Section "overview"}}aria-current="page"{{end}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Обзор
+            </a>
+            <a class="nav-item" href="/employees" {{if eq .Section "employees"}}aria-current="page"{{end}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Сотрудники
+            </a>
+            <a class="nav-item" href="/presets" {{if eq .Section "presets"}}aria-current="page"{{end}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                Предустановки
+            </a>
+            <a class="nav-item" href="/audit" {{if eq .Section "audit"}}aria-current="page"{{end}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Журнал
+            </a>
+            <a class="nav-item" href="/settings" {{if eq .Section "settings"}}aria-current="page"{{end}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.2.61.76 1.02 1.4 1.02H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Настройки
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <span class="who">
+                <strong>{{.Admin.Login}}</strong>
+                <span>администратор</span>
+            </span>
+            <span style="display:flex; gap:4px; align-items:center;">
+                <button type="button" class="button button-quiet" data-theme-toggle
+                        title="Оформление: как в системе, светлое, тёмное" aria-label="Сменить оформление">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                </button>
+                <form method="post" action="/logout">
+                    <button type="submit" class="button button-quiet" title="Выйти" aria-label="Выйти">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </form>
+            </span>
+        </div>
+    </aside>
+
+    <main class="main">
+        {{range .Flashes}}
+            <div class="notice notice-{{if eq .Kind "ok"}}ok{{else if eq .Kind "warn"}}warn{{else}}bad{{end}}">
+                <div style="flex:1; min-width:0;">
+                    {{if .Title}}<strong>{{.Title}}</strong>{{end}}
+                    {{if .Text}}<p>{{.Text}}</p>{{end}}
+                    {{if .KeyOnce}}
+                        <div class="key-reveal" style="margin-top:12px;">
+                            <span class="field-label">Ключ активации</span>
+                            <span class="key-value" data-key>{{.KeyOnce}}</span>
+                            <button type="button" class="button" data-copy="[data-key]">Скопировать ключ</button>
+                        </div>
+                    {{end}}
+                    {{if .Message}}
+                        {{/* Готовое сообщение рядом с ключом, а не вместо него: ключ диктуют
+                             и по телефону, а сообщение вставляют в мессенджер целиком. */}}
+                        <div class="key-reveal" style="margin-top:10px; align-items:flex-start;">
+                            <span class="field-label">Сообщение сотруднику</span>
+                            <pre class="message" data-message>{{.Message}}</pre>
+                            <button type="button" class="button button-primary" data-copy="[data-message]">Скопировать сообщение</button>
+                        </div>
+                    {{end}}
+                </div>
+            </div>
+        {{end}}
+
+        {{template "content" .}}
+    </main>
+</div>
+{{else}}
+    {{template "content" .}}
+{{end}}
+
+<script src="/static/app.js"></script>
+</body>
+</html>

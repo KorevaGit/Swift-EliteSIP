@@ -1,0 +1,39 @@
+{{define "content"}}
+<div class="toolbar">
+    <div class="toolbar-title">
+        <h1>Журнал</h1>
+        <p>Администраторы равны и все могут всё — поэтому на «кто это сделал» отвечает только он.</p>
+    </div>
+</div>
+
+<div class="card">
+    {{if .Data}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Когда</th>
+                <th>Что</th>
+                <th>Над чем</th>
+                <th>Кто</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range .Data}}
+            <tr>
+                <td data-label="Когда">{{moment .At}}<br><span class="sub">{{ago .At}}</span></td>
+                <td data-label="Что" class="primary-cell">{{.Action}}</td>
+                <td data-label="Над чем">
+                    {{if .Details}}{{.Details}}{{else}}<span class="sub">—</span>{{end}}
+                </td>
+                <td data-label="Кто">
+                    {{if .AdminID}}<span class="sub">администратор {{.AdminID}}</span>{{else}}<span class="sub">из командной строки</span>{{end}}
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty"><strong>Журнал пуст</strong>Здесь появится всё, что делают в панели.</div>
+    {{end}}
+</div>
+{{end}}

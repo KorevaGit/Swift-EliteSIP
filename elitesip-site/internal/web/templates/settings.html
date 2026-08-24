@@ -1,0 +1,67 @@
+{{define "content"}}
+<div class="toolbar">
+    <div class="toolbar-title">
+        <h1>Настройки</h1>
+        <p>То немногое, что панель хранит про себя саму.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Административный пароль конторы</h2></div>
+    <div class="card-body">
+        {{if .Data.AdminPasswordSet}}
+            <div class="notice notice-ok"><p>Пароль задан — ключи выпускаются.</p></div>
+        {{else}}
+            <div class="notice notice-warn">
+                <p><strong>Пароль не задан</strong>Пока он пуст, ключи не выпускаются: без него на машине не откроется «Управление».</p>
+            </div>
+        {{end}}
+
+        <p class="card-note">
+            Он общий на все машины и приезжает в пакете активации. Смена перестала требовать выпуска приложения —
+            раньше он вшивался фазой сборки. Но уже настроенные машины сохранят прежний: им он достался с их ключом.
+        </p>
+
+        <form method="post" action="/settings" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 240px;">
+                <label for="admin_password">Новый пароль</label>
+                <input id="admin_password" name="admin_password" type="text" class="mono" autocomplete="off" required>
+            </div>
+            <button type="submit" class="button button-primary">Сохранить</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Откуда сотруднику качать приложение</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Адрес попадает в готовое сообщение, которое вы копируете при выдаче ключа. Пустой —
+            в сообщении останется «Установите EliteSIP» без ссылки, и откуда качать, придётся
+            говорить отдельно.
+        </p>
+        <form method="post" action="/settings/app-link" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 320px;">
+                <label for="app_link">Адрес</label>
+                <input id="app_link" name="app_link" type="text" value="{{.Data.AppLink}}"
+                       placeholder="https://elitesip.vip/download" autocomplete="off">
+            </div>
+            <button type="submit" class="button button-primary">Сохранить</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head"><h2>Что панель не умеет — и не должна</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            <strong>Отключить машину.</strong> После активации приложение к панели не обращается вовсе —
+            только тянет файл предустановок. Отзыв в карточке сотрудника это учётная запись;
+            машину останавливает смена SIP-пароля пира на АТС.
+        </p>
+        <p class="card-note">
+            <strong>Завести пира на АТС.</strong> Номер и пароль вбиваются сюда руками с уже заведённого пира.
+        </p>
+    </div>
+</div>
+{{end}}

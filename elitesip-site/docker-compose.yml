@@ -1,0 +1,42 @@
+# Панель EliteSIP на локальном сервере конторы.
+#
+# Наружу не смотрит: порт привязан к петле, а до панели дотягиваются изнутри
+# сети. Решение о размещении внутри — в docs/DECISIONS.md.
+
+services:
+  panel:
+    build: .
+    restart: unless-stopped
+
+    ports:
+      # Только петля. Открыть панель в сеть — отдельное решение, которое должно
+      # приниматься руками, а не достаться по умолчанию из этого файла.
+      - "127.0.0.1:8080:8080"
+
+    environment:
+      ELITESIP_LISTEN: "0.0.0.0:8080"
+      ELITESIP_DB: "/data/panel.db"
+
+      # Секреты — путями к файлам, а не значениями: значение видно в
+      # `docker inspect` и в списке процессов.
+      ELITESIP_SIGNING_KEY_FILE: "/secrets/signing.key"
+      ELITESIP_SECRET_FILE: "/secrets/server.secret"
+
+      ELITESIP_R2_ENDPOINT: "${ELITESIP_R2_ENDPOINT}"
+      ELITESIP_R2_BUCKET: "${ELITESIP_R2_BUCKET}"
+      ELITESIP_R2_ACCESS_KEY_ID: "${ELITESIP_R2_ACCESS_KEY_ID}"
+      ELITESIP_R2_SECRET_ACCESS_KEY: "${ELITESIP_R2_SECRET_ACCESS_KEY}"
+
+    volumes:
+      - ./data:/data
+      # Только на чтение: панель свои секреты не переписывает.
+      - ./secrets:/secrets:ro
+
+    healthcheck:
+      # Отвечает после того, как база открыта и схема доведена до текущей
+      # версии, — «жив» здесь значит «готов работать».
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

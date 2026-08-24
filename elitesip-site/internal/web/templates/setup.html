@@ -1,0 +1,33 @@
+{{define "content"}}
+<div class="login">
+    <div class="login-card">
+        <span class="brand-mark" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        </span>
+        <div>
+            <h1>Первый вход</h1>
+            <p class="card-note">
+                В панели ещё нет ни одного администратора. Заведите себя —
+                после этого эта страница закроется.
+            </p>
+        </div>
+
+        {{if .Data}}
+        <div class="notice notice-bad"><p>{{.Data}}</p></div>
+        {{end}}
+
+        <form method="post" action="/setup">
+            <div class="field">
+                <label for="login">Имя</label>
+                <input id="login" name="login" type="text" autocomplete="username" autofocus required>
+            </div>
+            <div class="field">
+                <label for="password">Пароль</label>
+                <input id="password" name="password" type="password" autocomplete="new-password" required>
+                <span class="field-hint">Не короче восьми знаков. За этим паролем лежат SIP-пароли всей конторы.</span>
+            </div>
+            <button type="submit" class="button button-primary">Завести и войти</button>
+        </form>
+    </div>
+</div>
+{{end}}
