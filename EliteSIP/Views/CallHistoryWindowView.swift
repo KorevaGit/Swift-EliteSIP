@@ -694,6 +694,7 @@ final class HistorySnapshotAnchor {
         case cropFailed
         case composeFailed
         case encodeFailed
+        case pasteboardFailed
 
         var errorDescription: String? {
             switch self {
@@ -705,6 +706,7 @@ final class HistorySnapshotAnchor {
             case .cropFailed: NSLocalizedString("не вышла обрезка", comment: "отказ снимка истории")
             case .composeFailed: NSLocalizedString("не собрался холст", comment: "отказ снимка истории")
             case .encodeFailed: NSLocalizedString("картинка не закодировалась", comment: "отказ снимка истории")
+            case .pasteboardFailed: NSLocalizedString("буфер обмена не принял снимок", comment: "отказ снимка истории")
             }
         }
     }
@@ -1071,7 +1073,28 @@ private struct HistorySnapshotButton: View {
         item.setData(png, forType: .png)
         item.setData(tiff, forType: .tiff)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects([item])
+        let written = NSPasteboard.general.writeObjects([item])
+
+        // Результат записи проверяется, а не отбрасывается.
+        //
+        // Живая проверка на Big Sur 24 августа 2026: кнопка снова отвечала
+        // «скопирован», а вставить не удавалось никуда — притом что предыдущая
+        // правка (PNG-байты вместо голого `NSImage`) уже стояла. Причина в
+        // самой этой строке: `writeObjects` возвращает `Bool`, а он никуда не
+        // шёл, и любой отказ системного буфера — например, его в тот же миг
+        // перехватила другая программа — молча выдавался за успех. Чтение
+        // данных обратно тем же вызовом, каким их достанет получатель,
+        // ловит и этот случай, и любой другой, при котором `writeObjects`
+        // соврал бы, что справился.
+        guard written, NSPasteboard.general.data(forType: .png) != nil else {
+            onResult(
+                String(
+                    format: NSLocalizedString("Снимок не получился: %@", comment: "снимок списка истории"),
+                    HistorySnapshotAnchor.Failure.pasteboardFailed.localizedDescription
+                )
+            )
+            return
+        }
         onResult(NSLocalizedString("Снимок скопирован — вставьте в переписку", comment: "снимок списка истории"))
     }
 }
