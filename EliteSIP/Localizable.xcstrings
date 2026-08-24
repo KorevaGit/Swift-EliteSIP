@@ -3515,6 +3515,23 @@
         }
       }
     },
+    "Канал обновлений не настроен": {
+      "comment": "результат ручной проверки обновлений",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Канал обновлений не настроен"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update channel not configured"
+          }
+        }
+      }
+    },
     "Клавиш нет. Они появятся на панели во время разговора.": {
       "localizations": {
         "en": {
@@ -5239,6 +5256,40 @@
         }
       }
     },
+    "Обновление готово: %@": {
+      "comment": "результат ручной проверки обновлений",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление готово: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update ready: %@"
+          }
+        }
+      }
+    },
+    "Обновление найдено, скачивается…": {
+      "comment": "результат ручной проверки обновлений",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление найдено, скачивается…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update found, downloading…"
+          }
+        }
+      }
+    },
     "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само.": {
       "comment": "предложение обновиться",
       "localizations": {
@@ -5252,6 +5303,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "The update is downloaded and verified. Installing takes a few seconds, and the app restarts itself."
+          }
+        }
+      }
+    },
+    "Обновлений нет": {
+      "comment": "результат ручной проверки обновлений",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновлений нет"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No updates"
           }
         }
       }
@@ -5888,6 +5956,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ошибка звука"
+          }
+        }
+      }
+    },
+    "Ошибка: %@": {
+      "comment": "результат ручной проверки обновлений",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error: %@"
           }
         }
       }
@@ -7274,6 +7359,22 @@
         }
       }
     },
+    "Проверить обновления сейчас": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить обновления сейчас"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates Now"
+          }
+        }
+      }
+    },
     "Проверить стук": {
       "localizations": {
         "en": {
@@ -7335,6 +7436,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Проверка сертификата отключена: перехватчик сможет прочитать пароль и разговор. Только для самоподписанного сертификата лаборатории."
+          }
+        }
+      }
+    },
+    "Проверка уже идёт — подождите": {
+      "comment": "результат ручной проверки обновлений",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка уже идёт — подождите"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check already in progress — please wait"
           }
         }
       }

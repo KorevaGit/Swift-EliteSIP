@@ -12,9 +12,12 @@ import Sparkle
 ///
 /// **Что здесь происходит по порядку.**
 ///
-/// 1. Раз в несколько часов приложение спрашивает канал и, если там новее,
-///    молча качает архив в фоне. Оператор об этом не знает и знать не должен:
-///    качать нечего решать.
+/// 1. Раз в полчаса приложение спрашивает канал и, если там новее, молча
+///    качает архив в фоне. Оператор об этом не знает и знать не должен: качать
+///    нечего решать. Интервал короткий не из любви к частым проверкам, а
+///    потому что нет ещё синхронизации настроек через `elitesip.vip` (M9) —
+///    без неё это единственная ручка, доступная всем сразу; кнопка «Проверить
+///    сейчас» в «Диагностике» существует по той же причине, для одной машины.
 /// 2. Скачанное Sparkle проверяет сам — подписью EdDSA и совпадением подписи
 ///    кода с установленной копией. До нас доходит только то, что обе проверки
 ///    прошло.
@@ -44,10 +47,21 @@ final class UpdateService: NSObject, ObservableObject {
     /// Через сколько предложение возвращается после «Отложить».
     private static let reminderInterval: TimeInterval = 30 * 60
 
-    /// Как часто спрашивать канал. Это **не** частота напоминаний: appcast
-    /// неделями не меняется, и дёргать его раз в полчаса незачем. Таймеры
-    /// разные намеренно.
-    private static let checkInterval: TimeInterval = 4 * 60 * 60
+    /// Как часто спрашивать канал.
+    ///
+    /// Совпадает с `reminderInterval` не по совпадению, а по нужде: пока нет
+    /// инструмента синхронизации настроек через `elitesip.vip` (M9), этот
+    /// интервал один на все рабочие места и меняется только новой сборкой —
+    /// значит держать его коротким дешевле, чем потом объяснять, почему выпуск
+    /// не доехал за несколько часов. appcast сам по себе неделями не меняется,
+    /// так что 30 минут — это не «нужная частота», а верхняя граница ожидания,
+    /// которую можно себе позволить, пока настройка не стала гибкой.
+    ///
+    /// Константы разные и это осознанно, хотя значения сегодня совпадают: одна
+    /// решает, когда Sparkle дёргает канал, другая — когда наш драйвер
+    /// напоминает про уже найденное. Дальше они могут снова разойтись, и
+    /// синонимизировать их значило бы завязать два разных решения на одно имя.
+    private static let checkInterval: TimeInterval = 30 * 60
 
     /// Версия, которая скачана, проверена и ждёт решения. Пока она не `nil`,
     /// в панели видна кнопка «Обновить» — иначе состояние «готово к установке»
@@ -55,6 +69,21 @@ final class UpdateService: NSObject, ObservableObject {
     @Published private(set) var readyVersion: String? {
         didSet { announce(readyVersion) }
     }
+
+    /// Идёт ли ручная проверка «сейчас» — кнопка в «Диагностике» → «Сборка».
+    ///
+    /// Отличается от фоновой проверки не флагом, а самим механизмом: Sparkle
+    /// зовёт `showUserInitiatedUpdateCheck` только в ответ на явный вызов
+    /// `checkForUpdates()`, а фоновый таймер идёт через другой внутренний
+    /// драйвер, который про этот метод протокола вообще не знает. Ложных
+    /// срабатываний на автоматической проверке быть не может в принципе, а не
+    /// потому, что мы их отфильтровали.
+    @Published private(set) var isChecking = false
+
+    /// Итог последней ручной проверки — коротко, для той же кнопки. `nil` и на
+    /// старте, и пока проверка идёт: смешивать «ещё не проверяли» с «проверка
+    /// сейчас идёт» незачем, за второе отвечает `isChecking`.
+    @Published private(set) var lastCheckResult: String?
 
     private var updater: SPUUpdater?
 
@@ -82,17 +111,30 @@ final class UpdateService: NSObject, ObservableObject {
     /// Сообщить приложению, что версия скачана и ждёт, — или что уже не ждёт.
     private let announce: (String?) -> Void
 
+    /// Сообщить приложению об итоге ручной проверки — тем же путём, что и
+    /// `announce`: сервис публикует факт, а решает, что с ним делать на
+    /// экране, уже вью.
+    private let reportCheckState: (Bool, String?) -> Void
+
     init(isBusy: @escaping () -> Bool,
          prepareForRestart: @escaping (@escaping () -> Void) -> Void,
          hostWindow: @escaping () -> NSWindow?,
          announce: @escaping (String?) -> Void,
+         reportCheckState: @escaping (Bool, String?) -> Void,
          log: @escaping (String) -> Void) {
         self.isBusy = isBusy
         self.prepareForRestart = prepareForRestart
         self.hostWindow = hostWindow
         self.announce = announce
+        self.reportCheckState = reportCheckState
         self.log = log
         super.init()
+    }
+
+    private func setCheckState(checking: Bool, result: String?) {
+        isChecking = checking
+        lastCheckResult = result
+        reportCheckState(checking, result)
     }
 
     // MARK: - Запуск
@@ -168,6 +210,35 @@ final class UpdateService: NSObject, ObservableObject {
     /// Кнопка «Обновить» в панели, между предложениями.
     func installNow() {
         offerIfPossible(force: true)
+    }
+
+    /// Кнопка «Проверить сейчас» в «Диагностике» → «Сборка».
+    ///
+    /// Не подменяет обычный цикл — тот идёт своим чередом, эта проверка
+    /// просто не ждёт `checkInterval`. Нужна ровно на то время, пока нет
+    /// синхронизации настроек через `elitesip.vip`: разбирая жалобу на
+    /// конкретном рабочем месте, ждать до получаса, чтобы увидеть, дошёл ли
+    /// канал вообще, — не дело.
+    func checkNow() {
+        guard let updater else {
+            setCheckState(checking: false, result: NSLocalizedString(
+                "Канал обновлений не настроен",
+                comment: "результат ручной проверки обновлений"
+            ))
+            return
+        }
+        // Уже идёт проверка — своя или фоновая по таймеру. Кнопка блокируется
+        // только на свою (`isChecking` отражает лишь ручной путь), поэтому
+        // фоновую нельзя различить заранее — отвечаем текстом, а не молчанием:
+        // клик без всякой видимой реакции читался бы как поломка.
+        guard updater.canCheckForUpdates else {
+            setCheckState(checking: false, result: NSLocalizedString(
+                "Проверка уже идёт — подождите",
+                comment: "результат ручной проверки обновлений"
+            ))
+            return
+        }
+        updater.checkForUpdates()
     }
 
     // MARK: - Предложение
@@ -294,11 +365,36 @@ extension UpdateService: SPUUserDriver {
         reply(SUUpdatePermissionResponse(automaticUpdateChecks: true, sendSystemProfile: false))
     }
 
-    func showUserInitiatedUpdateCheck(cancellation: @escaping () -> Void) {}
+    /// Sparkle зовёт это только для проверки, начатой явным
+    /// `checkForUpdates()`, — то есть только для нашей кнопки «Проверить
+    /// сейчас». Фоновый цикл идёт другим внутренним драйвером и сюда не
+    /// попадает вовсе.
+    func showUserInitiatedUpdateCheck(cancellation: @escaping () -> Void) {
+        setCheckState(checking: true, result: nil)
+    }
 
     func showUpdateFound(with appcastItem: SUAppcastItem,
                          state: SPUUserUpdateState,
                          reply: @escaping (SPUUserUpdateChoice) -> Void) {
+        // Единая точка снятия «идёт проверка», одна на все стадии: если
+        // проверка была ручной, к этому месту она уже нашла что искала.
+        if isChecking {
+            let text: String
+            switch state.stage {
+            case .installing:
+                text = String(format: NSLocalizedString(
+                    "Обновление готово: %@",
+                    comment: "результат ручной проверки обновлений"
+                ), appcastItem.displayVersionString)
+            default:
+                text = NSLocalizedString(
+                    "Обновление найдено, скачивается…",
+                    comment: "результат ручной проверки обновлений"
+                )
+            }
+            setCheckState(checking: false, result: text)
+        }
+
         switch state.stage {
         case .notDownloaded, .downloaded:
             // Качать нечего решать: файл едет в фоне, оператор об этом не знает.
@@ -319,15 +415,32 @@ extension UpdateService: SPUUserDriver {
     func showUpdateNotFound(acknowledgement: @escaping () -> Void) { acknowledgement() }
 
     func showUpdateNotFoundWithError(_ error: Error, acknowledgement: @escaping () -> Void) {
+        if isChecking {
+            setCheckState(checking: false, result: NSLocalizedString(
+                "Обновлений нет",
+                comment: "результат ручной проверки обновлений"
+            ))
+        }
         acknowledgement()
     }
 
     /// Ошибку канала оператору не показываем: недоступный сайт — не его дело и
     /// не его забота. В журнал — обязательно: рабочее место, которое месяц не
     /// может достучаться до канала, иначе выглядит как обычное.
+    ///
+    /// В «Диагностику» текст ошибки всё же попадает, но только как итог
+    /// **ручной** проверки: администратор, разбирающий жалобу и нажавший
+    /// «Проверить сейчас», должен увидеть, что именно не так, а не только
+    /// строку в журнале.
     func showUpdaterError(_ error: Error, acknowledgement: @escaping () -> Void) {
         // не переводится: строка журнала
         log("обновление: ошибка канала — \(error.localizedDescription)")
+        if isChecking {
+            setCheckState(checking: false, result: String(format: NSLocalizedString(
+                "Ошибка: %@",
+                comment: "результат ручной проверки обновлений"
+            ), error.localizedDescription))
+        }
         acknowledgement()
     }
 
@@ -361,5 +474,8 @@ extension UpdateService: SPUUserDriver {
         installReply = nil
         readyVersion = nil
         dismissOffer()
+        // Подстраховка: если сессия оборвалась, не дойдя ни до одного из мест
+        // выше, «идёт проверка» не должно застрять навсегда и запереть кнопку.
+        if isChecking { setCheckState(checking: false, result: nil) }
     }
 }

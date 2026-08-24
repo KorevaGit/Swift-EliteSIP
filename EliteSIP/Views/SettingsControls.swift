@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Управляющие элементы, общие для менеджерского окна и «Управления».
@@ -5,6 +6,43 @@ import SwiftUI
 /// Лежат отдельно от обоих окон по той же причине, что и кирпичи раскладки в
 /// `SettingsKit`: копия ползунка однажды разошлась бы с оригиналом шагом или
 /// подписью, и заметили бы это не сразу.
+
+/// Кнопка «Проверить обновления сейчас» (M7h).
+///
+/// Стоит в двух местах — «Диагностика» → «Сборка» у администратора и
+/// «Техподдержка» у менеджера, — и это не то же самое место дважды.
+/// Администратор разбирает жалобу на конкретной машине и хочет знать, дошёл ли
+/// канал вообще; менеджер меньше интересуется механикой, но ровно он первым
+/// слышит «у меня опять старая версия» и должен уметь проверить сам, не заводя
+/// разговор с администратором ради одной кнопки.
+///
+/// Вынесена сюда по той же причине, что и `SettingSlider`: две копии этой
+/// логики разошлись бы при первой же правке `UpdateService`, и заметили бы это
+/// не сразу — искать надо было бы в двух вью одновременно.
+struct UpdateCheckRow: View {
+
+    let isChecking: Bool
+    let result: String?
+
+    var body: some View {
+        SettingsButtonsRow {
+            Button("Проверить обновления сейчас") {
+                NSApp.sendAction(#selector(AppDelegate.checkForUpdatesNow(_:)), to: nil, from: nil)
+            }
+            .disabled(isChecking)
+
+            if isChecking {
+                // `ProgressView` — macOS 11, а x86_64 держит планку 10.15;
+                // CompatSpinner уже решает это в проекте, см. BackwardCompatibility.swift.
+                CompatSpinner()
+            } else if let result {
+                Text(verbatim: result)
+                    .font(Theme.Text.statusDetail)
+                    .compatForeground(Theme.Palette.textSecondary)
+            }
+        }
+    }
+}
 
 /// Не `private`: тот же ползунок стоит на менеджерской странице (M7c).
 struct SettingSlider: View {

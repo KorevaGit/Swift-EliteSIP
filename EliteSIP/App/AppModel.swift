@@ -599,6 +599,19 @@ final class AppModel: ObservableObject {
         updateReadyVersion = version
     }
 
+    /// Идёт ли ручная проверка «Проверить сейчас» — кнопка в «Диагностике».
+    @Published private(set) var isCheckingForUpdates = false
+
+    /// Итог последней ручной проверки: «обновлений нет», текст ошибки или
+    /// найденная версия. `nil`, пока не проверяли или проверка идёт сейчас.
+    @Published private(set) var updateCheckResult: String?
+
+    /// Зовёт `UpdateService`, тем же путём, что `noteUpdateReady`.
+    func noteUpdateCheckState(checking: Bool, result: String?) {
+        isCheckingForUpdates = checking
+        updateCheckResult = result
+    }
+
     /// Отключаться в разговоре нельзя.
     ///
     /// Снятие регистрации закрывает диалоги: кнопка «Отключить» рядом с бейджем

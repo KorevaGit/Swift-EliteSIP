@@ -47,6 +47,8 @@ struct DiagnosticsTab: View {
             // правке. Разбор, почему выбран менеджер, а не администратор, — в
             // `AppearanceTab`.
             SettingsNote("Выключается в «Настройках», раздел «Оформление»: там же, где тема.")
+
+            UpdateCheckRow(isChecking: model.isCheckingForUpdates, result: model.updateCheckResult)
         }
 
         SettingsSection("Журнал") {

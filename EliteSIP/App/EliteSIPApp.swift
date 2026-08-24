@@ -217,6 +217,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             },
             hostWindow: { [weak self] in self?.phoneWindow },
             announce: { [weak self] version in self?.model.noteUpdateReady(version) },
+            reportCheckState: { [weak self] checking, result in
+                self?.model.noteUpdateCheckState(checking: checking, result: result)
+            },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
         updateService = service
@@ -245,6 +248,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// `UpdateService`, ни о делегате, и знать не должна.
     @objc func installUpdate(_ sender: Any?) {
         updateService?.installNow()
+    }
+
+    /// Кнопка «Проверить сейчас» в «Диагностике» → «Сборка».
+    @objc func checkForUpdatesNow(_ sender: Any?) {
+        updateService?.checkNow()
     }
 
     /// Снять регистрацию перед подменой бандла и позвать продолжение.
