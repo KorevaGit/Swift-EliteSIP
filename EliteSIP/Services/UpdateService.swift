@@ -47,7 +47,12 @@ final class UpdateService: NSObject, ObservableObject {
     /// Через сколько предложение возвращается после «Отложить».
     private static let reminderInterval: TimeInterval = 30 * 60
 
-    /// Как часто спрашивать канал.
+    /// Как часто спрашивать канал — **и обновления, и предустановки**.
+    ///
+    /// Один интервал на обе линии, и это требование, а не удобство: канал у них
+    /// общий, и два независимых будильника на нём — это два места, где можно
+    /// ошибиться со сроком. Отсюда же и то, что таймер здесь один и заводится
+    /// ниже вручную, а Sparkle своим расписанием больше не пользуется.
     ///
     /// Совпадает с `reminderInterval` не по совпадению, а по нужде: пока нет
     /// инструмента синхронизации настроек через `elitesip.vip` (M9), этот
@@ -97,6 +102,16 @@ final class UpdateService: NSObject, ObservableObject {
     private var reminder: Timer?
     private var offerSheet: NSAlert?
 
+    /// Общий цикл проверок: обновления и предустановки одним будильником.
+    private var cycle: Timer?
+
+    /// Первая проверка после запуска.
+    ///
+    /// Не мгновенно, а через несколько секунд: на старте приложение поднимает
+    /// регистрацию, звук и окна, и отправлять его при этом ещё и в сеть значит
+    /// соревноваться с самим собой за первые секунды, которые человек видит.
+    private static let firstCheckDelay: TimeInterval = 5
+
     /// Идёт ли разговор. Замыкание, а не ссылка на модель: сервису не нужно
     /// ничего о ней знать, кроме одного этого факта.
     private let isBusy: () -> Bool
@@ -116,17 +131,26 @@ final class UpdateService: NSObject, ObservableObject {
     /// экране, уже вью.
     private let reportCheckState: (Bool, String?) -> Void
 
+    /// Спросить канал ещё и о предустановках.
+    ///
+    /// Замыкание, а не ссылка на службу предустановок: этому сервису о ней
+    /// знать нечего, кроме того, что её надо дёрнуть в том же такте. Линии
+    /// разные — код и данные, — а будильник общий.
+    private let alsoCheckPresets: () -> Void
+
     init(isBusy: @escaping () -> Bool,
          prepareForRestart: @escaping (@escaping () -> Void) -> Void,
          hostWindow: @escaping () -> NSWindow?,
          announce: @escaping (String?) -> Void,
          reportCheckState: @escaping (Bool, String?) -> Void,
+         alsoCheckPresets: @escaping () -> Void = {},
          log: @escaping (String) -> Void) {
         self.isBusy = isBusy
         self.prepareForRestart = prepareForRestart
         self.hostWindow = hostWindow
         self.announce = announce
         self.reportCheckState = reportCheckState
+        self.alsoCheckPresets = alsoCheckPresets
         self.log = log
         super.init()
     }
@@ -168,13 +192,22 @@ final class UpdateService: NSObject, ObservableObject {
         }
 
         let updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: self, delegate: self)
-        updater.automaticallyChecksForUpdates = true
+        // Расписанием Sparkle больше не пользуется, и это осознанная замена.
+        //
+        // Своё расписание у него было бы вторым будильником на том же канале —
+        // рядом с нашим, который обязан дёргать ещё и предустановки. Два
+        // независимых срока на одной линии расходятся не сразу, а через
+        // полгода, когда один поменяли, а про другой забыли.
+        //
+        // Взамен цикл ниже сам зовёт `checkForUpdatesInBackground()` — тот же
+        // путь, которым Sparkle ходил по своему таймеру, только позванный нами.
+        updater.automaticallyChecksForUpdates = false
         updater.automaticallyDownloadsUpdates = true
-        updater.updateCheckInterval = Self.checkInterval
 
         do {
             try updater.start()
             self.updater = updater
+            startCycle()
             // не переводится: строка журнала
             log("обновления включены, канал \(feed.absoluteString)")
         } catch {
@@ -184,6 +217,40 @@ final class UpdateService: NSObject, ObservableObject {
             // не переводится: строка журнала
             log("обновления не поднялись: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Общий цикл
+
+    /// Заводит единый будильник и делает первую проверку.
+    ///
+    /// **Проверка на каждом старте — требование, а не оптимизация.** Машину
+    /// выключают на ночь и включают утром; без проверки при запуске выпуск,
+    /// вышедший вечером, доезжает не утром, а через полчаса после начала
+    /// рабочего дня — и то же самое с правкой макроса, сделанной вчера.
+    private func startCycle() {
+        cycle?.invalidate()
+        cycle = Timer.scheduledTimer(withTimeInterval: Self.checkInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.runCycle(reason: "по таймеру") }
+        }
+
+        Timer.scheduledTimer(withTimeInterval: Self.firstCheckDelay, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.runCycle(reason: "при запуске") }
+        }
+    }
+
+    /// Один такт: спросить канал об обновлении и о предустановках.
+    ///
+    /// Обе линии дёргаются всегда вместе, даже если одна из них только что
+    /// отвечала: раздельные условия — это тот самый второй будильник, только
+    /// спрятанный в `if`.
+    private func runCycle(reason: String) {
+        // не переводится: строка журнала
+        log("проверка канала \(reason)")
+
+        if let updater, updater.canCheckForUpdates {
+            updater.checkForUpdatesInBackground()
+        }
+        alsoCheckPresets()
     }
 
     // MARK: - Что зовёт приложение
@@ -220,6 +287,10 @@ final class UpdateService: NSObject, ObservableObject {
     /// конкретном рабочем месте, ждать до получаса, чтобы увидеть, дошёл ли
     /// канал вообще, — не дело.
     func checkNow() {
+        // Предустановки спрашиваются всегда, даже если канал обновлений не
+        // настроен: это разные линии, и молчание одной не повод молчать обеим.
+        alsoCheckPresets()
+
         guard let updater else {
             setCheckState(checking: false, result: NSLocalizedString(
                 "Канал обновлений не настроен",
