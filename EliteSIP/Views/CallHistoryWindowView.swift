@@ -694,6 +694,7 @@ final class HistorySnapshotAnchor {
         case cropFailed
         case composeFailed
         case encodeFailed
+        case pasteboardFailed
 
         var errorDescription: String? {
             switch self {
@@ -705,6 +706,7 @@ final class HistorySnapshotAnchor {
             case .cropFailed: NSLocalizedString("не вышла обрезка", comment: "отказ снимка истории")
             case .composeFailed: NSLocalizedString("не собрался холст", comment: "отказ снимка истории")
             case .encodeFailed: NSLocalizedString("картинка не закодировалась", comment: "отказ снимка истории")
+            case .pasteboardFailed: NSLocalizedString("буфер обмена не принял снимок", comment: "отказ снимка истории")
             }
         }
     }
@@ -1064,15 +1066,94 @@ private struct HistorySnapshotButton: View {
             return
         }
 
-        // Одна запись с двумя представлениями, а не две записи подряд:
+        // Одна запись с тремя представлениями, а не несколько записей подряд:
         // `setData` и `writeObjects` кладут в буфер разные элементы, и часть
         // приложений берёт из него первый попавшийся.
+        //
+        // **Третье представление — файл, и ради него всё переписано снова.**
+        // Живой прогон на Big Sur 24 августа 2026: байты `public.png` лежали в
+        // буфере (проверка записи ниже это доказала), а Telegram по ⌘V не
+        // вставлял ничего. Догадка «буфер не принял» оказалась мимо — принял.
+        // Дело в том, **чем** снимок предложен: мессенджеры разбирают вставку
+        // не как картинку в памяти, а как вложение, и ищут в буфере ссылку на
+        // файл. Своих байтов им мало.
+        //
+        // Поэтому снимок ещё и выкладывается на диск, а в буфер идёт ссылка.
+        // Порядок представлений при этом не меняется: кто умеет брать `.png`
+        // прямо из буфера (заметки, письмо, редактор), тот берёт его и дальше;
+        // файл — для тех, кто иначе не умеет.
         let item = NSPasteboardItem()
         item.setData(png, forType: .png)
         item.setData(tiff, forType: .tiff)
+        // Не вышло записать файл — не повод терять снимок целиком: остальные
+        // два представления работают и без него.
+        if let file = Self.spill(png) {
+            item.setString(file.absoluteString, forType: .fileURL)
+        }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects([item])
+        let written = NSPasteboard.general.writeObjects([item])
+
+        // Результат записи проверяется, а не отбрасывается.
+        //
+        // Живая проверка на Big Sur 24 августа 2026: кнопка снова отвечала
+        // «скопирован», а вставить не удавалось никуда — притом что предыдущая
+        // правка (PNG-байты вместо голого `NSImage`) уже стояла. Причина в
+        // самой этой строке: `writeObjects` возвращает `Bool`, а он никуда не
+        // шёл, и любой отказ системного буфера — например, его в тот же миг
+        // перехватила другая программа — молча выдавался за успех. Чтение
+        // данных обратно тем же вызовом, каким их достанет получатель,
+        // ловит и этот случай, и любой другой, при котором `writeObjects`
+        // соврал бы, что справился.
+        guard written, NSPasteboard.general.data(forType: .png) != nil else {
+            onResult(
+                String(
+                    format: NSLocalizedString("Снимок не получился: %@", comment: "снимок списка истории"),
+                    HistorySnapshotAnchor.Failure.pasteboardFailed.localizedDescription
+                )
+            )
+            return
+        }
         onResult(NSLocalizedString("Снимок скопирован — вставьте в переписку", comment: "снимок списка истории"))
+    }
+
+    /// Выкладывает снимок файлом во временный каталог и отдаёт ссылку.
+    ///
+    /// Нужно тем получателям, которые вставку разбирают как вложение, а не как
+    /// картинку в памяти, — Telegram из них главный.
+    ///
+    /// **Каталог свой и чистится перед каждой записью.** Снимок уезжает во
+    /// временные файлы системы, а их убирает система и когда захочет: пока
+    /// файл нужен буферу обмена, он обязан лежать, а после следующего снимка
+    /// прошлый не нужен никому. Свой каталог даёт и то и другое — и заодно не
+    /// даёт кнопке засорять машину по файлу за нажатие.
+    ///
+    /// **Имя латиницей и с меткой времени.** Оно уезжает в переписку вместе с
+    /// файлом: собеседник видит его подписью к вложению, а по метке отличает
+    /// два снимка подряд. Кириллица в имени пережила бы не всякий путь до
+    /// получателя, и разбирать потом пришлось бы уже её, а не историю звонков.
+    private static func spill(_ png: Data) -> URL? {
+        let manager = FileManager.default
+        let dir = manager.temporaryDirectory
+            .appendingPathComponent("EliteSIP-Snapshots", isDirectory: true)
+
+        do {
+            try manager.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            return nil
+        }
+
+        if let stale = try? manager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            for file in stale { try? manager.removeItem(at: file) }
+        }
+
+        let stamp = Int(Date().timeIntervalSince1970)
+        let url = dir.appendingPathComponent("EliteSIP-history-\(stamp).png")
+        do {
+            try png.write(to: url)
+        } catch {
+            return nil
+        }
+        return url
     }
 }
 
