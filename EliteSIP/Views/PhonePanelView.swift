@@ -478,16 +478,23 @@ struct PhonePanelView: View {
         label: LocalizedStringKey,
         action: @escaping () -> Void
     ) -> some View {
+        // Квадрат нажатия — **внутри** подписи кнопки, а не рамкой снаружи.
+        //
+        // Снаружи он был декорацией: подсветка под курсором занимала все
+        // 22 точки, а щёлкать приходилось по самому значку в 12 — кнопка
+        // подсвечивалась и не нажималась, и промах читался как «шестерёнка
+        // сломалась». `contentShape` очерчивает область только у того, к чему
+        // приложен, и приложен он был к значку.
         Button(action: action) {
             CompatSymbol(name: symbol, size: Theme.Icon.medium)
                 .compatForeground(Theme.Palette.textSecondary)
+                .frame(
+                    width: Theme.Metrics.statusIconHitSize,
+                    height: Theme.Metrics.statusIconHitSize
+                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .frame(
-            width: Theme.Metrics.statusIconHitSize,
-            height: Theme.Metrics.statusIconHitSize
-        )
         .hoverHighlight(cornerRadius: 6)
         .compatAccessibilityLabel(label)
     }

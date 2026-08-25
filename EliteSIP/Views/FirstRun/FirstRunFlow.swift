@@ -125,6 +125,14 @@ final class FirstRunFlow: ObservableObject {
     /// Идёт ли обращение к каналу. Пока идёт, кнопку жать второй раз незачем.
     @Published var isOpeningKey = false
 
+    /// Чем кончилась последняя проверка ключа — отдельно от общего `notice`.
+    ///
+    /// Общая строка живёт внизу окна, под чертой, а ключ вводят посреди экрана:
+    /// отказ появлялся в добрых двухстах точках от поля, которое его вызвало, и
+    /// человек, глядящий на ключ, его попросту не видел. Своё поле — своя
+    /// надпись под ним, и она же красит рамку поля.
+    @Published var keyFailure: String?
+
     /// Что сказать про последнюю попытку — отказ пропуска, отказ файла, исход
     /// живой проверки. Живёт до следующего действия.
     @Published var notice: String?
@@ -205,13 +213,14 @@ final class FirstRunFlow: ObservableObject {
     func openKey() async {
         guard !isOpeningKey else { return }
         notice = nil
+        keyFailure = nil
         openedPackage = nil
 
         let parsed: ActivationKey
         do {
             parsed = try ActivationKey(input: key)
         } catch {
-            notice = (error as? LocalizedError)?.errorDescription
+            keyFailure = (error as? LocalizedError)?.errorDescription
                 ?? PanelLinkError.malformedKey.errorDescription
             return
         }
@@ -222,7 +231,7 @@ final class FirstRunFlow: ObservableObject {
         do {
             openedPackage = try await ActivationService.fetch(key: parsed)
         } catch {
-            notice = (error as? LocalizedError)?.errorDescription
+            keyFailure = (error as? LocalizedError)?.errorDescription
                 ?? PanelLinkError.keyDidNotOpen.errorDescription
         }
     }
@@ -230,6 +239,7 @@ final class FirstRunFlow: ObservableObject {
     func goBack() {
         guard canGoBack, let index = steps.firstIndex(of: step), index > 0 else { return }
         notice = nil
+        keyFailure = nil
         step = steps[index - 1]
     }
 
@@ -238,6 +248,7 @@ final class FirstRunFlow: ObservableObject {
     func advance() {
         guard let index = steps.firstIndex(of: step), index + 1 < steps.count else { return }
         notice = nil
+        keyFailure = nil
         step = steps[index + 1]
     }
 

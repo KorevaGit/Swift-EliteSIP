@@ -15,6 +15,17 @@ struct SupportTab: View {
 
     @State private var archiveResult: String?
 
+    /// Версия и сборка одной строкой — тем же составом, что у администратора в
+    /// «Диагностике». Две разные записи об одном и том же в двух окнах
+    /// разошлись бы при первой правке, и поддержка узнавала бы номер сборки в
+    /// зависимости от того, кто снял трубку.
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "\(version) (\(build))"
+    }
+
     var body: some View {
         SettingsSection("Техподдержка") {
             SettingsNote("""
@@ -39,6 +50,19 @@ struct SupportTab: View {
             // случайно: это тот же раздел «раз что-то не так — я это делаю
             // сам, не дожидаясь администратора», и «у меня старая версия» сюда
             // укладывается ровно так же, как «соберите мне архив».
+            // Версия — прямо над кнопкой проверки, а не в отдельном разделе.
+            //
+            // Первое, что просит поддержка по телефону, — «какая у вас версия»,
+            // и до этой правки менеджеру было нечего ответить: строка стояла
+            // только в «Диагностике», за административным паролем. Соседство с
+            // «Проверить обновления сейчас» тоже не случайное: человек видит
+            // номер и тут же может выяснить, не устарел ли он.
+            SettingsRow("Версия") {
+                Text(verbatim: appVersion)
+                    .compatForeground(Theme.Palette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             UpdateCheckRow(isChecking: model.isCheckingForUpdates, result: model.updateCheckResult)
 
             // Строки «Площадка» здесь нет. Она была задумана как «есть что
