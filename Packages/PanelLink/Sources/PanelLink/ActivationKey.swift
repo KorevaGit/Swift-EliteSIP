@@ -44,6 +44,10 @@ public struct ActivationKey: Sendable, Equatable {
     /// Windows, отвергался бы как непохожий на ключ. Ошибку нашёл тест; списком
     /// её пришлось бы ловить ещё и на неразрывном пробеле, длинном тире и всём
     /// прочем, что вставляется вместе с текстом.
+    ///
+    /// С 25 августа 2026 это же правило действует и в панели: до него панель
+    /// перечисляла разделители списком и была строже приложения — ключ, который
+    /// приложение принимало, поиск по ключу отвергал как «не ключ».
     public init(input: String) throws {
         var digits: [Character] = []
 
@@ -69,28 +73,6 @@ public struct ActivationKey: Sendable, Equatable {
         canonical = String(digits)
     }
 
-    /// Имя пакета в канале раздачи — та самая шестнадцатеричная строка.
-    ///
-    /// Считается из ключа односторонне, поэтому его знают обе стороны, а сервер
-    /// посередине не нужен. Знание адреса при этом ничего не даёт: пакет по
-    /// нему лежит зашифрованный тем же ключом.
-    ///
-    /// Приставка `activations/` сюда не входит: она принадлежит раскладке
-    /// бакета и приезжает внутри адреса канала.
-    public var objectName: String {
-        Self.hex(Self.sha256(Data("elitesip.activation.object.v1\0\(canonical)".utf8)).prefix(16))
-    }
-
-    /// Соль для вывода ключа шифрования.
-    ///
-    /// Выводится из ключа, а не берётся случайной. Обычно так нельзя; здесь
-    /// можно, потому что ключ случаен и живёт двое суток — повторов, ради
-    /// которых соль и случайна, не бывает. Зато машине не нужно знать ничего,
-    /// кроме ключа: ни соли рядом с шифротекстом, ни параметров в заголовке.
-    var salt: Data {
-        Data(Self.sha256(Data("elitesip.activation.salt.v1\0\(canonical)".utf8)).prefix(16))
-    }
-
     /// Показать так, как показывает панель: группами по четыре.
     public var grouped: String {
         stride(from: 0, to: canonical.count, by: 4).map { offset in
@@ -99,6 +81,104 @@ public struct ActivationKey: Sendable, Equatable {
             return String(canonical[start..<end])
         }.joined(separator: "-")
     }
+}
+
+/// Ключ вместе с выведенным из него материалом.
+///
+/// Тип существует затем, чтобы прогонка была ровно одна. Имя объекта и ключ
+/// шифрования — разные куски одного вывода PBKDF2, и считать их по отдельности
+/// значило бы заплатить второй секундой на Catalina, где человек и так ждёт у
+/// экрана. Поэтому же это не вычисляемые свойства ключа: сто пятьдесят тысяч
+/// итераций не должны прятаться за точкой.
+public struct BoundActivationKey: Sendable {
+
+    /// Число итераций PBKDF2.
+    ///
+    /// Взято у панели, а панель взяла его у `AdminAccess.KeyDerivation`. Argon2id
+    /// здесь был бы уместнее, но его нет ни в CryptoKit, ни в CommonCrypto на
+    /// Catalina, а тянуть ради него зависимость в однозависимое приложение
+    /// нельзя — разбор в elitesip-site/docs/DECISIONS.md.
+    static let iterations = 150_000
+
+    static let nameLength = 16
+    static let keyLength = 32
+
+    /// Имя пакета в канале раздачи — та самая шестнадцатеричная строка.
+    ///
+    /// Приставка `activations/` сюда не входит: она принадлежит раскладке
+    /// бакета и приезжает внутри адреса канала.
+    public let objectName: String
+
+    /// Ключ AES-GCM. Наружу не отдаётся.
+    let cipherKey: Data
+
+    /// Считает материал ключа.
+    ///
+    /// ```
+    /// соль  = SHA-256("elitesip.activation.salt.v2\0" + ключ + "\0" + машина)[:16]
+    /// вывод = PBKDF2-HMAC-SHA256(ключ, соль, 150 000, 48)
+    /// имя объекта = hex(вывод[0..16])
+    /// ключ AES    = вывод[16..48]
+    /// ```
+    ///
+    /// **Соль выводится из ключа, а не берётся случайной.** Обычно так нельзя;
+    /// здесь можно, потому что ключ случаен и живёт двое суток — повторов, ради
+    /// которых соль и случайна, не бывает. Зато машине не нужно знать ничего,
+    /// кроме ключа: ни соли рядом с шифротекстом, ни параметров в заголовке.
+    ///
+    /// **Имя объекта растянуто вместе с ключом шифрования.** Раньше оно
+    /// считалось голым SHA-256 от ключа — а в ключе шестьдесят бит, и утёкшая
+    /// база панели давала готовый образ для перебора.
+    ///
+    /// - Parameter installationID: машина, к которой привязан ключ. `nil` у
+    ///   ключа активации: машины ещё нет. У ключа перепрошивки — идентификатор
+    ///   этой машины, и тогда чужой ключ считает другой адрес и не находит по
+    ///   нему ничего. Проверять привязку внутри пакета было нельзя: Worker
+    ///   столбит пакет в момент скачивания, и перепутавший свои же два
+    ///   компьютера сжигал бы ключ до всякой проверки.
+    public init(key: ActivationKey, installationID: String? = nil) throws {
+        let binding = installationID ?? ""
+        let salt = ActivationKey.sha256(
+            Data("elitesip.activation.salt.v2\0\(key.canonical)\0\(binding)".utf8)
+        ).prefix(16)
+
+        let material = try Self.derive(password: key.canonical, salt: Data(salt),
+                                       length: Self.nameLength + Self.keyLength)
+
+        objectName = ActivationKey.hex(material.prefix(Self.nameLength))
+        cipherKey = Data(material.suffix(Self.keyLength))
+    }
+
+    static func derive(password: String, salt: Data, length: Int) throws -> Data {
+        let secretBytes = Array(password.utf8)
+        var derived = Data(count: length)
+
+        let status: Int32 = derived.withUnsafeMutableBytes { output in
+            salt.withUnsafeBytes { saltBuffer in
+                secretBytes.withUnsafeBufferPointer { secretBuffer in
+                    let pointer = secretBuffer.baseAddress.map {
+                        UnsafeRawPointer($0).assumingMemoryBound(to: Int8.self)
+                    }
+                    return CCKeyDerivationPBKDF(
+                        CCPBKDFAlgorithm(kCCPBKDF2),
+                        pointer,
+                        secretBytes.count,
+                        saltBuffer.bindMemory(to: UInt8.self).baseAddress,
+                        salt.count,
+                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                        UInt32(iterations),
+                        output.bindMemory(to: UInt8.self).baseAddress,
+                        length
+                    )
+                }
+            }
+        }
+        guard status == kCCSuccess else { throw PanelLinkError.keyDidNotOpen }
+        return derived
+    }
+}
+
+extension ActivationKey {
 
     // MARK: - Мелочь
 

@@ -19,6 +19,14 @@ type PresetSummary struct {
 	RevisionAt    time.Time
 	Published     bool
 	EmployeeCount int
+
+	// AdminPasswordSet — задан ли административный пароль предустановки.
+	//
+	// Сам пароль в перечень не едет: список предустановок открывают чаще, чем
+	// правят, и показывать пароль в нём незачем. Без пароля ключ не
+	// выпускается — машина активируется, а «Управление» на ней потом не
+	// открывается ничем.
+	AdminPasswordSet bool
 }
 
 // CreatePreset заводит предустановку без ревизий.
@@ -62,6 +70,7 @@ func (db *DB) CreatePreset(ctx context.Context, actor *int64, name string) (mode
 func (db *DB) ListPresets(ctx context.Context, includeArchived bool) ([]PresetSummary, error) {
 	query := `
 		SELECT p.id, p.public_id, p.name, p.created_at, p.archived_at,
+		       CASE WHEN p.admin_password = '' THEN 0 ELSE 1 END,
 		       COALESCE(r.revision, 0), COALESCE(r.created_at, ''),
 		       CASE WHEN r.published_at IS NULL THEN 0 ELSE 1 END,
 		       (SELECT COUNT(*) FROM employees e WHERE e.preset_id = p.id)
@@ -89,9 +98,10 @@ func (db *DB) ListPresets(ctx context.Context, includeArchived bool) ([]PresetSu
 			archivedAt sql.NullString
 			revisionAt string
 			published  int
+			hasPass    int
 		)
 		if err := rows.Scan(&s.ID, &s.PublicID, &s.Name, &createdAt, &archivedAt,
-			&s.Revision, &revisionAt, &published, &s.EmployeeCount); err != nil {
+			&hasPass, &s.Revision, &revisionAt, &published, &s.EmployeeCount); err != nil {
 			return nil, fmt.Errorf("прочитать строку предустановки: %w", err)
 		}
 		s.CreatedAt = readTime(createdAt)
@@ -100,6 +110,7 @@ func (db *DB) ListPresets(ctx context.Context, includeArchived bool) ([]PresetSu
 			s.RevisionAt = readTime(revisionAt)
 		}
 		s.Published = published == 1
+		s.AdminPasswordSet = hasPass == 1
 		out = append(out, s)
 	}
 	return out, rows.Err()
@@ -344,4 +355,54 @@ func (db *DB) BundleEntries(ctx context.Context) ([]BundleEntry, error) {
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// SetPresetAdminPassword задаёт административный пароль предустановки.
+//
+// Пароль — поле предустановки, а не настройка конторы: у техподдержки своя
+// предустановка со своим паролем, и в этом весь смысл разделения. В общий файл
+// предустановок он при этом не едет — файл один на контору, и любой оператор
+// прочитал бы там пароль поддержки. Доставляется помашинным объектом.
+//
+// Смена пароля не догоняет уже работающие машины сама: их access-объекты
+// переписывает панель отдельным проходом. Сказать об этом — забота интерфейса.
+func (db *DB) SetPresetAdminPassword(ctx context.Context, actor *int64, presetID int64, password string) error {
+	now := time.Now()
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("сохранить пароль предустановки: %w", err)
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx,
+		`UPDATE presets SET admin_password = ? WHERE id = ? AND archived_at IS NULL`,
+		password, presetID)
+	if err != nil {
+		return fmt.Errorf("сохранить пароль предустановки %d: %w", presetID, err)
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return ErrNotFound
+	}
+
+	// Самого пароля в журнале нет: журнал читают чаще, чем карточку.
+	if err := logAction(ctx, tx, now, actor, "пароль предустановки изменён",
+		"preset", &presetID, ""); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// PresetAdminPassword читает пароль предустановки.
+func (db *DB) PresetAdminPassword(ctx context.Context, presetID int64) (string, error) {
+	var password string
+	err := db.QueryRowContext(ctx,
+		`SELECT admin_password FROM presets WHERE id = ?`, presetID).Scan(&password)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("прочитать пароль предустановки %d: %w", presetID, err)
+	}
+	return password, nil
 }

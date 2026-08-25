@@ -15,9 +15,13 @@ import (
 
 type overviewData struct {
 	storage.Overview
-	AdminPasswordSet bool
-	AppLinkSet       bool
-	HasPresets       bool
+
+	// PresetsWithoutPassword — сколько предустановок остались без
+	// административного пароля. По такой ключ не выпускается вовсе.
+	PresetsWithoutPassword int
+
+	AppLinkSet bool
+	HasPresets bool
 
 	// Behind — машины, отставшие от выложенной ревизии своей предустановки.
 	Behind int
@@ -46,8 +50,14 @@ func (s *Server) showOverview(w http.ResponseWriter, r *http.Request, admin mode
 		s.fail(w, err)
 		return
 	}
-	password, _ := s.DB.Setting(r.Context(), storage.SettingAdminPassword)
 	link, _ := s.DB.Setting(r.Context(), storage.SettingAppLink)
+
+	withoutPassword := 0
+	for _, p := range presets {
+		if !p.AdminPasswordSet {
+			withoutPassword++
+		}
+	}
 
 	behind, err := s.DB.BehindVersion(r.Context())
 	if err != nil {
@@ -63,12 +73,12 @@ func (s *Server) showOverview(w http.ResponseWriter, r *http.Request, admin mode
 	s.render(w, r, "overview", page{
 		Title: "Обзор", Section: "overview", Admin: admin,
 		Data: overviewData{
-			Overview:         overview,
-			AdminPasswordSet: password != "",
-			AppLinkSet:       link != "",
-			HasPresets:       len(presets) > 0,
-			Behind:           behind,
-			KnowsMachines:    len(known) > 0,
+			Overview:               overview,
+			PresetsWithoutPassword: withoutPassword,
+			AppLinkSet:             link != "",
+			HasPresets:             len(presets) > 0,
+			Behind:                 behind,
+			KnowsMachines:          len(known) > 0,
 		},
 	})
 }
@@ -249,11 +259,24 @@ type employeeData struct {
 	Presets     []storage.PresetSummary
 	Ready       bool
 	Blocker     string
+
+	// Highlight — строка, которую надо подсветить: сюда пришли поиском по
+	// ключу. Ноль — пришли обычным путём.
+	Highlight int64
 }
 
 type activationRow struct {
 	storage.MachineRow
 	State model.ActivationState
+
+	// Silent — машина молчит дольше срока. Считается здесь, а не в шаблоне:
+	// шаблон не место для арифметики со временем.
+	Silent bool
+
+	// CanReflash — можно ли выпустить ключ перепрошивки. Только для живой
+	// активированной машины: перепрошивать нечего там, где ключ ещё не
+	// вводили, и незачем там, где активацию отозвали.
+	CanReflash bool
 }
 
 func (s *Server) showEmployee(w http.ResponseWriter, r *http.Request, admin model.Admin) {
@@ -277,7 +300,13 @@ func (s *Server) showEmployee(w http.ResponseWriter, r *http.Request, admin mode
 	rows := make([]activationRow, 0, len(machines))
 	now := time.Now()
 	for _, m := range machines {
-		rows = append(rows, activationRow{MachineRow: m, State: m.State(now)})
+		state := m.State(now)
+		rows = append(rows, activationRow{
+			MachineRow: m,
+			State:      state,
+			Silent:     m.Checkin != nil && m.Checkin.Silent(now),
+			CanReflash: state == model.ActivationDone,
+		})
 	}
 
 	presets, err := s.DB.ListPresets(r.Context(), false)
@@ -298,11 +327,16 @@ func (s *Server) showEmployee(w http.ResponseWriter, r *http.Request, admin mode
 	data := employeeData{
 		Employee: employee, PresetName: presetName,
 		Activations: rows, Presets: presets,
+		Highlight: highlightFrom(r),
 	}
 	if _, err := s.DB.SubjectForIssue(r.Context(), id); err != nil {
 		data.Blocker = friendly(err)
-	} else if password, _ := s.DB.Setting(r.Context(), storage.SettingAdminPassword); password == "" {
-		data.Blocker = "Не задан административный пароль конторы — задайте его в настройках"
+	} else if employee.PresetID != nil {
+		if password, _ := s.DB.PresetAdminPassword(r.Context(), *employee.PresetID); password == "" {
+			data.Blocker = "У предустановки не задан административный пароль — задайте его в её карточке"
+		} else {
+			data.Ready = true
+		}
 	} else {
 		data.Ready = true
 	}
@@ -385,11 +419,12 @@ func (s *Server) revokeActivation(w http.ResponseWriter, r *http.Request, admin 
 		return
 	}
 
-	if err := s.DB.RevokeActivation(r.Context(), actorOf(admin), id); err != nil {
+	if err := s.Revoker.Revoke(r.Context(), actorOf(admin), id); err != nil {
 		s.flash(r, "bad", "Не отозвано", friendly(err))
 	} else {
 		s.flash(r, "warn", "Активация отозвана",
-			"Это учётная запись, а не отключение: машина продолжит работать, пока на АТС не сменят SIP-пароль пира.")
+			"Машина сбросится, когда следующий раз выйдет на связь — не позже чем через пятнадцать минут. "+
+				"Если она в сети не появится, остановить её может только смена SIP-пароля пира на АТС.")
 	}
 	s.back(w, r, "/employees")
 }
@@ -410,16 +445,10 @@ func (s *Server) showAudit(w http.ResponseWriter, r *http.Request, admin model.A
 // --------------------------------------------------------------- настройки
 
 type settingsData struct {
-	AdminPasswordSet bool
-	AppLink          string
+	AppLink string
 }
 
 func (s *Server) showSettings(w http.ResponseWriter, r *http.Request, admin model.Admin) {
-	password, err := s.DB.Setting(r.Context(), storage.SettingAdminPassword)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
 	link, err := s.DB.Setting(r.Context(), storage.SettingAppLink)
 	if err != nil {
 		s.fail(w, err)
@@ -427,7 +456,7 @@ func (s *Server) showSettings(w http.ResponseWriter, r *http.Request, admin mode
 	}
 	s.render(w, r, "settings", page{
 		Title: "Настройки", Section: "settings", Admin: admin,
-		Data: settingsData{AdminPasswordSet: password != "", AppLink: link},
+		Data: settingsData{AppLink: link},
 	})
 }
 
@@ -445,19 +474,29 @@ func (s *Server) saveAppLink(w http.ResponseWriter, r *http.Request, admin model
 	s.back(w, r, "/settings")
 }
 
-func (s *Server) saveSettings(w http.ResponseWriter, r *http.Request, admin model.Admin) {
-	password := r.FormValue("admin_password")
-	if strings.TrimSpace(password) == "" {
-		s.flash(r, "bad", "Не сохранено", "Пустой пароль")
-		s.back(w, r, "/settings")
+// savePresetPassword задаёт административный пароль предустановки.
+//
+// Пароль у каждой предустановки свой: у техподдержки своя предустановка со
+// своим паролем, и общий на контору сделал бы это разделение мнимым.
+func (s *Server) savePresetPassword(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
 		return
 	}
 
-	if err := s.DB.SetSetting(r.Context(), actorOf(admin), storage.SettingAdminPassword, password); err != nil {
+	password := r.FormValue("admin_password")
+	if strings.TrimSpace(password) == "" {
+		s.flash(r, "bad", "Не сохранено", "Пустой пароль")
+		s.back(w, r, "/presets/"+strconv.FormatInt(id, 10))
+		return
+	}
+
+	if err := s.DB.SetPresetAdminPassword(r.Context(), actorOf(admin), id, password); err != nil {
 		s.flash(r, "bad", "Не сохранено", friendly(err))
 	} else {
-		s.flash(r, "ok", "Пароль конторы сохранён",
-			"Он поедет в пакеты активации. Уже настроенные машины сохранят прежний — у них он вшит с прошлого ключа.")
+		s.flash(r, "ok", "Пароль предустановки сохранён",
+			"Он поедет в новые ключи. Уже работающие машины этой предустановки получат его при следующей выкладке доступа.")
 	}
-	s.back(w, r, "/settings")
+	s.back(w, r, "/presets/"+strconv.FormatInt(id, 10))
 }

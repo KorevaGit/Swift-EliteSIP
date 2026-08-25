@@ -20,7 +20,12 @@ enum ActivationService {
     ///
     /// Ошибки не различают неверный ключ и испорченный файл — так решено в
     /// `PanelLink`: подбирающему незачем знать, где он ошибся.
-    static func fetch(key: ActivationKey) async throws -> ActivationPackage {
+    static func fetch(key: ActivationKey, installationID: String? = nil) async throws -> ActivationPackage {
+        // Одна прогонка PBKDF2 на адрес и на ключ шифрования разом. Считается
+        // до запроса: сто пятьдесят тысяч итераций — это около секунды на
+        // Catalina, и делать её дважды незачем.
+        let bound = try BoundActivationKey(key: key, installationID: installationID)
+
         guard let channel = Provisioning.secrets?.updates,
               let base = URL(string: channel.baseURL)
         else {
@@ -31,7 +36,7 @@ enum ActivationService {
         // только шестнадцатеричное имя.
         let url = base
             .appendingPathComponent("activations")
-            .appendingPathComponent(key.objectName)
+            .appendingPathComponent(bound.objectName)
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 30
@@ -58,7 +63,7 @@ enum ActivationService {
             throw PanelLinkError.keyDidNotOpen
         }
 
-        return try ActivationPackage.open(sealed: data, with: key)
+        return try ActivationPackage.open(sealed: data, with: bound)
     }
 
     /// Отказ, который не про ключ, а про связь.

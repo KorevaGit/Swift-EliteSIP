@@ -185,8 +185,9 @@ func (db *DB) UpdateEmployee(ctx context.Context, actor *int64, e model.Employee
 // базе навсегда, а нужна она ровно до конца испытательного срока стажёра —
 // решение 24 августа 2026, docs/UI.md.
 //
-// Активации и отметки о связи уходят каскадом. Единственное, что переживает
-// удаление, — строка журнала с именем и номером: именно на неё опирается
+// Активации уходят каскадом, отметки о связи — явным запросом ниже: внешнего
+// ключа у них больше нет, потому что installation_id перестал быть уникальным.
+// Единственное, что переживает удаление, — строка журнала с именем и номером: именно на неё опирается
 // разбор жалобы через неделю после ухода человека, и CDR на АТС на это не
 // отвечает — там только номер.
 //
@@ -211,6 +212,15 @@ func (db *DB) DeleteEmployee(ctx context.Context, actor *int64, id int64) error 
 	}
 	if err != nil {
 		return fmt.Errorf("прочитать сотрудника %d: %w", id, err)
+	}
+
+	// Отметки сносятся до самих активаций: после каскада узнать, какие
+	// installation_id принадлежали этому человеку, будет уже неоткуда.
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM checkins
+		 WHERE installation_id IN (SELECT installation_id FROM activations WHERE employee_id = ?)`,
+		id); err != nil {
+		return fmt.Errorf("удалить отметки машин сотрудника %d: %w", id, err)
 	}
 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM employees WHERE id = ?`, id); err != nil {

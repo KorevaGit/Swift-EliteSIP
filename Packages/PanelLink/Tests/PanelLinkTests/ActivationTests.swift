@@ -13,15 +13,14 @@ import Testing
 /// стороны — разойдётся здесь, а не на живой машине сотрудника.
 enum Fixture {
     static let key = "K7M2-9XQP-4TFB"
-    static let objectName = "e3e3a8272d010c28ebb7469c5e03a09b"
+    static let objectName = "255a2e7e8e0e6e8260ab4e21f7f179bd"
     static let sealed = Data(base64Encoded: """
-        RVNJUEEx73x67q7WafpRd7Qfl7lrHpHbKgjl1X5ovYTE4mPVQdMb5pPKGBtnl9u674nqDx+7dCSfKH3YW/UB9qWxih0QVV2rIHqMFuGW\
-        1onslG0rxJQliJnsLZwkT5R881sJaOUEC4KxtI+EGA/XVIofJBsc89EtB8gHRSPxuOC0BDdEr3mzYIjJrTnumLIUwCn4Z5OmtSw3OUTU\
-        57uGBs4qjk79DCxDSbbWBsiS0QVjaofff8yBcco6y5YajhCA3ElkImvFSJvW+W1gHVA7Q1KdQS268S4DzLCLxlvu535dLXl3drrg3rGJ\
-        fynihjo952wUgUP48BCxpuQeIba5FVzYwlxFchKTMRTcrO3ArK/HeaufBX4yD9ZpyiK09DQmbDe8mBuHphIImSye+2S23ub+ZZLCWo8A\
-        nrgGtdJtFJVsZYee2ke8o7BDmyiWVp6XqEI6lknGflWDIQD1K1kSOXofqmRHPr4wCoXNCI1S+/G0ci0OzdEYXeQqEQ6P/iTQkpqvV3Gc\
-        +mpBQrXQ6q6l4Kl96sbBEeJlSO+1Akith3ClbeUhhiHNtPg5vPhk7csyT8iclQOWEG7jAvmyfaDxM2Z9ZtN/o8XZYQK29Nwp39m/uOa9\
-        kVcFlrNBLDqHJo8yAy819v/TL0M=
+        RVNJUEEyWAM7k5Gkh4YY/bAKGRqpLfpbqFu7hL/NKLlxY4523bm7LGucySGLkDsbQE8kBgJFvMufhGkR7ZrBuhHCmYPm8An4rk0sF8xDUCI8RZ0z0JwnKIOF\
+        YaHJ0Lq8wmJJ/XYT6J3wIHoHSGrNS/dKoWnVTSz/5Kijuw8SHm7xOqWbuHtqN8oHXXcQy0/WfT4q2LGrlHuh2Rnow386EZiTJ07c2pFRcezBhN4reGotPPmC\
+        6GCVByisXSRoC6/D6SsIhAxnQLXR4u0ObSKKINS9l/z4QeFu3DXhCVFsp3wn/s1EtgDyiLfsafuecGZ1cTn6PvnecXys0OGgrUbWd39FXES5cza8GwvYfLaC\
+        BCJPJsUCWX9+bx/k9eZV1q8HgN8RNknYRcXj7OvaWHe1/ranYtTOsSuBKAomu1NxHKxbm8veWFOJz9Zown2kSLlFO84ry/ADqyKX+1ZyQ0GjsyJ6W1NzQxgw\
+        DMd3/BGkeePil7pg4cBfCXfEBLnyCHuRslQBwQxZ3KGBMxtQQWZDlvHu2wvo0iRw6JFSo6n+yB5bke8SmkNgRfJ4N2RECQB95lF8+qn/Nn6O2O6weciOfnRC\
+        2fP5DMEgSzFyR6U1ONfEFTueKgTDtIvNUFOtci9bTP45DH4PA+Y=
         """.replacingOccurrences(of: "\n", with: ""))!
 }
 
@@ -64,8 +63,24 @@ struct ActivationKeyTests {
     /// пойдёт за пакетом не туда.
     @Test("адрес пакета совпадает с тем, что посчитала панель")
     func objectNameMatchesPanel() throws {
+        let bound = try BoundActivationKey(key: ActivationKey(input: Fixture.key))
+        #expect(bound.objectName == Fixture.objectName)
+    }
+
+    /// Привязка входит в соль, а значит и в адрес: ключ перепрошивки, введённый
+    /// не на той машине, уходит по другому адресу и пакета там не находит —
+    /// вместо того чтобы скачать его и сжечь на проверке внутри.
+    @Test("привязка к машине меняет адрес")
+    func bindingChangesAddress() throws {
         let key = try ActivationKey(input: Fixture.key)
-        #expect(key.objectName == Fixture.objectName)
+
+        let free = try BoundActivationKey(key: key)
+        let mine = try BoundActivationKey(key: key, installationID: "8f2c0000")
+        let yours = try BoundActivationKey(key: key, installationID: "8f2c0001")
+
+        #expect(mine.objectName != free.objectName)
+        #expect(mine.objectName != yours.objectName)
+        #expect(try BoundActivationKey(key: key, installationID: "8f2c0000").objectName == mine.objectName)
     }
 
     @Test("показывается группами, как в панели")
@@ -80,7 +95,7 @@ struct ActivationPackageTests {
     /// Полный круг с настоящей панелью: то, что она положила, здесь достаётся.
     @Test("пакет от панели распечатывается")
     func opensPanelPackage() throws {
-        let key = try ActivationKey(input: Fixture.key)
+        let key = try BoundActivationKey(key: ActivationKey(input: Fixture.key))
         let package = try ActivationPackage.open(sealed: Fixture.sealed, with: key)
 
         #expect(package.format == 1)
@@ -99,7 +114,7 @@ struct ActivationPackageTests {
     /// же дорога, что и файл предустановок.
     @Test("управляемые поля доезжают как есть")
     func carriesSettingsVerbatim() throws {
-        let key = try ActivationKey(input: Fixture.key)
+        let key = try BoundActivationKey(key: ActivationKey(input: Fixture.key))
         let package = try ActivationPackage.open(sealed: Fixture.sealed, with: key)
 
         let object = try JSONSerialization.jsonObject(with: package.preset.settings)
@@ -117,14 +132,14 @@ struct ActivationPackageTests {
     /// файл: ответ обязан быть один и тот же.
     @Test("чужой ключ и испорченный пакет неотличимы по ответу")
     func wrongKeyAndBrokenPackageLookAlike() throws {
-        let wrongKey = try ActivationKey(input: "K7M29XQP4TFC")
+        let wrongKey = try BoundActivationKey(key: ActivationKey(input: "K7M29XQP4TFC"))
         #expect(throws: PanelLinkError.keyDidNotOpen) {
             try ActivationPackage.open(sealed: Fixture.sealed, with: wrongKey)
         }
 
         var broken = Fixture.sealed
         broken[broken.count - 1] ^= 0x01
-        let rightKey = try ActivationKey(input: Fixture.key)
+        let rightKey = try BoundActivationKey(key: ActivationKey(input: Fixture.key))
         #expect(throws: PanelLinkError.keyDidNotOpen) {
             try ActivationPackage.open(sealed: broken, with: rightKey)
         }
@@ -135,11 +150,11 @@ struct ActivationPackageTests {
     @Test("подмена заголовка ломает распечатывание")
     func headerIsAuthenticated() throws {
         var tampered = Fixture.sealed
-        tampered[5] = UInt8(ascii: "1")
-        #expect(tampered.prefix(6) == Data("ESIPA1".utf8))
+        tampered[5] = UInt8(ascii: "2")
+        #expect(tampered.prefix(6) == Data("ESIPA2".utf8))
 
         tampered[4] = UInt8(ascii: "X")
-        let key = try ActivationKey(input: Fixture.key)
+        let key = try BoundActivationKey(key: ActivationKey(input: Fixture.key))
         #expect(throws: PanelLinkError.keyDidNotOpen) {
             try ActivationPackage.open(sealed: tampered, with: key)
         }
@@ -152,15 +167,26 @@ struct ActivationPackageTests {
         var newer = Fixture.sealed
         newer[5] = UInt8(ascii: "9")
 
-        let key = try ActivationKey(input: Fixture.key)
+        let key = try BoundActivationKey(key: ActivationKey(input: Fixture.key))
         #expect(throws: PanelLinkError.packageTooNew) {
             try ActivationPackage.open(sealed: newer, with: key)
         }
     }
 
+    /// Привязка входит в соль, значит и в ключ шифрования: даже добравшись до
+    /// пакета, чужая машина его не откроет.
+    @Test("пакет без привязки не открывается привязанным ключом")
+    func bindingIsPartOfTheCipherKey() throws {
+        let bound = try BoundActivationKey(key: ActivationKey(input: Fixture.key),
+                                           installationID: "8f2c4a1b9d3e5f60")
+        #expect(throws: PanelLinkError.keyDidNotOpen) {
+            try ActivationPackage.open(sealed: Fixture.sealed, with: bound)
+        }
+    }
+
     @Test("обрубок не роняет разбор")
     func truncatedIsRejected() throws {
-        let key = try ActivationKey(input: Fixture.key)
+        let key = try BoundActivationKey(key: ActivationKey(input: Fixture.key))
         for length in [0, 3, 6, 10, 20] {
             #expect(throws: PanelLinkError.self) {
                 try ActivationPackage.open(sealed: Fixture.sealed.prefix(length), with: key)

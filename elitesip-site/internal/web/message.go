@@ -55,3 +55,31 @@ func shortName(name string) string {
 	}
 	return name
 }
+
+// reflashMessage — текст сотруднику, чью машину перепрошивают.
+//
+// Отдельно от employeeMessage, а не флагом внутри неё: шаги другие целиком.
+// Приложение уже стоит и работает, качать нечего, а ввод идёт не в мастере
+// первоначальной настройки, до которого ещё надо добраться, а в разделе, где
+// человек никогда не был.
+func reflashMessage(name, key string, expires time.Time, appLink string) string {
+	var b strings.Builder
+
+	if name != "" {
+		b.WriteString(shortName(name) + ", здравствуйте! ")
+	}
+	b.WriteString("Ваше рабочее место переезжает на новые настройки. Вот ключ:\n\n")
+	b.WriteString(key + "\n\n")
+
+	step := 1
+	b.WriteString(numbered(&step, "Откройте EliteSIP → «Меню» → «Техподдержка»."))
+	b.WriteString(numbered(&step, "Введите ключ в поле «Новый ключ»."))
+	b.WriteString(numbered(&step, "Если идёт разговор — ничего не прервётся: настройки применятся, как только положите трубку."))
+
+	b.WriteString("\nНомер и настройки сменятся сами. Ключ действует до " + moment(expires) +
+		", срабатывает один раз и только на вашем компьютере.")
+	if appLink != "" {
+		b.WriteString(" Приложение переустанавливать не нужно.")
+	}
+	return b.String()
+}

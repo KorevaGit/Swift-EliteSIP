@@ -36,6 +36,21 @@ func (d Dir) Put(_ context.Context, objectKey string, data []byte) error {
 	return nil
 }
 
+// Delete уносит объект.
+//
+// Отсутствие — не ошибка по той же причине, что и у R2: уборка повторяется по
+// расписанию и регулярно попадает на уже унесённое.
+func (d Dir) Delete(_ context.Context, objectKey string) error {
+	path, err := d.path(objectKey)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("унести %s: %w", objectKey, err)
+	}
+	return nil
+}
+
 // Get читает объект.
 func (d Dir) Get(_ context.Context, objectKey string) ([]byte, error) {
 	path, err := d.path(objectKey)

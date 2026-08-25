@@ -97,10 +97,16 @@ func serve() error {
 		}
 	}
 
+	// Помашинные объекты подписываются тем же ключом, что и файл
+	// предустановок: два ключа подписи означали бы два публичных ключа в
+	// приложении и второй способ ошибиться, какой из них чей.
+	machines := &panel.MachineWriter{Publisher: sink, SigningKey: signingKey}
+
 	site, err := web.New(db,
-		&panel.Issuer{DB: db, Publisher: sink, Secret: secret},
+		&panel.Issuer{DB: db, Publisher: sink, Machines: machines, Secret: secret},
 		&panel.BundlePublisher{DB: db, Publisher: sink, SigningKey: signingKey},
-		&panel.MarkCollector{DB: db, Reader: sink},
+		&panel.MarkCollector{DB: db, Reader: sink, Machines: machines},
+		&panel.Revoker{DB: db, Machines: machines, Deleter: sink},
 	)
 	if err != nil {
 		return err
@@ -139,6 +145,8 @@ func serve() error {
 	// Отказ пишется в поток ошибок и не роняет панель: бакет недоступен —
 	// значит, сведения о машинах устареют, а всё остальное продолжает работать.
 	// Это ровно то же требование, что предъявлено приложению в M7c.
+	sweeper := &panel.Sweeper{DB: db, Store: sink}
+
 	collect, stopCollecting := context.WithCancel(context.Background())
 	defer stopCollecting()
 	go func() {
@@ -151,6 +159,13 @@ func serve() error {
 			case <-ticker.C:
 				if _, err := site.Marks.Collect(collect); err != nil {
 					fmt.Fprintf(os.Stderr, "не удалось сходить за отметками: %v\n", err)
+				}
+				// Уборка идёт следом за разбором отметок, а не своим
+				// расписанием: она уносит забранные пакеты, а «забранные» —
+				// это ровно то, что панель узнаёт шагом выше. Своим таймером
+				// она половину заходов работала бы по вчерашним сведениям.
+				if _, err := sweeper.Sweep(collect); err != nil {
+					fmt.Fprintf(os.Stderr, "не удалось убрать в бакете: %v\n", err)
 				}
 			}
 		}

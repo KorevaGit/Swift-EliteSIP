@@ -48,7 +48,7 @@
         <div class="card-body">
             {{if $d.Ready}}
                 <p class="card-note">
-                    Ключ соберёт пакет — номер, SIP-пароль, административный пароль конторы и предустановку, —
+                    Ключ соберёт пакет — номер, SIP-пароль, предустановку и ключ доступа к каналу, —
                     зашифрует его и выложит наружу. Показан он будет один раз.
                 </p>
                 <form method="post" action="/employees/{{$d.Employee.ID}}/issue"
@@ -87,7 +87,7 @@
         </thead>
         <tbody>
         {{range $d.Activations}}
-            <tr>
+            <tr id="activation-{{.ID}}"{{if eq .ID $d.Highlight}} class="row-found"{{end}}>
                 <td data-label="Ключ" class="mono primary-cell">{{.KeyPrefix}}…</td>
                 <td data-label="Для чего">{{if .Note}}{{.Note}}{{else}}<span class="sub">—</span>{{end}}</td>
                 <td data-label="Выпущен">
@@ -98,7 +98,15 @@
                 </td>
                 <td data-label="Машина">
                     {{if .Checkin}}
-                        на связи {{ago .Checkin.LastSeenAt}}<br>
+                        {{if .Silent}}
+                            {{/* Молчание — состояние, а не дата мелким шрифтом. Пять суток при
+                                 двухчасовом опросе — это шестьдесят пропущенных заходов: не сбой
+                                 сети и не выходные, а повод выяснять. Машину могли сбросить на
+                                 месте и увезти — панель об этом не узнаёт никогда. */}}
+                            <span class="badge badge-off">молчит {{ago .Checkin.LastSeenAt}}</span><br>
+                        {{else}}
+                            на связи {{ago .Checkin.LastSeenAt}}<br>
+                        {{end}}
                         <span class="sub">
                             {{if .Checkin.AppVersion}}версия {{.Checkin.AppVersion}}{{else}}версия неизвестна{{end}}{{if hasValue .Checkin.PresetRevision}}, ревизия {{deref .Checkin.PresetRevision}}{{end}}
                         </span>
@@ -115,11 +123,23 @@
                         <span class="badge badge-wait">ждёт активации</span>
                     {{else if eq (printf "%s" .State) "просрочено"}}
                         <span class="badge badge-off">просрочено</span>
+                    {{else if eq (printf "%s" .State) "вытеснен"}}
+                        <span class="badge badge-off">вытеснен новым</span>
+                    {{else if eq (printf "%s" .State) "перепрошита"}}
+                        <span class="badge badge-off">перепрошита</span>
                     {{else}}
                         <span class="badge badge-bad">отозвано</span>
                     {{end}}
                 </td>
                 <td class="cell-actions">
+                    {{if .CanReflash}}
+                    {{/* Смена отдела: предустановка меняется удалённо, а не выездом к машине.
+                         Ключ привязан к ней — введённый не там, он уходит по другому адресу
+                         и не находит ничего, вместо того чтобы сгореть на проверке. */}}
+                    <form method="post" action="/machines/{{.InstallationID}}/reflash" style="display:inline;">
+                        <button type="submit" class="button">Перепрошить</button>
+                    </form>
+                    {{end}}
                     {{if not .RevokedAt}}
                     <form method="post" action="/activations/{{.ID}}/revoke" style="display:inline;">
                         <button type="submit" class="button button-danger"

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "/overview": {
+      "targetKind": "existing-ui",
+      "projectId": "2306cec3-166d-45dc-926a-e1e2c6866b28",
+      "baselineDraftId": "f27e140d-4eae-4f4d-9dbd-888b11c52661",
+      "activeDraftId": "95d02f68-42aa-4542-853d-7297f36c73d3",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "EliteSIP-Assets.xcassets-AppIcon.appiconset-icon_512x512.png",
+        "a5fc1060-c35b-4bbf-8949-4720b31f7cde"
+      ],
+      "brandAssets": {
+        "logo": {
+          "assetKey": "EliteSIP-Assets.xcassets-AppIcon.appiconset-icon_512x512.png",
+          "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/2306cec3-166d-45dc-926a-e1e2c6866b28/brand-assets/EliteSIP-Assets.xcassets-AppIcon.appiconset-icon_512x512.png/icon_512x512.png",
+          "sourcePath": "EliteSIP/Assets.xcassets/AppIcon.appiconset/icon_512x512.png"
+        }
+      },
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "elitesip-site/internal/web/templates/base.html",
+        "elitesip-site/internal/web/templates/overview.html",
+        "elitesip-site/internal/web/static/app.css:1:680",
+        "elitesip-site/internal/web/static/app.css:900:1719"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "e2293a1a8a2e9b8019f454dff22782488a104ca7154e9737692a6dbc4bb89620",
+        "elitesip-site/internal/web/templates/base.html": "e2f933ce2a02c34d6e0fe792ee86dab679e998864fd39601d950b9fefb28f11d",
+        "elitesip-site/internal/web/templates/overview.html": "511ef2ece1d82a7b19eb3c26fe3a4f5fa646ff1fc4882345702ce3ff46e5db80",
+        "elitesip-site/internal/web/static/app.css": "cde10f6b2be02a8f2e6d3d71c37192b5cd93735cdb8bba8849f6b6bb6fdd4caa"
+      },
+      "components": [
+        {
+          "name": "AppShell",
+          "id": "aa6af770-986a-43e7-8d6b-221548b7ef16",
+          "sourcePath": "elitesip-site/internal/web/templates/base.html",
+          "logoAssetKey": "EliteSIP-Assets.xcassets-AppIcon.appiconset-icon_512x512.png",
+          "currentVersion": 2
+        }
+      ],
+      "drafts": {
+        "f27e140d-4eae-4f4d-9dbd-888b11c52661": {
+          "title": "Current EliteSIP Overview",
+          "visualDirection": "current UI baseline",
+          "currentVersion": 1
+        },
+        "95d02f68-42aa-4542-853d-7297f36c73d3": {
+          "title": "EliteSIP — редакционный обзор операций",
+          "visualDirection": "Pearl-inspired editorial operations interface with top navigation",
+          "parentDraftId": "f27e140d-4eae-4f4d-9dbd-888b11c52661",
+          "currentVersion": 4
+        },
+        "45728375-857a-4ae0-8f20-d835f35ed9a4": {
+          "title": "EliteSIP Overview — macOS ChatGPT Redesign",
+          "visualDirection": "dense workspace with attached inspector",
+          "parentDraftId": "f27e140d-4eae-4f4d-9dbd-888b11c52661",
+          "currentVersion": 2
+        }
+      },
+      "updatedAt": "2026-08-25T10:44:03Z"
+    }
+  }
+}

@@ -30,14 +30,26 @@ type Reader interface {
 	Get(ctx context.Context, objectKey string) ([]byte, error)
 }
 
-// Store — бакет целиком: и кладём, и читаем.
+// Deleter уносит объекты из бакета.
 //
-// Один и тот же доступ на обе стороны: панель выкладывает файлы и она же
-// разбирает отметки, которые Worker оставляет рядом с ними. Второй канал ради
-// чтения означал бы второй секрет и второе место, где можно ошибиться.
+// Отдельным интерфейсом, а не методом Publisher'а: выпуск ключа обязан уметь
+// класть и обязан не уметь удалять. Уборка — единственное место, которому
+// удаление нужно, и держать её способность отдельно дешевле, чем однажды
+// разбираться, кто снёс пакет.
+type Deleter interface {
+	Delete(ctx context.Context, objectKey string) error
+}
+
+// Store — бакет целиком: кладём, читаем и уносим.
+//
+// Один и тот же доступ на все стороны: панель выкладывает файлы, она же
+// разбирает отметки, которые Worker оставляет рядом с ними, и она же убирает
+// за собой. Второй канал ради чтения означал бы второй секрет и второе место,
+// где можно ошибиться.
 type Store interface {
 	Publisher
 	Reader
+	Deleter
 }
 
 // CollectInterval — как часто панель заходит за отметками.
@@ -56,6 +68,12 @@ const CollectInterval = 5 * time.Minute
 type MarkCollector struct {
 	DB     *storage.DB
 	Reader Reader
+
+	// Machines нужен затем, чтобы дожать перепрошивку: узнав, что новый пакет
+	// забрали, панель гасит прежний ключ доступа машины. До этого момента
+	// действуют оба — иначе машина осталась бы без предустановок в промежутке
+	// между выпуском ключа и его вводом.
+	Machines *MachineWriter
 }
 
 // Result — что дал один заход.
@@ -120,8 +138,21 @@ func (m *MarkCollector) collectTaken(ctx context.Context) (int, error) {
 		var mark struct {
 			ObjectKey string `json:"object_key"`
 			TakenAt   string `json:"taken_at"`
+			Delivered *bool  `json:"delivered"`
 		}
 		if err := m.read(ctx, key, &mark); err != nil {
+			continue
+		}
+
+		// Отметка ставится **до** выдачи — иначе два одновременных запроса
+		// получили бы пакет оба. Значит она бывает и там, где отдавать было
+		// нечего: просрочено, унесено уборкой, опечатка в ключе. Считать такую
+		// выдачей — значит показать опоздавшему сотруднику «активировано» на
+		// месте, которое он так и не поднял.
+		//
+		// Указатель, а не bool: отметку старого образца, где поля нет вовсе,
+		// надо считать выдачей, иначе разбор потеряет живые активации.
+		if mark.Delivered != nil && !*mark.Delivered {
 			continue
 		}
 
@@ -135,8 +166,41 @@ func (m *MarkCollector) collectTaken(ctx context.Context) (int, error) {
 			continue
 		}
 		count++
+
+		m.settleReflash(ctx, objectKey)
 	}
 	return count, nil
+}
+
+// settleReflash дожимает перепрошивку, когда её пакет забрали.
+//
+// Два действия, и оба обязаны случиться именно здесь, а не при выпуске ключа:
+// до того, как машина ввела ключ, она живёт прежней жизнью, и обрывать её
+// значило бы оставить рабочее место без настроек в надежде, что ключ введут.
+//
+//  1. прежние строки машины гасятся — иначе одна машина двоится в списке;
+//  2. в machines/<id> остаётся один ключ доступа — прежний больше не нужен.
+//
+// Отказ здесь не роняет разбор отметок: «пакет забрали» уже записано, и это
+// главное. Недожатое дожмётся на следующем заходе — перепрошитая строка
+// останется живой ещё пять минут, а старый ключ доступа проживёт лишний тик.
+func (m *MarkCollector) settleReflash(ctx context.Context, objectKey string) {
+	if m.Machines == nil {
+		return
+	}
+
+	row, err := m.DB.ActivationByObjectKey(ctx, objectKey)
+	if err != nil || row.Kind != model.KindReflash {
+		return
+	}
+
+	if _, err := m.DB.SupersedePreviousOfMachine(ctx, row.InstallationID, row.ID); err != nil {
+		return
+	}
+	_ = m.Machines.Keys(ctx, row.InstallationID, []ChannelKeyGrant{{
+		Hash:     row.ChannelKeyHash,
+		IssuedAt: row.IssuedAt,
+	}})
 }
 
 // collectSeen обновляет сведения о живых машинах.

@@ -21,6 +21,34 @@
 <div class="notice notice-bad"><p>{{.}}</p></div>
 {{end}}
 
+<div class="card">
+    <div class="card-head"><h2>Административный пароль</h2></div>
+    <div class="card-body">
+        {{if $d.AdminPasswordSet}}
+            <div class="notice notice-ok"><p>Пароль задан — ключи по этой предустановке выпускаются.</p></div>
+        {{else}}
+            <div class="notice notice-warn">
+                <p><strong>Пароль не задан</strong>Пока он пуст, ключ по этой предустановке не выпускается:
+                   машина активировалась бы, а «Управление» на ней потом не открылось бы ничем.</p>
+            </div>
+        {{end}}
+
+        <p class="card-note">
+            Пароль у каждой предустановки свой — потому у техподдержки и заводится отдельная. В общий файл
+            предустановок он не едет: файл один на контору, и любой оператор прочитал бы там чужой пароль.
+            До машины он доезжает отдельным помашинным объектом.
+        </p>
+
+        <form method="post" action="/presets/{{$d.Preset.ID}}/password" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 240px;">
+                <label for="admin_password">Новый пароль</label>
+                <input id="admin_password" name="admin_password" type="password" class="mono" autocomplete="new-password" required>
+            </div>
+            <button type="submit" class="button button-primary">Сохранить</button>
+        </form>
+    </div>
+</div>
+
 {{if $d.NeedsPublish}}
 <div class="card card-pending">
     <div class="card-head">

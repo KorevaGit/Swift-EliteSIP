@@ -43,7 +43,10 @@ func activationFixture() {
 		Employee:       "Пётр Смирнов",
 		Number:         "172",
 		SIPPassword:    "s3cret-172",
-		AdminPassword:  "пароль-конторы",
+		// Ключ канала в образце постоянный по той же причине, что и сам ключ:
+		// случайный пришлось бы переписывать в тесте при каждом запуске.
+		ChannelKey: "0123456789abcdef0123456789abcdef" +
+			"0123456789abcdef0123456789abcdef",
 		Preset: activation.PresetPayload{
 			ID:            "6D1F5A20-0000-4000-8000-000000000001",
 			Name:          "Менеджер",
@@ -59,14 +62,18 @@ func activationFixture() {
 	if err != nil {
 		panic(err)
 	}
-	sealed, err := activation.Seal(key, plaintext)
+	bound, err := activation.Bind(key, "")
+	if err != nil {
+		panic(err)
+	}
+	sealed, err := bound.Seal(plaintext)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println("=== пакет активации ===")
 	fmt.Println("ключ:  ", key.String())
-	fmt.Println("адрес: ", key.ObjectKey())
+	fmt.Println("адрес: ", bound.ObjectKey())
 	fmt.Println("пакет: ", base64.StdEncoding.EncodeToString(sealed))
 }
 

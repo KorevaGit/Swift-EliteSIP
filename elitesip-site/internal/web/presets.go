@@ -60,6 +60,11 @@ type presetData struct {
 	Fields   preset.Fields
 	Problems []string
 
+	// AdminPasswordSet — задан ли административный пароль этой предустановки.
+	// Сам пароль на страницу не едет: показывать его незачем, а задать новый
+	// можно и вслепую.
+	AdminPasswordSet bool
+
 	Revisions []storage.RevisionRow
 
 	// Pending — что уедет на машины при следующей выкладке, словами.
@@ -97,7 +102,11 @@ func (s *Server) showPreset(w http.ResponseWriter, r *http.Request, admin model.
 		return
 	}
 
-	data := presetData{Preset: found.Preset, Fields: defaultFields()}
+	data := presetData{
+		Preset:           found.Preset,
+		Fields:           defaultFields(),
+		AdminPasswordSet: found.AdminPasswordSet,
+	}
 
 	revision, err := s.DB.LatestRevision(r.Context(), id)
 	switch {

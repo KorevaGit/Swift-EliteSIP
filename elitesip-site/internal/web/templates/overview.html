@@ -37,16 +37,18 @@
     {{end}}
 </div>
 
-{{if or (not $d.AdminPasswordSet) (not $d.HasPresets) (not $d.AppLinkSet)}}
+{{if or $d.PresetsWithoutPassword (not $d.HasPresets) (not $d.AppLinkSet)}}
 <div class="card">
     <div class="card-head"><h2>Панель ещё не настроена</h2></div>
     <div class="card-body">
-        {{if not $d.AdminPasswordSet}}
+        {{if $d.PresetsWithoutPassword}}
         <div class="notice notice-bad">
             <div>
-                <strong>Не задан административный пароль конторы</strong>
-                <p>Пока он пуст, ключи не выпускаются вовсе: без него на машине не откроется «Управление».
-                   <a href="/settings">Задать</a>.</p>
+                <strong>Есть предустановки без административного пароля</strong>
+                <p>По такой предустановке ключ не выпускается вовсе: машина активируется, а «Управление»
+                   на ней потом не откроется ничем. Пароль задаётся в карточке предустановки — он у каждой
+                   свой, чтобы пароль техподдержки не расходился по всей конторе.
+                   <a href="/presets">Открыть предустановки</a>.</p>
             </div>
         </div>
         {{end}}

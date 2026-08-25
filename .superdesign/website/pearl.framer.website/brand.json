@@ -1,0 +1,244 @@
+{
+  "meta": {
+    "url": "https://pearl.framer.website/",
+    "title": "pearl - Free Framer Creative Portfolio Template by Dawid Pietrasiak",
+    "description": "A free, editable template for Digital Agencies / Designers built with Framer. Interactive experiences for web and mobile by Dawid Pietrasiak. ",
+    "language": "en",
+    "viewport": "width=device-width",
+    "themeColor": null,
+    "ogImage": "https://framerusercontent.com/assets/oTHcqBXdH1o05JUy48sNUmfhI.png",
+    "ogTitle": "pearl - Free Framer Creative Portfolio Template by Dawid Pietrasiak",
+    "ogDescription": "A free, editable template for Digital Agencies / Designers built with Framer. Interactive experiences for web and mobile by Dawid Pietrasiak. "
+  },
+  "theme": {
+    "mode": "light",
+    "bodyBackground": "#ffffff",
+    "isDark": false,
+    "confidence": 0.9
+  },
+  "brand": {
+    "name": "pearl",
+    "favicon": {
+      "href": "https://framerusercontent.com/images/teUTgRqFtWsZnogJA2zK9P2FvU.png",
+      "type": null
+    }
+  },
+  "colors": {
+    "dominant": [
+      {
+        "hex": "#000000",
+        "ratio": 0.656
+      },
+      {
+        "hex": "#0000ee",
+        "ratio": 0.243
+      },
+      {
+        "hex": "#969696",
+        "ratio": 0.069
+      },
+      {
+        "hex": "#ffffff",
+        "ratio": 0.024
+      },
+      {
+        "hex": "#666666",
+        "ratio": 0.008
+      },
+      {
+        "hex": "#f0f0f0",
+        "ratio": 0.001
+      }
+    ],
+    "palette": [
+      {
+        "hex": "#ffffff",
+        "role": "background",
+        "source": "computed"
+      },
+      {
+        "hex": "#000000",
+        "role": "foreground",
+        "source": "computed"
+      },
+      {
+        "hex": "#0000ee",
+        "role": "primary",
+        "source": "heuristic"
+      },
+      {
+        "hex": "#969696",
+        "role": "neutral",
+        "source": "heuristic"
+      }
+    ],
+    "cssVariables": {
+      "--token-be079bad-eabd-4234-8a56-5579c7057187": "#000",
+      "--token-e16847f2-b192-48e1-a890-7bbcce11cc6e": "#fff",
+      "--token-0e272a57-d630-4ae6-a209-51c62dec2a5a": "#666",
+      "--token-904c14a9-7582-43d7-a43c-85f49d580145": "#969696",
+      "--token-805b2cc7-f5f2-45e1-8fa3-1b76bb2f7659": "#ccc",
+      "--token-14951491-9898-44b6-8e48-90b200ecb226": "#e3e3e3",
+      "--token-2c7d0c40-26e8-40d8-9000-c8a4ae165651": "#f0f0f0",
+      "--framer-text-color": "#000"
+    },
+    "gradients": []
+  },
+  "logo": {
+    "status": "unconfirmed",
+    "reason": "no_evidence",
+    "best": null,
+    "candidates": [
+      {
+        "selector": "svg",
+        "href": null,
+        "type": "svg",
+        "width": 81,
+        "height": 30,
+        "svgContent": "<svg style=\"width:100%;height:100%;\"><use href=\"#svg10021695329\"></use></svg>",
+        "colors": [],
+        "isLight": false,
+        "isDark": false,
+        "needsDarkBackground": false,
+        "needsLightBackground": false,
+        "ownership": "first-party",
+        "headerScoped": true
+      },
+      {
+        "selector": "svg",
+        "href": null,
+        "type": "svg",
+        "width": 16,
+        "height": 16,
+        "svgContent": "<svg style=\"width:100%;height:100%;\"><use href=\"#svg318331668\"></use></svg>",
+        "colors": [],
+        "isLight": false,
+        "isDark": false,
+        "needsDarkBackground": false,
+        "needsLightBackground": false,
+        "ownership": "first-party"
+      },
+      {
+        "selector": "svg",
+        "href": null,
+        "type": "svg",
+        "width": 16,
+        "height": 16,
+        "svgContent": "<svg style=\"width:100%;height:100%;\"><use href=\"#svg318331668\"></use></svg>",
+        "colors": [],
+        "isLight": false,
+        "isDark": false,
+        "needsDarkBackground": false,
+        "needsLightBackground": false,
+        "ownership": "first-party"
+      },
+      {
+        "selector": "svg",
+        "href": null,
+        "type": "svg",
+        "width": 16,
+        "height": 16,
+        "svgContent": "<svg style=\"width:100%;height:100%;\"><use href=\"#svg318331668\"></use></svg>",
+        "colors": [],
+        "isLight": false,
+        "isDark": false,
+        "needsDarkBackground": false,
+        "needsLightBackground": false,
+        "ownership": "first-party"
+      }
+    ]
+  },
+  "fonts": {
+    "computed": [
+      {
+        "family": "sans-serif",
+        "weights": [
+          "400"
+        ],
+        "source": "web"
+      },
+      {
+        "family": "Manrope, \"Manrope Placeholder\", sans-serif",
+        "weights": [
+          "500"
+        ],
+        "source": "web"
+      }
+    ],
+    "baseSizePx": 12
+  },
+  "confidence": {
+    "colorExtraction": 0.9,
+    "logoDetection": 0.2,
+    "fontDetection": 0.8
+  },
+  "screenshot": {
+    "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/brand/f34e3843-9c87-4af5-bada-b33ddaa859d5/screenshot.png",
+    "width": 1920,
+    "height": 1080,
+    "sizeBytes": 70898,
+    "uploadedAt": "2026-08-25T10:31:40.989Z"
+  },
+  "assets": {
+    "e07a4923-3457-4dc9-8284-e0094a9616c2": {
+      "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/brand/f34e3843-9c87-4af5-bada-b33ddaa859d5/assets/e07a4923-3457-4dc9-8284-e0094a9616c2.webp",
+      "name": "bYqLe8xt4WWrYciKmo1e5W7Rk.webp",
+      "type": "image",
+      "description": "",
+      "metadata": {
+        "size": "11.83 KB",
+        "mimeType": "image/webp",
+        "sizeBytes": 12114,
+        "uploadedAt": "2026-08-25T10:31:41.182Z"
+      }
+    },
+    "4af4d636-7c04-4c32-a5e9-5f0984b9e71e": {
+      "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/brand/f34e3843-9c87-4af5-bada-b33ddaa859d5/assets/4af4d636-7c04-4c32-a5e9-5f0984b9e71e.png",
+      "name": "YQgvAS4i8HeJRZmg2q1Kfwr6UM.png",
+      "type": "image",
+      "description": "",
+      "metadata": {
+        "size": "11.28 KB",
+        "mimeType": "image/png",
+        "sizeBytes": 11555,
+        "uploadedAt": "2026-08-25T10:31:41.160Z"
+      }
+    },
+    "6a32603b-8443-472c-b167-c145920df40e": {
+      "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/brand/f34e3843-9c87-4af5-bada-b33ddaa859d5/assets/6a32603b-8443-472c-b167-c145920df40e.png",
+      "name": "JdY0YpiIaeEXQWB6oQk0zawZk.png",
+      "type": "image",
+      "description": "",
+      "metadata": {
+        "size": "10.25 KB",
+        "mimeType": "image/png",
+        "sizeBytes": 10492,
+        "uploadedAt": "2026-08-25T10:31:41.174Z"
+      }
+    },
+    "2e8c03eb-4b3c-4217-8a6e-31754331f309": {
+      "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/brand/f34e3843-9c87-4af5-bada-b33ddaa859d5/assets/2e8c03eb-4b3c-4217-8a6e-31754331f309.png",
+      "name": "GRXDkBEY59pvYkXWCPZvnEFLlKo.png",
+      "type": "image",
+      "description": "",
+      "metadata": {
+        "size": "14.55 KB",
+        "mimeType": "image/png",
+        "sizeBytes": 14901,
+        "uploadedAt": "2026-08-25T10:31:41.175Z"
+      }
+    },
+    "f74befcc-948b-4e83-b2ab-2bb70b1b54f7": {
+      "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/brand/f34e3843-9c87-4af5-bada-b33ddaa859d5/assets/f74befcc-948b-4e83-b2ab-2bb70b1b54f7.png",
+      "name": "lZw1bhCVV0JpyjKh2ETJmXTjkoY.png",
+      "type": "image",
+      "description": "",
+      "metadata": {
+        "size": "13.90 KB",
+        "mimeType": "image/png",
+        "sizeBytes": 14236,
+        "uploadedAt": "2026-08-25T10:31:41.189Z"
+      }
+    }
+  }
+}

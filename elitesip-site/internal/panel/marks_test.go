@@ -311,3 +311,152 @@ func presetOf(t *testing.T, db *storage.DB) int64 {
 	}
 	return list[0].ID
 }
+
+// Отметка ставится до выдачи, значит бывает и там, где отдавать было нечего:
+// просрочено, унесено уборкой, опечатка в ключе. Считать такую выдачей — значит
+// показать опоздавшему сотруднику «активировано» на месте, которого он не
+// поднимал.
+func TestCollectIgnoresUndeliveredMark(t *testing.T) {
+	issuer, pub, db := newIssuer(t)
+	ctx := context.Background()
+	employeeID := seedReady(t, db)
+
+	_, saved, err := issuer.Issue(ctx, nil, employeeID, "")
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	store := newBucket()
+	for k, v := range pub.objects {
+		store.objects[k] = v
+	}
+	store.mark(t, "taken/"+strings.TrimPrefix(saved.ObjectKey, "activations/"), map[string]any{
+		"format":     2,
+		"object_key": saved.ObjectKey,
+		"taken_at":   time.Now().UTC().Format(time.RFC3339),
+		"delivered":  false,
+	})
+
+	collector := &MarkCollector{DB: db, Reader: store}
+	result, err := collector.Collect(ctx)
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if result.Fetched != 0 {
+		t.Errorf("промах засчитан выдачей: отмечено %d", result.Fetched)
+	}
+
+	list, _ := db.ListActivations(ctx, employeeID)
+	if list[0].FetchedAt != nil {
+		t.Fatal("активация отмечена забранной по отметке о промахе")
+	}
+}
+
+// Отметка старого образца — без поля вовсе — считается выдачей: иначе первый же
+// разбор после обновления Worker'а потерял бы живые активации.
+func TestCollectTreatsOldMarkAsDelivered(t *testing.T) {
+	issuer, pub, db := newIssuer(t)
+	ctx := context.Background()
+	employeeID := seedReady(t, db)
+
+	_, saved, err := issuer.Issue(ctx, nil, employeeID, "")
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	store := newBucket()
+	for k, v := range pub.objects {
+		store.objects[k] = v
+	}
+	store.mark(t, "taken/"+strings.TrimPrefix(saved.ObjectKey, "activations/"), map[string]any{
+		"format":     1,
+		"object_key": saved.ObjectKey,
+		"taken_at":   time.Now().UTC().Format(time.RFC3339),
+	})
+
+	collector := &MarkCollector{DB: db, Reader: store}
+	if _, err := collector.Collect(ctx); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	list, _ := db.ListActivations(ctx, employeeID)
+	if list[0].FetchedAt == nil {
+		t.Error("отметка без поля delivered не засчитана выдачей")
+	}
+}
+
+// Перепрошивка дожимается в момент, когда её пакет забрали: прежняя строка
+// машины гасится, а в machines/ остаётся один ключ доступа.
+func TestCollectSettlesReflash(t *testing.T) {
+	issuer, pub, db := newIssuer(t)
+	ctx := context.Background()
+	employeeID := seedReady(t, db)
+
+	_, first, err := issuer.Issue(ctx, nil, employeeID, "")
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	if err := db.MarkFetched(ctx, first.ObjectKey, time.Now()); err != nil {
+		t.Fatalf("MarkFetched: %v", err)
+	}
+
+	_, second, err := issuer.Reflash(ctx, nil, first.InstallationID, "сменил отдел")
+	if err != nil {
+		t.Fatalf("Reflash: %v", err)
+	}
+
+	store := newBucket()
+	for k, v := range pub.objects {
+		store.objects[k] = v
+	}
+	// До ввода ключа действуют оба доступа: машина работает на старой
+	// предустановке и обязана получать её правки.
+	var record struct {
+		Keys []ChannelKeyGrant `json:"keys"`
+	}
+	if err := json.Unmarshal(store.objects[machinePrefix+first.InstallationID], &record); err != nil {
+		t.Fatalf("разобрать machines/: %v", err)
+	}
+	if len(record.Keys) != 2 {
+		t.Fatalf("действующих ключей доступа %d, ожидалось два", len(record.Keys))
+	}
+
+	store.mark(t, "taken/"+strings.TrimPrefix(second.ObjectKey, "activations/"), map[string]any{
+		"format":     2,
+		"object_key": second.ObjectKey,
+		"taken_at":   time.Now().UTC().Format(time.RFC3339),
+		"delivered":  true,
+	})
+
+	collector := &MarkCollector{
+		DB:       db,
+		Reader:   store,
+		Machines: &MachineWriter{Publisher: store, SigningKey: issuer.Machines.SigningKey},
+	}
+	if _, err := collector.Collect(ctx); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+
+	list, _ := db.ListActivations(ctx, employeeID)
+	for _, a := range list {
+		switch a.ID {
+		case first.ID:
+			if a.SupersededAt == nil {
+				t.Error("прежняя строка машины не погашена — машина будет двоиться в списке")
+			}
+			if a.State(time.Now()) != model.ActivationReflashed {
+				t.Errorf("состояние прежней строки %q, ожидалось «перепрошита»", a.State(time.Now()))
+			}
+		case second.ID:
+			if a.SupersededAt != nil {
+				t.Error("погашена новая строка вместо прежней")
+			}
+		}
+	}
+
+	if err := json.Unmarshal(store.objects[machinePrefix+first.InstallationID], &record); err != nil {
+		t.Fatalf("разобрать machines/: %v", err)
+	}
+	if len(record.Keys) != 1 {
+		t.Errorf("после перепрошивки действующих ключей %d, ожидался один", len(record.Keys))
+	}
+}

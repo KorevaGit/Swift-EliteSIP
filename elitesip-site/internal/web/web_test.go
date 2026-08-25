@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/koreva/elitesip-site/internal/model"
 	"github.com/koreva/elitesip-site/internal/panel"
@@ -27,6 +28,11 @@ func (s *sink) Put(_ context.Context, key string, data []byte) error {
 		s.objects = map[string][]byte{}
 	}
 	s.objects[key] = data
+	return nil
+}
+
+func (s *sink) Delete(_ context.Context, key string) error {
+	delete(s.objects, key)
 	return nil
 }
 
@@ -66,10 +72,12 @@ func newServer(t *testing.T) (*Server, *storage.DB) {
 	}
 
 	out := &sink{}
+	machines := &panel.MachineWriter{Publisher: out, SigningKey: signing}
 	s, err := New(db,
-		&panel.Issuer{DB: db, Publisher: out, Secret: []byte("секрет-сервера-для-проверки")},
+		&panel.Issuer{DB: db, Publisher: out, Machines: machines, Secret: []byte("секрет-сервера-для-проверки")},
 		&panel.BundlePublisher{DB: db, Publisher: out, SigningKey: signing},
 		&panel.MarkCollector{DB: db, Reader: out},
+		&panel.Revoker{DB: db, Machines: machines, Deleter: out},
 	)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -215,7 +223,7 @@ func TestIssuedKeyIsShownOnce(t *testing.T) {
 	db.CreateEmployee(ctx, nil, model.Employee{
 		Name: "Пётр", Number: "172", SIPPassword: "секрет-172", PresetID: &preset.ID,
 	})
-	db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль-конторы")
+	db.SetPresetAdminPassword(ctx, nil, preset.ID, "пароль-предустановки")
 
 	issue := post("/employees/1/issue", url.Values{"note": {"ноутбук"}})
 	issue.AddCookie(cookie)
@@ -288,7 +296,7 @@ func TestKeyNeverTravelsInURL(t *testing.T) {
 	db.CreateEmployee(ctx, nil, model.Employee{
 		Name: "Пётр", Number: "172", SIPPassword: "секрет", PresetID: &preset.ID,
 	})
-	db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль-конторы")
+	db.SetPresetAdminPassword(ctx, nil, preset.ID, "пароль-предустановки")
 
 	issue := post("/employees/1/issue", nil)
 	issue.AddCookie(cookie)
@@ -339,7 +347,8 @@ func TestOverviewExplainsUnconfiguredPanel(t *testing.T) {
 
 	body := w.Body.String()
 	for _, want := range []string{
-		"Не задан административный пароль конторы",
+		// Про пароль здесь не спрашиваем: предустановок нет вовсе, а пароль —
+		// поле предустановки, и жаловаться не на что.
 		"Нет ни одной предустановки",
 		"Не задан адрес, откуда качать приложение",
 		"Выдать ключ новому человеку",
@@ -398,7 +407,7 @@ func TestCreateAndIssueInOneAction(t *testing.T) {
 
 	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
 	db.SaveRevision(ctx, nil, preset.ID, 2, []byte(`{}`), "")
-	db.SetSetting(ctx, nil, storage.SettingAdminPassword, "пароль-конторы")
+	db.SetPresetAdminPassword(ctx, nil, preset.ID, "пароль-предустановки")
 	db.SetSetting(ctx, nil, storage.SettingAppLink, "https://elitesip.vip/download")
 
 	create := post("/employees", url.Values{
@@ -695,4 +704,120 @@ func sessionFrom(t *testing.T, w *httptest.ResponseRecorder) *http.Cookie {
 	}
 	t.Fatal("сеанс не заведён")
 	return nil
+}
+
+// Сотрудник прислал ключ и говорит, что не работает: панель обязана ответить,
+// чей он и что с ним. Опознание по первым четырём знакам для этого не годится —
+// они не уникальны.
+func TestFindByKeyLandsOnEmployeeCard(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	admin, _ := db.CreateAdmin(ctx, nil, "admin", "пароль-длиннее-восьми")
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	db.SaveRevision(ctx, nil, preset.ID, 2, []byte(`{}`), "")
+	employee, _ := db.CreateEmployee(ctx, nil, model.Employee{
+		Name: "Пётр", Number: "172", SIPPassword: "секрет-172", PresetID: &preset.ID,
+	})
+	db.SetPresetAdminPassword(ctx, nil, preset.ID, "пароль-предустановки")
+
+	key, saved, err := s.Issuer.Issue(ctx, nil, employee.ID, "")
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	// Ключ приходит из переписки как есть — с дефисами и переносом строки.
+	find := post("/activations/find", url.Values{"key": {key.String() + "\n"}})
+	find.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, find)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("код %d, ожидалось перенаправление", w.Code)
+	}
+	location := w.Header().Get("Location")
+	want := "/employees/" + strconv.FormatInt(employee.ID, 10)
+	if !strings.HasPrefix(location, want) {
+		t.Errorf("отправило на %q, ожидалась карточка %q", location, want)
+	}
+	if !strings.Contains(location, "found="+strconv.FormatInt(saved.ID, 10)) {
+		t.Errorf("в адресе нет подсветки строки: %q", location)
+	}
+}
+
+// Отвечаем прямо: круг лиц свой, а при шестидесяти битах оракул «существует ли
+// такой ключ» не даёт подбирающему ничего.
+func TestFindByKeySaysWhenNothingFound(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	admin, _ := db.CreateAdmin(ctx, nil, "admin", "пароль-длиннее-восьми")
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	find := post("/activations/find", url.Values{"key": {"K7M2-9XQP-4TFB"}})
+	find.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, find)
+
+	list := httptest.NewRequest(http.MethodGet, "/employees", nil)
+	list.AddCookie(cookie)
+	shown := httptest.NewRecorder()
+	s.Handler().ServeHTTP(shown, list)
+
+	if !strings.Contains(shown.Body.String(), "Такого ключа нет") {
+		t.Error("панель не сказала, что ключа нет")
+	}
+}
+
+// Карточка машины: молчание показывается состоянием, а не датой мелким
+// шрифтом, и у живой активированной машины есть кнопка перепрошивки.
+func TestEmployeeCardShowsSilenceAndReflash(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	admin, _ := db.CreateAdmin(ctx, nil, "admin", "пароль-длиннее-восьми")
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	db.SaveRevision(ctx, nil, preset.ID, 2, []byte(`{}`), "")
+	employee, _ := db.CreateEmployee(ctx, nil, model.Employee{
+		Name: "Пётр", Number: "172", SIPPassword: "секрет-172", PresetID: &preset.ID,
+	})
+	db.SetPresetAdminPassword(ctx, nil, preset.ID, "пароль-предустановки")
+
+	_, saved, err := s.Issuer.Issue(ctx, nil, employee.ID, "")
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	if err := db.MarkFetched(ctx, saved.ObjectKey, time.Now()); err != nil {
+		t.Fatalf("MarkFetched: %v", err)
+	}
+	// Машина отметилась неделю назад и с тех пор молчит: её могли сбросить на
+	// месте и увезти — панель об этом не узнаёт никогда.
+	if _, err := db.SaveCheckin(ctx, model.Checkin{
+		InstallationID: saved.InstallationID,
+		LastSeenAt:     time.Now().Add(-7 * 24 * time.Hour),
+		AppVersion:     "0.1.28",
+	}); err != nil {
+		t.Fatalf("SaveCheckin: %v", err)
+	}
+
+	card := httptest.NewRequest(http.MethodGet,
+		"/employees/"+strconv.FormatInt(employee.ID, 10), nil)
+	card.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, card)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "молчит") {
+		t.Error("молчание не показано состоянием")
+	}
+	if !strings.Contains(body, "/reflash") {
+		t.Error("у активированной машины нет кнопки перепрошивки")
+	}
 }

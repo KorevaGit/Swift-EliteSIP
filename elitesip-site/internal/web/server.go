@@ -37,6 +37,11 @@ type Server struct {
 	Publisher *panel.BundlePublisher
 	Marks     *panel.MarkCollector
 
+	// Revoker отзывает доступ: отметка в базе, подписанный отзыв в бакете и
+	// обрубленный ключ канала — три шага в одном месте, чтобы не делать их по
+	// отдельности из разных экранов.
+	Revoker *panel.Revoker
+
 	templates map[string]*template.Template
 	flashes   flashStore
 }
@@ -46,8 +51,9 @@ type Server struct {
 // Шаблоны разбираются при запуске, а не при первом показе: ошибка в шаблоне
 // должна ронять запуск, а не тот единственный экран, который откроют в
 // неудачный момент.
-func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher, marks *panel.MarkCollector) (*Server, error) {
-	s := &Server{DB: db, Issuer: issuer, Publisher: publisher, Marks: marks}
+func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher,
+	marks *panel.MarkCollector, revoker *panel.Revoker) (*Server, error) {
+	s := &Server{DB: db, Issuer: issuer, Publisher: publisher, Marks: marks, Revoker: revoker}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -105,11 +111,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /presets/{id}", s.guard(s.showPreset))
 	mux.Handle("POST /presets/{id}", s.guard(s.savePreset))
 	mux.Handle("POST /presets/{id}/rollback", s.guard(s.rollback))
+	mux.Handle("POST /presets/{id}/password", s.guard(s.savePresetPassword))
 	mux.Handle("POST /publish", s.guard(s.publish))
+
+	mux.Handle("POST /activations/find", s.guard(s.findByKey))
+	mux.Handle("POST /machines/{installation}/reflash", s.guard(s.reflashMachine))
 
 	mux.Handle("GET /audit", s.guard(s.showAudit))
 	mux.Handle("GET /settings", s.guard(s.showSettings))
-	mux.Handle("POST /settings", s.guard(s.saveSettings))
 	mux.Handle("POST /settings/app-link", s.guard(s.saveAppLink))
 
 	return mux

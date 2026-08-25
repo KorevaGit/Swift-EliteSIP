@@ -57,13 +57,22 @@ var ErrBadSignature = errors.New("подпись файла предустано
 
 // Sign собирает подписанный файл.
 func Sign(bundle Bundle, key ed25519.PrivateKey) ([]byte, error) {
-	if len(key) != ed25519.PrivateKeySize {
-		return nil, fmt.Errorf("ключ подписи неверной длины: %d", len(key))
-	}
-
 	payload, err := json.Marshal(bundle)
 	if err != nil {
 		return nil, fmt.Errorf("собрать файл предустановок: %w", err)
+	}
+	return SignRaw(payload, key)
+}
+
+// SignRaw заворачивает готовые байты в тот же конверт.
+//
+// Нужен помашинным объектам — доступу и отзыву: они не файл предустановок, но
+// проверяются приложением тем же способом и тем же ключом. Заводить им второй
+// конверт значило бы завести и вторую проверку подписи в приложении, то есть
+// второе место, где её можно однажды не сделать.
+func SignRaw(payload []byte, key ed25519.PrivateKey) ([]byte, error) {
+	if len(key) != ed25519.PrivateKeySize {
+		return nil, fmt.Errorf("ключ подписи неверной длины: %d", len(key))
 	}
 
 	signed, err := json.Marshal(Signed{
@@ -71,7 +80,7 @@ func Sign(bundle Bundle, key ed25519.PrivateKey) ([]byte, error) {
 		Signature: ed25519.Sign(key, payload),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("подписать файл предустановок: %w", err)
+		return nil, fmt.Errorf("подписать: %w", err)
 	}
 	return signed, nil
 }

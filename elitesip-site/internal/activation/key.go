@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // alphabet — Crockford Base32.
@@ -62,27 +63,34 @@ var ErrMalformed = errors.New("это не ключ активации")
 // Parse приводит введённое человеком к каноническому виду.
 //
 // Терпимость здесь не украшение: ключ диктуют по телефону и вставляют из
-// мессенджера вместе с пробелами и переносом. Регистр не важен, разделители
-// любые, а знаки, которых в алфавите нет по причине схожести, приводятся к
-// тем, с которыми их спутали: O к нулю, I и L к единице.
+// мессенджера вместе с пробелами и переносом. Регистр не важен, знаки, которых
+// в алфавите нет по причине схожести, приводятся к тем, с которыми их
+// спутали: O к нулю, I и L к единице.
+//
+// **Разделители не перечисляются списком, а определяются от обратного** —
+// беру буквы и цифры, остальное молча выбрасываю. Это правило приложения
+// (PanelLink, ActivationKey), и оно здесь не из подражания: первый заход на
+// обеих сторонах перечислял разделители поимённо, и в Swift это споткнулось о
+// пару CR LF, которая там один Character, а не два. Панель со списком
+// оказывалась строже приложения — ключ из мессенджера с неразрывным пробелом
+// приложение принимало, а поиск по ключу отвергал как «не ключ», ровно в том
+// случае, ради которого поиск и заведён.
 func Parse(s string) (Key, error) {
 	var b strings.Builder
 	b.Grow(Length)
 
 	for _, r := range strings.ToUpper(s) {
-		switch {
-		case r == '-' || r == ' ' || r == '\t' || r == '\n' || r == '\r':
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
 			continue
-		case r == 'O':
+		}
+		switch r {
+		case 'O':
 			r = '0'
-		case r == 'I' || r == 'L':
+		case 'I', 'L':
 			r = '1'
 		}
 		if !strings.ContainsRune(alphabet, r) {
 			return "", fmt.Errorf("%w: недопустимый знак %q", ErrMalformed, r)
-		}
-		if b.Len() == Length {
-			return "", fmt.Errorf("%w: длиннее %d знаков", ErrMalformed, Length)
 		}
 		b.WriteRune(r)
 	}
@@ -129,31 +137,38 @@ func (k Key) Prefix() string {
 // канала раздачи, который ему и так провижинится.
 const ObjectPrefix = "activations/"
 
-// ObjectKey — имя пакета в бакете.
-//
-// Считается из ключа односторонне, поэтому его знает и панель (при выпуске), и
-// машина (при активации), а сервер посередине не нужен. Знание адреса при этом
-// ничего не даёт: пакет по нему лежит зашифрованный тем же ключом.
-func (k Key) ObjectKey() string {
-	return ObjectPrefix + k.objectName()
-}
-
-// objectName — та самая шестнадцатеричная строка, которую машина считает из
-// ключа сама.
-func (k Key) objectName() string {
-	sum := sha256.Sum256([]byte("elitesip.activation.object.v1\x00" + string(k)))
-	return hex.EncodeToString(sum[:16])
-}
-
 // NewInstallationID выпускает идентификатор машины.
 //
 // Кладётся в пакет и с тех пор сообщается машиной при каждом запросе за файлом
 // предустановок. Это единственное, по чему панель вообще узнаёт рабочие места:
 // прямого канала от приложения к ней нет.
 func NewInstallationID() (string, error) {
-	var raw [16]byte
-	if _, err := rand.Read(raw[:]); err != nil {
-		return "", fmt.Errorf("случайные байты для идентификатора машины: %w", err)
+	return randomHex(16, "идентификатора машины")
+}
+
+// NewChannelKey выпускает помашинный ключ доступа к каналу раздачи.
+//
+// Тридцать два случайных байта, а не двенадцать знаков: этот ключ не диктуют
+// по телефону, его везёт пакет активации. Полная длина здесь бесплатна, и она
+// же позволяет Worker'у хранить рядом обычный SHA-256 вместо растяжения.
+func NewChannelKey() (string, error) {
+	return randomHex(32, "ключа канала")
+}
+
+// HashChannelKey — то, что панель кладёт в machines/<installation_id>.
+//
+// Голый SHA-256 без растяжения, и это не небрежность: ключ канала случаен и
+// полон, перебирать в нём нечего. Растяжение нужно ключу активации, у которого
+// шестьдесят бит, — см. Bind.
+func HashChannelKey(channelKey string) string {
+	sum := sha256.Sum256([]byte(channelKey))
+	return hex.EncodeToString(sum[:])
+}
+
+func randomHex(n int, what string) (string, error) {
+	raw := make([]byte, n)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("случайные байты для %s: %w", what, err)
 	}
-	return hex.EncodeToString(raw[:]), nil
+	return hex.EncodeToString(raw), nil
 }

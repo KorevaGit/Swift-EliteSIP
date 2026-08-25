@@ -78,19 +78,40 @@ func (r PresetRevision) Published() bool { return r.PublishedAt != nil }
 // Самого ключа здесь нет: он служит и ключом расшифровки пакета, и потому
 // хранился бы рядом с адресом шифротекста. Показать выданный ключ второй раз
 // нельзя — выпускается новый.
+// ActivationKind — что за ключ выпущен.
+type ActivationKind string
+
+const (
+	// KindActivation — ключ для чистой машины. Ни к чему не привязан:
+	// installation_id рождается в панели и приезжает в пакете.
+	KindActivation ActivationKind = "activation"
+
+	// KindReflash — ключ перепрошивки работающей машины. Привязан к её
+	// installation_id, который входит в вывод адреса пакета, поэтому не та
+	// машина считает другой адрес и пакета не находит вовсе.
+	//
+	// Без привязки поле ввода ключа в «Техподдержке» позволяло бы любому
+	// сотруднику поднять своё место под чужим номером: ключ, улетевший в общий
+	// чат отдела, срабатывал бы у кого угодно.
+	KindReflash ActivationKind = "reflash"
+)
+
 type Activation struct {
 	ID             int64
 	EmployeeID     int64
 	PresetID       int64
+	Kind           ActivationKind
 	KeyFingerprint string
 	KeyPrefix      string
 	ObjectKey      string
 	InstallationID string
+	ChannelKeyHash string
 	IssuedBy       *int64
 	IssuedAt       time.Time
 	ExpiresAt      time.Time
 	FetchedAt      *time.Time
 	RevokedAt      *time.Time
+	SupersededAt   *time.Time
 	Note           string
 }
 
@@ -106,20 +127,42 @@ const (
 	ActivationExpired ActivationState = "просрочено"
 	// ActivationRevoked — отозвано администратором.
 	//
-	// Учётная запись факта, а не техническое действие: приложение после
-	// активации к панели не ходит. Машину останавливает смена SIP-пароля пира
-	// на АТС — см. DECISIONS.md, «Отзыв доступа».
+	// С 25 августа 2026 это техническое действие, а не только запись: панель
+	// выкладывает подписанный отзыв, машина забирает его при проверке раз в
+	// пятнадцать минут и сбрасывается. Смена SIP-пароля пира на АТС осталась
+	// окончательной мерой — отзыв работает, пока машина ходит в сеть.
 	ActivationRevoked ActivationState = "отозвано"
+
+	// ActivationSuperseded — ключ вытеснен новым.
+	//
+	// Случается, когда у сотрудника выпускают четвёртый невостребованный ключ:
+	// живёт не больше трёх, старейший гасится.
+	ActivationSuperseded ActivationState = "вытеснен"
+
+	// ActivationReflashed — машина перепрошита.
+	//
+	// Та же погашенная строка, но забранная: рабочее место переехало на другую
+	// предустановку по ключу перепрошивки, и вот эта строка — его прошлая
+	// жизнь. Отличается от «вытеснен» тем, что за ней стояла настоящая машина.
+	ActivationReflashed ActivationState = "перепрошита"
 )
 
 // State определяет состояние на заданный момент.
 //
 // Отзыв важнее срока: отозванное вчера и просроченное сегодня — это отозванное,
 // иначе в списке пропала бы разница между «выгнали» и «не дошли руки».
+//
+// Гашение важнее срока по той же причине и стоит сразу за отзывом: вытесненный
+// ключ мог заодно и протухнуть, но администратору важно, что его вытеснили — то
+// есть что где-то есть ключ посвежее.
 func (a Activation) State(now time.Time) ActivationState {
 	switch {
 	case a.RevokedAt != nil:
 		return ActivationRevoked
+	case a.SupersededAt != nil && a.FetchedAt != nil:
+		return ActivationReflashed
+	case a.SupersededAt != nil:
+		return ActivationSuperseded
 	case a.FetchedAt != nil:
 		return ActivationDone
 	case now.After(a.ExpiresAt):
@@ -150,4 +193,20 @@ type AuditEntry struct {
 	Entity   string
 	EntityID *int64
 	Details  string
+}
+
+// SilenceThreshold — сколько молчания считать поводом подсветить машину.
+//
+// Пять суток. При двухчасовом опросе это шестьдесят пропущенных заходов: не
+// сбой сети и не выходные, а повод выяснять. Меньший срок дал бы ложную тревогу
+// пачками — отпуск, командировка, забытый дома ноутбук.
+//
+// Молчание — единственный признак, по которому панель узнаёт о физическом
+// сбросе: он уносит installation_id, канала от машины к панели нет, и в базе
+// остаётся строка «активировано» у места, которого больше не существует.
+const SilenceThreshold = 5 * 24 * time.Hour
+
+// Silent — машина не выходила на связь дольше срока.
+func (c Checkin) Silent(now time.Time) bool {
+	return now.Sub(c.LastSeenAt) > SilenceThreshold
 }

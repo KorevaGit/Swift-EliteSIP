@@ -7,32 +7,6 @@
 </div>
 
 <div class="card">
-    <div class="card-head"><h2>Административный пароль конторы</h2></div>
-    <div class="card-body">
-        {{if .Data.AdminPasswordSet}}
-            <div class="notice notice-ok"><p>Пароль задан — ключи выпускаются.</p></div>
-        {{else}}
-            <div class="notice notice-warn">
-                <p><strong>Пароль не задан</strong>Пока он пуст, ключи не выпускаются: без него на машине не откроется «Управление».</p>
-            </div>
-        {{end}}
-
-        <p class="card-note">
-            Он общий на все машины и приезжает в пакете активации. Смена перестала требовать выпуска приложения —
-            раньше он вшивался фазой сборки. Но уже настроенные машины сохранят прежний: им он достался с их ключом.
-        </p>
-
-        <form method="post" action="/settings" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
-            <div class="field" style="flex:1 1 240px;">
-                <label for="admin_password">Новый пароль</label>
-                <input id="admin_password" name="admin_password" type="password" class="mono" autocomplete="new-password" required>
-            </div>
-            <button type="submit" class="button button-primary">Сохранить</button>
-        </form>
-    </div>
-</div>
-
-<div class="card">
     <div class="card-head"><h2>Откуда сотруднику качать приложение</h2></div>
     <div class="card-body">
         <p class="card-note">

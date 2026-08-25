@@ -8,6 +8,24 @@
 </div>
 
 <div class="card">
+    <div class="card-head"><h2>Найти по ключу</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Сотрудник прислал ключ и говорит, что не работает? Вставьте его сюда — панель покажет,
+            чей он и что с ним: ждёт активации, забрали вчера, вытеснен новым или просрочен.
+            Пробелы, переносы и дефисы можно не убирать.
+        </p>
+        <form method="post" action="/activations/find" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 240px;">
+                <label for="key">Ключ</label>
+                <input id="key" name="key" type="text" class="mono" placeholder="K7M2-9XQP-4TFB" autocomplete="off" required>
+            </div>
+            <button type="submit" class="button">Найти</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
     <div class="card-head"><h2>Завести сотрудника</h2></div>
     <div class="card-body">
         <form method="post" action="/employees" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">

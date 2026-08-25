@@ -12,8 +12,11 @@ import (
 //go:embed schema.sql
 var schemaSQL string
 
+//go:embed migrate2.sql
+var migrateToTwoSQL string
+
 // schemaVersion — версия схемы базы. Растёт с каждой миграцией.
-const schemaVersion = 1
+const schemaVersion = 2
 
 // DB — база панели.
 type DB struct {
@@ -77,6 +80,12 @@ func migrate(db *sql.DB) error {
 	if version < 1 {
 		if _, err := tx.Exec(schemaSQL); err != nil {
 			return fmt.Errorf("создать схему: %w", err)
+		}
+	} else if version < 2 {
+		// Свежая база получает второй схемой сразу из schema.sql; сюда
+		// попадает только та, что уже живёт на сервере конторы.
+		if _, err := tx.Exec(migrateToTwoSQL); err != nil {
+			return fmt.Errorf("перевести схему на вторую версию: %w", err)
 		}
 	}
 

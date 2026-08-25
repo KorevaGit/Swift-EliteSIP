@@ -1,4 +1,3 @@
-import CommonCrypto
 import CryptoKit
 import Foundation
 
@@ -23,15 +22,10 @@ public struct ActivationPackage: Sendable, Equatable {
 
     /// Заголовок в начале шифротекста. Он же уходит в дополнительные данные
     /// AES-GCM: подменивший заголовок ломает проверку целостности.
-    static let header = Data("ESIPA1".utf8)
-
-    /// Число итераций PBKDF2.
     ///
-    /// Взято у панели, а панель взяла его у `AdminAccess.KeyDerivation`. Argon2id
-    /// здесь был бы уместнее, но его нет ни в CryptoKit, ни в CommonCrypto на
-    /// Catalina, а тянуть ради него зависимость в однозависимое приложение
-    /// нельзя — разбор в elitesip-site/docs/DECISIONS.md.
-    static let iterations = 150_000
+    /// Вторая версия — разбор 25 августа 2026: изменился и вывод ключа, и
+    /// состав содержимого.
+    static let header = Data("ESIPA2".utf8)
 
     public var format: Int
     public var installationID: String
@@ -61,17 +55,24 @@ public struct ActivationPackage: Sendable, Equatable {
     ///
     /// - Parameters:
     ///   - sealed: то, что скачали по адресу из ключа.
-    ///   - key: ключ, который ввёл сотрудник.
-    public static func open(sealed: Data, with key: ActivationKey) throws -> ActivationPackage {
+    ///   - key: материал ключа, которым же посчитан и адрес. Одна прогонка на
+    ///     оба применения — см. `BoundActivationKey`.
+    public static func open(sealed: Data, with key: BoundActivationKey) throws -> ActivationPackage {
         // Заголовок проверяется до всякой криптографии: пакет чужой версии надо
         // отличить от неподошедшего ключа, иначе человек пойдёт искать опечатку
         // в ключе вместо того, чтобы обновить приложение.
         guard sealed.count > header.count else { throw PanelLinkError.keyDidNotOpen }
         let head = sealed.prefix(header.count)
         guard head == header else {
-            // Начало «ESIPA» с другой цифрой — это наш формат новее нашего.
-            if head.starts(with: Data("ESIPA".utf8)) {
-                throw PanelLinkError.packageTooNew
+            // Начало «ESIPA» с другой цифрой — это наш формат, но не наша
+            // версия. Новее — приложение отстало и его надо обновить; старее —
+            // отстала панель, и обновление приложения делу не поможет. Второе
+            // возможно, пока в конторе не выложили новую панель, и говорить в
+            // этом случае «обновите приложение» значит отправить человека не
+            // туда.
+            if head.starts(with: Data("ESIPA".utf8)),
+               let theirs = head.last, let ours = header.last {
+                throw theirs > ours ? PanelLinkError.packageTooNew : PanelLinkError.keyDidNotOpen
             }
             throw PanelLinkError.keyDidNotOpen
         }
@@ -86,15 +87,13 @@ public struct ActivationPackage: Sendable, Equatable {
         // Метка целостности — последние шестнадцать байт.
         guard body.count > 16 else { throw PanelLinkError.keyDidNotOpen }
 
-        let secret = try derive(key: key)
-
         let plaintext: Data
         do {
             let nonce = try AES.GCM.Nonce(data: nonceBytes)
             let ciphertext = body.prefix(body.count - 16)
             let tag = body.suffix(16)
             let box = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ciphertext, tag: tag)
-            plaintext = try AES.GCM.open(box, using: SymmetricKey(data: secret),
+            plaintext = try AES.GCM.open(box, using: SymmetricKey(data: key.cipherKey),
                                          authenticating: header)
         } catch {
             // Сюда приходит и неверный ключ, и испорченный файл. Ответ один и
@@ -103,36 +102,6 @@ public struct ActivationPackage: Sendable, Equatable {
         }
 
         return try decode(plaintext)
-    }
-
-    /// Ключ шифрования из ключа активации.
-    static func derive(key: ActivationKey) throws -> Data {
-        let salt = key.salt
-        let secretBytes = Array(key.canonical.utf8)
-        var derived = Data(count: 32)
-
-        let status: Int32 = derived.withUnsafeMutableBytes { output in
-            salt.withUnsafeBytes { saltBuffer in
-                secretBytes.withUnsafeBufferPointer { secretBuffer in
-                    let pointer = secretBuffer.baseAddress.map {
-                        UnsafeRawPointer($0).assumingMemoryBound(to: Int8.self)
-                    }
-                    return CCKeyDerivationPBKDF(
-                        CCPBKDFAlgorithm(kCCPBKDF2),
-                        pointer,
-                        secretBytes.count,
-                        saltBuffer.bindMemory(to: UInt8.self).baseAddress,
-                        salt.count,
-                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
-                        UInt32(iterations),
-                        output.bindMemory(to: UInt8.self).baseAddress,
-                        32
-                    )
-                }
-            }
-        }
-        guard status == kCCSuccess else { throw PanelLinkError.keyDidNotOpen }
-        return derived
     }
 
     /// Разбирает распечатанный JSON.

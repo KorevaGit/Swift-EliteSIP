@@ -69,6 +69,27 @@ func (r *R2) Put(ctx context.Context, objectKey string, data []byte) error {
 	return nil
 }
 
+// Delete уносит объект.
+//
+// Отсутствие объекта — не ошибка: уборка идёт от базы к бакету и повторяется по
+// расписанию, а значит регулярно попадает на то, что уже унесли. Отказ здесь
+// означал бы ошибку в журнале панели при каждом заходе.
+func (r *R2) Delete(ctx context.Context, objectKey string) error {
+	resp, err := r.do(ctx, http.MethodDelete, objectKey, nil, nil)
+	if err != nil {
+		return fmt.Errorf("унести %s: %w", objectKey, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	if err := statusError(resp); err != nil {
+		return fmt.Errorf("унести %s: %w", objectKey, err)
+	}
+	return nil
+}
+
 // Get читает объект.
 //
 // Нужен, чтобы забирать отметки, которые оставляет Worker: панель ходит в

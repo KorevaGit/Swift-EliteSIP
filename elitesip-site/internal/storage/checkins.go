@@ -108,8 +108,11 @@ func (db *DB) Machines(ctx context.Context, employeeID int64) ([]MachineRow, err
 // перечисляется целиком, но забирать содержимое каждой при каждом заходе
 // незачем — отметка не меняется после того, как её поставили.
 func (db *DB) PendingObjectKeys(ctx context.Context) (map[string]bool, error) {
+	// Погашенные не в счёт: их пакеты уборка уже унесла, и отметка по ним, если
+	// она вдруг найдётся, — это чужой промах, а не выдача.
 	rows, err := db.QueryContext(ctx,
-		`SELECT object_key FROM activations WHERE fetched_at IS NULL`)
+		`SELECT object_key FROM activations
+		  WHERE fetched_at IS NULL AND superseded_at IS NULL`)
 	if err != nil {
 		return nil, fmt.Errorf("перечислить незабранные пакеты: %w", err)
 	}
