@@ -1,0 +1,108 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "Ключ не подошёл или уже использован. Попросите новый.": {
+      "comment": "отказ при распечатывании пакета активации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключ не подошёл или уже использован. Попросите новый."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The key did not work or has already been used. Ask for a new one."
+          }
+        }
+      }
+    },
+    "Пакет собран более новой версией программы — обновитесь.": {
+      "comment": "отказ при распечатывании пакета активации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пакет собран более новой версией программы — обновитесь."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The package was built by a newer version of the app — please update."
+          }
+        }
+      }
+    },
+    "Подпись файла настроек не сошлась — файл отброшен.": {
+      "comment": "отказ при проверке файла предустановок",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подпись файла настроек не сошлась — файл отброшен."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings file signature did not match — the file was discarded."
+          }
+        }
+      }
+    },
+    "Файл настроек не разобрался.": {
+      "comment": "отказ при проверке файла предустановок",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл настроек не разобрался."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings file could not be parsed."
+          }
+        }
+      }
+    },
+    "Файл настроек собран более новой версией программы.": {
+      "comment": "отказ при проверке файла предустановок",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл настроек собран более новой версией программы."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings file was built by a newer version of the app."
+          }
+        }
+      }
+    },
+    "Это не похоже на ключ: в нём должно быть двенадцать знаков.": {
+      "comment": "отказ при вводе ключа активации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не похоже на ключ: в нём должно быть двенадцать знаков."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This does not look like a key: it must have twelve characters."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

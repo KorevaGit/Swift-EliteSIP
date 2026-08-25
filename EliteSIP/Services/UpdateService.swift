@@ -230,10 +230,12 @@ final class UpdateService: NSObject, ObservableObject {
     private func startCycle() {
         cycle?.invalidate()
         cycle = Timer.scheduledTimer(withTimeInterval: Self.checkInterval, repeats: true) { [weak self] _ in
+            // не переводится: строка журнала
             Task { @MainActor in self?.runCycle(reason: "по таймеру") }
         }
 
         Timer.scheduledTimer(withTimeInterval: Self.firstCheckDelay, repeats: false) { [weak self] _ in
+            // не переводится: строка журнала
             Task { @MainActor in self?.runCycle(reason: "при запуске") }
         }
     }

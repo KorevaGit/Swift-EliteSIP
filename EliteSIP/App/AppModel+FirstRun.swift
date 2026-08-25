@@ -1,6 +1,7 @@
 import AdminAccess
 import AppKit
 import Foundation
+import PanelLink
 import SIPCore
 
 /// Мастер первоначальной настройки: пропуск, применение, финал (этап 9).
@@ -77,6 +78,14 @@ extension AppModel {
         flow: FirstRunFlow
     ) -> (account: SIPAccount, password: String, site: SIPProfileSite)? {
         switch flow.route {
+        case .activationKey:
+            // Живой проверки регистрации у ключевого пути нет намеренно: адрес
+            // АТС приезжает в предустановке пакета, и собрать учётную запись до
+            // применения значило бы разобрать предустановку дважды — здесь и в
+            // `applyFirstRunWorkplace`. Второй разбор однажды разошёлся бы с
+            // первым, и проверка подтверждала бы не то, что уедет в настройки.
+            return nil
+
         case .preset:
             guard let preset = flow.selectedPreset else { return nil }
             var account = preset.snapshot(site: flow.site).profiles.active.account
@@ -166,6 +175,10 @@ extension AppModel {
     /// Рабочее место: три ветки экрана 2.
     private func applyFirstRunWorkplace(flow: FirstRunFlow) {
         switch flow.route {
+        case .activationKey:
+            guard let package = flow.openedPackage else { return }
+            applyActivation(package)
+
         case .preset:
             guard let preset = flow.selectedPreset else { return }
             // Площадка выбирает и признак стука, и адрес из пары — снимок
@@ -212,6 +225,51 @@ extension AppModel {
             settings = config
             settings.presets = keptPresets
         }
+    }
+
+    /// Применяет пакет активации (M9, работа 3).
+    ///
+    /// Порядок здесь важен: сперва учётная запись, потом управляемые поля,
+    /// потом память о панели. Обратный порядок оставил бы `isServerManaged`
+    /// посчитанным по старому режиму — наложение читает его из `panel`, а тот
+    /// должен быть уже новым.
+    private func applyActivation(_ package: ActivationPackage) {
+        // Номер и пароль ложатся **в существующий профиль**, а не рядом с ним.
+        // `SIPProfileList` на свежей машине уже держит один пустой профиль —
+        // ровно тот, из-за которого этап 9 и понадобился, — и заведение второго
+        // оставляло бы в списке «без номера» плюс настроенный. Тот же урок, что
+        // и у предустановочной ветки, найденный живым прогоном 17 августа 2026.
+        settings.profiles.active.account.username = package.number
+        settings.profiles.active.account.authUsername = nil
+        settings.profiles.active.password = package.sipPassword
+
+        // Панель машина слушает с первой же минуты: ключ и означает «этим
+        // рабочим местом управляют отсюда».
+        settings.panel.installationID = package.installationID
+        settings.panel.presetID = package.preset.id
+        settings.panel.presetName = package.preset.name
+        settings.panel.appliedRevision = package.preset.revision
+        settings.panel.appliedAt = Date()
+        settings.panel.mode = .managed
+
+        // Управляемые поля — той же дорогой, что и файл предустановок: правило
+        // «отсутствующее поле означает «панель им не управляет»» должно быть
+        // одно на оба пути, а не два похожих.
+        settings.apply(ManagedFields.parse(package.preset.settings))
+
+        // Административный пароль ставится последним и отдельно: он не входит в
+        // предустановку и входить не должен — `SettingsPreset.stripped`
+        // вычищает блок доступа намеренно, и ломать это ради одного поля нельзя.
+        //
+        // Отказ проглатывается: пароль конторы приезжает из панели, и если он
+        // не лёг, машина всё равно поднята и звонит — а «Управление» на ней
+        // откроется прежним, вшитым в сборку. Ронять из-за этого настройку
+        // рабочего места незачем.
+        try? setAdminPassword(package.adminPassword)
+
+        append(level: .info, message: "рабочее место поднято ключом: "
+            + "\(package.employee), номер \(package.number), "
+            + "предустановка «\(package.preset.name)» ревизия \(package.preset.revision)")
     }
 
     /// Перезапуск ради корпуса — после того, как всё уже записано.

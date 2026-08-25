@@ -29,6 +29,10 @@ let package = Package(
     targets: [
         .target(
             name: "PanelLink",
+            // Отказы пакета показываются человеку, поэтому у него свой каталог
+            // строк — как у AdminAccess. Без него `NSLocalizedString` вернул бы
+            // русский ключ и англоязычному сотруднику.
+            resources: [.process("Resources")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

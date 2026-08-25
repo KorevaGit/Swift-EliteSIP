@@ -49,7 +49,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TARGETS: list[tuple[Path, Path]] = [
     (ROOT / "EliteSIP", ROOT / "EliteSIP" / "Localizable.xcstrings"),
 ]
-for package in ["AdminAccess", "CallGuard", "CallHistory", "MediaCore", "SIPCore", "Diagnostics"]:
+for package in ["AdminAccess", "CallGuard", "CallHistory", "MediaCore", "PanelLink", "SIPCore", "Diagnostics"]:
     # Каталог пакета лежит вне ресурсов: SwiftPM `.xcstrings` не компилирует,
     # и в ресурсы едут собранные из него `.lproj` — см. `sync-strings.py`.
     TARGETS.append((ROOT / "Packages" / package / "Sources" / package,

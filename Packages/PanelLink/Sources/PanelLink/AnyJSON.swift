@@ -31,6 +31,8 @@ struct AnyJSON: Decodable {
         } else if let object = try? container.decode([String: AnyJSON].self) {
             value = object.mapValues(\.value)
         } else {
+            // не переводится: сообщение читает тот, кто правит этот код, —
+            // наружу оно не выходит, разбор его проглатывает.
             throw DecodingError.dataCorruptedError(
                 in: container,
                 debugDescription: "непонятное значение JSON"

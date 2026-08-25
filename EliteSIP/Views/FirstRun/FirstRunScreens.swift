@@ -1,4 +1,5 @@
 import AppKit
+import PanelLink
 import SIPCore
 import SwiftUI
 
@@ -217,7 +218,9 @@ struct FirstRunUserScreen: View {
             )
 
             FirstRunColumn {
-                if case .configFile = flow.route {
+                if case .activationKey = flow.route {
+                    keyEntry
+                } else if case .configFile = flow.route {
                     loadedSummary
                 } else {
                     // Два ряда вместо четырёх строк: сверху — кто (добавочный и
@@ -231,14 +234,20 @@ struct FirstRunUserScreen: View {
                         switch flow.route {
                         case .preset: sitePicker
                         case .manual: hostField
-                        case .configFile: EmptyView()
+                        case .activationKey, .configFile: EmptyView()
                         }
                     }
                 }
 
-                cautionAboutPass
-
-                pass
+                // Пропуск — только для путей, где номер вписывают руками.
+                // Ключевой путь его не требует: административный пароль
+                // приезжает в самом пакете, и требовать его у сотрудника,
+                // который этого пароля не знает, значило бы закрыть основной
+                // путь тем же замком, который он и открывает.
+                if flow.route != .activationKey {
+                    cautionAboutPass
+                    pass
+                }
             }
 
             Spacer(minLength: Theme.Metrics.sectionSpacing)
@@ -294,6 +303,66 @@ struct FirstRunUserScreen: View {
     /// «Загрузить конфигурацию» здесь нет — она третий уровень и живёт внизу
     /// окна: перенос готового места не равен заведению нового, и в одном списке
     /// с ними обещал бы равноценный выбор.
+    // MARK: Ключ активации
+
+    /// Основной путь с M9: сотрудник вводит ключ, остальное приезжает пакетом.
+    @ViewBuilder
+    private var keyEntry: some View {
+        if let package = flow.openedPackage {
+            openedSummary(package)
+        } else {
+            VStack(spacing: Theme.Metrics.elementSpacing) {
+                // Моноширинный: ключ читают по знакам и сверяют с сообщением,
+                // а пропорциональный шрифт делает «0» и «O» похожими ровно там,
+                // где их и путают.
+                TextField("Ключ из сообщения", text: $flow.key)
+                    .font(.system(.body, design: .monospaced))
+                    .disabled(flow.isOpeningKey)
+
+                Button(flow.isOpeningKey ? "Проверяем…" : "Проверить ключ") {
+                    Task { await flow.openKey() }
+                }
+                .disabled(flow.key.isEmpty || flow.isOpeningKey)
+
+                Text("Разделители и регистр не важны — вставьте ключ как есть.")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Что приехало в пакете — **до** того, как что-либо применится.
+    ///
+    /// Человек должен увидеть, чьё рабочее место поднимает, прежде чем машина
+    /// зарегистрируется на АТС под чужим номером. Дешёвая защита от
+    /// перепутанного ключа, и единственная, какая тут возможна.
+    private func openedSummary(_ package: ActivationPackage) -> some View {
+        VStack(spacing: Theme.Metrics.tightSpacing) {
+            Text(verbatim: package.employee)
+                .font(Theme.Text.firstRunTitle)
+
+            Text(verbatim: "\(package.number) · \(package.preset.name)")
+                .font(.footnote)
+                .compatForeground(Theme.Palette.textSecondary)
+
+            Text("Если это не вы — не продолжайте и сообщите в поддержку.")
+                .font(.footnote)
+                .compatForeground(Theme.Palette.caution)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, Theme.Metrics.tightSpacing)
+
+            Button("Ввести другой ключ") {
+                flow.openedPackage = nil
+                flow.key = ""
+            }
+            .buttonStyle(.link)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     private var route: some View {
         Picker("", selection: routeBinding) {
             ForEach(flow.presets, id: \.name) { preset in

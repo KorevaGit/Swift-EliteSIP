@@ -1,4 +1,5 @@
 import Foundation
+import PanelLink
 import SIPCore
 import SwiftUI
 
@@ -54,6 +55,14 @@ final class FirstRunFlow: ObservableObject {
     /// `Hashable` ради `Picker`: выбор ветки — системная группа радиокнопок, и
     /// теги в ней сравниваются по хэшу.
     enum Route: Hashable {
+        /// Ключ из панели EliteSIP — основной путь с M9.
+        ///
+        /// Номер, пароль SIP, административный пароль и предустановка приезжают
+        /// одним пакетом; сотрудник вводит только ключ. **Административного
+        /// пропуска этот путь не требует** — он и есть в пакете, — и это
+        /// осознанная отмена решения этапа 9 «мастер проходит техподдержка».
+        /// Разбор и цена отмены — в elitesip-site/docs/DECISIONS.md.
+        case activationKey
         /// Заводская предустановка: техподдержка вписывает добавочный и пароль.
         case preset(name: String)
         /// Всё руками. Тумблера площадки нет: стук решает сам адрес.
@@ -100,6 +109,22 @@ final class FirstRunFlow: ObservableObject {
     @Published var loadedConfig: AppSettings?
     @Published var loadedConfigName = ""
 
+    // MARK: - Ключ активации
+
+    /// То, что ввёл сотрудник. Терпимо к разделителям и регистру — разбирает
+    /// его `ActivationKey`, а не это поле.
+    @Published var key = ""
+
+    /// Распечатанный пакет. Пока он `nil`, применять нечего.
+    ///
+    /// **Показывается человеку до того, как что-либо применится.** Он должен
+    /// увидеть, чьё рабочее место поднимает, прежде чем машина зарегистрируется
+    /// на АТС под чужим номером. Дешёвая защита от перепутанного ключа.
+    @Published var openedPackage: ActivationPackage?
+
+    /// Идёт ли обращение к каналу. Пока идёт, кнопку жать второй раз незачем.
+    @Published var isOpeningKey = false
+
     /// Что сказать про последнюю попытку — отказ пропуска, отказ файла, исход
     /// живой проверки. Живёт до следующего действия.
     @Published var notice: String?
@@ -107,9 +132,10 @@ final class FirstRunFlow: ObservableObject {
     init(presets: [Provisioning.FactoryPreset], isPreview: Bool = false) {
         self.presets = presets
         self.isPreview = isPreview
-        // Ветка по умолчанию — первая предустановка, если она есть: типовое
-        // рабочее место заводится чаще, чем нетиповое.
-        route = presets.first.map { .preset(name: $0.name) } ?? .manual
+        // Ветка по умолчанию — ключ из панели: с M9 это основной путь, и
+        // стажёров каждую неделю заводят именно им. Прежние три остаются
+        // дорогой для машины, до которой панель не достаёт.
+        route = .activationKey
     }
 
     /// Заводские предустановки этой сборки.
@@ -146,8 +172,17 @@ final class FirstRunFlow: ObservableObject {
         case .welcome, .appearance, .finale:
             return true
         case .firstUser:
+            // Ключевой путь пропуска не требует: административный пароль
+            // приезжает в самом пакете. Проверка стоит до общей, а не внутри
+            // switch ниже, потому что снимает условие целиком, а не уточняет.
+            if case .activationKey = route {
+                return openedPackage != nil
+            }
             guard !adminPassword.isEmpty else { return false }
             switch route {
+            case .activationKey:
+                // Разобран выше; сюда не доходит.
+                return openedPackage != nil
             case .preset:
                 return !trimmedNumber.isEmpty && !password.isEmpty
             case .manual:
@@ -160,6 +195,37 @@ final class FirstRunFlow: ObservableObject {
     }
 
     var trimmedNumber: String { number.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    /// Забирает пакет по введённому ключу и показывает, что в нём.
+    ///
+    /// Ничего не применяет: применение — дело последнего экрана. Здесь только
+    /// «чей это ключ», и человек это видит до того, как машина зарегистрируется
+    /// на АТС под чужим номером.
+    @MainActor
+    func openKey() async {
+        guard !isOpeningKey else { return }
+        notice = nil
+        openedPackage = nil
+
+        let parsed: ActivationKey
+        do {
+            parsed = try ActivationKey(input: key)
+        } catch {
+            notice = (error as? LocalizedError)?.errorDescription
+                ?? PanelLinkError.malformedKey.errorDescription
+            return
+        }
+
+        isOpeningKey = true
+        defer { isOpeningKey = false }
+
+        do {
+            openedPackage = try await ActivationService.fetch(key: parsed)
+        } catch {
+            notice = (error as? LocalizedError)?.errorDescription
+                ?? PanelLinkError.keyDidNotOpen.errorDescription
+        }
+    }
 
     func goBack() {
         guard canGoBack, let index = steps.firstIndex(of: step), index > 0 else { return }

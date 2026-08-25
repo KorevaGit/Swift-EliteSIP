@@ -32,7 +32,18 @@ struct PresetsTab: View {
     @State private var number = ""
     @State private var targetID: UUID?
 
+    /// Возврат под предустановку спрашивают до, а не сожалеют после.
+    @State private var isConfirmingManaged = false
+
     var body: some View {
+        // Раздел про панель стоит первым: если машиной управляют отсюда, это
+        // главное, что администратор должен узнать про неё, открыв вкладку.
+        // Пустой блок означает «панель этой машины не знает» — и раздел тогда
+        // не показывается вовсе, чтобы не объяснять отсутствующее.
+        if model.settings.panel.isActivated {
+            panelSection
+        }
+
         SettingsSection("Эта машина") {
             SettingsRow("Настроена") {
                 Text(originText)
@@ -177,6 +188,81 @@ struct PresetsTab: View {
                 applyForm(preset)
             }
         }
+    }
+
+    // MARK: - Режим машины
+
+    /// Предустановка или «Вручную» — на машину целиком (M9, работа 5).
+    ///
+    /// Целиком, а не по настройкам: половинчатый режим означал бы, что
+    /// администратор не может ответить на вопрос «управляется ли это рабочее
+    /// место», не перебрав два десятка полей.
+    @ViewBuilder
+    private var panelSection: some View {
+        SettingsSection("Панель") {
+            SettingsRow("Предустановка") {
+                Text(verbatim: presetLine)
+                    .compatForeground(Theme.Palette.textPrimary)
+            }
+
+            SettingsToggleRow("Слушать панель", isOn: Binding(
+                get: { model.settings.panel.mode == .managed },
+                set: { managed in
+                    if managed {
+                        // Возврат под предустановку заменит локальные правки —
+                        // спрашиваем до, а не показываем сожаление после.
+                        isConfirmingManaged = true
+                    } else {
+                        model.settings.panel.mode = .manual
+                        // Признак «этим управляет сервер» снимается сразу:
+                        // иначе управляемые ползунки остались бы запертыми на
+                        // машине, которая панель уже не слушает.
+                        model.settings.incomingCall.isServerManaged = false
+                    }
+                }
+            ))
+
+            if model.settings.panel.mode == .managed {
+                SettingsNote("""
+                    Машина применяет файл предустановок с сервера. Управляемые поля \
+                    показываются, но не правятся здесь: локально остаются номер, метка \
+                    профиля и пароль SIP. Обновление обязательное — отложить его нельзя, \
+                    оно ждёт только конца разговора.
+                    """)
+            } else {
+                SettingsNote("""
+                    Машина живёт своим умом: файл предустановок не применяется ни в чём. \
+                    Это же состояние у машины, которую поднимали не ключом. Штатный способ \
+                    починить разъехавшееся рабочее место — вернуть её под предустановку.
+                    """)
+            }
+        }
+        .alert(isPresented: $isConfirmingManaged) {
+            Alert(
+                title: Text("Вернуть под предустановку?"),
+                message: Text("""
+                    Локальные правки управляемых полей будут заменены тем, что \
+                    лежит на сервере. Номер, метка профиля и пароль SIP останутся.
+                    """),
+                primaryButton: .default(Text("Вернуть")) {
+                    model.settings.panel.mode = .managed
+                    model.settings.incomingCall.isServerManaged = true
+                },
+                secondaryButton: .cancel(Text("Отмена"))
+            )
+        }
+    }
+
+    /// Что показать про предустановку: имя и применённая ревизия.
+    private var presetLine: String {
+        let panel = model.settings.panel
+        guard !panel.presetName.isEmpty else { return panel.presetID }
+        guard panel.appliedRevision > 0 else { return panel.presetName }
+        return String(
+            format: NSLocalizedString("%1$@, ревизия %2$lld", comment: "предустановка и ревизия в разделе «Панель»"),
+            panel.presetName,
+            Int64(panel.appliedRevision)
+        )
     }
 
     // MARK: - Заводская карточка

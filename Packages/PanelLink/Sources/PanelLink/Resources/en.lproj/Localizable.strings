@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Ключ не подошёл или уже использован. Попросите новый.</key>
+	<string>The key did not work or has already been used. Ask for a new one.</string>
+	<key>Пакет собран более новой версией программы — обновитесь.</key>
+	<string>The package was built by a newer version of the app — please update.</string>
+	<key>Подпись файла настроек не сошлась — файл отброшен.</key>
+	<string>The settings file signature did not match — the file was discarded.</string>
+	<key>Файл настроек не разобрался.</key>
+	<string>The settings file could not be parsed.</string>
+	<key>Файл настроек собран более новой версией программы.</key>
+	<string>The settings file was built by a newer version of the app.</string>
+	<key>Это не похоже на ключ: в нём должно быть двенадцать знаков.</key>
+	<string>This does not look like a key: it must have twelve characters.</string>
+</dict>
+</plist>

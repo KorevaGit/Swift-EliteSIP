@@ -69,6 +69,23 @@
         }
       }
     },
+    "%1$@, ревизия %2$lld": {
+      "comment": "предустановка и ревизия в разделе «Панель»",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, ревизия %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, revision %2$lld"
+          }
+        }
+      }
+    },
     "%1$lld в ряду · %2$lld тчк": {
       "comment": "сетка клавиш в просмотре предустановки",
       "localizations": {
@@ -157,21 +174,9 @@
       "comment": "сколько вызовов пришло из очереди",
       "localizations": {
         "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld call"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld calls"
-                }
-              }
-            }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld calls"
           }
         },
         "ru": {
@@ -226,21 +231,9 @@
       "comment": "сколько пакетов в последовательности стука",
       "localizations": {
         "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld packet"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld packets"
-                }
-              }
-            }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld packets"
           }
         },
         "ru": {
@@ -1063,6 +1056,22 @@
         }
       }
     },
+    "Ввести другой ключ": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ввести другой ключ"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a different key"
+          }
+        }
+      }
+    },
     "Ввести код восстановления": {
       "localizations": {
         "en": {
@@ -1107,6 +1116,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вернуть настройки к тому, что было при входе"
+          }
+        }
+      }
+    },
+    "Вернуть под предустановку?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть под предустановку?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Return to the preset?"
           }
         }
       }
@@ -1229,21 +1254,9 @@
       "comment": "",
       "localizations": {
         "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Deleting this profile also deletes its password and %lld call history record. This cannot be undone."
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Deleting this profile also deletes its password and %lld call history records. This cannot be undone."
-                }
-              }
-            }
+          "stringUnit": {
+            "state": "translated",
+            "value": "The profile’s password and %lld call history entries will be deleted along with it. Undo will not bring them back."
           }
         },
         "ru": {
@@ -2552,6 +2565,22 @@
         }
       }
     },
+    "Если это не вы — не продолжайте и сообщите в поддержку.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если это не вы — не продолжайте и сообщите в поддержку."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If this is not you, stop and tell support."
+          }
+        }
+      }
+    },
     "Есть несохранённые изменения": {
       "localizations": {
         "en": {
@@ -3565,6 +3594,22 @@
         }
       }
     },
+    "Ключ из сообщения": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключ из сообщения"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key from the message"
+          }
+        }
+      }
+    },
     "Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. Подтвердить результат клиент не может: сервер о входе в комнату не сообщает.": {
       "localizations": {
         "en": {
@@ -3927,6 +3972,22 @@
         }
       }
     },
+    "Локальные правки управляемых полей будут заменены тем, что лежит на сервере. Номер, метка профиля и пароль SIP останутся.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальные правки управляемых полей будут заменены тем, что лежит на сервере. Номер, метка профиля и пароль SIP останутся."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local changes to managed fields will be replaced with what is on the server. The number, profile label and SIP password will remain."
+          }
+        }
+      }
+    },
     "Ломает кликеры, которые бьют по постоянным координатам.": {
       "localizations": {
         "en": {
@@ -4039,6 +4100,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Машина"
+          }
+        }
+      }
+    },
+    "Машина живёт своим умом: файл предустановок не применяется ни в чём. Это же состояние у машины, которую поднимали не ключом. Штатный способ починить разъехавшееся рабочее место — вернуть её под предустановку.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина живёт своим умом: файл предустановок не применяется ни в чём. Это же состояние у машины, которую поднимали не ключом. Штатный способ починить разъехавшееся рабочее место — вернуть её под предустановку."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The machine runs on its own: the preset file is not applied at all. This is also the state of a machine that was not set up with a key. The regular way to fix a workplace that has drifted is to put it back under the preset."
+          }
+        }
+      }
+    },
+    "Машина применяет файл предустановок с сервера. Управляемые поля показываются, но не правятся здесь: локально остаются номер, метка профиля и пароль SIP. Обновление обязательное — отложить его нельзя, оно ждёт только конца разговора.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина применяет файл предустановок с сервера. Управляемые поля показываются, но не правятся здесь: локально остаются номер, метка профиля и пароль SIP. Обновление обязательное — отложить его нельзя, оно ждёт только конца разговора."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The machine applies the preset file from the server. Managed fields are shown but not edited here: the number, profile label and SIP password stay local. The update is mandatory — it cannot be postponed, it only waits for the end of a call."
           }
         }
       }
@@ -4732,6 +4825,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось прочитать файл: %@"
+          }
+        }
+      }
+    },
+    "Не удалось связаться с сервером: %@. Проверьте сеть и попробуйте снова.": {
+      "comment": "отказ при получении пакета активации",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось связаться с сервером: %@. Проверьте сеть и попробуйте снова."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not reach the server: %@. Check the network and try again."
           }
         }
       }
@@ -5973,6 +6083,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Error: %@"
+          }
+        }
+      }
+    },
+    "Панель": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панель"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panel"
           }
         }
       }
@@ -7359,6 +7485,22 @@
         }
       }
     },
+    "Проверить ключ": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить ключ"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the key"
+          }
+        }
+      }
+    },
     "Проверить обновления сейчас": {
       "localizations": {
         "ru": {
@@ -7470,6 +7612,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Проверяем регистрацию на АТС…"
+          }
+        }
+      }
+    },
+    "Проверяем…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверяем…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
           }
         }
       }
@@ -7762,6 +7920,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Разговор"
+          }
+        }
+      }
+    },
+    "Разделители и регистр не важны — вставьте ключ как есть.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разделители и регистр не важны — вставьте ключ как есть."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Separators and letter case do not matter — paste the key as it is."
           }
         }
       }
@@ -8397,6 +8571,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Случайность"
+          }
+        }
+      }
+    },
+    "Слушать панель": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слушать панель"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow the panel"
           }
         }
       }
@@ -9924,6 +10114,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "больше не влезает в панель"
+          }
+        }
+      }
+    },
+    "буфер обмена не принял снимок": {
+      "comment": "отказ снимка истории",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "буфер обмена не принял снимок"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the clipboard did not accept the snapshot"
           }
         }
       }

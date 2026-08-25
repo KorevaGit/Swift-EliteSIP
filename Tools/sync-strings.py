@@ -56,7 +56,7 @@ SOURCE_LANGUAGE = "ru"
 TARGETS: list[tuple[Path, Path]] = [
     (ROOT / "EliteSIP", ROOT / "EliteSIP" / "Localizable.xcstrings"),
 ]
-PACKAGES = ["AdminAccess", "CallGuard", "CallHistory", "SIPCore"]
+PACKAGES = ["AdminAccess", "CallGuard", "CallHistory", "PanelLink", "SIPCore"]
 for package in PACKAGES:
     TARGETS.append((ROOT / "Packages" / package / "Sources" / package,
                     ROOT / "Packages" / package / "Localizable.xcstrings"))
