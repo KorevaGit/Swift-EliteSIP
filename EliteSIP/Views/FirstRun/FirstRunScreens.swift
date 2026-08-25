@@ -265,15 +265,35 @@ struct FirstRunUserScreen: View {
     /// место, ищет её глазами первой и находит там, где кладут «прочее».
     private var configRow: some View {
         VStack(spacing: Theme.Metrics.hairSpacing) {
-            if case .configFile = flow.route {
+            switch flow.route {
+            case .configFile:
                 Button("Выбрать другой файл…") { chooseConfig() }
                     .buttonStyle(.link)
                 Button("Отменить перенос") { flow.route = defaultRoute }
                     .buttonStyle(.link)
-            } else {
+
+            case .activationKey:
+                // Ручной путь вернулся сюда же, к «прочему», и той же подписью.
+                //
+                // С M9 ключ стал веткой по умолчанию, а список «предустановка /
+                // вручную» показывается только внутри ручной ветки — то есть
+                // машина, до которой панель не достаёт, оказалась заперта: с
+                // ключевого экрана выйти было некуда. Кнопка внизу и без рамки
+                // ровно потому же, почему тут стоит «Загрузить конфигурацию…»:
+                // это не равноценный первому способ, а обходной, и обещать ему
+                // равный вид нельзя.
+                Button("Настроить эту машину вручную…") { flow.route = defaultRoute }
+                    .buttonStyle(.link)
                 Button("Загрузить конфигурацию…") { chooseConfig() }
                     .buttonStyle(.link)
 
+            case .preset, .manual:
+                // Обратная дорога: свернувший в ручную ветку по ошибке не
+                // должен перезапускать мастер ради возврата к ключу.
+                Button("Вернуться к ключу активации") { flow.route = .activationKey }
+                    .buttonStyle(.link)
+                Button("Загрузить конфигурацию…") { chooseConfig() }
+                    .buttonStyle(.link)
             }
         }
         .frame(maxWidth: .infinity)
@@ -315,22 +335,62 @@ struct FirstRunUserScreen: View {
                 // Моноширинный: ключ читают по знакам и сверяют с сообщением,
                 // а пропорциональный шрифт делает «0» и «O» похожими ровно там,
                 // где их и путают.
-                TextField("Ключ из сообщения", text: $flow.key)
+                TextField("Ключ из сообщения", text: keyBinding)
                     .font(.system(.body, design: .monospaced))
                     .disabled(flow.isOpeningKey)
+                    // Отказ виден на самом поле, а не только словами.
+                    //
+                    // Рамка отвечает на «где ошибка», надпись под ней — на
+                    // «какая». Порознь ни то ни другое не работает: голая
+                    // надпись внизу окна не показывала, что перевводить, а
+                    // голая рамка не говорила, ключ ли не тот или канал не
+                    // ответил.
+                    .compatOverlay {
+                        RoundedRectangle(cornerRadius: Theme.Radius.control)
+                            .stroke(
+                                flow.keyFailure == nil ? Color.clear : Theme.Palette.failure,
+                                lineWidth: 1.5
+                            )
+                    }
 
                 Button(flow.isOpeningKey ? "Проверяем…" : "Проверить ключ") {
                     Task { await flow.openKey() }
                 }
                 .disabled(flow.key.isEmpty || flow.isOpeningKey)
 
-                Text("Разделители и регистр не важны — вставьте ключ как есть.")
-                    .font(.footnote)
-                    .compatForeground(Theme.Palette.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Отказ вытесняет подсказку, а не встаёт под ней: подсказка
+                // «разделители не важны» уже прочитана к этому мгновению, а два
+                // пояснения подряд под одним полем читаются как одно длинное.
+                if let failure = flow.keyFailure {
+                    Text(verbatim: failure)
+                        .font(.footnote)
+                        .compatForeground(Theme.Palette.failure)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Разделители и регистр не важны — вставьте ключ как есть.")
+                        .font(.footnote)
+                        .compatForeground(Theme.Palette.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+    }
+
+    /// Правка ключа гасит отказ: красная рамка над полем, которое человек уже
+    /// перенабирает, обвиняет его в том, что он в это мгновение и исправляет.
+    ///
+    /// Побочное действие в сеттере, а не в `onChange`: тот появился в macOS 11,
+    /// а срез x86_64 живёт с Catalina, — тем же способом здесь применяется тема.
+    private var keyBinding: Binding<String> {
+        Binding(
+            get: { flow.key },
+            set: { value in
+                flow.key = value
+                flow.keyFailure = nil
+            }
+        )
     }
 
     /// Что приехало в пакете — **до** того, как что-либо применится.
@@ -356,6 +416,7 @@ struct FirstRunUserScreen: View {
 
             Button("Ввести другой ключ") {
                 flow.openedPackage = nil
+                flow.keyFailure = nil
                 flow.key = ""
             }
             .buttonStyle(.link)
@@ -412,27 +473,57 @@ struct FirstRunUserScreen: View {
     /// Поля номера и пароля здесь спрятаны, но номер показан: иначе
     /// техподдержка молча заводит вторую регистрацию на чужой номер.
     private var loadedSummary: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
+        VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
             if let config = flow.loadedConfig {
+                // Имя файла — заголовком карточки: это ответ на «что я
+                // выбрал», и он должен читаться раньше цифр. Значка рядом нет
+                // намеренно: комплект иконок рисуется руками ради Catalina, и
+                // заводить в нём документ ради одной строки мастера значило бы
+                // платить за украшение.
+                //
+                // Длинные имена усекаются посередине, а не по хвосту, — у
+                // слепков машин различается как раз хвост.
                 Text(verbatim: flow.loadedConfigName)
                     .font(.callout)
-                Text(
-                    String(
-                        format: NSLocalizedString(
-                            "Номер %@, АТС %@.",
-                            comment: "что приехало из файла конфигурации"
-                        ),
-                        config.profiles.active.account.username,
-                        config.profiles.active.account.domain
-                    )
-                )
-                .font(.footnote)
-                .compatForeground(Theme.Palette.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                // Строкой на поле, а не фразой «Номер 305, АТС pbx.example».
+                //
+                // Фраза читалась как примечание и сливалась в одну строку
+                // мелким серым — а её и просят сверить перед тем, как машина
+                // зарегистрируется под чужим номером. Подписи в колонку,
+                // значения моноширинным: так номер и адрес видно, не вчитываясь.
+                VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
+                    summaryLine("Номер", config.profiles.active.account.username)
+                    summaryLine("АТС", config.profiles.active.account.domain)
+                }
             } else {
                 Text("Файл не выбран.")
                     .font(.footnote)
                     .compatForeground(Theme.Palette.textSecondary)
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Metrics.contentPadding)
+        .themedSurface()
+    }
+
+    /// Строка «подпись — значение» в карточке файла.
+    ///
+    /// Ширина подписи задана числом: две строки с подписями разной длины иначе
+    /// ставят значения на разных отступах, и колонки, ради которой всё и
+    /// затевалось, не получается.
+    private func summaryLine(_ title: LocalizedStringKey, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
+            Text(title)
+                .font(.footnote)
+                .compatForeground(Theme.Palette.textSecondary)
+                .frame(width: 52, alignment: .leading)
+            Text(verbatim: value)
+                .font(.system(.footnote, design: .monospaced))
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
     }
 

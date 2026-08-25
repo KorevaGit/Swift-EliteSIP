@@ -34,5 +34,8 @@ Lab/certs/*.srl
 Lab/.env
 *.local.json
 
+# Temporary HTML used while extracting Superdesign components
+.superdesign/tmp/
+
 # Снимки конфигов FreePBX-стенда — рабочие файлы, не история проекта
 Lab/freepbx-snapshots/
