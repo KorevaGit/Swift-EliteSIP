@@ -79,10 +79,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Автообновление (M7h). Живёт с запуска до выхода: предложение приходит
     /// раз в полчаса и обязано пережить закрытую панель.
     private(set) var updateService: UpdateService?
+    private(set) var presetService: PresetService?
 
     /// Наблюдение за списком линий: предложение обновиться не показывается в
     /// разговоре, а начавшийся звонок закрывает уже открытое.
     private var lineWatch: AnyCancellable?
+
+    /// Слежение за открытым «Управлением» — ради отложенной предустановки.
+    private var settingsHoldWatch: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Тема — до первого окна: иначе панель успевает нарисоваться в
@@ -209,6 +213,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Отдельным методом, а не строкой в `applicationDidFinishLaunching`:
     /// связей у него четыре, и каждая объясняется отдельно.
     private func startUpdateService() {
+        // Линия предустановок заводится первой: её замыкание уходит в цикл
+        // проверок, а цикл начинается сразу за `service.start()`.
+        let presets = PresetService(
+            settings: { [weak self] in self?.model.settings ?? AppSettings.default },
+            apply: { [weak self] updated, note in
+                guard let self else { return }
+                self.model.settings = updated
+                self.model.persistSettings()
+                self.model.append(level: .info, message: "применено с панели: \(note)")
+            },
+            // Два повода подождать, и оба объяснены в самой службе: разговор и
+            // открытое «Управление» с несохранёнными правками.
+            isBlocked: { [weak self] in
+                guard let self else { return true }
+                return self.model.isInCall || self.model.isHoldingSettingsWrites
+            },
+            log: { [weak self] message in self?.model.append(level: .info, message: message) }
+        )
+        presetService = presets
+
         let service = UpdateService(
             isBusy: { [weak self] in self?.model.isInCall ?? true },
             prepareForRestart: { [weak self] done in
@@ -220,6 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             reportCheckState: { [weak self] checking, result in
                 self?.model.noteUpdateCheckState(checking: checking, result: result)
             },
+            alsoCheckPresets: { [weak presets] in presets?.check() },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
         updateService = service
@@ -238,7 +263,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 let busy = !lines.isEmpty
                 defer { wasBusy = busy }
                 guard busy != wasBusy else { return }
-                if busy { service.hostBecameBusy() } else { service.hostBecameIdle() }
+                if busy {
+                    service.hostBecameBusy()
+                } else {
+                    service.hostBecameIdle()
+                    // Отложенная предустановка ждёт того же конца разговора.
+                    presets.hostBecameIdle()
+                }
+            }
+
+        // Второй повод подождать — открытое «Управление». Закрылось, правки
+        // легли или откатились — можно применять.
+        //
+        // Без этого наблюдателя отложенное дождалось бы следующего такта, то
+        // есть получаса. Полчаса не беда, но администратор, только что
+        // закрывший окно, за это время успевает решить, что правка не доехала.
+        var wasHolding = model.isHoldingSettingsWrites
+        settingsHoldWatch = model.$isHoldingSettingsWrites
+            .receive(on: RunLoop.main)
+            .sink { [weak presets] holding in
+                defer { wasHolding = holding }
+                guard wasHolding, !holding else { return }
+                presets?.hostBecameIdle()
             }
     }
 

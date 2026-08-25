@@ -30,6 +30,14 @@ extension AppSettings {
         applyPortKnock(fields.portKnock)
         applySiteAddresses(fields.siteAddresses)
         applyTLSTrust(fields.acceptsAnyTLSCertificate)
+
+        // Признак «этим управляет сервер» выводится из режима машины, а не из
+        // файла, и ставится здесь — в одном месте на все управляемые поля.
+        //
+        // Поле заведено в M7c как «место под вариант 1» и до сих пор всегда
+        // было false. Теперь оно наконец получает смысл: машина под
+        // предустановкой показывает управляемые ползунки, но не даёт их трогать.
+        incomingCall.isServerManaged = panel.isManaged
     }
 
     // MARK: - Клавиши
