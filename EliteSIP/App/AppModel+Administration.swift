@@ -39,15 +39,15 @@ extension AppModel {
         pendingAdminPasswordRemoval = false
     }
 
-    /// «Сохранить»: применяет всё разом и объявляет настройки локальными.
+    /// «Сохранить»: применяет всё разом.
     ///
-    /// Порядок важен. Сначала снимается придержка записи, потом ставится режим
-    /// и только потом сохраняется файл: иначе `management` уехал бы на диск
-    /// вторым заходом, а между ними успел бы случиться сбой записи.
+    /// Раньше здесь же объявлялся «локальный режим» — состояние, отвечавшее на
+    /// «настройки местные или из файла конфигурации». Файла нет с 25 августа
+    /// 2026, вопрос отпал, и `AdminManagement` убран целиком: управляемость
+    /// машины живёт в `settings.panel`, а не рядом с паролем.
     func commitAdministration() {
         guard let snapshot = administrationSnapshot else { return }
 
-        let wasManagedElsewhere = settings.admin.management != .local
         let historyChanged = settings.history != snapshot.history
 
         // Профили, удалённые в черновике. Их история уходит вместе с ними: она
@@ -71,8 +71,6 @@ extension AppModel {
             self.pendingAdminPassword = nil
         }
 
-        settings.admin.management = .local
-        adminAccess.management = .local
         persistSettings()
 
         // История применяется только здесь, а не по ходу правки: уменьшенный
@@ -88,10 +86,8 @@ extension AppModel {
         deleteHistory(ofProfiles: removedProfiles)
 
         append(
-            level: wasManagedElsewhere ? .warning : .info,
-            message: wasManagedElsewhere
-                ? "настройки сохранены вручную: машина переведена в локальный режим"
-                : "закрытые настройки сохранены, режим управления — локальный"
+            level: .info,
+            message: "закрытые настройки сохранены"
         )
 
         // Ровно то, что раньше делала `savePassword`: как только у профиля

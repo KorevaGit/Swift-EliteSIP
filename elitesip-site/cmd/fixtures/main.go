@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
@@ -21,6 +22,7 @@ import (
 	"time"
 
 	"github.com/koreva/elitesip-site/internal/activation"
+	"github.com/koreva/elitesip-site/internal/panel"
 	"github.com/koreva/elitesip-site/internal/preset"
 )
 
@@ -28,6 +30,8 @@ func main() {
 	activationFixture()
 	fmt.Println()
 	bundleFixture()
+	fmt.Println()
+	machineFixtures()
 }
 
 // activationFixture — пакет активации под ActivationTests.swift.
@@ -110,4 +114,45 @@ func bundleFixture() {
 	fmt.Println("=== файл предустановок ===")
 	fmt.Println("открытый ключ:", base64.StdEncoding.EncodeToString(private.Public().(ed25519.PublicKey)))
 	fmt.Println("файл:         ", base64.StdEncoding.EncodeToString(signed))
+}
+
+// machineFixtures — помашинные объекты под MachineObjectTests.swift.
+//
+// Собираются той же дорогой, что и в бою: панелью, её конвертом, её ключом.
+// Сочинённый здесь же образец проверял бы только то, что мы согласны сами с
+// собой.
+func machineFixtures() {
+	seed := make([]byte, ed25519.SeedSize)
+	for i := range seed {
+		seed[i] = byte(i)
+	}
+	private := ed25519.NewKeyFromSeed(seed)
+
+	store := &memorySink{objects: map[string][]byte{}}
+	writer := &panel.MachineWriter{
+		Publisher:  store,
+		SigningKey: private,
+		Now:        func() time.Time { return time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC) },
+	}
+
+	const machine = "8f2c4a1b9d3e5f60"
+	ctx := context.Background()
+	if err := writer.Access(ctx, machine, "6D1F5A20-0000-4000-8000-000000000001", "пароль-предустановки"); err != nil {
+		panic(err)
+	}
+	if err := writer.Revoke(ctx, machine); err != nil {
+		panic(err)
+	}
+
+	fmt.Println("=== помашинные объекты ===")
+	fmt.Println("машина: ", machine)
+	fmt.Println("доступ: ", base64.StdEncoding.EncodeToString(store.objects["access/"+machine]))
+	fmt.Println("отзыв:  ", base64.StdEncoding.EncodeToString(store.objects["revoked/"+machine]))
+}
+
+type memorySink struct{ objects map[string][]byte }
+
+func (m *memorySink) Put(_ context.Context, key string, data []byte) error {
+	m.objects[key] = data
+	return nil
 }

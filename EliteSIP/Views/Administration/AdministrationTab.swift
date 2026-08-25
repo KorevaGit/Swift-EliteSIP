@@ -23,21 +23,21 @@ struct AdministrationTab: View {
     var body: some View {
         SettingsSection("Кто управляет настройками") {
             SettingsRow("Режим") {
-                Text(model.adminAccess.management.title)
+                Text(model.settings.panel.isManaged
+                    ? "Панель EliteSIP"
+                    : "Локальный режим")
                     .compatForeground(Theme.Palette.textSecondary)
             }
 
-            SettingsNote(verbatim: model.adminAccess.management.explanation)
+            SettingsNote(verbatim: model.settings.panel.isManaged
+                ? "Профили, макросы и политику защиты задаёт панель. Локально правятся номер, метка профиля и SIP-пароль."
+                : "Профили, макросы и политику защиты задаёт администратор этой машины.")
 
-            SettingsIndented {
-                MilestoneNote("""
-                    Значение меняется само: любое сохранение в этом окне объявляет \
-                    настройки локальными. Второе значение — «настройки из файла \
-                    конфигурации» — заработает в M8, когда появится сама загрузка \
-                    конфига. Вернуть машину под конфиг после локальной правки можно \
-                    будет только повторной загрузкой файла.
-                    """)
-            }
+            // Раньше здесь стояло `AdminManagement` — «локально или из файла
+            // конфигурации». Файла нет с 25 августа 2026, и перечисление
+            // убрано: с одним оставшимся значением оно начало врать — машина
+            // под панелью показывала бы «Локальный режим». Ответ читается
+            // теперь оттуда, где он и живёт, — из `settings.panel`.
         }
 
         SettingsSection("Пароль администратора") {

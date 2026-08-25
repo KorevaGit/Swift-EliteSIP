@@ -1,4 +1,5 @@
 import AppKit
+import PanelLink
 import SwiftUI
 
 /// Логи для техподдержки.
@@ -14,6 +15,12 @@ struct SupportTab: View {
     @EnvironmentObject private var model: AppModel
 
     @State private var archiveResult: String?
+
+    /// Ключ перепрошивки — то, что прислали при смене отдела.
+    @State private var reflashKey = ""
+    @State private var isApplyingKey = false
+    @State private var reflashNotice: String?
+    @State private var reflashFailed = false
 
     /// Версия и сборка одной строкой — тем же составом, что у администратора в
     /// «Диагностике». Две разные записи об одном и том же в двух окнах
@@ -65,11 +72,104 @@ struct SupportTab: View {
 
             UpdateCheckRow(isChecking: model.isCheckingForUpdates, result: model.updateCheckResult)
 
+            // Поле ключа стоит здесь, а не в «Управлении», и это решение.
+            //
+            // Смена отдела перестала означать выезд к машине: администратор
+            // выпускает ключ в панели, сотрудник вводит его сам — как вводил
+            // при первой настройке. Административного пароля для этого не
+            // требуется намеренно: пароль защищает настройки машины, а ключ
+            // сам по себе есть право их сменить, и выдаёт его панель.
+            //
+            // Ключ привязан к этой машине: введённый на чужой, он уходит по
+            // другому адресу и не находит ничего — вместо того чтобы сгореть на
+            // проверке внутри пакета.
+            SettingsSection("Новый ключ") {
+                SettingsNote("""
+                    Если вам прислали ключ для смены настроек — введите его здесь.                     Номер и настройки сменятся сами; переустанавливать ничего не нужно.
+                    """)
+
+                SettingsRow("Ключ") {
+                    TextField("K7M2-9XQP-4TFB", text: $reflashKey)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .disabled(isApplyingKey)
+                        .frame(maxWidth: 260)
+                }
+
+                SettingsButtonsRow {
+                    Button(isApplyingKey ? "Применяем…" : "Применить ключ") {
+                        Task { await applyKey() }
+                    }
+                    .disabled(isApplyingKey || reflashKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                if let reflashNotice {
+                    SettingsNote(verbatim: reflashNotice)
+                }
+            }
+
             // Строки «Площадка» здесь нет. Она была задумана как «есть что
             // назвать в поддержке», но поддержка эти же сведения получает
             // архивом по соседней кнопке — и получает полнее. Строка на
             // чтение, которую оператор не понимает и не может изменить,
             // занимала место и объясняла себя только сама себе.
+        }
+    }
+
+    /// Забирает пакет по ключу и применяет — или откладывает до конца разговора.
+    ///
+    /// Отказ один на все случаи: не тот ключ, чужая машина, испорченный файл.
+    /// Различать их вслух незачем — человеку все они означают «попросите новый
+    /// ключ», а подбирающему подсказывали бы, какие адреса существуют.
+    @MainActor
+    private func applyKey() async {
+        guard !isApplyingKey else { return }
+        reflashNotice = nil
+        reflashFailed = false
+
+        let machine = model.settings.panel.installationID
+        guard !machine.isEmpty else {
+            reflashFailed = true
+            reflashNotice = NSLocalizedString(
+                "Это рабочее место поднимали не ключом — сменить настройки ключом нельзя.",
+                comment: "перепрошивка на неактивированной машине")
+            return
+        }
+
+        let parsed: ActivationKey
+        do {
+            parsed = try ActivationKey(input: reflashKey)
+        } catch {
+            reflashFailed = true
+            reflashNotice = (error as? LocalizedError)?.errorDescription
+                ?? PanelLinkError.malformedKey.errorDescription
+            return
+        }
+
+        isApplyingKey = true
+        defer { isApplyingKey = false }
+
+        do {
+            let package = try await ActivationService.fetch(key: parsed, installationID: machine)
+            // Ключ к этому моменту уже сгорел — канал столбит пакет в момент
+            // скачивания, — поэтому «применю позже» не бывает: либо сейчас,
+            // либо по концу разговора.
+            switch model.applyReflash(package) {
+            case .applied:
+                reflashKey = ""
+                reflashNotice = NSLocalizedString(
+                    "Готово: настройки рабочего места обновлены.",
+                    comment: "перепрошивка применена")
+            case .deferred:
+                reflashKey = ""
+                reflashNotice = NSLocalizedString(
+                    "Принято: настройки применятся, как только вы положите трубку. Разговор не прервётся.",
+                    comment: "перепрошивка отложена до конца разговора")
+            }
+        } catch {
+            reflashFailed = true
+            reflashNotice = (error as? LocalizedError)?.errorDescription
+                ?? PanelLinkError.keyDidNotOpen.errorDescription
         }
     }
 

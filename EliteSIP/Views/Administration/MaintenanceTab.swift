@@ -19,42 +19,17 @@ struct MaintenanceTab: View {
     @State private var notice: String?
     @State private var isConfirmingHistoryClear = false
     @State private var isConfirmingReset = false
-    @State private var pendingImport: PendingImport?
-
-    /// Выбранный файл как повод показать вопрос: `alert(item:)` требует
-    /// `Identifiable`, а вешать это на сам `URL` нельзя — соответствие вышло бы
-    /// глобальным на весь модуль ради одного экрана.
-    private struct PendingImport: Identifiable {
-        let url: URL
-        var id: String { url.absoluteString }
-    }
 
     var body: some View {
-        SettingsSection("Перенос рабочего места") {
-            SettingsButtonsRow {
-                Button("Выгрузить конфигурацию…") { exportConfiguration() }
-            }
-
-            SettingsNote("""
-                Конфигурация — слепок этого рабочего места: номер и пароль SIP, клавиши, \
-                очереди, приём вызова, адрес АТС, стук, журнал. Ею переносят человека на другой \
-                компьютер целиком; файл принимает мастер первоначальной настройки.
-                """)
-
-            SettingsNote("""
-                Не входит то, что принадлежит машине, а не месту: звуковые устройства, свой \
-                рингтон, оформление и административный пароль. Выброшены они уже в самом файле, \
-                а не при чтении, — файл содержит ровно то, что здесь написано.
-                """)
-
-            SettingsNote("""
-                Предустановка — другая сущность и живёт в своём разделе. Она про отдел, а не про \
-                человека: те же клавиши, очереди и правила, но без номера и без паролей, чтобы \
-                заводить по ней новые места. Конфигурация — про одно конкретное место со всем \
-                его содержимым.
-                """)
-        }
-
+        // Секции «Перенос рабочего места» и «Загрузка конфигурации» здесь
+        // больше нет, и это не сокращение экрана.
+        //
+        // Файл конфигурации был конторскими настройками в локальном артефакте,
+        // применяемым мимо панели: сброшенная машина восстанавливалась из
+        // слепка, унесённого месяц назад, и панель не узнавала об этом никогда.
+        // Перенос рабочего места на новый компьютер теперь называется
+        // «выпустить ключ» — одно нажатие в панели, и приезжает свежее, а не
+        // годичной давности.
         SettingsSection("Для поддержки") {
             SettingsButtonsRow {
                 Button("Выгрузить журнал…") { Task { await exportLog() } }
@@ -75,24 +50,6 @@ struct MaintenanceTab: View {
             SettingsNote("""
                 История звонков не выгружается ни тем, ни другим: в ней номера лидов и \
                 SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.
-                """)
-        }
-
-        SettingsSection("Загрузка конфигурации") {
-            SettingsButtonsRow {
-                Button("Загрузить конфигурацию из файла…") { chooseImport() }
-            }
-
-            SettingsNote("""
-                Обратная сторона переноса: файл заполняет окно целиком — профили с номером и \
-                паролем SIP, клавиши, очереди, приём, АТС, стук. На диск не уходит ничего до \
-                «Сохранить», и «Отменить» возвращает как было.
-                """)
-
-            SettingsNote("""
-                Административный пароль остаётся машинный: в конфигурации его нет, и заменять \
-                его нечем. Файл предустановки сюда приносить незачем — её применяют в своём \
-                разделе. Сырой `settings.json` тоже принимается: он остался для поддержки.
                 """)
         }
 
@@ -158,17 +115,6 @@ struct MaintenanceTab: View {
                 )
             }
 
-        Color.clear
-            .frame(height: 0)
-            .alert(item: $pendingImport) { pending in
-                Alert(
-                    title: Text("Загрузить настройки из файла?"),
-                    message: Text(importWarning(pending.url)),
-                    primaryButton: .default(Text("Загрузить")) { performImport(pending.url) },
-                    secondaryButton: .cancel(Text("Отмена"))
-                )
-            }
-
         ResetConfirmation(isPresented: $isConfirmingReset) {
             model.resetMachine()
             show(NSLocalizedString("Машина сброшена.", comment: "итог сброса машины"))
@@ -187,41 +133,6 @@ struct MaintenanceTab: View {
         }
     }
 
-    /// Выгрузка конфигурации в формате EliteSIP.
-    ///
-    /// Появилась 17 августа 2026 вместе с веткой переноса в мастере. До неё эта
-    /// ветка была мертва: мастер `.elitesip` читать умел, а писать такой файл не
-    /// умел никто — то есть «перенести рабочее место» существовало только на
-    /// бумаге. Рядом с «Выгрузить настройки…», а не вместо: тот даёт сырой
-    /// `settings.json` для разбора жалоб, этот — документ для другой машины.
-    private func exportConfiguration() {
-        let label = model.settings.profiles.active.account.username
-        guard let url = save(name: EliteSIPDocument.suggestedName(.config, label: label)) else {
-            return
-        }
-        do {
-            try AppModel.write(EliteSIPDocument.encode(config: model.settings), to: url)
-            show(
-                String(
-                    format: NSLocalizedString(
-                        "Конфигурация выгружена в %@.", comment: "итог выгрузки конфигурации"
-                    ),
-                    url.lastPathComponent
-                )
-            )
-        } catch {
-            show(
-                String(
-                    format: NSLocalizedString(
-                        "Не удалось выгрузить конфигурацию: %@",
-                        comment: "выгрузка конфигурации не удалась"
-                    ),
-                    error.localizedDescription
-                )
-            )
-        }
-    }
-
     private func exportLog() async {
         guard let url = save(name: SupportArchive.suggestedName()) else { return }
         do {
@@ -230,49 +141,6 @@ struct MaintenanceTab: View {
         } catch {
             show(String(format: NSLocalizedString("Не удалось выгрузить журнал: %@", comment: "выгрузка журнала не удалась"), error.localizedDescription))
         }
-    }
-
-    private func chooseImport() {
-        // `NSOpenPanel`, а не `fileImporter`: тот появился в macOS 11, а срез
-        // x86_64 живёт с Catalina. Тем же способом выбирается файл рингтона.
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        // Оба вида: конфигурация (`.elitesip`) и сырой `settings.json`. Первое —
-        // то, что выгружает соседний раздел, второе осталось для поддержки.
-        panel.allowedFileTypes = [EliteSIPDocument.fileExtension, "json"]
-        panel.prompt = NSLocalizedString("Загрузить", comment: "кнопка в окне выбора файла")
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        pendingImport = PendingImport(url: url)
-    }
-
-    private func importWarning(_ url: URL) -> String {
-        var lines = [
-            NSLocalizedString("""
-                Все закрытые настройки в окне будут заменены содержимым файла, включая пароль \
-                номера. На диск это уйдёт только по «Сохранить».
-                """, comment: "предупреждение перед загрузкой конфигурации из файла")
-        ]
-        if model.importWouldRemoveAdminPassword(url) {
-            lines.append(NSLocalizedString("""
-                В файле нет пароля администратора: после сохранения закрытые настройки \
-                этой машины будут открыты всем.
-                """, comment: "предупреждение перед загрузкой настроек из файла"))
-        }
-        return lines.joined(separator: "\n\n")
-    }
-
-    private func performImport(_ url: URL) {
-        do {
-            try model.importSettings(from: url)
-            show(NSLocalizedString("Конфигурация загружена. Проверьте разделы и нажмите «Сохранить».", comment: "итог загрузки конфигурации"))
-        } catch let failure as AppModel.SettingsImportFailure {
-            show(failure.title)
-        } catch {
-            show(String(format: NSLocalizedString("Не удалось прочитать файл: %@", comment: "файл настроек не прочитался"), error.localizedDescription))
-        }
-        pendingImport = nil
     }
 
     private func save(name: String) -> URL? {

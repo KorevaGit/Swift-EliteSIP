@@ -170,7 +170,7 @@ extension AppModel {
         // техподдержка.
         settings.firstRun = .needed
         firstRun = .needed
-        adminAccess.restore(credential: nil, management: .local)
+        adminAccess.restore(credential: nil)
 
         logFile?.removeAll()
         append(level: .warning, message: "машина сброшена: настройки, история и журнал стёрты")
@@ -194,116 +194,5 @@ extension AppModel {
         DispatchQueue.main.async {
             NSApp.sendAction(#selector(AppDelegate.showFirstRunAfterReset(_:)), to: nil, from: nil)
         }
-    }
-
-    // MARK: - Загрузка чужого файла
-
-    /// Что помешало принять файл.
-    enum SettingsImportFailure: Error {
-
-        /// Файл от более новой версии приложения.
-        ///
-        /// Отдельным отказом, а не терпимым чтением: декодер настроек
-        /// намеренно терпелив к незнакомым полям, и без этой проверки файл от
-        /// следующей версии прочитался бы молча, потеряв всё, чего эта сборка
-        /// не знает. Потеря обнаружилась бы уже после «Сохранить».
-        case newerSchema(Int)
-
-        /// Файл не разобрался вовсе.
-        case unreadable
-
-        /// Наш файл, но не конфигурация: предустановку сюда приносят по ошибке
-        /// — она заводит место с нуля и живёт в своём разделе.
-        case notAConfiguration
-
-        var title: String {
-            switch self {
-            case .newerSchema(let version):
-                return String(
-                    format: NSLocalizedString("""
-                        Файл от более новой версии приложения (схема %1$lld, \
-                        эта сборка знает %2$lld). \
-                        Часть настроек в ней была бы потеряна.
-                        """, comment: "загрузка настроек из файла"),
-                    version,
-                    AppSettings.currentSchemaVersion
-                )
-            case .notAConfiguration:
-                return NSLocalizedString("""
-                    Это файл предустановки, а не конфигурации. Предустановки применяются в \
-                    разделе «Предустановки»: они заводят место по образцу отдела, без номера и \
-                    паролей.
-                    """, comment: "в загрузку конфигурации принесли предустановку")
-            case .unreadable:
-                return NSLocalizedString(
-                    "Файл не похож на настройки EliteSIP.",
-                    comment: "загрузка настроек из файла"
-                )
-            }
-        }
-    }
-
-    /// Кладёт чужой `settings.json` в черновик.
-    ///
-    /// **В черновик, а не на диск.** Окно заполняется значениями из файла, но
-    /// до «Сохранить» не записывается ничего, и «Отменить» возвращает как было.
-    /// Иначе в окне, которое всё копит, появилась бы одна кнопка, которая
-    /// применяет сразу, — и порядок работы перестал бы читаться.
-    ///
-    /// Файл берётся целиком, включая пароль SIP и административный ящик: ради
-    /// переноса рабочего места всё и затевалось. Административный пароль при
-    /// этом уходит в `pendingAdminPassword`-механику через `settings.admin`, а
-    /// не мимо неё, — то есть «Отменить» возвращает и его.
-    func importSettings(from source: URL) throws {
-        let data = try Data(contentsOf: source)
-
-        // Файл конфигурации (`.elitesip`) — основной случай, сырой JSON —
-        // запасной.
-        //
-        // Раздел назывался «Загрузка настроек» и принимал только сырой
-        // `settings.json`, тогда как выгружали рядом конфигурацию: то есть
-        // выгруженное этим же окном оно прочитать не могло. Разбираем по
-        // содержимому, а не по расширению: имя файла человек меняет, а
-        // заголовок внутри — нет.
-        if let content = try? EliteSIPDocument.read(data) {
-            guard case .config(let config) = content else {
-                throw SettingsImportFailure.notAConfiguration
-            }
-            // Административный пароль остаётся машинный: в конфигурации его
-            // нет вовсе (вычищен при записи), и «заменить» его нечем — а
-            // обнулить значило бы открыть закрытые настройки всякому.
-            let keptCredential = settings.admin.credential
-            let keptPresets = settings.presets
-            settings = config
-            settings.admin.credential = keptCredential
-            settings.presets = keptPresets
-            append(level: .warning, message: "конфигурация загружена из файла, применение — по «Сохранить»")
-            return
-        }
-
-        struct Header: Decodable { var schemaVersion: Int? }
-        guard let header = try? JSONDecoder().decode(Header.self, from: data) else {
-            throw SettingsImportFailure.unreadable
-        }
-        if let version = header.schemaVersion, version > AppSettings.currentSchemaVersion {
-            throw SettingsImportFailure.newerSchema(version)
-        }
-        guard let imported = try? JSONDecoder().decode(AppSettings.self, from: data) else {
-            throw SettingsImportFailure.unreadable
-        }
-
-        settings = imported
-        append(level: .warning, message: "настройки загружены из файла, применение — по «Сохранить»")
-    }
-
-    /// Останется ли машина без пароля, если принять этот файл.
-    ///
-    /// Спрашивается до применения: предупреждение обязано назвать последствие
-    /// прямо, а «пароль будет заменён» его не называет.
-    func importWouldRemoveAdminPassword(_ source: URL) -> Bool {
-        guard let data = try? Data(contentsOf: source),
-            let imported = try? JSONDecoder().decode(AppSettings.self, from: data)
-        else { return false }
-        return imported.admin.credential == nil
     }
 }

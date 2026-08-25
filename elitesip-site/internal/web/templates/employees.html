@@ -5,10 +5,28 @@
         <h1>Сотрудники</h1>
         <p>Номер живёт и умирает вместе с человеком. Ключ выписывается на человека, машин у него может быть несколько.</p>
     </div>
+    <form method="get" action="/employees" class="search employee-search" role="search">
+        <input name="q" type="search" value="{{$data.Query}}" placeholder="имя или номер" aria-label="Поиск по имени или номеру">
+        <select name="preset" aria-label="Фильтр по предустановке">
+            <option value="">все предустановки</option>
+            {{range $data.Presets}}
+            <option value="{{.ID}}"
+                {{if and (hasValue $data.PresetID) (eq (deref $data.PresetID) .ID)}}selected{{end}}>{{.Name}}</option>
+            {{end}}
+        </select>
+        <button type="submit" class="button button-primary">Найти</button>
+        {{if or $data.Query (hasValue $data.PresetID)}}
+        <a class="button button-quiet" href="/employees">Сбросить</a>
+        {{end}}
+    </form>
 </div>
 
-<div class="card">
-    <div class="card-head"><h2>Найти по ключу</h2></div>
+<div class="employee-tools">
+<details class="card compact-tool">
+    <summary>
+        <strong>Найти по ключу</strong>
+        <span>Проверить владельца и состояние</span>
+    </summary>
     <div class="card-body">
         <p class="card-note">
             Сотрудник прислал ключ и говорит, что не работает? Вставьте его сюда — панель покажет,
@@ -23,10 +41,13 @@
             <button type="submit" class="button">Найти</button>
         </form>
     </div>
-</div>
+</details>
 
-<div class="card">
-    <div class="card-head"><h2>Завести сотрудника</h2></div>
+<details class="card compact-tool">
+    <summary>
+        <strong>Завести сотрудника</strong>
+        <span>Создать запись и выпустить ключ</span>
+    </summary>
     <div class="card-body">
         <form method="post" action="/employees" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
             <div class="field" style="flex:2 1 200px;">
@@ -65,25 +86,12 @@
         </p>
         {{end}}
     </div>
+</details>
 </div>
 
-<div class="card">
+<div class="card employee-list">
     <div class="card-head">
         <h2>Список</h2>
-        <form method="get" action="/employees" class="search">
-            <input name="q" type="search" value="{{$data.Query}}" placeholder="имя или номер" aria-label="Поиск">
-            <select name="preset" aria-label="Предустановка">
-                <option value="">все предустановки</option>
-                {{range $data.Presets}}
-                <option value="{{.ID}}"
-                    {{if and (hasValue $data.PresetID) (eq (deref $data.PresetID) .ID)}}selected{{end}}>{{.Name}}</option>
-                {{end}}
-            </select>
-            <button type="submit" class="button">Найти</button>
-            {{if or $data.Query (hasValue $data.PresetID)}}
-            <a class="button button-quiet" href="/employees">Сбросить</a>
-            {{end}}
-        </form>
     </div>
     {{if $data.Employees}}
     <table class="table">

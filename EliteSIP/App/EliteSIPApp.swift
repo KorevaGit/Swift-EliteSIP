@@ -80,6 +80,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// раз в полчаса и обязано пережить закрытую панель.
     private(set) var updateService: UpdateService?
     private(set) var presetService: PresetService?
+    private(set) var machineService: MachineService?
+
+    /// Будильник проверки отзыва. Свой, а не общий с каналом: отзыв
+    /// срабатывает ровно с задержкой опроса, и на двухчасовом такте уволенный
+    /// сотрудник работал бы ещё два часа после нажатия «отозвать».
+    private var revocationTimer: Timer?
 
     /// Наблюдение за списком линий: предложение обновиться не показывается в
     /// разговоре, а начавшийся звонок закрывает уже открытое.
@@ -208,6 +214,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         startUpdateService()
     }
 
+    /// Завести проверку отзыва: раз в пятнадцать минут и сразу при запуске.
+    ///
+    /// При запуске — не оптимизация, а требование: машину увозят выключенной, и
+    /// отзыв, выложенный вечером, должен сработать при первом же включении, а
+    /// не через четверть часа после начала рабочего дня.
+    private func startRevocationWatch(_ machines: MachineService) {
+        revocationTimer?.invalidate()
+        revocationTimer = Timer.scheduledTimer(
+            withTimeInterval: MachineService.revocationInterval, repeats: true
+        ) { _ in
+            Task { @MainActor in machines.checkRevocation() }
+        }
+        Task { @MainActor in machines.checkRevocation() }
+    }
+
     /// Поднять автообновление и связать его с состоянием линий.
     ///
     /// Отдельным методом, а не строкой в `applicationDidFinishLaunching`:
@@ -231,7 +252,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
+        presets.noteContact = { [weak self] in
+            guard let self else { return }
+            self.model.settings.panel.lastContactAt = Date()
+            self.model.persistSettings()
+        }
         presetService = presets
+
+        // Помашинные объекты: свой административный пароль и свой отзыв.
+        //
+        // Ключ линии тот же, что у файла предустановок, — панель подписывает
+        // всё одним. Второй открытый ключ в Info.plist означал бы второй способ
+        // ошибиться, какой из них чей.
+        let machines = MachineService(
+            publicKey: PresetService.channelPublicKey,
+            settings: { [weak self] in self?.model.settings ?? AppSettings.default },
+            applyAccess: { [weak self] access in self?.model.applyMachineAccess(access) },
+            reset: { [weak self] revocation in self?.model.resetByRevocation(revocation) },
+            log: { [weak self] message in self?.model.append(level: .info, message: message) }
+        )
+        machineService = machines
+        startRevocationWatch(machines)
 
         let service = UpdateService(
             isBusy: { [weak self] in self?.model.isInCall ?? true },
@@ -244,7 +285,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             reportCheckState: { [weak self] checking, result in
                 self?.model.noteUpdateCheckState(checking: checking, result: result)
             },
-            alsoCheckPresets: { [weak presets] in presets?.check() },
+            alsoCheckPresets: { [weak presets, weak machines] in
+                presets?.check()
+                // Доступ спрашивается тем же тактом, что и предустановки:
+                // административный пароль меняют вместе с предустановкой, а не
+                // отдельно от неё. Отзыв — свой такт, вчетверо чаще.
+                machines?.checkAccess()
+            },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
         updateService = service
@@ -259,7 +306,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self, weak service] lines in
                 guard let service else { return }
-                _ = self
                 let busy = !lines.isEmpty
                 defer { wasBusy = busy }
                 guard busy != wasBusy else { return }
@@ -269,6 +315,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     service.hostBecameIdle()
                     // Отложенная предустановка ждёт того же конца разговора.
                     presets.hostBecameIdle()
+                    // Перепрошивка ждёт того же: разговор кончился — применяем.
+                    self?.model.applyPendingReflashIfIdle()
                 }
             }
 
@@ -299,6 +347,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Кнопка «Проверить сейчас» в «Диагностике» → «Сборка».
     @objc func checkForUpdatesNow(_ sender: Any?) {
         updateService?.checkNow()
+    }
+
+    /// Спросить канал про настройки прямо сейчас.
+    ///
+    /// Отдельно от проверки обновлений: при двухчасовом такте администратор,
+    /// сменивший адрес АТС, не должен ждать два часа, чтобы убедиться, что
+    /// правка доехала. Раньше, на получасовом такте, это было удобством.
+    @objc func checkPresetsNow(_ sender: Any?) {
+        presetService?.check()
+        machineService?.checkAccess()
     }
 
     /// Снять регистрацию перед подменой бандла и позвать продолжение.
@@ -431,60 +489,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// - мастер открыт — файл едет в него, там пропуск и так спрашивают;
     /// - мастера нет — приложение говорит, что это за файл и где его принимают.
     ///   Дальше человек идёт обычной дорогой, через «Управление» с паролем.
-    func application(_ application: NSApplication, open urls: [URL]) {
-        // Один файл за раз: оба вида документа настраивают машину целиком, и
-        // «применить пять сразу» не значит ничего.
-        guard let url = urls.first(where: { $0.pathExtension == EliteSIPDocument.fileExtension })
-        else { return }
-
-        let content: EliteSIPDocument.Content
-        do {
-            content = try EliteSIPDocument.read(try Data(contentsOf: url))
-        } catch let failure as EliteSIPDocument.Failure {
-            report(failure.title)
-            return
-        } catch {
-            report(EliteSIPDocument.Failure.damaged.title)
-            return
-        }
-
-        if let flow = firstRunFlow {
-            switch content {
-            case .config(let settings):
-                flow.loadedConfig = settings
-                flow.loadedConfigName = url.lastPathComponent
-                flow.route = .configFile
-                flow.notice = nil
-            case .preset:
-                flow.notice = NSLocalizedString(
-                    "Это предустановка, а не конфигурация: в ней нет номера и пароля.",
-                    comment: "выбран файл предустановки вместо конфигурации"
-                )
-            }
-            firstRunWindow?.makeKeyAndOrderFront(nil)
-            return
-        }
-
-        switch content {
-        case .preset(let preset):
-            report(
-                String(
-                    format: NSLocalizedString(
-                        "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки».",
-                        comment: "файл открыт двойным щелчком, применять его некому"
-                    ),
-                    preset.name
-                )
-            )
-        case .config:
-            report(
-                NSLocalizedString(
-                    "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали.",
-                    comment: "файл открыт двойным щелчком, применять его некому"
-                )
-            )
-        }
-    }
+    /// Двойной щелчок по файлу больше не открывает ничего.
+    ///
+    /// Документов EliteSIP не существует: файл конфигурации и файл
+    /// предустановки убраны 25 августа 2026 вместе со всей дорогой «настройки
+    /// в локальном артефакте». Обработчик оставлен пустым намеренно — система
+    /// зовёт его по типу файла, зарегистрированному в Info.plist, и молчаливое
+    /// ничего лучше отсутствующего метода, пока тип не вычищен из бандла.
+    func application(_ application: NSApplication, open urls: [URL]) {}
 
     /// Короткое сообщение о файле. `NSAlert`, а не строка в окне: окна может не
     /// быть вовсе — приложение живёт в строке меню.
@@ -742,7 +754,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        let flow = FirstRunFlow(presets: Provisioning.factoryPresets, isPreview: isPreview)
+        let flow = FirstRunFlow(isPreview: isPreview)
         // Язык уже выбран и применён перезапуском — мастер продолжается со
         // второго экрана, на выбранном языке.
         if model.firstRun == .languageChosen { flow.step = .firstUser }

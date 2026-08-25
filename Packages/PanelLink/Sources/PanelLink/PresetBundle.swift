@@ -38,23 +38,8 @@ public struct PresetBundle: Sendable, Equatable {
     ///   - data: то, что скачали с канала.
     ///   - publicKey: открытый ключ линии предустановок из `Info.plist`.
     public static func verified(_ data: Data, publicKey: Curve25519.Signing.PublicKey) throws -> PresetBundle {
-        struct Envelope: Decodable {
-            var payload: String
-            var signature: String
-        }
-
-        guard let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
-              let payload = Data(base64Encoded: envelope.payload),
-              let signature = Data(base64Encoded: envelope.signature)
-        else {
-            throw PanelLinkError.malformedBundle
-        }
-
-        guard publicKey.isValidSignature(signature, for: payload) else {
-            throw PanelLinkError.signatureDidNotMatch
-        }
-
-        return try decode(payload)
+        // Конверт общий с помашинными объектами — см. SignedEnvelope.
+        return try decode(SignedEnvelope.open(data, publicKey: publicKey))
     }
 
     /// Разбирает уже проверенное содержимое.

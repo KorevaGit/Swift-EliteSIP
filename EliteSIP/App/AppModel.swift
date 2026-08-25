@@ -5,6 +5,7 @@ import CallHistory
 import Diagnostics
 import MediaCore
 import Network
+import PanelLink
 import SIPCore
 import SwiftUI
 
@@ -91,6 +92,18 @@ final class AppModel: ObservableObject {
 
     /// Придержка записи на диск, пока открыт черновик.
     @Published var isHoldingSettingsWrites = false
+
+    /// Перепрошивка, которая ждёт конца разговора.
+    ///
+    /// **Живёт в памяти и только в памяти.** На диске это был бы номер,
+    /// SIP-пароль и настройки открытым текстом, лежащие в ожидании, — ровно то,
+    /// от чего вся линия ключей и уходит. Выход из приложения посреди разговора
+    /// теряет её, и нужен новый ключ: редкий случай ценой одного нажатия в
+    /// панели.
+    /// Ставится и снимается только через `applyReflash`, поэтому не
+    /// `private(set)`: расширение живёт в другом файле, а заводить ради одного
+    /// присваивания метод-обёртку значило бы прятать простое за сложным.
+    @Published var pendingReflash: PanelLink.ActivationPackage?
 
     // Отдельного черновика для пароля SIP здесь нет: он обычное поле настроек,
     // а придержку записи на диск делает `isHoldingSettingsWrites` — та же, что
@@ -304,10 +317,7 @@ final class AppModel: ObservableObject {
         // Запуск всегда начинается с закрытого режима, чем бы ни закончился
         // предыдущий: открытость нигде не сохраняется, и это решение, а не
         // упущение.
-        adminAccess.restore(
-            credential: settings.admin.credential,
-            management: settings.admin.management
-        )
+        adminAccess.restore(credential: settings.admin.credential)
 
         // Наблюдатель `settings` в `init` не срабатывает, поэтому мигрированный
         // файл сам собой не перезапишется. Записываем сразу: иначе профиль,

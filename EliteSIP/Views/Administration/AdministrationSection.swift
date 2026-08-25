@@ -8,7 +8,7 @@ import SwiftUI
 /// как снаружи.
 enum AdministrationSection: String, CaseIterable, Identifiable {
 
-    case account, presets, pbx, incoming
+    case account, pbx, incoming
     case macros, queues
     case history, diagnostics, access, maintenance
 
@@ -20,7 +20,6 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .account: NSLocalizedString("Аккаунт", comment: "раздел «Управления»")
-        case .presets: NSLocalizedString("Предустановки", comment: "раздел «Управления»")
         case .pbx: NSLocalizedString("АТС", comment: "раздел «Управления»")
         case .incoming: NSLocalizedString("Входящие", comment: "раздел «Управления»")
         case .macros: NSLocalizedString("Клавиши", comment: "раздел «Управления»")
@@ -40,7 +39,6 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
         // Своего значка у предустановок в комплекте нет, и новый этап не
         // рисует (долг этапа 7). `person.badge.plus` ближе прочего по смыслу:
         // предустановкой заводят рабочее место.
-        case .presets: "person.badge.plus"
         case .pbx: "phone.arrow.right"
         case .incoming: "bell"
         case .macros: "square.grid.3x3"

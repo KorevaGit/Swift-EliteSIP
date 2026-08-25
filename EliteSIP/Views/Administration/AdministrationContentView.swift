@@ -90,7 +90,6 @@ struct AdministrationContentView: View {
             VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
                 switch router.section {
                 case .account: AccountSettingsTab()
-                case .presets: PresetsTab()
                 case .pbx: PBXSettingsTab()
                 case .incoming: IncomingCallSettingsTab()
                 case .macros: DTMFSettingsTab()
@@ -144,7 +143,9 @@ struct AdministrationContentView: View {
                 Text(
                     model.hasUnsavedAdministrationChanges
                         ? "Пока не нажато «Сохранить», на диск не записано ничего."
-                        : "Настройки этой машины: \(model.adminAccess.management.title.lowercased())."
+                        : model.settings.panel.isManaged
+                            ? "Настройками этой машины управляет панель EliteSIP."
+                            : "Настройки этой машины задаёт её администратор."
                 )
                 .font(.footnote)
                 .compatForeground(.secondary)

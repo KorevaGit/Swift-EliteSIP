@@ -36,23 +36,6 @@ extension AppModel {
         append(level: .info, message: "административный режим открыт")
     }
 
-    /// Вход по коду восстановления. Возвращает действующий пароль — его
-    /// показывают администратору и предлагают сменить.
-    func unlockAdministration(recoveryCode: String) throws -> String {
-        let password: String
-        do {
-            password = try adminAccess.unlock(recoveryCode: recoveryCode)
-        } catch {
-            append(level: .warning, message: "административный режим: неверный код восстановления")
-            throw error
-        }
-        // Сам пароль в журнал не попадает — ни здесь, ни маскированием: строки
-        // с ним просто нет. Маскирование в `Diagnostics` вырезает известные
-        // имена полей, а «пароль администратора» к ним не относится.
-        append(level: .warning, message: "административный режим открыт кодом восстановления")
-        return password
-    }
-
     /// Выход из режима.
     ///
     /// Вызывается и по кнопке, и при закрытии окна настроек. Молчит, если

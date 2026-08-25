@@ -86,13 +86,6 @@ extension AppModel {
             // первым, и проверка подтверждала бы не то, что уедет в настройки.
             return nil
 
-        case .preset:
-            guard let preset = flow.selectedPreset else { return nil }
-            var account = preset.snapshot(site: flow.site).profiles.active.account
-            account.username = flow.trimmedNumber
-            account.authUsername = nil
-            return (account, flow.password, flow.site)
-
         case .manual:
             let host = flow.host.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !host.isEmpty else { return nil }
@@ -107,9 +100,6 @@ extension AppModel {
                 flow.password,
                 .automatic
             )
-
-        case .configFile:
-            return nil
         }
     }
 
@@ -117,7 +107,7 @@ extension AppModel {
     ///
     /// Порядок здесь — не вкусовщина, а единственный работающий:
     ///
-    /// 1. настройки рабочего места (предустановка, ручной ввод или слепок);
+    /// 1. настройки рабочего места (ключ или ручной ввод);
     /// 2. административные учётные данные из конфига;
     /// 3. тема и стекло — поверх всего, что приехало из файла или снимка;
     /// 4. признак «пройден»;
@@ -139,7 +129,6 @@ extension AppModel {
             do {
                 let credential = try secrets.credential()
                 settings.admin.credential = credential
-                settings.admin.management = .local
                 // Живому процессу об этом надо сказать отдельно.
                 //
                 // `AdminAccess` держит своё состояние и читает настройки только
@@ -149,7 +138,7 @@ extension AppModel {
                 // машине входит сам. Мастер при этом заканчивается без
                 // перезапуска, если стекло не меняли, то есть дыра оставалась
                 // открытой до конца смены. Нашлось на живой машине 17 августа 2026.
-                adminAccess.restore(credential: credential, management: .local)
+                adminAccess.restore(credential: credential)
             } catch {
                 // Не молчим: без учётных данных машина остаётся с «Управлением»,
                 // открытым всякому, а выглядит настроенной.
@@ -172,30 +161,12 @@ extension AppModel {
         return chromeChanged
     }
 
-    /// Рабочее место: три ветки экрана 2.
+    /// Рабочее место: две ветки экрана 2 — ключ и «Вручную».
     private func applyFirstRunWorkplace(flow: FirstRunFlow) {
         switch flow.route {
         case .activationKey:
             guard let package = flow.openedPackage else { return }
             applyActivation(package)
-
-        case .preset:
-            guard let preset = flow.selectedPreset else { return }
-            // Площадка выбирает и признак стука, и адрес из пары — снимок
-            // собирается уже под неё.
-            //
-            // Применяется **к существующему профилю**, а не рядом с ним, и это
-            // не мелочь: `SIPProfileList` на свежей машине уже держит один
-            // пустой профиль — ровно тот, из-за которого этап и понадобился, —
-            // и `to: nil` заводил второй. В списке профилей после мастера
-            // оставалось два: «без номера» и настроенный. Нашёл живой прогон
-            // 17 августа 2026.
-            applyPreset(
-                preset.settingsPreset(site: flow.site),
-                number: flow.trimmedNumber,
-                password: flow.password,
-                to: settings.profiles.activeID
-            )
 
         case .manual:
             let host = flow.host.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -215,15 +186,6 @@ extension AppModel {
                 site: .automatic
             )
             settings.profiles = SIPProfileList(profiles: [profile])
-
-        case .configFile:
-            guard let config = flow.loadedConfig else { return }
-            // Слепок уже очищен от машинного и от блока доступа при чтении
-            // (`EliteSIPDocument`). Предустановки машины при этом сохраняются:
-            // они свойство этой машины, а не приехавшего файла.
-            let keptPresets = settings.presets
-            settings = config
-            settings.presets = keptPresets
         }
     }
 
@@ -233,7 +195,7 @@ extension AppModel {
     /// потом память о панели. Обратный порядок оставил бы `isServerManaged`
     /// посчитанным по старому режиму — наложение читает его из `panel`, а тот
     /// должен быть уже новым.
-    private func applyActivation(_ package: ActivationPackage) {
+    func applyActivation(_ package: ActivationPackage) {
         // Номер и пароль ложатся **в существующий профиль**, а не рядом с ним.
         // `SIPProfileList` на свежей машине уже держит один пустой профиль —
         // ровно тот, из-за которого этап 9 и понадобился, — и заведение второго
@@ -246,6 +208,7 @@ extension AppModel {
         // Панель машина слушает с первой же минуты: ключ и означает «этим
         // рабочим местом управляют отсюда».
         settings.panel.installationID = package.installationID
+        settings.panel.channelKey = package.channelKey
         settings.panel.presetID = package.preset.id
         settings.panel.presetName = package.preset.name
         settings.panel.appliedRevision = package.preset.revision
@@ -257,15 +220,11 @@ extension AppModel {
         // одно на оба пути, а не два похожих.
         settings.apply(ManagedFields.parse(package.preset.settings))
 
-        // Административный пароль ставится последним и отдельно: он не входит в
-        // предустановку и входить не должен — `SettingsPreset.stripped`
-        // вычищает блок доступа намеренно, и ломать это ради одного поля нельзя.
-        //
-        // Отказ проглатывается: пароль конторы приезжает из панели, и если он
-        // не лёг, машина всё равно поднята и звонит — а «Управление» на ней
-        // откроется прежним, вшитым в сборку. Ронять из-за этого настройку
-        // рабочего места незачем.
-        try? setAdminPassword(package.adminPassword)
+        // Административного пароля в пакете больше нет. Он стал полем
+        // предустановки и приезжает отдельным помашинным объектом — первым же
+        // заходом на канал, сразу после активации. Держать его ещё и в пакете
+        // значило бы завести второй источник одного факта: пакет выдаётся один
+        // раз, а пароль меняют когда угодно после.
 
         append(level: .info, message: "рабочее место поднято ключом: "
             + "\(package.employee), номер \(package.number), "

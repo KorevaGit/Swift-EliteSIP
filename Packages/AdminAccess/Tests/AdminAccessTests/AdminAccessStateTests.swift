@@ -9,13 +9,11 @@ struct AdminAccessStateTests {
 
     private func state(password: String) throws -> AdminAccessState {
         var state = AdminAccessState()
-        try state.setPassword(password, recoveryCode: "060397")
+        try state.setPassword(password)
         // `setPassword` считает боевым числом итераций; для тестов пересобираем
-        // учётные данные дешёвыми, сохранив ту же пару пароль + код.
-        let cheap = try AdminCredential(
-            password: password, recoveryCode: "060397", iterations: testIterations
-        )
-        state.restore(credential: cheap, management: .local)
+        // учётные данные дешёвыми, с тем же паролем.
+        let cheap = try AdminCredential(password: password, iterations: testIterations)
+        state.restore(credential: cheap)
         return state
     }
 
@@ -53,23 +51,6 @@ struct AdminAccessStateTests {
         #expect(!state.allowsAdministration)
     }
 
-    @Test("Код восстановления открывает режим и отдаёт действующий пароль")
-    func recoveryOpensAndReveals() throws {
-        var state = try self.state(password: "Пароль от АТС")
-        let revealed = try state.unlock(recoveryCode: "060397")
-        #expect(revealed == "Пароль от АТС")
-        #expect(state.allowsAdministration)
-    }
-
-    @Test("Неверный код оставляет режим закрытым")
-    func wrongRecoveryKeepsItClosed() throws {
-        var state = try self.state(password: "Пароль")
-        #expect(throws: AdminAccessError.wrongRecoveryCode) {
-            _ = try state.unlock(recoveryCode: "111111")
-        }
-        #expect(!state.allowsAdministration)
-    }
-
     @Test("Смена пароля из закрытого режима невозможна")
     func passwordChangeRequiresUnlock() throws {
         var state = try self.state(password: "Старый")
@@ -89,7 +70,7 @@ struct AdminAccessStateTests {
         #expect(state.allowsAdministration)
 
         let credential = try AdminCredential(password: "Пароль", iterations: testIterations)
-        state.restore(credential: credential, management: .local)
+        state.restore(credential: credential)
         #expect(!state.allowsAdministration)
     }
 
@@ -103,15 +84,5 @@ struct AdminAccessStateTests {
 
         state.lock()
         #expect(state.allowsAdministration)
-    }
-
-    @Test("Локальный режим — явное состояние, а не отсутствие синхронизации")
-    func managementIsExplicit() {
-        let state = AdminAccessState()
-        #expect(state.management == .local)
-        // Второе значение — заготовка под конфиг-файл (M8). Проверяется, чтобы
-        // переход «конфиг → локально» не остался без состояния, из которого
-        // переходить.
-        #expect(AdminManagement.allCases == [.local, .configFile])
     }
 }

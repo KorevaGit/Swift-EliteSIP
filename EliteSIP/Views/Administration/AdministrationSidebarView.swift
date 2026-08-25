@@ -175,8 +175,6 @@ struct AdministrationSidebarView: View {
         switch item {
         case .account:
             return now.profiles != snapshot.profiles
-        case .presets:
-            return now.presets != snapshot.presets
         case .pbx:
             return now.conference != snapshot.conference
                 || now.portKnock != snapshot.portKnock

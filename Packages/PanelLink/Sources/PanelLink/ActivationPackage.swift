@@ -18,7 +18,7 @@ public struct ActivationPackage: Sendable, Equatable {
     /// незнакомое, потому что обязана работать со старой сборкой. Здесь —
     /// строга, потому что это разовое действие под присмотром человека, и
     /// отказ с внятной причиной лучше половины настройки.
-    public static let supportedFormat = 1
+    public static let supportedFormat = 2
 
     /// Заголовок в начале шифротекста. Он же уходит в дополнительные данные
     /// AES-GCM: подменивший заголовок ломает проверку целостности.
@@ -29,11 +29,29 @@ public struct ActivationPackage: Sendable, Equatable {
 
     public var format: Int
     public var installationID: String
+
+    /// Помашинный ключ доступа к каналу раздачи.
+    ///
+    /// С него начинается всё, что машина получает после активации: файл
+    /// предустановок, свой административный пароль и проверка отзыва. Общая
+    /// пара из бандла открывает теперь только выпуски — поэтому уволенный с
+    /// копией `.app` тянет обновления и не тянет настройки конторы.
+    ///
+    /// **Панель убирает его на своей стороне — и машина перестаёт получать что
+    /// бы то ни было.** Отсюда и взялся отзыв как техническое действие.
+    public var channelKey: String
+
     public var issuedAt: Date
     public var employee: String
     public var number: String
     public var sipPassword: String
-    public var adminPassword: String
+
+    /// Административного пароля здесь нет.
+    ///
+    /// Он стал полем предустановки и приезжает отдельным помашинным объектом —
+    /// `MachineAccess`. Держать его ещё и в пакете значило бы завести второй
+    /// источник одного факта: пакет выдаётся один раз, а пароль меняют когда
+    /// угодно после.
     public var preset: Preset
 
     /// Предустановка, приехавшая с пакетом.
@@ -109,11 +127,11 @@ public struct ActivationPackage: Sendable, Equatable {
         struct Wire: Decodable {
             var format: Int
             var installation_id: String
+            var channel_key: String
             var issued_at: String
             var employee: String
             var number: String
             var sip_password: String
-            var admin_password: String
             var preset: WirePreset
         }
         struct WirePreset: Decodable {
@@ -149,11 +167,11 @@ public struct ActivationPackage: Sendable, Equatable {
         return ActivationPackage(
             format: wire.format,
             installationID: wire.installation_id,
+            channelKey: wire.channel_key,
             issuedAt: formatter.date(from: wire.issued_at) ?? Date(),
             employee: wire.employee,
             number: wire.number,
             sipPassword: wire.sip_password,
-            adminPassword: wire.admin_password,
             preset: Preset(
                 id: wire.preset.id,
                 name: wire.preset.name,

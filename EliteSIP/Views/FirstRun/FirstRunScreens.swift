@@ -220,8 +220,6 @@ struct FirstRunUserScreen: View {
             FirstRunColumn {
                 if case .activationKey = flow.route {
                     keyEntry
-                } else if case .configFile = flow.route {
-                    loadedSummary
                 } else {
                     // Два ряда вместо четырёх строк: сверху — кто (добавочный и
                     // его пароль), под ним — где (рабочее место и площадка либо
@@ -229,14 +227,10 @@ struct FirstRunUserScreen: View {
                     // два вопроса, а не как шесть полей.
                     credentials
 
-                    HStack(spacing: Theme.Metrics.elementSpacing) {
-                        route
-                        switch flow.route {
-                        case .preset: sitePicker
-                        case .manual: hostField
-                        case .activationKey, .configFile: EmptyView()
-                        }
-                    }
+                    // Списка веток здесь больше нет: их осталось две, и вторая
+                    // выбирается кнопкой внизу окна. Выпадающий список из
+                    // одного пункта — не выбор, а недоразумение.
+                    hostField
                 }
 
                 // Пропуск — только для путей, где номер вписывают руками.
@@ -266,63 +260,24 @@ struct FirstRunUserScreen: View {
     private var configRow: some View {
         VStack(spacing: Theme.Metrics.hairSpacing) {
             switch flow.route {
-            case .configFile:
-                Button("Выбрать другой файл…") { chooseConfig() }
-                    .buttonStyle(.link)
-                Button("Отменить перенос") { flow.route = defaultRoute }
-                    .buttonStyle(.link)
-
             case .activationKey:
-                // Ручной путь вернулся сюда же, к «прочему», и той же подписью.
-                //
-                // С M9 ключ стал веткой по умолчанию, а список «предустановка /
-                // вручную» показывается только внутри ручной ветки — то есть
-                // машина, до которой панель не достаёт, оказалась заперта: с
-                // ключевого экрана выйти было некуда. Кнопка внизу и без рамки
-                // ровно потому же, почему тут стоит «Загрузить конфигурацию…»:
-                // это не равноценный первому способ, а обходной, и обещать ему
-                // равный вид нельзя.
-                Button("Настроить эту машину вручную…") { flow.route = defaultRoute }
-                    .buttonStyle(.link)
-                Button("Загрузить конфигурацию…") { chooseConfig() }
+                // Ручной путь стоит внизу и без рамки не по невнимательности:
+                // это не равноценный первому способ, а обходной — для машины,
+                // до которой сервер не достаёт, — и обещать ему равный вид
+                // нельзя.
+                Button("Настроить эту машину вручную…") { flow.route = .manual }
                     .buttonStyle(.link)
 
-            case .preset, .manual:
+            case .manual:
                 // Обратная дорога: свернувший в ручную ветку по ошибке не
                 // должен перезапускать мастер ради возврата к ключу.
                 Button("Вернуться к ключу активации") { flow.route = .activationKey }
-                    .buttonStyle(.link)
-                Button("Загрузить конфигурацию…") { chooseConfig() }
                     .buttonStyle(.link)
             }
         }
         .frame(maxWidth: .infinity)
     }
 
-    /// Куда вернуться, отменив перенос: к предустановке, если она есть.
-    private var defaultRoute: FirstRunFlow.Route {
-        flow.presets.first.map { .preset(name: $0.name) } ?? .manual
-    }
-
-    // MARK: Ветка
-
-    /// Привязка без побочных действий: выбор файла теперь у своей кнопки внизу
-    /// окна, а не у пункта списка, и наблюдать за сменой ветки больше незачем.
-    private var routeBinding: Binding<FirstRunFlow.Route> {
-        Binding(get: { flow.route }, set: { flow.route = $0 })
-    }
-
-    /// Первые два уровня — одной выпадающей строкой.
-    ///
-    /// Радиокнопками они занимали три строки из семи на экране, и экран читался
-    /// перегруженным (замечание 17 августа 2026). Выпадающий список говорит то же
-    /// самое одной строкой: выбор один, вариантов немного, и все они видны по
-    /// щелчку. Стиль не задаётся — на macOS список по умолчанию и есть всплывающая
-    /// кнопка, а `.menu` появился только в 11.
-    ///
-    /// «Загрузить конфигурацию» здесь нет — она третий уровень и живёт внизу
-    /// окна: перенос готового места не равен заведению нового, и в одном списке
-    /// с ними обещал бы равноценный выбор.
     // MARK: Ключ активации
 
     /// Основной путь с M9: сотрудник вводит ключ, остальное приезжает пакетом.
@@ -424,16 +379,6 @@ struct FirstRunUserScreen: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var route: some View {
-        Picker("", selection: routeBinding) {
-            ForEach(flow.presets, id: \.name) { preset in
-                Text(verbatim: preset.name).tag(FirstRunFlow.Route.preset(name: preset.name))
-            }
-            Text("Вручную").tag(FirstRunFlow.Route.manual)
-        }
-        .labelsHidden()
-    }
-
     // MARK: Поля
 
     // Все контролы экрана — по ширине колонки, и это не вкусовщина.
@@ -446,84 +391,6 @@ struct FirstRunUserScreen: View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
             TextField("Номер", text: $flow.number)
             SecureField("Пароль SIP", text: $flow.password)
-        }
-    }
-
-    private var hostField: some View {
-        TextField("Адрес АТС", text: $flow.host)
-    }
-
-    /// Тумблер площадки — только у предустановки.
-    ///
-    /// Он решает две вещи разом: стучать ли перед регистрацией и какой из двух
-    /// адресов пары уедет в профиль. В ручной ветке его нет вовсе — адрес там
-    /// вписан руками, и спрашивать про площадку значило бы спрашивать дважды об
-    /// одном и том же.
-    private var sitePicker: some View {
-        Picker("", selection: $flow.site) {
-            Text("Офис").tag(SIPProfileSite.office)
-            Text("Удалённо").tag(SIPProfileSite.remote)
-        }
-        .labelsHidden()
-        .pickerStyle(.segmented)
-    }
-
-    /// Что приехало из файла.
-    ///
-    /// Поля номера и пароля здесь спрятаны, но номер показан: иначе
-    /// техподдержка молча заводит вторую регистрацию на чужой номер.
-    private var loadedSummary: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
-            if let config = flow.loadedConfig {
-                // Имя файла — заголовком карточки: это ответ на «что я
-                // выбрал», и он должен читаться раньше цифр. Значка рядом нет
-                // намеренно: комплект иконок рисуется руками ради Catalina, и
-                // заводить в нём документ ради одной строки мастера значило бы
-                // платить за украшение.
-                //
-                // Длинные имена усекаются посередине, а не по хвосту, — у
-                // слепков машин различается как раз хвост.
-                Text(verbatim: flow.loadedConfigName)
-                    .font(.callout)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
-                // Строкой на поле, а не фразой «Номер 305, АТС pbx.example».
-                //
-                // Фраза читалась как примечание и сливалась в одну строку
-                // мелким серым — а её и просят сверить перед тем, как машина
-                // зарегистрируется под чужим номером. Подписи в колонку,
-                // значения моноширинным: так номер и адрес видно, не вчитываясь.
-                VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
-                    summaryLine("Номер", config.profiles.active.account.username)
-                    summaryLine("АТС", config.profiles.active.account.domain)
-                }
-            } else {
-                Text("Файл не выбран.")
-                    .font(.footnote)
-                    .compatForeground(Theme.Palette.textSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Metrics.contentPadding)
-        .themedSurface()
-    }
-
-    /// Строка «подпись — значение» в карточке файла.
-    ///
-    /// Ширина подписи задана числом: две строки с подписями разной длины иначе
-    /// ставят значения на разных отступах, и колонки, ради которой всё и
-    /// затевалось, не получается.
-    private func summaryLine(_ title: LocalizedStringKey, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
-            Text(title)
-                .font(.footnote)
-                .compatForeground(Theme.Palette.textSecondary)
-                .frame(width: 52, alignment: .leading)
-            Text(verbatim: value)
-                .font(.system(.footnote, design: .monospaced))
-                .lineLimit(1)
-                .truncationMode(.middle)
         }
     }
 
@@ -550,50 +417,10 @@ struct FirstRunUserScreen: View {
         SecureField("Административный пароль", text: $flow.adminPassword)
     }
 
-    // MARK: Файл
-
-    /// `NSOpenPanel`, а не `fileImporter`: тот появился в macOS 11, а срез
-    /// x86_64 живёт с Catalina. Тем же способом выбираются файл рингтона и
-    /// настройки в «Обслуживании».
-    private func chooseConfig() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedFileTypes = [EliteSIPDocument.fileExtension]
-        panel.prompt = NSLocalizedString("Загрузить", comment: "кнопка в окне выбора файла")
-        guard panel.runModal() == .OK, let url = panel.url else {
-            // Отказ от выбора не должен оставлять ветку, в которой нечего
-            // применить: «Далее» в ней погашена, и человек упирается в экран без
-            // объяснения.
-            if flow.loadedConfig == nil { flow.route = defaultRoute }
-            return
-        }
-
-        do {
-            let content = try EliteSIPDocument.read(try Data(contentsOf: url))
-            switch content {
-            case .config(let settings):
-                flow.loadedConfig = settings
-                flow.loadedConfigName = url.lastPathComponent
-                flow.route = .configFile
-                flow.notice = nil
-            case .preset:
-                // Предустановка — не конфигурация: в ней нет ни номера, ни
-                // пароля, и заводить ею машину «как готовую» нельзя. Отдельным
-                // отказом, а не молчанием: файлы лежат рядом и похожи.
-                flow.notice = NSLocalizedString(
-                    "Это предустановка, а не конфигурация: в ней нет номера и пароля.",
-                    comment: "выбран файл предустановки вместо конфигурации"
-                )
-                flow.route = defaultRoute
-            }
-        } catch let failure as EliteSIPDocument.Failure {
-            flow.notice = failure.title
-        } catch {
-            flow.notice = EliteSIPDocument.Failure.damaged.title
-        }
+    private var hostField: some View {
+        TextField("Адрес АТС", text: $flow.host)
     }
+
 }
 
 // MARK: - 3. Оформление: тема и стекло

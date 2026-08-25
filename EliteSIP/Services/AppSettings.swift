@@ -493,17 +493,14 @@ struct AppSettings: Codable, Sendable, Equatable {
         var credential: AdminCredential?
 
         /// Кто управляет закрытыми настройками. Пока всегда локально.
-        var management: AdminManagement = .local
 
-        init(credential: AdminCredential? = nil, management: AdminManagement = .local) {
+        init(credential: AdminCredential? = nil) {
             self.credential = credential
-            self.management = management
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             credential = try container.decodeIfPresent(AdminCredential.self, forKey: .credential)
-            management = try container.decodeIfPresent(AdminManagement.self, forKey: .management) ?? .local
         }
     }
 

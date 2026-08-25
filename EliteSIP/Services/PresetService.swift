@@ -33,6 +33,10 @@ final class PresetService {
     /// службе о ней знать нечего.
     private let apply: (AppSettings, String) -> Void
 
+    /// Отметить, что канал ответил. Отдельно от `apply`: связь была и тогда,
+    /// когда применять оказалось нечего, — а это как раз обычный случай.
+    var noteContact: (() -> Void)?
+
     /// Можно ли применять прямо сейчас.
     ///
     /// Обновление предустановки **обязательное**, кнопки «Отложить» нет и быть
@@ -63,15 +67,26 @@ final class PresetService {
         self.isBlocked = isBlocked
         self.log = log
 
+        publicKey = Self.channelPublicKey
+    }
+
+    /// Открытый ключ линии из `Info.plist`.
+    ///
+    /// Один на всё подписанное: файл предустановок, помашинный доступ, отзыв.
+    /// Второй ключ означал бы вторую строку в `Info.plist` и второй способ
+    /// однажды перепутать, какой из них чей.
+    ///
+    /// Пустой — линия выключена целиком. Так и задумано: ключ вписывается перед
+    /// первой выкладкой, и до тех пор приложение обязано работать, а не падать.
+    static var channelPublicKey: Curve25519.Signing.PublicKey? {
         let raw = (Bundle.main.object(forInfoDictionaryKey: "ESPresetsPublicKey") as? String) ?? ""
-        if raw.isEmpty {
-            publicKey = nil
-        } else if let data = Data(base64Encoded: raw),
-                  let key = try? Curve25519.Signing.PublicKey(rawRepresentation: data) {
-            publicKey = key
-        } else {
-            publicKey = nil
+        guard !raw.isEmpty,
+              let data = Data(base64Encoded: raw),
+              let key = try? Curve25519.Signing.PublicKey(rawRepresentation: data)
+        else {
+            return nil
         }
+        return key
     }
 
     /// Спросить канал. Зовётся общим циклом `UpdateService`.
@@ -87,9 +102,16 @@ final class PresetService {
             log("предустановки не применяются: машина в ручном режиме")
             return
         }
-        guard let channel = Provisioning.secrets?.updates, let url = channel.presetsURL else {
+        guard let url = Provisioning.secrets?.updates?.presetsURL else {
             // не переводится: строка журнала
             log("предустановки выключены: в провижининге нет канала")
+            return
+        }
+        guard now.panel.hasChannelKey else {
+            // Машина, поднятая ключом старого образца: панель её знает, а
+            // ключа канала у неё нет — ходить нечем, пока не перепрошьют.
+            // не переводится: строка журнала
+            log("предустановки: у машины нет ключа канала")
             return
         }
         guard !isFetching else { return }
@@ -98,18 +120,27 @@ final class PresetService {
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
 
-        // Пара — та же, что у канала обновлений. Подставляется заголовком, а не
-        // через хранилище учётных данных: там она лежит под realm обновлений, и
-        // полагаться на совпадение realm ради второй линии значило бы завязать
-        // её на чужую настройку.
-        let pair = "\(channel.user):\(channel.password)"
+        // **Помашинная пара, а не общая из бандла.** Общая лежит открытым
+        // текстом в каждом приложении и открывает теперь только выпуски: иначе
+        // уволенный с копией `.app` тянул бы настройки конторы бесконечно, а
+        // отрезать его было бы нечем — сменить пару значит пересобрать
+        // приложение на всех тридцати машинах.
+        //
+        // Имя пользователя — идентификатор машины, пароль — ключ канала из
+        // пакета активации. Заголовком, а не через хранилище учётных данных:
+        // там пара лежит под realm обновлений, и полагаться на совпадение realm
+        // ради второй линии значило бы завязать её на чужую настройку.
+        let pair = "\(now.panel.installationID):\(now.panel.channelKey)"
         if let encoded = pair.data(using: .utf8)?.base64EncodedString() {
             request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
         }
 
         // По этим заголовкам панель показывает, кто отстал настолько, что новые
         // поля до него не доезжают. Больше она о машинах не узнаёт ничего.
-        request.setValue(now.panel.installationID, forHTTPHeaderField: "X-EliteSIP-Installation")
+        //
+        // X-EliteSIP-Installation среди них больше нет: идентификатор приезжает
+        // именем пользователя в Basic и **проверен**, а не объявлен. Два места
+        // для одного факта однажды разошлись бы.
         request.setValue(Self.appVersion, forHTTPHeaderField: "X-EliteSIP-App")
         request.setValue(String(AppSettings.currentSchemaVersion), forHTTPHeaderField: "X-EliteSIP-Schema")
         request.setValue(String(now.panel.appliedRevision), forHTTPHeaderField: "X-EliteSIP-Revision")
@@ -133,11 +164,19 @@ final class PresetService {
             return
         }
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            // 401 здесь означает, что панель обрубила ключ машины. Это **не**
+            // повод сбрасываться: сброс запускает только подписанный отзыв —
+            // иначе одна ошибка на стороне канала стёрла бы все машины разом.
             // не переводится: строка журнала
             log("предустановки: канал ответил \(http.statusCode)")
             return
         }
         guard let data else { return }
+
+        // Канал ответил — отмечаем до разбора: связь состоялась даже если файл
+        // окажется негодным, и администратору важно отличить «канал молчит» от
+        // «канал отвечает, а подпись не сходится».
+        noteContact?()
 
         let bundle: PresetBundle
         do {

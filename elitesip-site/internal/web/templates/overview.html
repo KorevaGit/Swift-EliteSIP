@@ -1,15 +1,15 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="toolbar">
+<div class="toolbar toolbar-hero">
     <div class="toolbar-title">
-        <h1>Обзор</h1>
-        <p>Что не закрыто и с чего начать. Если здесь пусто — всё в порядке.</p>
+        <p class="eyebrow">Панель управления · Обзор</p>
+        <h1>Оперативная сводка EliteSIP. <span>Что не закрыто и с чего начать. Если здесь пусто — всё в порядке.</span></h1>
     </div>
     {{/* Панель ходит за отметками сама раз в пять минут. Кнопка — для того
          случая, когда техподдержка стоит над сотрудником, вводящим ключ
          прямо сейчас, и ждать пять минут ради «дошло» нечего. */}}
     <form method="post" action="/marks/pull">
-        <button type="submit" class="button">Сходить за отметками</button>
+        <button type="submit" class="button button-primary">Сходить за отметками&nbsp; ↗</button>
     </form>
 </div>
 

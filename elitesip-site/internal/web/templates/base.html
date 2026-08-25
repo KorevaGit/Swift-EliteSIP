@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{.Title}} · Панель EliteSIP</title>
-<link rel="stylesheet" href="/static/app.css">
-<link rel="icon" href="/static/app-icon.png">
+<link rel="stylesheet" href="/static/app.css?v=pearl-3">
+<link rel="icon" href="/static/brand-mark.png">
 <script>
     /* Тема ставится до первой отрисовки: иначе тёмная система на мгновение
        получает светлую страницу, и это мигание видно каждый раз. */
@@ -23,34 +23,26 @@
 
 {{if .Admin.Login}}
 <div class="shell">
-    <aside class="sidebar">
-        <div class="brand">
-            <img class="brand-mark" src="/static/app-icon.png" alt="" aria-hidden="true">
-            <span>
-                <span class="brand-name">EliteSIP</span><br>
-                <span class="brand-note">панель управления</span>
-            </span>
-        </div>
+    <header class="sidebar">
+        <a class="brand" href="/overview" aria-label="EliteSIP — обзор">
+            <img class="brand-mark" src="/static/brand-mark.png" alt="" aria-hidden="true">
+            <span class="brand-name">EliteSIP</span>
+        </a>
 
         <nav class="nav">
             <a class="nav-item" href="/overview" {{if eq .Section "overview"}}aria-current="page"{{end}}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Обзор
             </a>
             <a class="nav-item" href="/employees" {{if eq .Section "employees"}}aria-current="page"{{end}}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Сотрудники
             </a>
             <a class="nav-item" href="/presets" {{if eq .Section "presets"}}aria-current="page"{{end}}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
                 Предустановки
             </a>
             <a class="nav-item" href="/audit" {{if eq .Section "audit"}}aria-current="page"{{end}}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 Журнал
             </a>
             <a class="nav-item" href="/settings" {{if eq .Section "settings"}}aria-current="page"{{end}}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.2.61.76 1.02 1.4 1.02H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Настройки
             </a>
         </nav>
@@ -58,7 +50,6 @@
         <div class="sidebar-footer">
             <span class="who">
                 <strong>{{.Admin.Login}}</strong>
-                <span>администратор</span>
             </span>
             <span style="display:flex; gap:4px; align-items:center;">
                 <button type="button" class="button button-quiet" data-theme-toggle
@@ -72,7 +63,7 @@
                 </form>
             </span>
         </div>
-    </aside>
+    </header>
 
     <main class="main">
         {{range .Flashes}}

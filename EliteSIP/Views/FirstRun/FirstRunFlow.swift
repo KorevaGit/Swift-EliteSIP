@@ -63,12 +63,17 @@ final class FirstRunFlow: ObservableObject {
         /// осознанная отмена решения этапа 9 «мастер проходит техподдержка».
         /// Разбор и цена отмены — в elitesip-site/docs/DECISIONS.md.
         case activationKey
-        /// Заводская предустановка: техподдержка вписывает добавочный и пароль.
-        case preset(name: String)
-        /// Всё руками. Тумблера площадки нет: стук решает сам адрес.
+
+        /// Всё руками — для машины, до которой сервер не достаёт. Тумблера
+        /// площадки нет: стук решает сам адрес.
+        ///
+        /// Веток осталось две. Ушли обе прежние, и по одной причине: они несли
+        /// конторские настройки мимо панели. Заводская предустановка держала
+        /// адреса, макросы и очереди прямо в бандле; файл конфигурации был тем
+        /// же самым, только гуляющим по мессенджерам, — и сброшенная машина
+        /// восстанавливалась из слепка месячной давности, о чём панель не
+        /// узнавала никогда. Разбор — elitesip-site/docs/DECISIONS.md.
         case manual
-        /// Готовый слепок машины из файла. Поля прячутся, проверки нет.
-        case configFile
     }
 
     @Published var step: Step = .welcome
@@ -105,10 +110,6 @@ final class FirstRunFlow: ObservableObject {
     /// Адрес АТС — только для ручной ветки.
     @Published var host = ""
 
-    /// Прочитанный файл конфигурации и его имя для показа.
-    @Published var loadedConfig: AppSettings?
-    @Published var loadedConfigName = ""
-
     // MARK: - Ключ активации
 
     /// То, что ввёл сотрудник. Терпимо к разделителям и регистру — разбирает
@@ -137,22 +138,12 @@ final class FirstRunFlow: ObservableObject {
     /// живой проверки. Живёт до следующего действия.
     @Published var notice: String?
 
-    init(presets: [Provisioning.FactoryPreset], isPreview: Bool = false) {
-        self.presets = presets
+    init(isPreview: Bool = false) {
         self.isPreview = isPreview
-        // Ветка по умолчанию — ключ из панели: с M9 это основной путь, и
-        // стажёров каждую неделю заводят именно им. Прежние три остаются
-        // дорогой для машины, до которой панель не достаёт.
+        // Ветка по умолчанию — ключ из панели: это основной путь, и стажёров
+        // каждую неделю заводят именно им. «Вручную» остаётся дорогой для
+        // машины, до которой сервер не достаёт.
         route = .activationKey
-    }
-
-    /// Заводские предустановки этой сборки.
-    let presets: [Provisioning.FactoryPreset]
-
-    /// Выбранная предустановка, если ветка предустановочная.
-    var selectedPreset: Provisioning.FactoryPreset? {
-        guard case .preset(let name) = route else { return nil }
-        return presets.first { $0.name == name }
     }
 
     // `showsPresetPicker` убран 17 августа 2026 вместе с радиокнопками. Он
@@ -191,13 +182,9 @@ final class FirstRunFlow: ObservableObject {
             case .activationKey:
                 // Разобран выше; сюда не доходит.
                 return openedPackage != nil
-            case .preset:
-                return !trimmedNumber.isEmpty && !password.isEmpty
             case .manual:
                 return !trimmedNumber.isEmpty && !password.isEmpty
                     && !host.trimmingCharacters(in: .whitespaces).isEmpty
-            case .configFile:
-                return loadedConfig != nil
             }
         }
     }

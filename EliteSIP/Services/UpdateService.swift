@@ -66,7 +66,15 @@ final class UpdateService: NSObject, ObservableObject {
     /// решает, когда Sparkle дёргает канал, другая — когда наш драйвер
     /// напоминает про уже найденное. Дальше они могут снова разойтись, и
     /// синонимизировать их значило бы завязать два разных решения на одно имя.
-    private static let checkInterval: TimeInterval = 30 * 60
+    private static let checkInterval: TimeInterval = 2 * 60 * 60
+
+    /// Разброс вокруг такта.
+    ///
+    /// Контора сидит за одним адресом, и после сбоя питания тридцать машин
+    /// просыпаются в одну секунду. Всплеск дешевле размазать здесь, чем
+    /// пережить лимитом на стороне канала: тариф зоны бесплатный, и правило
+    /// ограничения частоты там всего одно — оно ушло на пакеты активации.
+    private static let checkJitter: TimeInterval = 10 * 60
 
     /// Версия, которая скачана, проверена и ждёт решения. Пока она не `nil`,
     /// в панели видна кнопка «Обновить» — иначе состояние «готово к установке»
@@ -229,14 +237,26 @@ final class UpdateService: NSObject, ObservableObject {
     /// рабочего дня — и то же самое с правкой макроса, сделанной вчера.
     private func startCycle() {
         cycle?.invalidate()
-        cycle = Timer.scheduledTimer(withTimeInterval: Self.checkInterval, repeats: true) { [weak self] _ in
-            // не переводится: строка журнала
-            Task { @MainActor in self?.runCycle(reason: "по таймеру") }
-        }
+        // Такт с разбросом: интервал пересчитывается на каждом шаге, поэтому
+        // машины расходятся во времени сами, без запоминания смещения.
+        scheduleNextCycle()
 
         Timer.scheduledTimer(withTimeInterval: Self.firstCheckDelay, repeats: false) { [weak self] _ in
             // не переводится: строка журнала
             Task { @MainActor in self?.runCycle(reason: "при запуске") }
+        }
+    }
+
+    /// Заводит следующий такт со случайным разбросом.
+    private func scheduleNextCycle() {
+        let interval = Self.checkInterval + TimeInterval.random(in: 0...Self.checkJitter)
+        cycle?.invalidate()
+        cycle = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                // не переводится: строка журнала
+                self?.runCycle(reason: "по таймеру")
+                self?.scheduleNextCycle()
+            }
         }
     }
 

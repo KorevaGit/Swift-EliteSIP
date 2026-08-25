@@ -15,12 +15,12 @@ enum Fixture {
     static let key = "K7M2-9XQP-4TFB"
     static let objectName = "255a2e7e8e0e6e8260ab4e21f7f179bd"
     static let sealed = Data(base64Encoded: """
-        RVNJUEEyWAM7k5Gkh4YY/bAKGRqpLfpbqFu7hL/NKLlxY4523bm7LGucySGLkDsbQE8kBgJFvMufhGkR7ZrBuhHCmYPm8An4rk0sF8xDUCI8RZ0z0JwnKIOF\
-        YaHJ0Lq8wmJJ/XYT6J3wIHoHSGrNS/dKoWnVTSz/5Kijuw8SHm7xOqWbuHtqN8oHXXcQy0/WfT4q2LGrlHuh2Rnow386EZiTJ07c2pFRcezBhN4reGotPPmC\
-        6GCVByisXSRoC6/D6SsIhAxnQLXR4u0ObSKKINS9l/z4QeFu3DXhCVFsp3wn/s1EtgDyiLfsafuecGZ1cTn6PvnecXys0OGgrUbWd39FXES5cza8GwvYfLaC\
-        BCJPJsUCWX9+bx/k9eZV1q8HgN8RNknYRcXj7OvaWHe1/ranYtTOsSuBKAomu1NxHKxbm8veWFOJz9Zown2kSLlFO84ry/ADqyKX+1ZyQ0GjsyJ6W1NzQxgw\
-        DMd3/BGkeePil7pg4cBfCXfEBLnyCHuRslQBwQxZ3KGBMxtQQWZDlvHu2wvo0iRw6JFSo6n+yB5bke8SmkNgRfJ4N2RECQB95lF8+qn/Nn6O2O6weciOfnRC\
-        2fP5DMEgSzFyR6U1ONfEFTueKgTDtIvNUFOtci9bTP45DH4PA+Y=
+        RVNJUEEydM0lPUtwahluFO2Z0Kj47Ubp6+h9a3KdaWBk9KiEkfk/fIwkcx3P4t87puESuB8xoqkNTw26FvrAcchFXZAj3urQUM3eadOMItiUgCcLoh3I8dmA\
+        b6zG0mGpeCBAQMZItu6PhWGq7CFkPxeoPIdiRy7Ou0CrSas2lmYhgZyqeuVRU2JT3zJYXdg6aaD0jfTui+IiaQErzfEo7/X49eR5tx/EWnXBnuu5xpxWuPKT\
+        JcOTJVAvez4dHSRrvslTlsdTA/M3lmFdyWSpJBUPFNqnkWAqsGEUcu/9VnAcW079Lh3AkSQDuLSeWtoYZsi/IVNUNJZWoyJrSMIOAgCYddsIQldmFn6bxKoE\
+        qQdRMIPluG63CM5qM5m481uVze4J8BRsos1qphvWbNrpKnUCTWFvPzO9Ks95bSawGzWjc3acad4eTHrHTrDGux5F4DSlmABJOIDsFflDZlWDi5S7n4WnI/98\
+        pXK9RcDn2Q8J/JADWqgjsLa+ph5JstKryvN28gET2DYMNe8SE/ZM6T6f8dZGBr4kEceKGaouj7rW5CDnDkIaVx0x06AK42vme7tssZ02wunPH9JJseBv0a7K\
+        j2Es2nJ+sHVQ41SkU/asZimy6SYBSfa+FWM7aaD8+BfEBKSANpi5YGA2hBpReyLuutzP78yIZ91EfDFXuTsSorH95xbGf70r
         """.replacingOccurrences(of: "\n", with: ""))!
 }
 
@@ -98,12 +98,15 @@ struct ActivationPackageTests {
         let key = try BoundActivationKey(key: ActivationKey(input: Fixture.key))
         let package = try ActivationPackage.open(sealed: Fixture.sealed, with: key)
 
-        #expect(package.format == 1)
+        #expect(package.format == 2)
         #expect(package.installationID == "8f2c4a1b9d3e5f60")
         #expect(package.employee == "Пётр Смирнов")
         #expect(package.number == "172")
         #expect(package.sipPassword == "s3cret-172")
-        #expect(package.adminPassword == "пароль-конторы")
+        // Административного пароля в пакете нет вовсе: он приезжает
+        // помашинным объектом MachineAccess, чтобы у него не было двух
+        // источников, расходящихся при первой же смене.
+        #expect(package.channelKey.count == 64)
         #expect(package.preset.id == "6D1F5A20-0000-4000-8000-000000000001")
         #expect(package.preset.name == "Менеджер")
         #expect(package.preset.revision == 7)

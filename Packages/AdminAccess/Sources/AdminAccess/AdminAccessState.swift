@@ -1,53 +1,15 @@
 import Foundation
 
-/// Кто сейчас управляет закрытыми настройками.
-///
-/// Пункт 3 роадмапа: локальный режим должен быть явным состоянием, а не
-/// отсутствием синхронизации.
-///
-/// EliteDash отсюда убран сознательно: его ещё нет, а живой бета-тест нужен
-/// сейчас. Второе значение — заготовка под M8: настройки, приехавшие файлом
-/// конфигурации. Одного значения хватило бы на сегодня, но тогда «включить
-/// локальный режим» было бы нечем, а вся механика перехода писалась бы заново
-/// в тот момент, когда конфиг появится.
-public enum AdminManagement: String, Codable, Sendable, Equatable, CaseIterable {
-
-    /// Настройки задаёт администратор этой машины.
-    case local
-
-    /// Настройки пришли файлом конфигурации и не правились здесь. M8.
-    case configFile
-
-    public var title: String {
-        switch self {
-        case .local:
-            NSLocalizedString("Локальный режим", bundle: .module, comment: "режим управления машиной")
-        case .configFile:
-            NSLocalizedString(
-                "Настройки из файла конфигурации",
-                bundle: .module,
-                comment: "режим управления машиной"
-            )
-        }
-    }
-
-    public var explanation: String {
-        switch self {
-        case .local:
-            NSLocalizedString(
-                "Профили, макросы и политику защиты задаёт администратор этой машины.",
-                bundle: .module,
-                comment: "режим управления машиной"
-            )
-        case .configFile:
-            NSLocalizedString(
-                "Профили, макросы и политику защиты принёс файл конфигурации.",
-                bundle: .module,
-                comment: "режим управления машиной"
-            )
-        }
-    }
-}
+// `AdminManagement` отсюда убран 25 августа 2026.
+//
+// Перечисление было о том, откуда пришли настройки: «локальный режим» против
+// «настройки из файла конфигурации». Файла конфигурации больше нет, и второе
+// значение стало недостижимым — а с одним оставшимся тип начал врать: машина,
+// которой управляет панель, показывала бы «Локальный режим».
+//
+// Управляемость машины живёт теперь там, где ей и место, —
+// `AppSettings.PanelSettings.mode`, рядом с предустановкой, ревизией и ключом
+// канала. Этот пакет о панели не знает и знать не должен: он про пароль.
 
 /// Административный доступ целиком: что помним между запусками и открыт ли
 /// режим прямо сейчас.
@@ -61,9 +23,6 @@ public struct AdminAccessState: Sendable, Equatable {
     /// Проверочное значение пароля. nil — пароль не задан.
     public private(set) var credential: AdminCredential?
 
-    /// Кто управляет настройками.
-    public var management: AdminManagement
-
     /// Открыт ли режим прямо сейчас.
     public private(set) var isUnlocked: Bool
 
@@ -74,9 +33,8 @@ public struct AdminAccessState: Sendable, Equatable {
     /// превращалась бы в формальность, которую легко обойти по невнимательности.
     /// Открыть режим можно только через `unlock`, то есть только предъявив
     /// пароль или код.
-    public init(credential: AdminCredential? = nil, management: AdminManagement = .local) {
+    public init(credential: AdminCredential? = nil) {
         self.credential = credential
-        self.management = management
         self.isUnlocked = false
     }
 
@@ -105,14 +63,12 @@ public struct AdminAccessState: Sendable, Equatable {
         return true
     }
 
-    /// Вход по коду восстановления. Возвращает действующий пароль — его
-    /// показывают администратору, а не подменяют молча новым.
-    public mutating func unlock(recoveryCode: String) throws -> String {
-        guard let credential else { throw AdminAccessError.malformedCredential }
-        let password = try credential.password(recoveryCode: recoveryCode)
-        isUnlocked = true
-        return password
-    }
+    // Входа по коду восстановления здесь больше нет.
+    //
+    // Код лежал открытым текстом в бандле каждого приложения, то есть
+    // «восстановление» работало у всякого, кто вскрыл `.app`. Держался он на
+    // решении «код показывает актуальный пароль»; теперь актуальный пароль
+    // показывает панель, потому что оттуда он и приезжает.
 
     /// Выход из режима.
     public mutating func lock() {
@@ -124,12 +80,9 @@ public struct AdminAccessState: Sendable, Equatable {
     /// Смена требует открытого режима — иначе кнопка «сменить пароль» была бы
     /// обходом пароля. Первая установка открытого режима не требует: пока
     /// пароля нет, `allowsAdministration` и так истинно.
-    public mutating func setPassword(
-        _ password: String,
-        recoveryCode: String = RecoveryCode.provisioned
-    ) throws {
+    public mutating func setPassword(_ password: String) throws {
         guard allowsAdministration else { throw AdminAccessError.wrongPassword }
-        credential = try AdminCredential(password: password, recoveryCode: recoveryCode)
+        credential = try AdminCredential(password: password)
         isUnlocked = true
     }
 
@@ -144,9 +97,8 @@ public struct AdminAccessState: Sendable, Equatable {
     ///
     /// Отдельно от инициализатора: при загрузке режим всегда закрыт, чем бы ни
     /// был занят предыдущий запуск.
-    public mutating func restore(credential: AdminCredential?, management: AdminManagement) {
+    public mutating func restore(credential: AdminCredential?) {
         self.credential = credential
-        self.management = management
         isUnlocked = false
     }
 }
