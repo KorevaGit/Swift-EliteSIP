@@ -31,10 +31,16 @@
         <span class="product-note">Пиры, очереди и маршруты на самой АТС.</span>
         <span class="product-state"><span class="badge">в разработке</span></span>
     </a>
-    <a class="product product-soon" href="/sandbox">
+    <a class="product" href="/sandbox">
         <span class="product-name">Песочница</span>
-        <span class="product-note">Ведение стажёров по шагам.</span>
-        <span class="product-state"><span class="badge">в разработке</span></span>
+        <span class="product-note">Стажёры группами: работы по песку и по каждому человеку.</span>
+        <span class="product-state">
+            {{if $d.ActiveSandboxes}}
+                {{$d.ActiveSandboxes}} {{plural $d.ActiveSandboxes "песок идёт" "песка идёт" "песков идёт"}}
+            {{else}}
+                открытых песков нет
+            {{end}}
+        </span>
     </a>
 </div>
 

@@ -1,0 +1,100 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head">
+    <div class="page-title">
+        <h1>Новый песок</h1>
+        <p>Одна форма со всем сразу. Черновиков нет: песок без людей нечем закрыть, и в списке он читается как поломка.</p>
+    </div>
+    <div class="page-actions">
+        <a class="button" href="/sandbox">Отмена</a>
+    </div>
+</div>
+
+{{if $d.Problem}}
+<div class="notice notice-bad"><p>{{$d.Problem}}</p></div>
+{{end}}
+
+{{/* enctype нужен файлу холодной базы: без него браузер пришлёт одно имя
+     файла вместо его содержимого, и пул сделок молча окажется пустым. */}}
+<form method="post" action="/sandbox" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+
+    <div class="card">
+        <div class="card-head"><h2>Чей песок</h2></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="field field-wide">
+                    <label for="rop">РОП</label>
+                    <select id="rop" name="rop" required>
+                        <option value="">выберите из списка</option>
+                        {{range $d.ROPs}}
+                        <option value="{{.}}" {{if eq . $d.ROP}}selected{{end}}>{{.}}</option>
+                        {{end}}
+                    </select>
+                    <span class="field-hint">
+                        Только из справочника: свободный текст развёл бы «Кочура» и «кочура» на два разных песка,
+                        и запрет на второй незакрытый песок перестал бы работать.
+                    </span>
+                </div>
+                <div class="field">
+                    <label for="format">Формат</label>
+                    <select id="format" name="format" required>
+                        <option value="office" {{if eq $d.Format "office"}}selected{{end}}>Офис</option>
+                        <option value="remote" {{if eq $d.Format "remote"}}selected{{end}}>Удалёнка</option>
+                    </select>
+                    <span class="field-hint">
+                        На весь песок, не на человека. У удалённого вместо выдачи техники и ключей — удалённая настройка.
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head"><h2>Люди</h2></div>
+        <div class="card-body">
+            <div class="field">
+                <label for="employees">ФИО — по человеку на строку</label>
+                <textarea id="employees" name="employees" rows="8"
+                          placeholder="Смирнов Пётр Сергеевич&#10;Иванова Анна&#10;Кузнецов Игорь Львович"
+                          required>{{$d.Employees}}</textarea>
+                <span class="field-hint">
+                    Обязательны только фамилия и имя; отчество и порядок слов — как удобно.
+                    Панель не разбирает ФИО на части и хранит строку как введена.
+                    Логины, пароли и ID Битрикса заполняются потом, в карточках.
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <h2>Пул номеров и холодная база</h2>
+            <span class="sub">можно оставить пустыми</span>
+        </div>
+        <div class="card-body">
+            <div class="field">
+                <label for="extensions">Внутренние номера</label>
+                <input id="extensions" name="extensions" type="text" class="mono"
+                       value="{{$d.Extensions}}" placeholder="301-330, 405">
+                <span class="field-hint">
+                    Диапазон разворачивается. Номер, который лежит в пуле другого незакрытого песка,
+                    панель не примет: это два человека на одном добавочном.
+                </span>
+            </div>
+            <div class="field gap-s">
+                <label for="deals">Выгрузка сделок из Битрикса</label>
+                <input id="deals" name="deals" type="file" accept=".csv,text/csv,text/plain">
+                <span class="field-hint">
+                    CSV, в первом столбце — ID сделок. Заголовок и лишние столбцы панель пропустит сама.
+                    Файл необязателен: базу наливают не в первый день.
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-actions">
+        <button type="submit" class="button button-primary">Завести песок</button>
+    </div>
+</form>
+{{end}}

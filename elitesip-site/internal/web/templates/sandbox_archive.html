@@ -1,0 +1,65 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head">
+    <div class="page-title">
+        <h1>Архив песков</h1>
+        <p>Закрытые пески. Закрыть песок может только администратор, и в журнале это видно отдельной записью.</p>
+    </div>
+    <div class="page-actions">
+        <a class="button" href="/sandbox">К открытым</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Закрытые</h2>
+        {{if $d.Sandboxes}}<span class="sub">{{len $d.Sandboxes}} {{plural (len $d.Sandboxes) "песок" "песка" "песков"}}</span>{{end}}
+    </div>
+    {{if $d.Sandboxes}}
+    <table class="table">
+        <colgroup><col style="width:20%"><col style="width:12%"><col style="width:10%"><col style="width:38%"><col style="width:20%"></colgroup>
+        <thead>
+            <tr>
+                <th>РОП</th>
+                <th>Формат</th>
+                <th>Людей</th>
+                <th>Работы по разделам</th>
+                <th>Закрыт</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range $d.Sandboxes}}
+            <tr>
+                <td data-label="РОП" class="primary-cell">
+                    {{.ROP}}<br><span class="sub">заведён {{day .CreatedAt}}</span>
+                </td>
+                <td data-label="Формат" class="cell-tight">
+                    {{if .Remote}}<span class="badge">удалёнка</span>{{else}}<span class="badge">офис</span>{{end}}
+                </td>
+                <td data-label="Людей" class="cell-tight">{{.Employees}}</td>
+                {{/* Проценты остаются и в архиве: песок закрывают и с
+                     невыполненными работами, и по строке видно, с какими. */}}
+                <td data-label="Работы по разделам">
+                    <span class="shares">
+                    {{range .Progress}}
+                        <span class="share" title="{{.Section}}: {{.Done}} из {{.Total}}">
+                            <span class="share-name">{{.Section}}</span>
+                            <span class="share-bar"><i class="share-fill" style="{{width .Percent}}"></i></span>
+                            <span class="share-value">{{.Percent}}%</span>
+                        </span>
+                    {{end}}
+                    </span>
+                </td>
+                <td data-label="Закрыт" class="cell-tight">{{dayAt .ClosedAt}}</td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty">
+        <strong>Архив пуст</strong>
+        Сюда попадают пески после закрытия. Пока ни один не закрывали.
+    </div>
+    {{end}}
+</div>
+{{end}}

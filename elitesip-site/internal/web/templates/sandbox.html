@@ -1,0 +1,71 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head">
+    <div class="page-title">
+        <h1>Пески</h1>
+        <p>Песок — это РОП и вся его группа стажёров разом. У одного РОПа незакрытый песок только один.</p>
+    </div>
+    <div class="page-actions">
+        <a class="button button-primary" href="/sandbox/new">Завести песок</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Идут сейчас</h2>
+        {{if $d.Sandboxes}}<span class="sub">{{len $d.Sandboxes}} {{plural (len $d.Sandboxes) "песок" "песка" "песков"}}</span>{{end}}
+    </div>
+    {{if $d.Sandboxes}}
+    <table class="table">
+        <colgroup><col style="width:20%"><col style="width:12%"><col style="width:10%"><col style="width:42%"><col style="width:16%"></colgroup>
+        <thead>
+            <tr>
+                <th>РОП</th>
+                <th>Формат</th>
+                <th>Людей</th>
+                <th>Работы по разделам</th>
+                <th>Состояние</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range $d.Sandboxes}}
+            <tr>
+                <td data-label="РОП" class="primary-cell">
+                    {{.ROP}}<br><span class="sub">заведён {{day .CreatedAt}}</span>
+                </td>
+                <td data-label="Формат" class="cell-tight">
+                    {{if .Remote}}<span class="badge">удалёнка</span>{{else}}<span class="badge">офис</span>{{end}}
+                </td>
+                <td data-label="Людей" class="cell-tight">{{.Employees}}</td>
+                {{/* Процент по каждому разделу отдельно, а не одно число на
+                     песок: одно число прячет, что люди заведены, а база им не
+                     налита. */}}
+                <td data-label="Работы по разделам">
+                    <span class="shares">
+                    {{range .Progress}}
+                        <span class="share" title="{{.Section}}: {{.Done}} из {{.Total}}">
+                            <span class="share-name">{{.Section}}</span>
+                            <span class="share-bar"><i class="share-fill" style="{{width .Percent}}"></i></span>
+                            <span class="share-value">{{.Percent}}%</span>
+                        </span>
+                    {{end}}
+                    </span>
+                </td>
+                <td data-label="Состояние" class="cell-tight">
+                    {{$status := printf "%s" .Status}}
+                    {{if eq $status "завершён"}}<span class="badge badge-ok">завершён</span>
+                    {{else if eq $status "в процессе"}}<span class="badge badge-wait">в процессе</span>
+                    {{else}}<span class="badge badge-off">{{$status}}</span>{{end}}
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty">
+        <strong>Открытых песков нет</strong>
+        Песок заводят целиком: РОП, формат и хотя бы один человек в одной форме. Закрытые лежат в архиве.
+    </div>
+    {{end}}
+</div>
+{{end}}

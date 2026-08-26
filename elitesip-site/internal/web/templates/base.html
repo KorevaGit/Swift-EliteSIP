@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{.Title}} · Элитная поддержка</title>
-<link rel="stylesheet" href="/static/app.css?v=pearl-4">
+<link rel="stylesheet" href="/static/app.css?v=pearl-5">
 <link rel="icon" href="/static/brand-mark.png">
 <script>
     /* Тема ставится до первой отрисовки: иначе тёмная система на мгновение
@@ -56,12 +56,7 @@
             </span>
 
             <span class="nav-group{{if eq $product "sandbox"}} is-active{{end}}">
-                <a class="nav-item" href="/sandbox">Песочница<span class="soon" title="в разработке" aria-label="в разработке">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                    </svg>
-                </span></a>
+                <a class="nav-item" href="/sandbox">Песочница</a>
             </span>
 
             <span class="nav-group">
@@ -103,6 +98,18 @@
             <a class="subnav-item" href="/keys" {{if eq .Section "keys"}}aria-current="page"{{end}}>Выдать ключ</a>
             <a class="subnav-item" href="/employees" {{if eq .Section "employees"}}aria-current="page"{{end}}>Сотрудники</a>
             <a class="subnav-item" href="/presets" {{if eq .Section "presets"}}aria-current="page"{{end}}>Предустановки</a>
+        </div>
+    </div>
+    {{end}}
+
+    {{/* Разделы песочницы лежат в одном Section, поэтому подсветка идёт по Sub:
+         иначе «Пески» и «Архив» были бы текущими одновременно. */}}
+    {{if eq $product "sandbox"}}
+    <div class="subnav">
+        <div class="subnav-row">
+            <a class="subnav-item" href="/sandbox" {{if eq .Sub "list"}}aria-current="page"{{end}}>Пески</a>
+            <a class="subnav-item" href="/sandbox/archive" {{if eq .Sub "archive"}}aria-current="page"{{end}}>Архив</a>
+            <a class="subnav-item" href="/sandbox/template" {{if eq .Sub "template"}}aria-current="page"{{end}}>Шаблон</a>
         </div>
     </div>
     {{end}}

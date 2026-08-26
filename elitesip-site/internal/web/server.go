@@ -74,6 +74,7 @@ func New(db *storage.DB, sandDB *sand.DB, issuer *panel.Issuer, publisher *panel
 var pages = []string{
 	"login", "setup", "overview", "keys", "stub", "employees", "employee",
 	"presets", "preset", "preset_edit", "audit", "settings",
+	"sandbox", "sandbox_archive", "sandbox_new", "sandbox_template",
 }
 
 func (s *Server) parseTemplates() error {
@@ -111,7 +112,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /marks/pull", s.guard(s.pullMarks))
 	mux.Handle("GET /keys", s.guard(s.showKeys))
 	mux.Handle("GET /pbx", s.guard(s.showPBX))
-	mux.Handle("GET /sandbox", s.guard(s.showSandbox))
+
+	mux.Handle("GET /sandbox", s.guard(s.showSandboxes))
+	mux.Handle("GET /sandbox/archive", s.guard(s.showSandboxArchive))
+	mux.Handle("GET /sandbox/template", s.guard(s.showSandboxTemplate))
+	mux.Handle("GET /sandbox/new", s.guard(s.newSandbox))
+	// Форма несёт файл холодной базы, поэтому тело ограничивается и разбирается
+	// до проверки токена: иначе слишком большой файл сказал бы «форма устарела».
+	mux.Handle("POST /sandbox", s.limitUpload(maxDealsUpload, s.guard(s.createSandbox)))
 	mux.Handle("GET /employees", s.guard(s.showEmployees))
 	mux.Handle("POST /employees", s.guard(s.createEmployee))
 	mux.Handle("GET /employees/{id}", s.guard(s.showEmployee))
@@ -287,6 +295,12 @@ func (s *Server) flashKey(r *http.Request, key, message, text string) {
 type page struct {
 	Title   string
 	Section string
+
+	// Sub — раздел внутри продукта, чтобы подшапка знала, где мы стоим.
+	// У песочницы все экраны лежат в одном Section, и без этого «Пески» и
+	// «Архив» подсвечивались бы одновременно.
+	Sub string
+
 	Admin   model.Admin
 	Flashes []Flash
 	CSRF    string

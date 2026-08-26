@@ -368,7 +368,7 @@ func Progress(tasks []Task, done map[string]bool) []SectionProgress {
 // кнопки копирования нет — запрос с пустым местом выдал бы доступ не тому.
 func LibraSQL(bitrixID string) (string, bool) {
 	bitrixID = strings.TrimSpace(bitrixID)
-	if bitrixID == "" {
+	if bitrixID == "" || !onlyDigits(bitrixID) {
 		return "", false
 	}
 	return fmt.Sprintf(`INSERT INTO [dbo].[ESLibra_UsersAccess]

@@ -706,6 +706,53 @@ textarea:disabled { color: var(--text-tertiary); }
 .badge-off { background: var(--surface-raised); color: var(--text-tertiary); }
 
 
+/* ------------------------------------------------- проценты по разделам
+
+   Песочница считает процент по каждому разделу отдельно — одного числа на
+   песок нет намеренно. Полоски рисуются шириной элемента, без скриптов: со
+   строки списка их читают взглядом, и на странице с выключенным JS они
+   обязаны остаться правдивыми. */
+
+.shares {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+}
+
+.share {
+    display: inline-grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 6px;
+    min-width: 132px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.share-name { white-space: nowrap; }
+
+.share-bar {
+    min-width: 28px;
+    height: 4px;
+    border-radius: var(--radius-capsule);
+    background: var(--surface-raised);
+    overflow: hidden;
+}
+
+.share-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--radius-capsule);
+    background: var(--green);
+}
+
+.share-value {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+
 /* -------------------------------------------------------------- сообщения */
 
 .notice {

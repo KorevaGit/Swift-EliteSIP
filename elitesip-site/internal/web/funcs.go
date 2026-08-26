@@ -16,7 +16,37 @@ var templateFuncs = template.FuncMap{
 	"plural":    plural,
 	"deref":     deref,
 	"hasValue":  hasValue,
+	"width":     width,
+	"dayAt":     dayAt,
 	"add":       func(a, b int) int { return a + b },
+}
+
+// dayAt — дата необязательного времени.
+//
+// Отдельно от day, потому что в песочнице половина времён — указатели: песок
+// может быть не закрыт, исход не наступить. Разыменовывать их в разметке
+// значило бы уронить страницу на первом же незакрытом песке.
+func dayAt(t *time.Time) string {
+	if t == nil {
+		return "—"
+	}
+	return day(*t)
+}
+
+// width — ширина полоски выполненного.
+//
+// Отдельной функцией, а не числом прямо в разметке: значение в атрибуте style
+// html/template проверяет, и объявить его безопасным правильнее один раз здесь,
+// заодно прибив процент к границам. Полоска рисуется без JS — на странице,
+// которую открывают с выключенными скриптами, она обязана остаться правдивой.
+func width(percent int) template.CSS {
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	return template.CSS(fmt.Sprintf("width:%d%%", percent))
 }
 
 // moment показывает время так, как его читает человек в этом часовом поясе.

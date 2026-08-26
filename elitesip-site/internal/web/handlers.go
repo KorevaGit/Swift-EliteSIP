@@ -37,6 +37,10 @@ type overviewData struct {
 	// «отставшие» не показывается вовсе: пустая плитка без объяснения читается
 	// как поломка, а не как отсутствие сведений.
 	KnowsMachines bool
+
+	// ActiveSandboxes — сколько песков идёт прямо сейчас. Обзор сквозной на все
+	// продукты, и у песочницы там своя строка, а не пометка «в разработке».
+	ActiveSandboxes int
 }
 
 // showOverview рисует первый экран — сквозную сводку по всем продуктам.
@@ -84,6 +88,12 @@ func (s *Server) showOverview(w http.ResponseWriter, r *http.Request, admin mode
 		}
 	}
 
+	sandboxes, err := s.Sand.CountActive(r.Context())
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+
 	s.render(w, r, "overview", page{
 		Title: "Обзор", Section: "overview", Admin: admin,
 		Data: overviewData{
@@ -94,6 +104,7 @@ func (s *Server) showOverview(w http.ResponseWriter, r *http.Request, admin mode
 			Behind:                 behind,
 			PendingKeys:            pending,
 			KnowsMachines:          len(known) > 0,
+			ActiveSandboxes:        sandboxes,
 		},
 	})
 }
@@ -163,10 +174,11 @@ type stubData struct {
 	Plans []string
 }
 
-// showPBX и showSandbox рисуют настоящие страницы, а не неактивные пункты.
+// showPBX рисует настоящую страницу, а не неактивный пункт.
 //
 // Пункт, который «ничего не делает», на телефоне читается как поломка: там нет
-// ни наведения, ни курсора, по которым видно, что он отключён.
+// ни наведения, ни курсора, по которым видно, что он отключён. У песочницы
+// такая же заглушка стояла до 26 августа 2026 — теперь у неё свой раздел.
 func (s *Server) showPBX(w http.ResponseWriter, r *http.Request, admin model.Admin) {
 	s.render(w, r, "stub", page{
 		Title: "PBX", Section: "pbx", Admin: admin,
@@ -178,16 +190,6 @@ func (s *Server) showPBX(w http.ResponseWriter, r *http.Request, admin model.Adm
 				"Смена пароля пира при увольнении — единственное, что на самом деле останавливает машину.",
 				"Очереди и то, кто в них состоит.",
 			},
-		},
-	})
-}
-
-func (s *Server) showSandbox(w http.ResponseWriter, r *http.Request, admin model.Admin) {
-	s.render(w, r, "stub", page{
-		Title: "Песочница", Section: "sandbox", Admin: admin,
-		Data: stubData{
-			Name:  "Песочница",
-			About: "Ведение стажёров по шагам. Отдельный проект со своей логикой, к SIP-клиенту отношения не имеет.",
 		},
 	})
 }

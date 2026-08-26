@@ -354,6 +354,11 @@ func TestLibraSQLNeedsBitrixID(t *testing.T) {
 	if _, ok := LibraSQL("  "); ok {
 		t.Error("запрос собрался из пробелов")
 	}
+	for _, unsafe := range []string{"12a17", "1); DROP TABLE users;--", "12817 OR 1=1"} {
+		if _, ok := LibraSQL(unsafe); ok {
+			t.Errorf("запрос собрался из недопустимого ID %q", unsafe)
+		}
+	}
 
 	query, ok := LibraSQL("12817")
 	if !ok {
