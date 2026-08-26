@@ -60,7 +60,10 @@
         if (copier) {
             var source = document.querySelector(copier.getAttribute("data-copy"));
             if (!source) { return; }
-            var text = source.textContent.trim();
+            /* Поля ввода хранят текущее значение в value, а не в textContent.
+               Это нужно рабочей таблице песка: копируется уже исправленное
+               значение, даже если форму ещё не сохраняли. */
+            var text = (source.matches("input, textarea") ? source.value : source.textContent).trim();
             var done = function () {
                 var was = copier.textContent;
                 copier.textContent = "Скопировано";

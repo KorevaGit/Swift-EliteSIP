@@ -614,6 +614,15 @@ func TestSandboxDesktopWorkbenchEditsEveryEmployeeInline(t *testing.T) {
 	if got := strings.Count(body, `?n=300`); got != 2 {
 		t.Errorf("кнопок порции 300: %d", got)
 	}
+	// ФИО и три поля Битрикса копируются отдельно в каждой строке.
+	if got := strings.Count(body, `data-copy=`); got < 8 {
+		t.Errorf("кнопок копирования %d, ожидалось не меньше восьми", got)
+	}
+	for _, link := range []string{"Список пользователей", "Номера в gdocs"} {
+		if !strings.Contains(body, link+" ↗") {
+			t.Errorf("в рабочую таблицу не вернулась ссылка %q", link)
+		}
+	}
 	if !strings.Contains(body, `class="table mobile-only"`) {
 		t.Error("не сохранён компактный мобильный список")
 	}
