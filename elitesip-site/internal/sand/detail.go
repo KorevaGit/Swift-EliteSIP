@@ -50,7 +50,7 @@ type SandboxDetail struct {
 	Status Status
 
 	Tasks     []Task
-	Marks     map[string]Mark
+	Marks     map[string]*Mark
 	Progress  []SectionProgress
 	Employees []EmployeeRow
 	Comments  []Comment
@@ -144,7 +144,7 @@ func (db *DB) GetSandbox(ctx context.Context, id int64) (SandboxDetail, error) {
 	return detail, nil
 }
 
-func (db *DB) sandboxMarks(ctx context.Context, id int64) (map[string]Mark, error) {
+func (db *DB) sandboxMarks(ctx context.Context, id int64) (map[string]*Mark, error) {
 	rows, err := db.QueryContext(ctx,
 		`SELECT task, done_at, done_by, done_login
 		   FROM sandbox_marks WHERE sandbox_id = ?`, id)
@@ -153,7 +153,7 @@ func (db *DB) sandboxMarks(ctx context.Context, id int64) (map[string]Mark, erro
 	}
 	defer rows.Close()
 
-	marks := map[string]Mark{}
+	marks := map[string]*Mark{}
 	for rows.Next() {
 		var mark Mark
 		var doneAt string
@@ -164,7 +164,7 @@ func (db *DB) sandboxMarks(ctx context.Context, id int64) (map[string]Mark, erro
 		if err != nil {
 			return nil, err
 		}
-		marks[mark.Task] = mark
+		marks[mark.Task] = &mark
 	}
 	return marks, rows.Err()
 }
