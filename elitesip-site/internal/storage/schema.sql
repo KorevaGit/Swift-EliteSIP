@@ -284,6 +284,8 @@ CREATE TABLE checkins (
 
 CREATE TABLE audit_log (
     id        INTEGER PRIMARY KEY,
+    -- Стабильный ID события из соседней базы. Пуст у обычных действий панели.
+    external_event_id TEXT,
     at        TEXT    NOT NULL,
     admin_id  INTEGER REFERENCES admins(id),
     -- Логин пишется прямо сюда, а не подтягивается связкой: пользователя
@@ -296,5 +298,7 @@ CREATE TABLE audit_log (
 );
 
 CREATE INDEX audit_by_time ON audit_log(at);
+CREATE UNIQUE INDEX audit_external_event
+    ON audit_log(external_event_id) WHERE external_event_id IS NOT NULL;
 
 CREATE INDEX audit_log_by_time ON audit_log(at);

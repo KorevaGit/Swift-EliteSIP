@@ -21,8 +21,11 @@ var migrateToThreeSQL string
 //go:embed migrate4.sql
 var migrateToFourSQL string
 
+//go:embed migrate5.sql
+var migrateToFiveSQL string
+
 // schemaVersion — версия схемы базы. Растёт с каждой миграцией.
-const schemaVersion = 4
+const schemaVersion = 5
 
 // DB — база панели.
 type DB struct {
@@ -106,6 +109,11 @@ func migrate(db *sql.DB) error {
 		if version < 4 {
 			if _, err := tx.Exec(migrateToFourSQL); err != nil {
 				return fmt.Errorf("перевести схему на четвёртую версию: %w", err)
+			}
+		}
+		if version < 5 {
+			if _, err := tx.Exec(migrateToFiveSQL); err != nil {
+				return fmt.Errorf("перевести схему на пятую версию: %w", err)
 			}
 		}
 	}

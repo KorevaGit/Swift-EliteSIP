@@ -48,6 +48,7 @@ func TestLoadRejectsHalfConfiguredBucket(t *testing.T) {
 func TestLoadAcceptsDirectoryPublishing(t *testing.T) {
 	t.Setenv("ELITESIP_R2_BUCKET", "")
 	t.Setenv("ELITESIP_PUBLISH_DIR", "/tmp/elitesip-stand")
+	t.Setenv("ELITESIP_DB", "/srv/elitesip/data/panel.db")
 
 	c, err := Load()
 	if err != nil {
@@ -55,6 +56,9 @@ func TestLoadAcceptsDirectoryPublishing(t *testing.T) {
 	}
 	if c.Listen != "127.0.0.1:8080" {
 		t.Errorf("умолчание адреса: %q", c.Listen)
+	}
+	if c.SandDBPath != "/srv/elitesip/data/sand.db" {
+		t.Errorf("база песочницы лежит не рядом с основной: %q", c.SandDBPath)
 	}
 }
 

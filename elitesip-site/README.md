@@ -65,6 +65,7 @@ docker compose exec panel elitesip-panel admin eugene
 | --- | --- | --- |
 | `ELITESIP_LISTEN` | адрес прослушивания | `127.0.0.1:8080` |
 | `ELITESIP_DB` | файл базы | `/var/lib/elitesip/panel.db` |
+| — | база песочницы создаётся рядом с основной как `sand.db` | — |
 | `ELITESIP_SIGNING_KEY_FILE` | приватный ключ подписи | `/var/lib/elitesip/signing.key` |
 | `ELITESIP_SECRET_FILE` | секрет сервера | `/var/lib/elitesip/server.secret` |
 | `ELITESIP_R2_ENDPOINT` | адрес R2 | — |

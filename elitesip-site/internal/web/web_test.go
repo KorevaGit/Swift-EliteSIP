@@ -17,6 +17,7 @@ import (
 	"github.com/koreva/elitesip-site/internal/panel"
 	"github.com/koreva/elitesip-site/internal/preset"
 	"github.com/koreva/elitesip-site/internal/publish"
+	"github.com/koreva/elitesip-site/internal/sand"
 	"github.com/koreva/elitesip-site/internal/storage"
 )
 
@@ -63,6 +64,11 @@ func newServer(t *testing.T) (*Server, *storage.DB) {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
+	sandDB, err := sand.Open(filepath.Join(t.TempDir(), "sand.db"))
+	if err != nil {
+		t.Fatalf("Open sand: %v", err)
+	}
+	t.Cleanup(func() { sandDB.Close() })
 
 	// Ключ подписи настоящий, а не пустой: без него выкладка не проходит вовсе,
 	// и проверять на ней было бы нечего.
@@ -73,7 +79,7 @@ func newServer(t *testing.T) (*Server, *storage.DB) {
 
 	out := &sink{}
 	machines := &panel.MachineWriter{Publisher: out, SigningKey: signing}
-	s, err := New(db,
+	s, err := New(db, sandDB,
 		&panel.Issuer{DB: db, Publisher: out, Machines: machines, Secret: []byte("секрет-сервера-для-проверки")},
 		&panel.BundlePublisher{DB: db, Publisher: out, SigningKey: signing},
 		&panel.MarkCollector{DB: db, Reader: out},

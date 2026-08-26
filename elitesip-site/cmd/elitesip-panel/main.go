@@ -23,6 +23,7 @@ import (
 	"github.com/koreva/elitesip-site/internal/panel"
 	"github.com/koreva/elitesip-site/internal/preset"
 	"github.com/koreva/elitesip-site/internal/publish"
+	"github.com/koreva/elitesip-site/internal/sand"
 	"github.com/koreva/elitesip-site/internal/storage"
 	"github.com/koreva/elitesip-site/internal/web"
 )
@@ -81,6 +82,12 @@ func serve() error {
 	}
 	defer db.Close()
 
+	sandDB, err := sand.Open(cfg.SandDBPath)
+	if err != nil {
+		return err
+	}
+	defer sandDB.Close()
+
 	signingKey, err := config.LoadSigningKey(cfg.SigningKeyFile)
 	if err != nil {
 		return err
@@ -107,7 +114,7 @@ func serve() error {
 	// приложении и второй способ ошибиться, какой из них чей.
 	machines := &panel.MachineWriter{Publisher: sink, SigningKey: signingKey}
 
-	site, err := web.New(db,
+	site, err := web.New(db, sandDB,
 		&panel.Issuer{DB: db, Publisher: sink, Machines: machines, Secret: secret},
 		&panel.BundlePublisher{DB: db, Publisher: sink, SigningKey: signingKey},
 		&panel.MarkCollector{DB: db, Reader: sink, Machines: machines},
@@ -165,6 +172,27 @@ func serve() error {
 
 	collect, stopCollecting := context.WithCancel(context.Background())
 	defer stopCollecting()
+
+	// Outbox пробуем разобрать сразу при запуске: если прошлый процесс умер
+	// между двумя базами, журнал восстановится до первого действия человека.
+	if _, err := sandDB.DeliverAudit(collect, db, 0); err != nil {
+		fmt.Fprintf(os.Stderr, "не удалось доставить журнал песочницы: %v\n", err)
+	}
+	go func() {
+		ticker := time.NewTicker(sand.AuditDeliveryInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-collect.Done():
+				return
+			case <-ticker.C:
+				if _, err := sandDB.DeliverAudit(collect, db, 0); err != nil {
+					fmt.Fprintf(os.Stderr, "не удалось доставить журнал песочницы: %v\n", err)
+				}
+			}
+		}
+	}()
+
 	go func() {
 		ticker := time.NewTicker(panel.CollectInterval)
 		defer ticker.Stop()

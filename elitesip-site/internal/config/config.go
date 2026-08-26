@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -20,8 +21,9 @@ import (
 // переменной окружения видно в `docker inspect`, в списке процессов и в
 // логах падения; файл с правами 600 — нет.
 type Config struct {
-	Listen string
-	DBPath string
+	Listen     string
+	DBPath     string
+	SandDBPath string
 
 	SigningKeyFile string
 	SecretFile     string
@@ -37,9 +39,11 @@ type Config struct {
 
 // Load собирает настройки из окружения.
 func Load() (Config, error) {
+	dbPath := env("ELITESIP_DB", "/var/lib/elitesip/panel.db")
 	c := Config{
 		Listen:         env("ELITESIP_LISTEN", "127.0.0.1:8080"),
-		DBPath:         env("ELITESIP_DB", "/var/lib/elitesip/panel.db"),
+		DBPath:         dbPath,
+		SandDBPath:     filepath.Join(filepath.Dir(dbPath), "sand.db"),
 		SigningKeyFile: env("ELITESIP_SIGNING_KEY_FILE", "/var/lib/elitesip/signing.key"),
 		SecretFile:     env("ELITESIP_SECRET_FILE", "/var/lib/elitesip/server.secret"),
 		R2Endpoint:     os.Getenv("ELITESIP_R2_ENDPOINT"),

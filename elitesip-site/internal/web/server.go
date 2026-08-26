@@ -19,6 +19,7 @@ import (
 
 	"github.com/koreva/elitesip-site/internal/model"
 	"github.com/koreva/elitesip-site/internal/panel"
+	"github.com/koreva/elitesip-site/internal/sand"
 	"github.com/koreva/elitesip-site/internal/storage"
 )
 
@@ -33,6 +34,7 @@ const sessionCookie = "elitesip_session"
 // Server — панель целиком.
 type Server struct {
 	DB        *storage.DB
+	Sand      *sand.DB
 	Issuer    *panel.Issuer
 	Publisher *panel.BundlePublisher
 	Marks     *panel.MarkCollector
@@ -54,10 +56,10 @@ type Server struct {
 // Шаблоны разбираются при запуске, а не при первом показе: ошибка в шаблоне
 // должна ронять запуск, а не тот единственный экран, который откроют в
 // неудачный момент.
-func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher,
+func New(db *storage.DB, sandDB *sand.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher,
 	marks *panel.MarkCollector, revoker *panel.Revoker,
 	access *panel.AccessPublisher) (*Server, error) {
-	s := &Server{DB: db, Issuer: issuer, Publisher: publisher, Marks: marks,
+	s := &Server{DB: db, Sand: sandDB, Issuer: issuer, Publisher: publisher, Marks: marks,
 		Revoker: revoker, Access: access}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err

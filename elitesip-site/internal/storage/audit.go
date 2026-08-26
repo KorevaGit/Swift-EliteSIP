@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -26,6 +27,34 @@ func logAction(ctx context.Context, tx *sql.Tx, at time.Time, actor *int64, acti
 	)
 	if err != nil {
 		return fmt.Errorf("записать в журнал действие %q: %w", action, err)
+	}
+	return nil
+}
+
+// LogExternal принимает событие из outbox соседней базы.
+//
+// externalID делает приём идемпотентным: процесс может успеть записать строку
+// сюда и умереть до отметки доставки в sand.db. Повтор после запуска увидит
+// тот же ID, ничего не продублирует и завершится успешно.
+func (db *DB) LogExternal(ctx context.Context, externalID string, at time.Time,
+	actor *int64, actorLogin, action, entity string, entityID *int64, details string) error {
+	if externalID == "" {
+		return errors.New("у внешнего события нет идентификатора")
+	}
+
+	_, err := db.ExecContext(ctx,
+		`INSERT INTO audit_log
+		 (external_event_id, at, admin_id, actor_login, action, entity, entity_id, details)
+		 VALUES (?, ?,
+		         CASE WHEN ? IS NULL THEN NULL
+		              WHEN EXISTS (SELECT 1 FROM admins WHERE id = ?) THEN ?
+		              ELSE NULL END,
+		         ?, ?, ?, ?, ?)
+		 ON CONFLICT(external_event_id) WHERE external_event_id IS NOT NULL DO NOTHING`,
+		externalID, formatTime(at), nullInt64(actor), nullInt64(actor), nullInt64(actor), actorLogin,
+		action, entity, nullInt64(entityID), details)
+	if err != nil {
+		return fmt.Errorf("принять внешнее событие %q: %w", externalID, err)
 	}
 	return nil
 }
