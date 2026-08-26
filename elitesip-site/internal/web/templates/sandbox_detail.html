@@ -1,0 +1,154 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head">
+    <div class="page-title">
+        <a class="sub" href="{{if $d.ClosedAt}}/sandbox/archive{{else}}/sandbox{{end}}">← {{if $d.ClosedAt}}В архив{{else}}К открытым пескам{{end}}</a>
+        <h1>{{$d.ROP}}</h1>
+        <p>
+            {{if $d.Remote}}Удалённый{{else}}Офисный{{end}} песок · заведён {{day $d.CreatedAt}}
+            {{if $d.ClosedAt}} · закрыт {{dayAt $d.ClosedAt}}{{end}}
+        </p>
+    </div>
+    <div class="page-actions">
+        {{$status := printf "%s" $d.Status}}
+        {{if eq $status "завершён"}}<span class="badge badge-ok">завершён</span>
+        {{else if eq $status "в процессе"}}<span class="badge badge-wait">в процессе</span>
+        {{else if eq $status "закрыт"}}<span class="badge badge-off">закрыт</span>
+        {{else}}<span class="badge">{{$status}}</span>{{end}}
+        {{if and (not $d.ClosedAt) .Admin.IsAdmin}}
+        <form method="post" action="/sandbox/{{$d.ID}}/close">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <button class="button button-danger" type="submit"
+                    data-confirm="Закрыть песок {{$d.ROP}}? Его карточка станет нередактируемой, а все номера освободятся.">Закрыть песок</button>
+        </form>
+        {{end}}
+    </div>
+</div>
+
+<div class="sandbox-summary">
+    <div><strong>{{len $d.Employees}}</strong><span>{{plural (len $d.Employees) "стажёр" "стажёра" "стажёров"}}</span></div>
+    <div><strong>{{$d.ExtensionsFree}} / {{$d.ExtensionsTotal}}</strong><span>свободных номеров</span></div>
+    <div><strong>{{$d.DealsFree}} / {{$d.DealsTotal}}</strong><span>свободных сделок</span></div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Общий прогресс</h2>
+        <span class="sub">По разделам, включая работы каждого стажёра</span>
+    </div>
+    <div class="shares sandbox-progress">
+    {{range $d.Progress}}
+        <span class="share" title="{{.Done}} из {{.Total}}">
+            <span class="share-name">{{.Section}}</span>
+            <span class="share-bar"><i class="share-fill" style="{{width .Percent}}"></i></span>
+            <span class="share-value">{{.Percent}}%</span>
+        </span>
+    {{end}}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Работы на весь песок</h2>
+        <span class="sub">{{len $d.Marks}} из {{len $d.Tasks}}</span>
+    </div>
+    <div class="task-list">
+    {{range $d.Tasks}}
+        {{$mark := index $d.Marks .Key}}
+        <div class="task-row {{if $mark}}is-done{{end}}">
+            <div class="task-toggle">
+                {{if not $d.ClosedAt}}
+                <form method="post" action="/sandbox/{{$d.ID}}/mark">
+                    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                    <input type="hidden" name="task" value="{{.Key}}">
+                    <button class="task-check" type="submit" aria-label="{{if $mark}}Снять отметку{{else}}Отметить выполненной{{end}}">{{if $mark}}✓{{end}}</button>
+                </form>
+                {{else}}
+                <span class="task-check" aria-hidden="true">{{if $mark}}✓{{end}}</span>
+                {{end}}
+            </div>
+            <div class="task-copy">
+                <strong>{{.Title}}</strong>
+                <p>{{.About}}</p>
+                {{if .Links}}<span class="task-links">{{range .Links}}<a href="{{.URL}}" target="_blank" rel="noreferrer">{{.Title}} ↗</a>{{end}}</span>{{end}}
+                {{if $mark}}<small>{{$mark.DoneLogin}} · {{moment $mark.DoneAt}}</small>{{end}}
+            </div>
+        </div>
+    {{end}}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Стажёры</h2>
+        <span class="sub">{{len $d.Employees}} {{plural (len $d.Employees) "человек" "человека" "человек"}}</span>
+    </div>
+    <table class="table">
+        <thead><tr><th>ФИО</th><th>Исход</th><th>Работы по разделам</th></tr></thead>
+        <tbody>
+        {{range $d.Employees}}
+        <tr>
+            <td data-label="ФИО" class="primary-cell">{{.Name}}</td>
+            <td data-label="Исход">{{if .Outcome}}<span class="badge">{{.Outcome}}</span>{{else}}<span class="sub">не указан</span>{{end}}</td>
+            <td data-label="Работы">
+                <span class="shares">
+                {{range .Progress}}
+                    <span class="share" title="{{.Done}} из {{.Total}}">
+                        <span class="share-name">{{.Section}}</span>
+                        <span class="share-bar"><i class="share-fill" style="{{width .Percent}}"></i></span>
+                        <span class="share-value">{{.Percent}}%</span>
+                    </span>
+                {{end}}
+                </span>
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+    {{if not $d.ClosedAt}}
+    <div class="card-body sandbox-inline-form">
+        <form method="post" action="/sandbox/{{$d.ID}}/employees">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <div class="row">
+                <div class="field field-wide">
+                    <label for="employee-name">Добавить стажёра</label>
+                    <input id="employee-name" type="text" name="name" autocomplete="name" placeholder="Фамилия Имя Отчество" required>
+                </div>
+                <button class="button" type="submit">Добавить</button>
+            </div>
+        </form>
+    </div>
+    {{end}}
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h2>Комментарии</h2>
+        {{if $d.Comments}}<span class="sub">{{len $d.Comments}}</span>{{end}}
+    </div>
+    {{if $d.Comments}}
+    <div class="comment-list">
+    {{range $d.Comments}}
+        <article class="comment">
+            <header><strong>{{.AuthorLogin}}</strong><time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{moment .CreatedAt}}</time></header>
+            <p>{{.Text}}</p>
+        </article>
+    {{end}}
+    </div>
+    {{else}}
+    <div class="empty"><strong>Комментариев пока нет</strong>Здесь можно оставить общую заметку по всей группе.</div>
+    {{end}}
+    {{if not $d.ClosedAt}}
+    <div class="card-body sandbox-inline-form">
+        <form method="post" action="/sandbox/{{$d.ID}}/comments">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <div class="field">
+                <label for="comment-text">Новый комментарий</label>
+                <textarea id="comment-text" name="text" maxlength="4000" required></textarea>
+            </div>
+            <div class="page-actions"><button class="button" type="submit">Добавить комментарий</button></div>
+        </form>
+    </div>
+    {{end}}
+</div>
+{{end}}

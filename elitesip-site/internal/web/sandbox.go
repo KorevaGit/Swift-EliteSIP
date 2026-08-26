@@ -260,3 +260,113 @@ func describeCreated(created sand.Sandbox, numbers, deals int) string {
 	}
 	return said
 }
+
+func (s *Server) showSandboxDetail(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	detail, err := s.Sand.GetSandbox(r.Context(), id)
+	if errors.Is(err, sand.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	s.render(w, r, "sandbox_detail", page{
+		Title: "Песок · " + detail.ROP, Section: "sandbox", Sub: "list",
+		Admin: admin, Data: detail,
+	})
+}
+
+func (s *Server) markSandboxTask(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	marked, err := s.Sand.ToggleSandboxMark(r.Context(), actorOfAdmin(admin), id,
+		strings.TrimSpace(r.FormValue("task")))
+	if err != nil {
+		s.sandboxActionError(r, err)
+		s.back(w, r, fmt.Sprintf("/sandbox/%d", id))
+		return
+	}
+	if _, err := s.Sand.DeliverAudit(r.Context(), s.DB, 0); err != nil {
+		s.flash(r, "warn", "Журнал догонит", "Отметка сохранена; событие доедет в общий журнал само.")
+	} else if marked {
+		s.flash(r, "ok", "Работа выполнена", "Рядом с отметкой сохранены исполнитель и время.")
+	} else {
+		s.flash(r, "ok", "Отметка снята", "Предыдущее выполнение осталось в общем журнале.")
+	}
+	s.back(w, r, fmt.Sprintf("/sandbox/%d", id))
+}
+
+func (s *Server) addSandboxEmployee(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if _, err := s.Sand.AddSandboxEmployee(r.Context(), actorOfAdmin(admin), id, name); err != nil {
+		s.sandboxActionError(r, err)
+		s.back(w, r, fmt.Sprintf("/sandbox/%d", id))
+		return
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.flash(r, "ok", "Сотрудник добавлен", name)
+	s.back(w, r, fmt.Sprintf("/sandbox/%d", id))
+}
+
+func (s *Server) addSandboxComment(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.Sand.AddSandboxComment(r.Context(), actorOfAdmin(admin), id, r.FormValue("text")); err != nil {
+		s.sandboxActionError(r, err)
+	} else {
+		s.flash(r, "ok", "Комментарий добавлен", "Он останется в общем обсуждении песка.")
+	}
+	s.back(w, r, fmt.Sprintf("/sandbox/%d", id))
+}
+
+func (s *Server) closeSandbox(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.Sand.CloseSandbox(r.Context(), actorOfAdmin(admin), id); err != nil {
+		s.sandboxActionError(r, err)
+		s.back(w, r, fmt.Sprintf("/sandbox/%d", id))
+		return
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.flash(r, "ok", "Песок закрыт", "Карточка перенесена в архив, её номера освобождены.")
+	http.Redirect(w, r, "/sandbox/archive", http.StatusSeeOther)
+}
+
+func (s *Server) sandboxActionError(r *http.Request, err error) {
+	switch {
+	case errors.Is(err, sand.ErrClosed):
+		s.flash(r, "bad", "Песок уже закрыт", "Архивная карточка доступна только для чтения.")
+	case errors.Is(err, sand.ErrNoEmployees):
+		s.flash(r, "bad", "Нужно ФИО", "Введите хотя бы фамилию и имя.")
+	case errors.Is(err, sand.ErrEmptyComment):
+		s.flash(r, "bad", "Комментарий пуст", "Напишите текст перед добавлением.")
+	case errors.Is(err, sand.ErrTaskBlocked):
+		s.flash(r, "bad", "Работа пока недоступна", "Сначала выполните указанную перед ней работу.")
+	case errors.Is(err, sand.ErrTaskRequired):
+		s.flash(r, "bad", "Отметку пока нельзя снять", "Сначала снимите зависящую от неё работу.")
+	case errors.Is(err, sand.ErrUnknownTask), errors.Is(err, sand.ErrNotFound):
+		s.flash(r, "bad", "Карточка изменилась", "Обновите страницу и попробуйте снова.")
+	default:
+		s.flash(r, "bad", "Действие не выполнено", err.Error())
+	}
+}

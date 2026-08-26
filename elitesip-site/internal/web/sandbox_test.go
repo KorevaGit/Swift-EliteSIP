@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -54,6 +55,20 @@ func (s *Server) newSandboxPost(cookie *http.Cookie, fields map[string]string, d
 func get(t *testing.T, s *Server, cookie *http.Cookie, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	r := httptest.NewRequest(http.MethodGet, path, nil)
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+	return w
+}
+
+func postSandbox(t *testing.T, s *Server, cookie *http.Cookie, path string, values url.Values) *httptest.ResponseRecorder {
+	t.Helper()
+	if values == nil {
+		values = url.Values{}
+	}
+	values.Set(csrfField, s.csrfToken(cookie.Value))
+	r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(values.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.AddCookie(cookie)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
@@ -452,5 +467,88 @@ func TestSandboxCreatesWithoutDealsFile(t *testing.T) {
 	cards, _ := s.Sand.ListSandboxes(context.Background(), false)
 	if len(cards) != 1 {
 		t.Fatalf("песков заведено %d", len(cards))
+	}
+}
+
+func TestSandboxDetailRunsCommonWorkflow(t *testing.T) {
+	s, db := newServer(t)
+	cookie := signedIn(t, db)
+
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, s.newSandboxPost(cookie, map[string]string{
+		"rop": "Кочура", "format": "office", "employees": "Смирнов Пётр", "extensions": "301-302",
+	}, "2516934\n2517017\n"))
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("создание: %d", w.Code)
+	}
+	cards, _ := s.Sand.ListSandboxes(context.Background(), false)
+	id := cards[0].ID
+
+	body := get(t, s, cookie, "/sandbox/"+fmt.Sprint(id)).Body.String()
+	for _, want := range []string{"Кочура", "Смирнов Пётр", "Работы на весь песок", "2 / 2", "Добавить комментарий"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("в карточке нет %q", want)
+		}
+	}
+
+	w = postSandbox(t, s, cookie, fmt.Sprintf("/sandbox/%d/mark", id), url.Values{"task": {"hardware"}})
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("отметка: %d", w.Code)
+	}
+	w = postSandbox(t, s, cookie, fmt.Sprintf("/sandbox/%d/employees", id), url.Values{"name": {"Иванова Анна"}})
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("добавление сотрудника: %d", w.Code)
+	}
+	w = postSandbox(t, s, cookie, fmt.Sprintf("/sandbox/%d/comments", id), url.Values{"text": {"Выдать вторую гарнитуру"}})
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("комментарий: %d", w.Code)
+	}
+
+	body = get(t, s, cookie, fmt.Sprintf("/sandbox/%d", id)).Body.String()
+	for _, want := range []string{"Иванова Анна", "Выдать вторую гарнитуру", "eugene"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("после действий в карточке нет %q", want)
+		}
+	}
+}
+
+func TestOnlyAdminClosesSandboxAndClosedCardIsReadOnly(t *testing.T) {
+	s, db := newServer(t)
+	adminCookie := signedIn(t, db)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, s.newSandboxPost(adminCookie, map[string]string{
+		"rop": "Власов", "format": "office", "employees": "Смирнов Пётр", "extensions": "401",
+	}, ""))
+	cards, _ := s.Sand.ListSandboxes(context.Background(), false)
+	id := cards[0].ID
+
+	hash, _ := panel.HashPassword("пароль-поддержки")
+	support, err := db.CreateAdminWithRole(context.Background(), nil, "olga", hash, "support")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _ := db.StartSession(context.Background(), support.ID)
+	supportCookie := &http.Cookie{Name: sessionCookie, Value: token}
+	w = postSandbox(t, s, supportCookie, fmt.Sprintf("/sandbox/%d/close", id), nil)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("отказ техподдержке: %d", w.Code)
+	}
+	detail, err := s.Sand.GetSandbox(context.Background(), id)
+	if err != nil || detail.ClosedAt != nil {
+		t.Fatalf("техподдержка закрыла песок: closed=%v err=%v", detail.ClosedAt, err)
+	}
+
+	w = postSandbox(t, s, adminCookie, fmt.Sprintf("/sandbox/%d/close", id), nil)
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/sandbox/archive" {
+		t.Fatalf("закрытие администратором: %d, %q", w.Code, w.Header().Get("Location"))
+	}
+	body := get(t, s, adminCookie, fmt.Sprintf("/sandbox/%d", id)).Body.String()
+	if !strings.Contains(body, "закрыт") {
+		t.Error("архивная карточка не помечена закрытой")
+	}
+	for _, action := range []string{"/mark", "/employees", "/comments", "/close"} {
+		if strings.Contains(body, fmt.Sprintf(`action="/sandbox/%d%s"`, id, action)) {
+			t.Errorf("в закрытой карточке осталась форма %s", action)
+		}
 	}
 }

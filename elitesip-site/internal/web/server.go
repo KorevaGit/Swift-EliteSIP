@@ -74,7 +74,7 @@ func New(db *storage.DB, sandDB *sand.DB, issuer *panel.Issuer, publisher *panel
 var pages = []string{
 	"login", "setup", "overview", "keys", "stub", "employees", "employee",
 	"presets", "preset", "preset_edit", "audit", "settings",
-	"sandbox", "sandbox_archive", "sandbox_new", "sandbox_template",
+	"sandbox", "sandbox_archive", "sandbox_new", "sandbox_template", "sandbox_detail",
 }
 
 func (s *Server) parseTemplates() error {
@@ -120,6 +120,11 @@ func (s *Server) Handler() http.Handler {
 	// Форма несёт файл холодной базы, поэтому тело ограничивается и разбирается
 	// до проверки токена: иначе слишком большой файл сказал бы «форма устарела».
 	mux.Handle("POST /sandbox", s.limitUpload(maxDealsUpload, s.guard(s.createSandbox)))
+	mux.Handle("GET /sandbox/{id}", s.guard(s.showSandboxDetail))
+	mux.Handle("POST /sandbox/{id}/mark", s.guard(s.markSandboxTask))
+	mux.Handle("POST /sandbox/{id}/employees", s.guard(s.addSandboxEmployee))
+	mux.Handle("POST /sandbox/{id}/comments", s.guard(s.addSandboxComment))
+	mux.Handle("POST /sandbox/{id}/close", s.guard(s.onlyAdmin(s.closeSandbox)))
 	mux.Handle("GET /employees", s.guard(s.showEmployees))
 	mux.Handle("POST /employees", s.guard(s.createEmployee))
 	mux.Handle("GET /employees/{id}", s.guard(s.showEmployee))

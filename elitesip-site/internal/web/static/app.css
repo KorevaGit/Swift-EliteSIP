@@ -752,6 +752,59 @@ textarea:disabled { color: var(--text-tertiary); }
     white-space: nowrap;
 }
 
+/* Карточка песка — рабочий лист, а не ещё одна таблица: сводка читается
+ * сверху вниз, а частые отметки остаются достаточно крупными для телефона. */
+.sandbox-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.sandbox-summary > div { display: grid; gap: 2px; }
+.sandbox-summary strong { font-size: 25px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.sandbox-summary span { color: var(--text-tertiary); font-size: 13px; }
+.sandbox-progress .share { min-width: min(220px, 100%); }
+
+.task-list { display: grid; }
+.task-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px 0;
+    border-top: 1px solid var(--hairline);
+}
+.task-toggle form { margin: 0; }
+.task-check {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--accent-text);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.task-row.is-done .task-check { border-color: var(--green); background: var(--green); }
+.task-row:not(.is-done) .task-check:hover { background: var(--surface-hover); }
+.task-copy { display: grid; gap: 5px; }
+.task-copy strong { font-weight: 550; }
+.task-copy p { max-width: 82ch; color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+.task-copy small { color: var(--text-tertiary); }
+.task-links { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.sandbox-inline-form { padding-top: 18px; }
+
+.comment-list { display: grid; }
+.comment { display: grid; gap: 8px; padding: 16px 0; border-top: 1px solid var(--hairline); }
+.comment header { display: flex; justify-content: space-between; gap: 16px; font-size: 13px; }
+.comment header strong { font-weight: 550; }
+.comment time { color: var(--text-tertiary); white-space: nowrap; }
+.comment p { max-width: 82ch; white-space: pre-wrap; line-height: 1.55; }
+
 
 /* -------------------------------------------------------------- сообщения */
 
@@ -1125,6 +1178,8 @@ a.tile:hover { text-decoration: none; background: color-mix(in srgb, var(--surfa
 
     .end { display: grid; gap: 6px; justify-items: start; }
     .key-value { font-size: 22px; }
+    .sandbox-summary { grid-template-columns: 1fr; gap: 14px; }
+    .task-row { grid-template-columns: 36px minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -31,7 +31,7 @@
         {{range $d.Sandboxes}}
             <tr>
                 <td data-label="РОП" class="primary-cell">
-                    {{.ROP}}<br><span class="sub">заведён {{day .CreatedAt}}</span>
+                    <a href="/sandbox/{{.ID}}">{{.ROP}}</a><br><span class="sub">заведён {{day .CreatedAt}}</span>
                 </td>
                 <td data-label="Формат" class="cell-tight">
                     {{if .Remote}}<span class="badge">удалёнка</span>{{else}}<span class="badge">офис</span>{{end}}
