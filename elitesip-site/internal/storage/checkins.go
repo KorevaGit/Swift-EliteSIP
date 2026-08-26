@@ -172,3 +172,61 @@ func (db *DB) KnownCheckins(ctx context.Context) (map[string]time.Time, error) {
 	}
 	return out, rows.Err()
 }
+
+// MachineState — что показывать в колонке «Машины» списка сотрудников.
+//
+// Колонка заведена 25 августа 2026: до неё на вопрос «а у Петрова-то что?»
+// нельзя было ответить, не открыв Петрова. Считается здесь, а не в шаблоне:
+// молчание — это арифметика со временем.
+type MachineState struct {
+	Live    int  // активированные машины, о которых есть отметка и она свежая
+	Silent  int  // отметка есть, но старше срока молчания
+	Waiting bool // есть выпущенный ключ, который ещё не забрали
+}
+
+// MachineStates собирает состояние машин по всем сотрудникам разом.
+//
+// Одним запросом на весь список, а не по запросу на строку: тридцать строк —
+// это тридцать походов в базу, и растёт оно вместе с конторой.
+func (db *DB) MachineStates(ctx context.Context, now time.Time) (map[int64]MachineState, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT a.employee_id, a.fetched_at, a.revoked_at, a.expires_at, c.last_seen_at
+		  FROM activations a
+		  LEFT JOIN checkins c ON c.installation_id = a.installation_id`)
+	if err != nil {
+		return nil, fmt.Errorf("собрать состояние машин: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[int64]MachineState)
+	for rows.Next() {
+		var (
+			employeeID int64
+			fetchedAt  sql.NullString
+			revokedAt  sql.NullString
+			expiresAt  string
+			lastSeenAt sql.NullString
+		)
+		if err := rows.Scan(&employeeID, &fetchedAt, &revokedAt, &expiresAt, &lastSeenAt); err != nil {
+			return nil, fmt.Errorf("прочитать строку состояния машин: %w", err)
+		}
+
+		state := out[employeeID]
+		switch {
+		case revokedAt.Valid:
+			// Отозванная активация в колонку не попадает вовсе: машина по ней
+			// живёт до смены пароля пира на АТС, но это не то состояние, о
+			// котором список должен рапортовать одним словом.
+		case !fetchedAt.Valid:
+			if readTime(expiresAt).After(now) {
+				state.Waiting = true
+			}
+		case lastSeenAt.Valid && (&model.Checkin{LastSeenAt: readTime(lastSeenAt.String)}).Silent(now):
+			state.Silent++
+		default:
+			state.Live++
+		}
+		out[employeeID] = state
+	}
+	return out, rows.Err()
+}

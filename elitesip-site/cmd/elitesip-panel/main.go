@@ -127,6 +127,16 @@ func serve() error {
 		fmt.Fprintf(os.Stderr, "не удалось убрать истёкшие сеансы: %v\n", err)
 	}
 
+	// Журнал чистится там же и по той же причине: панель перезапускают чаще
+	// раза в три месяца, а рутина, которую уносит уборка, за сутки не
+	// накапливается. Удаления сотрудников она не трогает — на них держится
+	// ответ на «кто сидел на этом добавочном».
+	if removed, err := db.PurgeAudit(context.Background(), time.Now()); err != nil {
+		fmt.Fprintf(os.Stderr, "не удалось почистить журнал: %v\n", err)
+	} else if removed > 0 {
+		fmt.Fprintf(os.Stderr, "из журнала убрано строк старше трёх месяцев: %d\n", removed)
+	}
+
 	server := &http.Server{
 		Addr:              cfg.Listen,
 		Handler:           site.Handler(),

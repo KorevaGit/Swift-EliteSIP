@@ -15,8 +15,14 @@ var schemaSQL string
 //go:embed migrate2.sql
 var migrateToTwoSQL string
 
+//go:embed migrate3.sql
+var migrateToThreeSQL string
+
+//go:embed migrate4.sql
+var migrateToFourSQL string
+
 // schemaVersion — версия схемы базы. Растёт с каждой миграцией.
-const schemaVersion = 2
+const schemaVersion = 4
 
 // DB — база панели.
 type DB struct {
@@ -77,15 +83,30 @@ func migrate(db *sql.DB) error {
 	}
 	defer tx.Rollback()
 
+	// Переводы идут подряд, а не по одному: база на сервере конторы могла
+	// отстать сразу на две версии, и «иначе если» тихо перевело бы её только
+	// на одну — с записанным номером последней.
 	if version < 1 {
 		if _, err := tx.Exec(schemaSQL); err != nil {
 			return fmt.Errorf("создать схему: %w", err)
 		}
-	} else if version < 2 {
-		// Свежая база получает второй схемой сразу из schema.sql; сюда
-		// попадает только та, что уже живёт на сервере конторы.
-		if _, err := tx.Exec(migrateToTwoSQL); err != nil {
-			return fmt.Errorf("перевести схему на вторую версию: %w", err)
+	} else {
+		// Свежая база получает всё это сразу из schema.sql; сюда попадает
+		// только та, что уже живёт на сервере конторы.
+		if version < 2 {
+			if _, err := tx.Exec(migrateToTwoSQL); err != nil {
+				return fmt.Errorf("перевести схему на вторую версию: %w", err)
+			}
+		}
+		if version < 3 {
+			if _, err := tx.Exec(migrateToThreeSQL); err != nil {
+				return fmt.Errorf("перевести схему на третью версию: %w", err)
+			}
+		}
+		if version < 4 {
+			if _, err := tx.Exec(migrateToFourSQL); err != nil {
+				return fmt.Errorf("перевести схему на четвёртую версию: %w", err)
+			}
 		}
 	}
 

@@ -61,30 +61,149 @@ type presetData struct {
 	Problems []string
 
 	// AdminPasswordSet — задан ли административный пароль этой предустановки.
-	// Сам пароль на страницу не едет: показывать его незачем, а задать новый
-	// можно и вслепую.
 	AdminPasswordSet bool
+
+	// AdminPassword — он сам, открытым текстом.
+	//
+	// Показывается с 25 августа 2026 и именно техподдержке: это её пароль от
+	// «Управления» на машине сотрудника, и без него она не может ни настроить
+	// рабочее место, ни разобрать жалобу. Прежде он не показывался вовсе —
+	// то есть задавший его администратор был единственным, кто его знал.
+	//
+	// Цена та же, что у открытого SIP-пароля: снимок этого экрана — доступ.
+	AdminPassword string
 
 	Revisions []storage.RevisionRow
 
-	// Pending — что уедет на машины при следующей выкладке, словами.
+	// Pending — что уедет на машины при следующей выкладке, словами и
+	// разделённое по цене ошибки.
 	//
 	// Считается от последней выложенной ревизии, а не от предыдущей
 	// сохранённой: сравнивать надо с тем, что сейчас стоит на машинах.
-	Pending      []string
+	Pending      preset.Report
+	Trouble      string
 	NeedsPublish bool
+
+	// Employees и Machines — кого касается выкладка.
+	Employees int
+	Machines  int
+
+	// Others — прочие предустановки, из которых можно взять раздел.
+	Others []storage.PresetSummary
+
+	// DangerousRollback — ревизии, откат на которые трогает опасные поля.
+	// Ключ — идентификатор ревизии. Откат остаётся мгновенным; подтверждение
+	// спрашивается только у этих.
+	DangerousRollback map[int64]bool
 
 	// FirstPublish — выкладок ещё не было, сравнивать не с чем.
 	FirstPublish bool
 }
 
+// showPreset рисует предустановку на просмотр, editPreset — её же на правку.
+//
+// Разделены 25 августа 2026 вместо свёрнутых разделов и замка: гармошка была
+// ответом на «форму открывают раз в квартал и боятся тронуть лишнее», а
+// разделение отвечает на то же самое честнее — случайно не тронешь то, что
+// вообще не поле ввода.
 func (s *Server) showPreset(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	s.renderPreset(w, r, admin, "preset")
+}
+
+func (s *Server) editPreset(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	s.renderPreset(w, r, admin, "preset_edit")
+}
+
+// borrowSection подставляет в форму правки один раздел из другой предустановки.
+//
+// Адреса АТС и стук у всех предустановок конторы одинаковые, очереди повторяются,
+// а раскладку клавиш новому отделу проще взять у соседнего и поправить, чем
+// набрать заново. Копирования предустановки целиком нет намеренно: нужен как
+// раз стук от «Менеджера» при своём адресе удалёнщика.
+//
+// Ничего не сохраняется. Форма приходит целиком, раздел в ней подменяется, и
+// страница рисуется заново — то, что человек уже успел напечатать в других
+// разделах, остаётся на месте, а ревизию создаёт только «Сохранить».
+func (s *Server) borrowSection(w http.ResponseWriter, r *http.Request, admin model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
+	card := "/presets/" + strconv.FormatInt(id, 10)
 
+	if err := r.ParseForm(); err != nil {
+		s.flash(r, "bad", "Не взято", "Форма не разобралась")
+		s.back(w, r, card+"/edit")
+		return
+	}
+
+	// Раздел приходит значением самой кнопки, источник — списком рядом с ней:
+	// так у каждого раздела свой выбор, и нажатие не может подставить не туда.
+	section := r.FormValue("section")
+	sourceID, err := strconv.ParseInt(r.FormValue("from_"+section), 10, 64)
+	if err != nil {
+		s.flash(r, "bad", "Не взято", "Не выбрано, откуда брать")
+		s.back(w, r, card+"/edit")
+		return
+	}
+
+	sourceRevision, err := s.DB.LatestRevision(r.Context(), sourceID)
+	if err != nil {
+		s.flash(r, "bad", "Не взято", "У выбранной предустановки нет ни одной сохранённой ревизии")
+		s.back(w, r, card+"/edit")
+		return
+	}
+	parsed, err := preset.Parse(sourceRevision.Payload)
+	if err != nil {
+		s.flash(r, "bad", "Не взято", "Ревизия источника не читается: "+err.Error())
+		s.back(w, r, card+"/edit")
+		return
+	}
+	source := fillGaps(parsed)
+
+	// Напечатанное в форме важнее сохранённого: человек уже что-то правил.
+	current, err := fieldsFromForm(r)
+	if err != nil {
+		s.flash(r, "bad", "Не взято", err.Error())
+		s.back(w, r, card+"/edit")
+		return
+	}
+	current = fillGaps(current)
+
+	switch section {
+	case "dtmf":
+		current.DTMF, current.Conference = source.DTMF, source.Conference
+	case "queues":
+		current.Queues = source.Queues
+	case "guard":
+		current.IncomingCall = source.IncomingCall
+	case "link":
+		current.SiteAddress, current.PortKnock = source.SiteAddress, source.PortKnock
+		current.AcceptsAnyTLSCertificate = source.AcceptsAnyTLSCertificate
+	default:
+		s.flash(r, "bad", "Не взято", "Непонятный раздел")
+		s.back(w, r, card+"/edit")
+		return
+	}
+
+	s.flash(r, "warn", "Раздел подставлен в форму",
+		"Ничего ещё не сохранено: посмотрите, что получилось, и нажмите «Сохранить ревизию».")
+	s.renderPresetWith(w, r, admin, "preset_edit", id, &current)
+}
+
+func (s *Server) renderPreset(w http.ResponseWriter, r *http.Request, admin model.Admin, view string) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	s.renderPresetWith(w, r, admin, view, id, nil)
+}
+
+// renderPresetWith рисует предустановку; override — поля, которые надо
+// показать вместо сохранённых (форма после подстановки раздела).
+func (s *Server) renderPresetWith(w http.ResponseWriter, r *http.Request, admin model.Admin, view string, id int64, override *preset.Fields) {
 	list, err := s.DB.ListPresets(r.Context(), true)
 	if err != nil {
 		s.fail(w, err)
@@ -106,6 +225,10 @@ func (s *Server) showPreset(w http.ResponseWriter, r *http.Request, admin model.
 		Preset:           found.Preset,
 		Fields:           defaultFields(),
 		AdminPasswordSet: found.AdminPasswordSet,
+	}
+
+	if password, perr := s.DB.PresetAdminPassword(r.Context(), id); perr == nil {
+		data.AdminPassword = password
 	}
 
 	revision, err := s.DB.LatestRevision(r.Context(), id)
@@ -132,12 +255,28 @@ func (s *Server) showPreset(w http.ResponseWriter, r *http.Request, admin model.
 		return
 	}
 	data.Revisions = revisions
-	data.NeedsPublish = data.HasSaved && !data.Revision.Published()
-	if data.NeedsPublish {
-		data.Pending, data.FirstPublish = s.pendingChanges(r, id, data.Revision)
+	// Кого касается предустановка, нужно знать всегда, а не только перед
+	// выкладкой: этим же числом «Убрать» объясняет, почему она недоступна.
+	if data.Employees, data.Machines, err = s.DB.PresetReach(r.Context(), id); err != nil {
+		s.fail(w, err)
+		return
 	}
 
-	s.render(w, r, "preset", page{
+	data.NeedsPublish = data.HasSaved && !data.Revision.Published()
+	if data.NeedsPublish {
+		data.Pending, data.Trouble, data.FirstPublish = s.pendingChanges(r, id, data.Revision)
+	}
+	data.DangerousRollback = s.dangerousRollbacks(data.Fields, revisions)
+
+	// Подставленный раздел показывается поверх сохранённого — но только в
+	// форме: сравнение с выложенным и список ревизий остаются про то, что
+	// действительно лежит в базе.
+	if override != nil {
+		data.Fields = *override
+	}
+	data.Others = otherPresets(list, id)
+
+	s.render(w, r, view, page{
 		Title: found.Name, Section: "presets", Admin: admin, Data: data,
 	})
 }
@@ -147,13 +286,13 @@ func (s *Server) showPreset(w http.ResponseWriter, r *http.Request, admin model.
 // Возвращает ещё и признак «выкладок не было»: на первой выкладке сравнивать
 // не с чем, и пустой список изменений там означал бы «ничего не поменяется» —
 // ровно наоборот тому, что произойдёт.
-func (s *Server) pendingChanges(r *http.Request, presetID int64, latest model.PresetRevision) ([]string, bool) {
+func (s *Server) pendingChanges(r *http.Request, presetID int64, latest model.PresetRevision) (preset.Report, string, bool) {
 	published, err := s.DB.LastPublishedRevision(r.Context(), presetID)
 	if errors.Is(err, storage.ErrNotFound) {
-		return nil, true
+		return preset.Report{}, "", true
 	}
 	if err != nil {
-		return []string{"Не удалось сравнить с выложенной ревизией: " + err.Error()}, false
+		return preset.Report{}, "Не удалось сравнить с выложенной ревизией: " + err.Error(), false
 	}
 
 	before, berr := preset.Parse(published.Payload)
@@ -161,9 +300,31 @@ func (s *Server) pendingChanges(r *http.Request, presetID int64, latest model.Pr
 	if berr != nil || aerr != nil {
 		// Ревизия из будущей схемы: строгий разбор её не берёт. Молчать нельзя —
 		// человек прочтёт пустой список как «ничего не меняется».
-		return []string{"Сравнить не с чем: одна из ревизий собрана схемой, которой эта панель не знает"}, false
+		return preset.Report{}, "Сравнить не с чем: одна из ревизий собрана схемой, которой эта панель не знает", false
 	}
-	return preset.Changes(before, after), false
+	return preset.Grouped(before, after), "", false
+}
+
+// dangerousRollbacks помечает ревизии, откат на которые трогает адреса АТС,
+// стук или доверие к сертификату.
+//
+// Откат остаётся мгновенным — правку готовят заранее, а откатываются, когда на
+// рабочих местах уже сломалось, и второе нажатие в этот момент издевательство.
+// Но у отката, который меняет адрес АТС, цена ошибки та же, что у выкладки, а
+// окна выкладки он не проходит вовсе. Подтверждение спрашивается только у них.
+func (s *Server) dangerousRollbacks(current preset.Fields, revisions []storage.RevisionRow) map[int64]bool {
+	out := make(map[int64]bool, len(revisions))
+	for _, row := range revisions {
+		target, err := preset.Parse(row.Payload)
+		if err != nil {
+			// Разобрать не смогли — считаем опасным: спросить лишний раз
+			// дешевле, чем молча увезти на машины неизвестно что.
+			out[row.ID] = true
+			continue
+		}
+		out[row.ID] = len(preset.Grouped(current, fillGaps(target)).Dangerous) > 0
+	}
+	return out
 }
 
 // rollback возвращает предустановку к прежней ревизии.
@@ -207,7 +368,7 @@ func (s *Server) rollback(w http.ResponseWriter, r *http.Request, admin model.Ad
 		return
 	}
 
-	if _, err := s.Publisher.Publish(r.Context(), actorOf(admin)); err != nil {
+	if _, err := s.Publisher.PublishOnly(r.Context(), actorOf(admin), id); err != nil {
 		// Ревизия уже сохранена, и делать вид, что отката не было, нельзя:
 		// следующая выкладка увезёт именно её.
 		s.flash(r, "bad", "Откат сохранён, но не выложен",
@@ -272,6 +433,60 @@ func (s *Server) savePreset(w http.ResponseWriter, r *http.Request, admin model.
 	s.flash(r, "ok", "Ревизия "+strconv.Itoa(revision.Revision)+" сохранена",
 		"На машины она попадёт после выкладки — нажмите «Выложить».")
 	http.Redirect(w, r, "/presets/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
+// publishPreset выкладывает одну предустановку.
+//
+// Главный путь выкладки. Общая кнопка «Выложить все» осталась на списке, но
+// она — исключение: обычная правка касается одной предустановки, и увозить с
+// ней чужие сохранённые ревизии незачем.
+func (s *Server) publishPreset(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	card := "/presets/" + strconv.FormatInt(id, 10)
+
+	if _, err := s.Publisher.PublishOnly(r.Context(), actorOf(admin), id); err != nil {
+		s.flash(r, "bad", "Не выложено", err.Error())
+		s.back(w, r, card)
+		return
+	}
+
+	s.flash(r, "ok", "Выложено",
+		"Машины подхватят изменения в течение получаса — обновление предустановки обязательное, откладывать его нельзя. Оно ждёт только конца разговора. Невыложенные правки других предустановок остались невыложенными.")
+	s.back(w, r, card)
+}
+
+// deletePreset убирает предустановку из работы.
+//
+// Отдельным действием внизу карточки, как и удаление сотрудника: прокрутив
+// список ревизий, человек оказывается прямо над ним, и попасть сюда случайно
+// с верхних кнопок нельзя.
+func (s *Server) deletePreset(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	card := "/presets/" + strconv.FormatInt(id, 10)
+
+	switch err := s.DB.ArchivePreset(r.Context(), actorOf(admin), id); {
+	case err == nil:
+		s.flash(r, "ok", "Предустановка убрана",
+			"В файл предустановок она больше не попадает. Машины, на которых она стояла, останутся с последними применёнными настройками — панель их больше не меняет.")
+		http.Redirect(w, r, "/presets", http.StatusSeeOther)
+		return
+	case errors.Is(err, storage.ErrPresetInUse):
+		s.flash(r, "bad", "Не убрана",
+			"За ней ещё числятся сотрудники. Переведите их на другую предустановку — иначе ключ им будет не из чего собрать.")
+	case errors.Is(err, storage.ErrNotFound):
+		s.flash(r, "bad", "Не убрана", "Такой предустановки нет или она уже убрана")
+	default:
+		s.flash(r, "bad", "Не убрана", friendly(err))
+	}
+	s.back(w, r, card)
 }
 
 func (s *Server) publish(w http.ResponseWriter, r *http.Request, admin model.Admin) {
@@ -492,4 +707,16 @@ func floatField(r *http.Request, name string) float64 {
 	raw = strings.ReplaceAll(raw, ",", ".")
 	f, _ := strconv.ParseFloat(raw, 64)
 	return f
+}
+
+// otherPresets — все, кроме этой, и только с сохранёнными ревизиями: у пустой
+// брать нечего.
+func otherPresets(list []storage.PresetSummary, id int64) []storage.PresetSummary {
+	out := make([]storage.PresetSummary, 0, len(list))
+	for _, p := range list {
+		if p.ID != id && p.Revision > 0 {
+			out = append(out, p)
+		}
+	}
+	return out
 }

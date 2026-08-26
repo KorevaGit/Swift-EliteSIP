@@ -1,19 +1,19 @@
-/* Оформление панели EliteSIP.
+/* Оформление панели «Элитная поддержка».
  *
- * Язык macOS 26: слоистые полупрозрачные поверхности, системная типографика,
- * капсульные элементы управления. Готового веб-набора для этого не существует —
- * Liquid Glass живёт в SwiftUI, — поэтому здесь он воспроизведён своими
- * средствами. Чужой пакет с npm не берётся сознательно: у панели нет сборки
- * фронта, и заводить её ради оформления значило бы завести и всё остальное.
+ * Язык — Pearl: белое поле, чёрная типографика, широкие поля, волосяные линии
+ * вместо карточек-плашек и ни одной тени. Панель при этом остаётся рабочим
+ * инструментом, а не портфолио: заголовки и формы плотные, таблицы отдают
+ * высоту экрана данным.
  *
- * Три правила, из которых выведено остальное:
- *   1. Цвета живут только в переменных. Ни одного литерального цвета в правилах
- *      ниже — иначе тёмная тема чинится по одному месту за раз и никогда не
- *      сходится целиком.
- *   2. Стекло — улучшение, а не основа. Там, где backdrop-filter не работает,
- *      поверхность остаётся матовой и читаемой.
- *   3. Ширина — не устройство. Раскладка меняется по месту, а не по догадке о
- *      том, что за машина по ту сторону.
+ * Файл писан одним слоем 26 августа 2026 — после того, как срез 25 августа по
+ * ошибке оставил вместо Pearl прежний «стеклянный» слой, от которого уходили.
+ *
+ * Четыре правила, из которых выведено остальное:
+ *   1. Один слой. Каждый селектор объявляется здесь ровно один раз; исключение
+ *      — тёмная тема и брейкпоинты, где второе объявление требует сам язык.
+ *   2. Цвета живут только в переменных.
+ *   3. Поверхностей почти нет: разделяют линия и воздух, а не плашка с тенью.
+ *   4. Ширина — не устройство. Раскладка меняется по месту.
  */
 
 /* ---------------------------------------------------------------- палитра */
@@ -21,1775 +21,75 @@
 :root {
     color-scheme: light dark;
 
-    /* Системный синий macOS. Акцент один на всю панель: второй акцент означал
-     * бы, что где-то есть два главных действия сразу. */
-    --accent: #007aff;
-    --accent-hover: #0071eb;
-    --accent-text: #ffffff;
-
-    --red: #ff3b30;
-    --green: #34c759;
-    --orange: #ff9500;
-
-    --bg: #eceef2;
-    --bg-tint-a: rgba(0, 122, 255, 0.16);
-    --bg-tint-b: rgba(88, 86, 214, 0.12);
-    --bg-tint-c: rgba(255, 149, 0, 0.10);
-
-    --surface: rgba(255, 255, 255, 0.72);
-    --surface-solid: #ffffff;
-    --surface-raised: rgba(255, 255, 255, 0.86);
-    --surface-sunken: rgba(120, 120, 128, 0.08);
-    --surface-hover: rgba(120, 120, 128, 0.10);
-
-    --hairline: rgba(0, 0, 0, 0.10);
-    --hairline-strong: rgba(0, 0, 0, 0.16);
-    --highlight: rgba(255, 255, 255, 0.65);
-
-    --text: #1c1c1e;
-    --text-secondary: rgba(60, 60, 67, 0.62);
-    --text-tertiary: rgba(60, 60, 67, 0.38);
-
-    /* Поверхности лежат плоско, форму держит волосяная линия. Прежняя тень в
-     * 24 точки отрывала каждую карточку от фона и превращала экран в стопку
-     * плашек — в окне «Управления» ничего подобного нет. */
-    --shadow-soft: 0 0.5px 1px rgba(0, 0, 0, 0.05);
-    --shadow-raised: 0 2px 8px rgba(0, 0, 0, 0.10);
-
-    /* Плотность взята числами из Theme.Metrics приложения, а не подобрана на
-     * глаз: панель и «Управление» открывает один и тот же человек в один и тот
-     * же день, и разная плотность читается как две разные программы.
-     *
-     *   contentPadding 12 · sectionSpacing 8 · elementSpacing 6 · tightSpacing 4
-     */
-    --pad: 12px;
-    --pad-tight: 8px;
-    --gap-section: 8px;
-    --gap-element: 6px;
-    --gap-tight: 4px;
-
-    /* Ширина колонки под метки — adminLabelColumn: 132. */
-    --label-column: 132px;
-
-    /* Radius.surface 12, Radius.control 8. Прежние 20 и 9 делали из каждой
-     * карточки плашку, а из панели — набор плашек. */
-    --radius-window: 12px;
-    --radius-card: 10px;
-    --radius-control: 8px;
-    --radius-capsule: 999px;
-
-    --blur: saturate(180%) blur(30px);
-
-    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
-        "Segoe UI", system-ui, sans-serif;
-    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
-}
-
-
-/* Тёмная тема. Приезжает и от системы, и от переключателя: тот, кто сидит в
- * тёмной системе весь день, обычно хочет тёмную панель — но не всегда, а
- * панель открывают надолго. */
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --accent: #0a84ff;
-        --accent-hover: #3f9bff;
-
-        --red: #ff453a;
-        --green: #30d158;
-        --orange: #ff9f0a;
-
-        --bg: #16171a;
-        --bg-tint-a: rgba(10, 132, 255, 0.20);
-        --bg-tint-b: rgba(94, 92, 230, 0.16);
-        --bg-tint-c: rgba(255, 159, 10, 0.10);
-
-        --surface: rgba(44, 46, 51, 0.68);
-        --surface-solid: #1f2125;
-        --surface-raised: rgba(54, 56, 62, 0.82);
-        --surface-sunken: rgba(120, 120, 128, 0.16);
-        --surface-hover: rgba(255, 255, 255, 0.08);
-
-        --hairline: rgba(255, 255, 255, 0.10);
-        --hairline-strong: rgba(255, 255, 255, 0.18);
-        --highlight: rgba(255, 255, 255, 0.10);
-
-        --text: #f2f2f7;
-        --text-secondary: rgba(235, 235, 245, 0.62);
-        --text-tertiary: rgba(235, 235, 245, 0.34);
-
-        --shadow-soft: 0 0.5px 1px rgba(0, 0, 0, 0.35);
-        --shadow-raised: 0 2px 8px rgba(0, 0, 0, 0.5);
-    }
-}
-
-:root[data-theme="dark"] {
-    --accent: #0a84ff;
-    --accent-hover: #3f9bff;
-
-    --red: #ff453a;
-    --green: #30d158;
-    --orange: #ff9f0a;
-
-    --bg: #16171a;
-    --bg-tint-a: rgba(10, 132, 255, 0.20);
-    --bg-tint-b: rgba(94, 92, 230, 0.16);
-    --bg-tint-c: rgba(255, 159, 10, 0.10);
-
-    --surface: rgba(44, 46, 51, 0.68);
-    --surface-solid: #1f2125;
-    --surface-raised: rgba(54, 56, 62, 0.82);
-    --surface-sunken: rgba(120, 120, 128, 0.16);
-    --surface-hover: rgba(255, 255, 255, 0.08);
-
-    --hairline: rgba(255, 255, 255, 0.10);
-    --hairline-strong: rgba(255, 255, 255, 0.18);
-    --highlight: rgba(255, 255, 255, 0.10);
-
-    --text: #f2f2f7;
-    --text-secondary: rgba(235, 235, 245, 0.62);
-    --text-tertiary: rgba(235, 235, 245, 0.34);
-
-    --shadow-soft: 0 0.5px 1px rgba(0, 0, 0, 0.35);
-    --shadow-raised: 0 2px 8px rgba(0, 0, 0, 0.5);
-}
-
-/* ------------------------------------------------------------------ основа */
-
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
-}
-
-html {
-    -webkit-text-size-adjust: 100%;
-}
-
-body {
-    margin: 0;
-    min-height: 100vh;
-    font-family: var(--font);
-    font-size: 13px;
-    line-height: 1.4;
-    color: var(--text);
-    background-color: var(--bg);
-    -webkit-font-smoothing: antialiased;
-}
-
-/* Подложка вместо однотонного фона: стеклу нужно, сквозь что просвечивать.
- * Пятна неподвижны и не анимируются — панель открывают на весь день. */
-body::before {
-    content: "";
-    position: fixed;
-    inset: -20vmax;
-    z-index: -1;
-    background:
-        radial-gradient(42vmax 42vmax at 12% 8%, var(--bg-tint-a), transparent 60%),
-        radial-gradient(38vmax 38vmax at 88% 18%, var(--bg-tint-b), transparent 62%),
-        radial-gradient(46vmax 46vmax at 60% 96%, var(--bg-tint-c), transparent 65%);
-}
-
-a {
-    color: var(--accent);
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-h1, h2, h3 {
-    margin: 0;
-    letter-spacing: -0.01em;
-    font-weight: 600;
-}
-
-/* Заголовок страницы — размером с заголовок окна (13pt semibold), а не с
- * баннер. Двадцать шесть точек занимали в панели место целой строки таблицы и
- * сообщали ровно то же, что подпись выбранного пункта в боковой панели. */
-h1 { font-size: 15px; letter-spacing: -0.01em; }
-h2 { font-size: 13px; }
-h3 { font-size: 12px; }
-
-/* Видимая рамка фокуса обязательна: панель заполняют с клавиатуры, полей в
- * форме предустановки десятки, и потерянный фокус означает потерянное место. */
-:focus-visible {
-    outline: 2.5px solid var(--accent);
-    outline-offset: 2px;
-    border-radius: 4px;
-}
-
-/* --------------------------------------------------------------- раскладка */
-
-.shell {
-    display: grid;
-    grid-template-columns: 180px minmax(0, 1fr);
-    gap: var(--pad);
-    padding: var(--pad);
-    max-width: 1280px;
-    margin: 0 auto;
-    min-height: 100vh;
-
-    /* Без этого min-height растягивает строки сетки, и на узком экране между
-     * шапкой и содержимым появляется провал в полторы сотни точек: шапка стоит
-     * первой строкой и получает половину лишней высоты. Найдено живой
-     * проверкой — по коду это не видно вовсе. */
-    align-content: start;
-}
-
-.sidebar {
-    position: sticky;
-    top: var(--pad);
-    align-self: start;
-    max-height: calc(100vh - var(--pad) * 2);
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-tight);
-    padding: var(--pad-tight);
-    border-radius: var(--radius-window);
-    background: var(--surface);
-    border: 0.5px solid var(--hairline);
-    box-shadow: var(--shadow-soft), inset 0 0.5px 0 var(--highlight);
-}
-
-@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    .sidebar,
-    .card,
-    .toolbar {
-        -webkit-backdrop-filter: var(--blur);
-        backdrop-filter: var(--blur);
-    }
-}
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: var(--gap-element);
-    padding: 2px 4px 10px;
-}
-
-.brand-mark {
-    width: 22px;
-    height: 22px;
-    flex: none;
-    border-radius: 8px;
-    display: grid;
-    place-items: center;
-    color: var(--accent-text);
-    background: linear-gradient(180deg, var(--accent), var(--accent-hover));
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), inset 0 0.5px 0 rgba(255, 255, 255, 0.5);
-}
-
-.brand-name {
-    font-weight: 600;
-    letter-spacing: -0.01em;
-}
-
-.brand-name {
-    font-size: 12px;
-}
-
-.brand-note {
-    font-size: 10px;
-    color: var(--text-secondary);
-}
-
-.nav {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow-y: auto;
-}
-
-/* Шаг строки как в системном сайдбаре: значок 15, поле 4/8. Прежние 7/10 при
- * пяти пунктах давали боковой панели высоту, которой ей нечем занять. */
-.nav-item {
-    display: flex;
-    align-items: center;
-    gap: var(--gap-element);
-    padding: 4px 8px;
-    border-radius: var(--gap-element);
-    color: var(--text);
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.nav-item:hover {
-    background: var(--surface-hover);
-    text-decoration: none;
-}
-
-.nav-item[aria-current="page"] {
-    background: var(--accent);
-    color: var(--accent-text);
-}
-
-/* Значок подписан рядом текстом всегда. Значок без подписи на чужом рабочем
- * месте просто не находят — та же беда, что со значком в строке меню. */
-.nav-item svg {
-    width: 15px;
-    height: 15px;
-    flex: none;
-    opacity: 0.9;
-}
-
-.sidebar-footer {
-    margin-top: auto;
-    padding-top: var(--pad-tight);
-    border-top: 0.5px solid var(--hairline);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.who {
-    min-width: 0;
-    font-size: 11px;
-}
-
-.who strong {
-    display: block;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.who span {
-    color: var(--text-secondary);
-}
-
-.main {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-section);
-}
-
-.toolbar {
-    display: flex;
-    align-items: center;
-    gap: var(--pad-tight);
-    flex-wrap: wrap;
-    padding: var(--pad-tight) var(--pad);
-    border-radius: var(--radius-window);
-    background: var(--surface);
-    border: 0.5px solid var(--hairline);
-    box-shadow: var(--shadow-soft), inset 0 0.5px 0 var(--highlight);
-}
-
-.toolbar-title {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    margin-right: auto;
-    min-width: 0;
-}
-
-.toolbar-title p {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 11px;
-}
-
-/* ------------------------------------------------------------------ блоки */
-
-.card {
-    border-radius: var(--radius-window);
-    background: var(--surface);
-    border: 0.5px solid var(--hairline);
-    box-shadow: var(--shadow-soft), inset 0 0.5px 0 var(--highlight);
-    overflow: hidden;
-}
-
-.card-head {
-    display: flex;
-    align-items: center;
-    gap: var(--pad-tight);
-    padding: var(--pad-tight) var(--pad);
-    border-bottom: 0.5px solid var(--hairline);
-}
-
-.card-head h2 {
-    margin-right: auto;
-}
-
-.card-body {
-    padding: var(--pad);
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-section);
-}
-
-/* Кнопка в колонке карточки тянется во всю ширину, если её не остановить, —
-   и «Удалить» во всю ширину читается как полоса, а не как кнопка. */
-.card-body > .button,
-.card-body > form > .button {
-    align-self: flex-start;
-}
-
-.card-note {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 11px;
-    line-height: 1.45;
-}
-
-/* Опасное отделяется от безобидного цветом рамки, а не одним лишь положением
-   внизу страницы: прокрутив список машин, человек оказывается прямо над
-   кнопкой удаления. */
-.card-danger {
-    border-color: color-mix(in srgb, var(--red) 40%, var(--hairline));
-}
-
-.card-danger .card-head h2 {
-    color: var(--red);
-}
-
-/* Две колонки только там, где им есть где стоять. Порог тот же, что у окна
-   «Управления» (adminTwoColumnThreshold: 700): ниже него колонки сжимаются до
-   ширины, на которой подпись поля не помещается в строку. */
-.grid {
-    display: grid;
-    gap: var(--gap-section);
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-}
-
-/* --------------------------------------------------------------- элементы */
-
-.button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--gap-tight);
-    padding: 4px 10px;
-    border: 0.5px solid var(--hairline-strong);
-    border-radius: var(--radius-capsule);
-    background: var(--surface-raised);
-    color: var(--text);
-    font: inherit;
-    font-weight: 500;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 0.5px 0 var(--highlight);
-    transition: background-color 0.12s ease, transform 0.06s ease;
-}
-
-.button:hover {
-    background: var(--surface-solid);
-    text-decoration: none;
-}
-
-.button:active {
-    transform: scale(0.98);
-}
-
-.button-primary {
-    background: var(--accent);
-    border-color: transparent;
-    color: var(--accent-text);
-}
-
-.button-primary:hover {
-    background: var(--accent-hover);
-}
-
-.button-danger {
-    color: var(--red);
-}
-
-.button-quiet {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-    color: var(--text-secondary);
-}
-
-.button-quiet:hover {
-    background: var(--surface-hover);
-}
-
-.button[disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-tight);
-    min-width: 0;
-}
-
-/* Форма из нескольких полей и одной кнопки. Без неё поля слипаются: .card-body
-   раздаёт свой промежуток прямым детям, а внутри формы их некому раздать. */
-.stack {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-element);
-    align-items: flex-start;
-}
-
-.stack > .field {
-    align-self: stretch;
-}
-
-.field > label,
-.field-label {
-    font-size: 11px;
-    font-weight: 590;
-    color: var(--text-secondary);
-}
-
-.field-hint {
-    font-size: 11px;
-    line-height: 1.4;
-    color: var(--text-tertiary);
-}
-
-/* Метка уходит в левую колонку — так стоит вся форма «Управления»
-   (adminLabelColumn: 132).
-   
-   Это не украшение, а половина всей плотности: метка над полем удваивает
-   высоту каждой строки формы, и карточка из четырёх полей занимает экран,
-   которому нечего показать, кроме четырёх полей.
-   
-   Только в вертикальных формах (.stack). В горизонтальных рядах — форма
-   заведения сотрудника, поиск, ряды предустановки — метка остаётся сверху:
-   там поля стоят бок о бок, и колонка слева у каждого разорвала бы ряд. */
-@media (min-width: 620px) {
-    .stack > .field {
-        display: grid;
-        grid-template-columns: var(--label-column) minmax(0, 1fr);
-        align-items: first baseline;
-        column-gap: var(--pad-tight);
-        row-gap: 2px;
-    }
-
-    /* Метка прижата к полю, а не к левому краю: глаз ведёт от подписи к
-       значению по кратчайшему пути, и рваный левый край колонки здесь мешает
-       меньше, чем рваный промежуток посередине. */
-    .stack > .field > label {
-        grid-column: 1;
-        text-align: right;
-        /* Поле — 7px поля плюс волосяная рамка; метка садится на ту же
-           базовую линию, что и текст внутри поля. */
-        padding-top: 1px;
-    }
-
-    .stack > .field > :not(label) {
-        grid-column: 2;
-    }
-}
-
-input[type="text"],
-input[type="password"],
-input[type="number"],
-input[type="search"],
-select,
-textarea {
-    width: 100%;
-    padding: 5px 8px;
-    font: inherit;
-    color: var(--text);
-    background: var(--surface-solid);
-    border: 0.5px solid var(--hairline-strong);
-    border-radius: var(--radius-control);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-/* Поиск стоит в шапке карточки, рядом с её названием. Поля там ужимаются до
-   содержимого, а не растягиваются: растянутые они выдавливают кнопку на
-   вторую строку, и шапка становится в три раза выше самой себя. */
-.search {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.search input,
-.search select {
-    flex: 0 0 auto;
-    width: auto;
-}
-
-/* Ширина задана явно: без неё поле берёт всю свободную ширину шапки и
-   выдавливает кнопку на вторую строку. */
-.search input {
-    width: 200px;
-}
-
-input::placeholder {
-    color: var(--text-tertiary);
-}
-
-input[readonly] {
-    background: var(--surface-sunken);
-    color: var(--text-secondary);
-}
-
-textarea {
-    resize: vertical;
-    min-height: 72px;
-    font-family: var(--font-mono);
-    font-size: 12.5px;
-}
-
-.mono {
-    font-family: var(--font-mono);
-}
-
-/* Тумблер в виде системного переключателя, а не галочки: у него два ясных
- * состояния, и промах по нему не меняет значение молча, как у ползунка. */
-.switch {
-    display: flex;
-    align-items: center;
-    gap: var(--pad-tight);
-    cursor: pointer;
-}
-
-.switch input {
-    appearance: none;
-    margin: 0;
-    width: 32px;
-    height: 20px;
-    flex: none;
-    border-radius: var(--radius-capsule);
-    background: var(--surface-sunken);
-    border: 0.5px solid var(--hairline);
-    position: relative;
-    cursor: pointer;
-    transition: background-color 0.18s ease;
-}
-
-.switch input::after {
-    content: "";
-    position: absolute;
-    top: 1.5px;
-    left: 1.5px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #ffffff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    transition: transform 0.18s ease;
-}
-
-.switch input:checked {
-    background: var(--green);
-    border-color: transparent;
-}
-
-.switch input:checked::after {
-    transform: translateX(12px);
-}
-
-.switch-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
-.switch-text small {
-    color: var(--text-secondary);
-    font-size: 11px;
-    line-height: 1.35;
-}
-
-/* ---------------------------------------------------------------- таблицы */
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-/* Строки таблицы плотнее прежнего почти вдвое: списки читают глазами сверху
-   вниз, и лишний воздух между строками заставляет прокручивать там, где всё
-   помещалось на экран. */
-.table th {
-    text-align: left;
-    font-size: 10px;
-    font-weight: 590;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-tertiary);
-    padding: var(--gap-tight) var(--pad);
-    border-bottom: 0.5px solid var(--hairline);
-}
-
-.table td {
-    padding: var(--gap-element) var(--pad);
-    border-bottom: 0.5px solid var(--hairline);
-    vertical-align: middle;
-}
-
-.table tr:last-child td {
-    border-bottom: none;
-}
-
-.table tbody tr:hover {
-    background: var(--surface-hover);
-}
-
-.table .cell-actions {
-    text-align: right;
-    white-space: nowrap;
-}
-
-.primary-cell {
-    font-weight: 590;
-}
-
-.sub {
-    color: var(--text-secondary);
-    font-size: 12.5px;
-}
-
-/* --------------------------------------------------------------- значки */
-
-.badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 2px 9px;
-    border-radius: var(--radius-capsule);
-    font-size: 12px;
-    font-weight: 500;
-    background: var(--surface-sunken);
-    color: var(--text-secondary);
-    white-space: nowrap;
-}
-
-.badge::before {
-    content: "";
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-}
-
-.badge-ok { color: var(--green); }
-.badge-wait { color: var(--orange); }
-.badge-off { color: var(--text-tertiary); }
-.badge-bad { color: var(--red); }
-.badge-plain::before { display: none; }
-
-/* --------------------------------------------------------------- сообщения */
-
-.notice {
-    display: flex;
-    gap: var(--pad-tight);
-    align-items: flex-start;
-    padding: var(--pad-tight) var(--pad);
-    border-radius: var(--radius-card);
-    border: 0.5px solid var(--hairline);
-    background: var(--surface-raised);
-}
-
-.notice-bad {
-    border-color: color-mix(in srgb, var(--red) 40%, transparent);
-    background: color-mix(in srgb, var(--red) 12%, var(--surface-raised));
-}
-
-.notice-warn {
-    border-color: color-mix(in srgb, var(--orange) 40%, transparent);
-    background: color-mix(in srgb, var(--orange) 12%, var(--surface-raised));
-}
-
-.notice-ok {
-    border-color: color-mix(in srgb, var(--green) 40%, transparent);
-    background: color-mix(in srgb, var(--green) 12%, var(--surface-raised));
-}
-
-.notice p {
-    margin: 0;
-}
-
-.notice strong {
-    display: block;
-    margin-bottom: 2px;
-}
-
-/* Пустое место здесь осмысленное — оно говорит «тут ничего нет», — но сорок
-   точек сверху и снизу говорили это громче, чем нужно. */
-.empty {
-    padding: 20px var(--pad);
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 11px;
-}
-
-.empty strong {
-    display: block;
-    color: var(--text);
-    font-size: 13px;
-    margin-bottom: 2px;
-}
-
-/* ------------------------------------------------------------------- вход */
-
-.login {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-}
-
-.login-card {
-    width: min(320px, 100%);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: var(--pad);
-    text-align: center;
-    border-radius: var(--radius-window);
-    background: var(--surface);
-    border: 0.5px solid var(--hairline);
-    box-shadow: var(--shadow-raised), inset 0 0.5px 0 var(--highlight);
-    -webkit-backdrop-filter: var(--blur);
-    backdrop-filter: var(--blur);
-}
-
-.login-card .brand-mark {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    margin: 0 auto;
-}
-
-.login-card form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    text-align: left;
-}
-
-/* ------------------------------------------------------------ ключ разово */
-
-/* Выданный ключ показывается один раз и больше не восстанавливается ниоткуда.
- * Поэтому он не строка в таблице, а отдельный крупный блок, который трудно
- * пролистать мимо. */
-.key-reveal {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-element);
-    align-items: center;
-    padding: var(--pad);
-    border-radius: var(--radius-card);
-    background: var(--surface-sunken);
-    border: 0.5px dashed var(--hairline-strong);
-}
-
-.key-value {
-    font-family: var(--font-mono);
-    font-size: clamp(18px, 4vw, 24px);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    user-select: all;
-    word-break: break-all;
-    text-align: center;
-}
-
-/* Готовое сообщение показывается ровно так, как уедет в мессенджер: своими
-   переносами и пустыми строками. Отформатировать его «красиво» значило бы
-   показать не то, что скопируется. */
-.message {
-    margin: 0;
-    align-self: stretch;
-    max-height: 220px;
-    overflow: auto;
-    padding: var(--pad-tight) var(--pad);
-    border-radius: var(--radius-control);
-    background: var(--surface-solid);
-    border: 0.5px solid var(--hairline);
-    font: inherit;
-    font-size: 12px;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    word-break: break-word;
-    user-select: all;
-}
-
-/* --------------------------------------------------- разделы предустановки */
-
-/* Свёрнуты намеренно, а не ради красоты: форму открывают раз в квартал, забыв
-   её устройство, и любая случайно тронутая мелочь уезжает на все машины
-   обязательным обновлением, которое сотрудник не может отложить. */
-.section > summary {
-    cursor: pointer;
-    list-style: none;
-}
-
-.section > summary::-webkit-details-marker {
-    display: none;
-}
-
-.section > summary::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-right: 1.5px solid var(--text-tertiary);
-    border-bottom: 1.5px solid var(--text-tertiary);
-    transform: rotate(-45deg);
-    transition: transform 0.15s ease;
-}
-
-.section[open] > summary::before {
-    transform: rotate(45deg);
-}
-
-.section[open] > summary {
-    border-bottom: 0.5px solid var(--hairline);
-}
-
-.section:not([open]) > summary {
-    border-bottom: 0;
-}
-
-.lock-mark {
-    margin-left: 8px;
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: var(--surface-sunken);
-    border: 0.5px solid var(--hairline-strong);
-    color: var(--text-tertiary);
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0.02em;
-    vertical-align: middle;
-}
-
-/* Запертое видно, но не трогается. inert, а не disabled: disabled не отправил
-   бы поля в форме вовсе, и сохранение из-под замка стёрло бы адрес АТС. */
-.locked {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    opacity: 0.55;
-}
-
-.changes {
-    margin: 0;
-    padding-left: 18px;
-    font-size: 12px;
-    line-height: 1.55;
-}
-
-.card-pending {
-    border-color: color-mix(in srgb, var(--orange) 45%, var(--hairline));
-}
-
-/* ------------------------------------------------------------------ обзор */
-
-.tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--gap-section);
-}
-
-.tile {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    padding: var(--pad);
-    border-radius: var(--radius-card);
-    background: var(--surface);
-    border: 0.5px solid var(--hairline);
-    box-shadow: var(--shadow-soft), inset 0 0.5px 0 var(--highlight);
-    color: inherit;
-    text-decoration: none;
-}
-
-a.tile:hover {
-    border-color: var(--hairline-strong);
-}
-
-.tile-value {
-    font-size: 22px;
-    font-weight: 600;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-}
-
-.tile-name {
-    color: var(--text-secondary);
-    font-size: 11px;
-}
-
-.tile-note {
-    margin-top: var(--gap-tight);
-    color: var(--text-tertiary);
-    font-size: 10px;
-    line-height: 1.35;
-}
-
-.ends {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.end {
-    display: flex;
-    gap: var(--pad-tight);
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    padding: var(--gap-element) var(--pad);
-    border-bottom: 0.5px solid var(--hairline);
-    font-size: 12px;
-}
-
-.end:last-child {
-    border-bottom: 0;
-}
-
-/* Цветная метка слева, а не значок: три вида дел, и различать их надо боковым
-   зрением, пролистывая список. */
-.end {
-    border-left: 3px solid transparent;
-}
-
-.end-preset { border-left-color: var(--accent); }
-.end-key { border-left-color: var(--orange); }
-.end-employee { border-left-color: var(--red); }
-
-/* Инструкции свёрнуты: их четыре, читают по одной, и развёрнутые они делают
-   экран длиннее того, ради чего его открыли. */
-.howto {
-    border-top: 0.5px solid var(--hairline);
-    padding-top: var(--pad-tight);
-}
-
-.howto:first-of-type {
-    border-top: 0;
-    padding-top: 0;
-}
-
-.howto > summary {
-    cursor: pointer;
-    font-weight: 590;
-}
-
-.howto ol,
-.howto p {
-    margin: var(--gap-element) 0 0;
-    color: var(--text-secondary);
-    font-size: 11px;
-    line-height: 1.5;
-}
-
-.howto ol {
-    padding-left: 20px;
-}
-
-/* ------------------------------------------------------------------- окна */
-
-/* Подтверждение с длинными последствиями. window.confirm сюда не годится:
-   он показывает одну строку без списка и без выделения главного. */
-.sheet {
-    width: min(420px, calc(100vw - 32px));
-    padding: var(--pad);
-    border: 0.5px solid var(--hairline-strong);
-    border-radius: var(--radius-window);
-    background: var(--surface-solid);
-    color: var(--text);
-    box-shadow: var(--shadow-soft);
-}
-
-.sheet::backdrop {
-    background: rgba(0, 0, 0, 0.4);
-}
-
-.sheet h2 {
-    margin: 0 0 var(--pad-tight);
-}
-
-.sheet p {
-    margin: 0 0 var(--gap-element);
-    color: var(--text-secondary);
-    font-size: 11px;
-    line-height: 1.45;
-}
-
-.sheet ul {
-    margin: 0 0 var(--pad-tight);
-    padding-left: 18px;
-    color: var(--text-secondary);
-    font-size: 11px;
-    line-height: 1.5;
-}
-
-.sheet-actions {
-    display: flex;
-    gap: var(--gap-element);
-    justify-content: flex-end;
-    align-items: center;
-    margin-top: var(--pad);
-}
-
-/* ------------------------------------------------------------- адаптивность */
-
-/* Порог по месту, а не по устройству: боковая панель перестаёт помещаться
- * рядом с содержимым примерно здесь — и на узком окне ноутбука тоже. */
-@media (max-width: 900px) {
-    .shell {
-        grid-template-columns: minmax(0, 1fr);
-        padding: 10px;
-        gap: 12px;
-    }
-
-    .sidebar {
-        position: sticky;
-        top: 10px;
-        z-index: 10;
-        max-height: none;
-        padding: 10px;
-        gap: 10px;
-    }
-
-    .brand {
-        padding: 2px 4px;
-    }
-
-    /* Разделы уезжают в горизонтальный ряд с прокруткой — так же, как вкладки
-     * в системных приложениях на узком окне. Прятать их за раскрывашку нельзя:
-     * спрятанный раздел на чужом рабочем месте просто не находят. */
-    .nav {
-        flex-direction: row;
-        overflow-x: auto;
-        scrollbar-width: none;
-        gap: 6px;
-        margin: 0 -4px;
-        padding: 0 4px 2px;
-    }
-
-    .nav::-webkit-scrollbar {
-        display: none;
-    }
-
-    .nav-item {
-        padding: 6px 12px;
-        background: var(--surface-sunken);
-    }
-
-    .sidebar-footer {
-        padding-top: 10px;
-    }
-
-    .toolbar {
-        padding: 12px 14px;
-    }
-
-    .card-body,
-    .table th,
-    .table td {
-        padding-left: 14px;
-        padding-right: 14px;
-    }
-}
-
-/* Таблица на узком экране становится списком карточек: горизонтальная
- * прокрутка таблицы читается хуже всего именно там, где экран меньше. */
-@media (max-width: 620px) {
-    .table thead {
-        display: none;
-    }
-
-    .table,
-    .table tbody,
-    .table tr,
-    .table td {
-        display: block;
-        width: 100%;
-    }
-
-    .table tr {
-        padding: 12px 14px;
-        border-bottom: 0.5px solid var(--hairline);
-    }
-
-    .table td {
-        padding: 2px 0;
-        border: none;
-        display: flex;
-        gap: 10px;
-        align-items: baseline;
-    }
-
-    .table td::before {
-        content: attr(data-label);
-        flex: none;
-        min-width: 92px;
-        font-size: 12px;
-        color: var(--text-tertiary);
-    }
-
-    .table .cell-actions {
-        text-align: left;
-        padding-top: 10px;
-        flex-wrap: wrap;
-    }
-
-    .table .cell-actions::before {
-        display: none;
-    }
-
-    h1 { font-size: 22px; }
-}
-
-/* Движение выключается, если система об этом просит. */
-@media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
-}
-}
-
-/* ------------------------------------------------------ цельная оболочка */
-
-/*
- * Редизайн 25 августа 2026: язык macOS-клиента ChatGPT.
- *
- * Структурные блоки больше не выглядят отдельными плавающими окнами. Один
- * сайдбар и одна рабочая плоскость держат весь экран; внутри форму задают
- * типографика, воздух и волосяные разделители. Ограниченные поверхности
- * остаются только там, где граница несёт смысл: предупреждение, одноразовый
- * ключ, подтверждение и вход.
- */
-
-:root {
-    --bg: #f7f7f8;
-    --surface: #ffffff;
-    --surface-solid: #ffffff;
-    --surface-raised: #f7f7f8;
-    --surface-sunken: rgba(0, 0, 0, 0.045);
-    --surface-hover: rgba(0, 0, 0, 0.045);
-    --hairline: rgba(0, 0, 0, 0.10);
-    --hairline-strong: rgba(0, 0, 0, 0.16);
-    --text: #202123;
-    --text-secondary: #6e6e73;
-    --text-tertiary: #99999f;
-    --radius-window: 12px;
-    --radius-card: 10px;
-    --radius-control: 6px;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --bg: #171717;
-        --surface: #212121;
-        --surface-solid: #2b2b2b;
-        --surface-raised: #2b2b2b;
-        --surface-sunken: rgba(255, 255, 255, 0.055);
-        --surface-hover: rgba(255, 255, 255, 0.065);
-        --hairline: rgba(255, 255, 255, 0.10);
-        --hairline-strong: rgba(255, 255, 255, 0.16);
-        --text: #ececf1;
-        --text-secondary: #a1a1a8;
-        --text-tertiary: #77777f;
-    }
-}
-
-:root[data-theme="dark"] {
-    --bg: #171717;
-    --surface: #212121;
-    --surface-solid: #2b2b2b;
-    --surface-raised: #2b2b2b;
-    --surface-sunken: rgba(255, 255, 255, 0.055);
-    --surface-hover: rgba(255, 255, 255, 0.065);
-    --hairline: rgba(255, 255, 255, 0.10);
-    --hairline-strong: rgba(255, 255, 255, 0.16);
-    --text: #ececf1;
-    --text-secondary: #a1a1a8;
-    --text-tertiary: #77777f;
-}
-
-body::before {
-    display: none;
-}
-
-.shell {
-    grid-template-columns: 232px minmax(0, 1fr);
-    gap: 0;
-    padding: 0;
-    max-width: none;
-    min-height: 100vh;
-    margin: 0;
-    align-content: stretch;
-}
-
-.sidebar {
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    max-height: none;
-    padding: 12px;
-    gap: 12px;
-    border: 0;
-    border-right: 1px solid var(--hairline);
-    border-radius: 0;
-    background: var(--bg);
-    box-shadow: none;
-}
-
-.brand {
-    gap: 9px;
-    padding: 3px 8px 9px;
-}
-
-.brand-mark {
-    display: block;
-    width: 28px;
-    height: 28px;
-    flex: none;
-    border-radius: 8px;
-    object-fit: cover;
-    color: inherit;
-    background: transparent;
-    box-shadow: none;
-}
-
-.brand-name {
-    font-size: 13px;
-}
-
-.brand-note {
-    font-size: 10px;
-}
-
-.nav {
-    gap: 2px;
-}
-
-.nav-item {
-    min-height: 32px;
-    gap: 9px;
-    padding: 6px 9px;
-    border-radius: 8px;
-    color: var(--text-secondary);
-    font-weight: 450;
-}
-
-.nav-item:hover {
-    color: var(--text);
-}
-
-.nav-item[aria-current="page"] {
-    background: var(--surface-hover);
-    color: var(--text);
-    font-weight: 600;
-}
-
-.sidebar-footer {
-    padding: 12px 6px 2px;
-}
-
-.main {
-    gap: 0;
-    min-height: 100vh;
-    background: var(--surface);
-}
-
-.toolbar {
-    min-height: 82px;
-    padding: 20px 32px;
-    gap: 16px;
-    border: 0;
-    border-bottom: 1px solid var(--hairline);
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-.toolbar-title {
-    gap: 3px;
-}
-
-.toolbar-title h1 {
-    font-size: 22px;
-    line-height: 1.2;
-    letter-spacing: -0.025em;
-}
-
-.toolbar-title p {
-    max-width: 720px;
-    font-size: 12px;
-    line-height: 1.4;
-}
-
-.card {
-    border: 0;
-    border-bottom: 1px solid var(--hairline);
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    overflow: visible;
-}
-
-.main > .card:last-child {
-    border-bottom: 0;
-}
-
-.card-head {
-    min-height: 44px;
-    padding: 20px 32px 8px;
-    border: 0;
-}
-
-.card-head h2 {
-    font-size: 14px;
-}
-
-.card-body {
-    padding: 8px 32px 24px;
-    gap: 12px;
-}
-
-.card-note {
-    max-width: 820px;
-    font-size: 12px;
-}
-
-.card-danger {
-    border: 0;
-    border-top: 1px solid color-mix(in srgb, var(--red) 28%, var(--hairline));
-}
-
-.grid {
-    gap: 0;
-    border-bottom: 1px solid var(--hairline);
-}
-
-.grid > .card {
-    border-bottom: 0;
-}
-
-@media (min-width: 901px) {
-    .grid > .card + .card {
-        border-left: 1px solid var(--hairline);
-    }
-}
-
-.tiles {
-    display: flex;
-    gap: 0;
-    padding: 0 32px;
-    border-bottom: 1px solid var(--hairline);
-}
-
-.tile {
-    min-width: 150px;
-    flex: 0 1 220px;
-    padding: 16px 28px 16px 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-.tile + .tile {
-    padding-left: 28px;
-    border-left: 1px solid var(--hairline);
-}
-
-a.tile:hover {
-    border-color: var(--hairline);
-    background: var(--surface-hover);
-}
-
-.tile-value {
-    font-size: 21px;
-}
-
-.tile-name {
-    font-size: 11px;
-}
-
-.button {
-    min-height: 30px;
-    padding: 5px 11px;
-    border-radius: var(--radius-control);
-    background: var(--surface-raised);
-    box-shadow: none;
-}
-
-.button-primary {
-    background: var(--accent);
-}
-
-.button-quiet {
-    background: transparent;
-}
-
-input[type="text"],
-input[type="password"],
-input[type="number"],
-input[type="search"],
-select {
-    min-height: 32px;
-    padding: 6px 9px;
-    border-radius: var(--radius-control);
-    box-shadow: none;
-}
-
-textarea {
-    border-radius: var(--radius-control);
-    box-shadow: none;
-}
-
-.table th {
-    padding: 7px 32px;
-    background: var(--surface-sunken);
-}
-
-.table td {
-    min-height: 44px;
-    padding: 10px 32px;
-}
-
-.notice {
-    margin: 12px 32px;
-    padding: 11px 13px;
-    border-radius: var(--radius-card);
-}
-
-.card-body > .notice,
-.key-reveal .notice {
-    margin: 0;
-}
-
-.empty {
-    padding: 36px 32px;
-}
-
-.ends {
-    padding: 0 32px 20px;
-}
-
-.end {
-    padding: 11px 0 11px 14px;
-}
-
-.howto {
-    padding: 12px 0;
-}
-
-.section > summary {
-    padding: 14px 32px;
-}
-
-.section[open] > summary {
-    border-bottom: 1px solid var(--hairline);
-}
-
-.section > .card-body {
-    padding-top: 20px;
-}
-
-.login {
-    background: var(--bg);
-}
-
-.login-card {
-    width: min(360px, 100%);
-    padding: 28px;
-    gap: 16px;
-    border-radius: 14px;
-    background: var(--surface);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-}
-
-.login-card .brand-mark {
-    width: 52px;
-    height: 52px;
-    margin: 0 auto;
-    border-radius: 13px;
-}
-
-@media (max-width: 900px) {
-    .shell {
-        grid-template-columns: minmax(0, 1fr);
-        padding: 0;
-        gap: 0;
-    }
-
-    .sidebar {
-        top: 0;
-        height: auto;
-        padding: 10px 12px;
-        gap: 8px;
-        border: 0;
-        border-bottom: 1px solid var(--hairline);
-        border-radius: 0;
-    }
-
-    .brand {
-        padding: 0 4px;
-    }
-
-    .nav {
-        margin: 0 -4px;
-    }
-
-    .nav-item {
-        background: transparent;
-    }
-
-    .nav-item[aria-current="page"] {
-        background: var(--surface-hover);
-    }
-
-    .sidebar-footer {
-        padding: 7px 4px 0;
-    }
-
-    .toolbar {
-        padding: 18px 20px;
-    }
-
-    .card-head,
-    .card-body,
-    .tiles,
-    .table th,
-    .table td {
-        padding-left: 20px;
-        padding-right: 20px;
-    }
-
-    .notice {
-        margin-left: 20px;
-        margin-right: 20px;
-    }
-
-    .ends {
-        padding-left: 20px;
-        padding-right: 20px;
-    }
-
-    .grid > .card + .card {
-        border-top: 1px solid var(--hairline);
-    }
-}
-
-@media (max-width: 620px) {
-    .toolbar {
-        align-items: flex-start;
-        padding: 16px;
-    }
-
-    .toolbar-title h1 {
-        font-size: 20px;
-    }
-
-    .tiles {
-        padding: 0 16px;
-        overflow-x: auto;
-    }
-
-    .tile {
-        min-width: 132px;
-        padding: 14px 18px 14px 0;
-    }
-
-    .tile + .tile {
-        padding-left: 18px;
-    }
-
-    .card-head,
-    .card-body,
-    .notice,
-    .ends {
-        margin-left: 0;
-        margin-right: 0;
-        padding-left: 16px;
-        padding-right: 16px;
-    }
-
-    .table tr {
-        padding: 12px 16px;
-    }
-
-    .section > summary,
-    .section > .card-body {
-        padding-left: 16px;
-        padding-right: 16px;
-    }
-}
-
-/* Строка, на которую пришли поиском по ключу.
- *
- * Подсветка живёт три секунды и гаснет: она отвечает на «который из них», а не
- * помечает строку навсегда. Оставленная насовсем, она сбивала бы с толку того,
- * кто откроет карточку следующим по своему делу. */
-.row-found > td {
-    background: var(--accent-soft, rgba(255, 214, 102, 0.18));
-    animation: found-fade 3s ease-out forwards;
-}
-
-@keyframes found-fade {
-    to { background: transparent; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .row-found > td { animation: none; }
-}
-
-/* ---------------------------------------------------------- Pearl / web UI */
-
-/*
- * Утверждённый редизайн 25 августа 2026 основан на ритме Pearl: верхняя
- * навигация, крупная типографика, широкие поля и редкие спокойные поверхности.
- * Это не портфолио поверх панели: таблицы, формы и предупреждения остаются
- * рабочими элементами, а характер задают масштаб, воздух и тональные переходы.
- */
-
-:root {
-    color-scheme: light dark;
+    /* Акцент — сам текст: главная кнопка чёрная, и второго цвета действия в
+     * панели нет. Жёлтый живёт только в марке и ничего не размечает. */
     --accent: #000000;
     --accent-hover: #333333;
     --accent-text: #ffffff;
+
     --red: #b33a35;
     --green: #287a45;
     --orange: #a56416;
+
     --bg: #ffffff;
     --surface: #ffffff;
     --surface-solid: #ffffff;
     --surface-raised: #f2f2f4;
     --surface-sunken: #f2f2f4;
     --surface-hover: #f2f2f4;
+
     --hairline: #d9d9d9;
     --hairline-strong: #bcbcbc;
+
     --text: #000000;
     --text-secondary: #666666;
     --text-tertiary: #969696;
-    --radius-window: 24px;
-    --radius-card: 24px;
+
+    --radius-card: 14px;
     --radius-control: 12px;
     --radius-capsule: 999px;
+
+    /* Высота шапки. Отсюда же считается верх страницы и отступ прилипших
+     * элементов — число одно, и меняется оно в одном месте. */
+    --head: 64px;
+    --gutter: 48px;
+
+    --gap-section: 16px;
+    --gap-element: 12px;
+    --gap-tight: 6px;
+
+    /* Ширина колонки под метки в вертикальных формах. */
+    --label-column: 132px;
+
     --font: "Manrope", -apple-system, BlinkMacSystemFont, "Helvetica Neue",
         "Segoe UI", system-ui, sans-serif;
     --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 }
 
+/* Тёмная тема объявлена дважды, и это единственное место, где повтор
+ * неизбежен: значения нужны и под системной темой, и под ручным выбором, а
+ * объединить медиа-условие с обычным селектором в один список язык не даёт.
+ * Правило при правке: менять оба блока разом. */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
         --accent: #f5f5f5;
         --accent-hover: #d8d8d8;
         --accent-text: #111111;
+
         --red: #e06a64;
         --green: #67b782;
         --orange: #d9a45d;
+
         --bg: #111111;
         --surface: #111111;
         --surface-solid: #1c1c1c;
         --surface-raised: #1c1c1c;
         --surface-sunken: #1c1c1c;
         --surface-hover: #222222;
+
         --hairline: #343434;
         --hairline-strong: #4b4b4b;
+
         --text: #f5f5f5;
         --text-secondary: #a5a5a5;
         --text-tertiary: #777777;
@@ -1800,96 +100,109 @@ textarea {
     --accent: #f5f5f5;
     --accent-hover: #d8d8d8;
     --accent-text: #111111;
+
     --red: #e06a64;
     --green: #67b782;
     --orange: #d9a45d;
+
     --bg: #111111;
     --surface: #111111;
     --surface-solid: #1c1c1c;
     --surface-raised: #1c1c1c;
     --surface-sunken: #1c1c1c;
     --surface-hover: #222222;
+
     --hairline: #343434;
     --hairline-strong: #4b4b4b;
+
     --text: #f5f5f5;
     --text-secondary: #a5a5a5;
     --text-tertiary: #777777;
 }
 
+
+/* ------------------------------------------------------------------ основа */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
 html {
+    -webkit-text-size-adjust: 100%;
     background: var(--bg);
 }
 
 body {
-    min-width: 0;
+    margin: 0;
+    min-height: 100vh;
     overflow-x: hidden;
     font-family: var(--font);
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1.45;
     font-weight: 500;
     color: var(--text);
     background: var(--bg);
+    -webkit-font-smoothing: antialiased;
 }
 
-body::before {
-    display: none;
-}
-
-a {
-    color: inherit;
-}
+a { color: inherit; text-decoration: none; }
 
 a:hover {
+    text-decoration: underline;
     text-decoration-color: var(--text-tertiary);
     text-underline-offset: 4px;
 }
 
-h1,
-h2,
-h3 {
-    font-weight: 500;
-    letter-spacing: -0.025em;
-}
+h1, h2, h3 { margin: 0; font-weight: 500; letter-spacing: -0.035em; }
+h1 { font-size: 32px; line-height: 1.14; }
+h2 { font-size: 19px; line-height: 1.3; letter-spacing: -0.025em; }
+h3 { font-size: 16px; line-height: 1.35; letter-spacing: -0.02em; }
 
-h1 { font-size: clamp(32px, 3.4vw, 48px); line-height: 1.12; }
-h2 { font-size: 24px; line-height: 1.3; }
-h3 { font-size: 18px; line-height: 1.35; }
+p { margin: 0 0 var(--gap-tight); }
+p:last-child { margin-bottom: 0; }
 
+ul, ol { margin: 0 0 var(--gap-tight); padding-left: 20px; }
+li { margin-bottom: 4px; }
+
+/* Видимая рамка фокуса обязательна: панель заполняют с клавиатуры, полей в
+ * форме предустановки десятки, и потерянный фокус — потерянное место. */
 :focus-visible {
     outline: 2px solid var(--text);
     outline-offset: 3px;
     border-radius: 8px;
 }
 
-/* Верхняя оболочка -------------------------------------------------------- */
+/* Спрятанное прячется: собственный display у .stack и .card-body сильнее
+ * атрибута hidden, и свёрнутая форма оставалась бы видна. */
+[hidden] { display: none !important; }
 
-.shell {
-    display: block;
-    width: 100%;
-    max-width: none;
-    min-height: 100vh;
-    padding: 0;
-    margin: 0;
+.sub { color: var(--text-tertiary); font-size: 13px; }
+.mono { font-family: var(--font-mono); font-size: 13px; letter-spacing: -0.01em; }
+.muted { color: var(--text-tertiary); }
+
+
+/* --------------------------------------------------------------- оболочка */
+
+/* Навигация горизонтальная на всех ширинах: вертикальная панель отменена
+ * вместе с переходом к продуктам верхнего уровня. */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--bg);
 }
 
-.sidebar {
-    position: sticky;
-    z-index: 30;
-    top: 0;
+/* Линий в шапке нет вовсе. Под разделами она отделяла их от собственного
+ * содержимого, над разделами — отрезала их от продукта, которому они
+ * принадлежат. Держат шапку воздух, подчёркивание выбранного и то, что она
+ * сплошного цвета: содержимое уезжает под неё, не просвечивая. */
+.topbar-row {
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    gap: 40px;
-    width: 100%;
-    height: 72px;
-    min-height: 72px;
-    max-height: 72px;
-    align-self: auto;
-    padding: 0 80px;
-    border: 0;
-    border-radius: 0;
-    background: color-mix(in srgb, var(--bg) 96%, transparent);
-    box-shadow: none;
+    gap: 32px;
+    height: var(--head);
+    padding: 0 var(--gutter);
 }
 
 .brand {
@@ -1898,1204 +211,878 @@ h3 { font-size: 18px; line-height: 1.35; }
     justify-self: start;
     gap: 10px;
     min-width: 0;
-    padding: 0;
     color: var(--text);
-    text-decoration: none;
 }
 
-.brand:hover {
-    text-decoration: none;
-}
+.brand:hover { text-decoration: none; }
 
+/* Марка — картинка, а не разметка: она жёлтая и в тёмной теме остаётся такой
+ * же. Единственное цветное пятно в панели. */
 .brand-mark {
     display: block;
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 34px;
     flex: none;
-    border-radius: 0;
     object-fit: contain;
-    background: transparent;
-    box-shadow: none;
 }
 
 .brand-name {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
 }
 
-.brand-note {
-    display: none;
-}
-
+/* Ряд продуктов — по центру шапки. Подчёркивание вместо подсветки: плашка под
+ * пунктом сделала бы из спокойной шапки набор кнопок. */
 .nav {
     display: flex;
-    flex-direction: row;
     align-items: stretch;
     justify-content: center;
-    gap: 28px;
+    gap: 26px;
     min-width: 0;
-    max-height: none;
-    padding: 0;
-    overflow: visible;
+    height: var(--head);
 }
+
+.nav-group { position: relative; display: flex; }
 
 .nav-item {
     position: relative;
     display: inline-flex;
-    min-height: 72px;
     align-items: center;
-    padding: 2px 0 0;
-    border: 0;
-    border-radius: 0;
+    gap: 6px;
+    height: var(--head);
     color: var(--text-tertiary);
     font-size: 14px;
     font-weight: 500;
     white-space: nowrap;
-    background: transparent;
 }
 
-.nav-item:hover {
-    color: var(--text);
-    background: transparent;
-    text-decoration: none;
-}
+.nav-item:hover { color: var(--text); text-decoration: none; }
 
-.nav-item[aria-current="page"] {
+.nav-item[aria-current="page"],
+.nav-group.is-active > .nav-item {
     color: var(--text);
     font-weight: 600;
-    background: transparent;
 }
 
-.nav-item[aria-current="page"]::after {
+.nav-item[aria-current="page"]::after,
+.nav-group.is-active > .nav-item::after {
     content: "";
     position: absolute;
     right: 0;
-    bottom: 16px;
+    bottom: 15px;
     left: 0;
     height: 1px;
     background: currentColor;
 }
 
-.nav-item svg {
-    display: none;
+/* Знак работ у продуктов, которых ещё нет. Значок, а не надпись: слова «в
+ * разработке» занимали в ряду больше места, чем название продукта, о котором
+ * сообщали. Пункт при этом кликабельный и ведёт на настоящую страницу —
+ * неактивный пункт, который «ничего не делает», на телефоне читается как
+ * поломка. */
+.nav-item .soon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-tertiary);
 }
 
-.sidebar-footer {
+.nav-item:hover .soon { color: var(--text-secondary); }
+
+/* Второй ряд: разделы открытого продукта. Он же — единственная навигация по
+ * разделам на телефоне, поэтому существует на всех ширинах. */
+/* Линии под рядом разделов нет: страница начинается сразу за ним. Полоса
+ * отделяла разделы от их собственного содержимого — то есть проводила границу
+ * ровно там, где её нет. Ряд остаётся читаемым за счёт подчёркивания
+ * выбранного и воздуха под ним. */
+.subnav {
+    position: sticky;
+    top: var(--head);
+    z-index: 29;
+    background: var(--bg);
+}
+
+.subnav-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 44px;
+    padding: 0 var(--gutter);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.subnav-row::-webkit-scrollbar { display: none; }
+
+.subnav-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 44px;
+    color: var(--text-tertiary);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.subnav-item:hover { color: var(--text); text-decoration: none; }
+.subnav-item[aria-current="page"] { color: var(--text); font-weight: 600; }
+
+.subnav-item[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 1px;
+    background: currentColor;
+}
+
+.topbar-tools {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     justify-self: end;
-    gap: 14px;
-    margin-top: 0;
-    padding: 0;
-    border: 0;
+    gap: 10px;
 }
 
-.who {
-    display: block;
-    min-width: 0;
-    font-size: 14px;
-    color: var(--text);
-}
+.who { display: flex; flex-direction: column; line-height: 1.15; text-align: right; }
+.who strong { font-size: 14px; font-weight: 500; }
+.who .role { color: var(--text-tertiary); font-size: 12px; }
 
-.who strong {
-    font-weight: 500;
-}
-
-.who span {
-    display: none;
-}
-
+/* Панель занимает всю ширину окна: колонка посередине оставляла бы поля,
+ * которые на рабочем инструменте нечем занять. Выравнивание держат не общая
+ * ширина, а заданные разметкой доли колонок в таблицах. */
 .main {
     display: block;
-    min-width: 0;
-    min-height: calc(100vh - 72px);
-    padding: 0 80px 112px;
-    border: 0;
-    border-radius: 0;
-    background: var(--bg);
-    box-shadow: none;
-    overflow: visible;
+    padding: 0 var(--gutter) 72px;
 }
 
-/* Заголовки страниц ------------------------------------------------------ */
 
-.toolbar {
-    display: flex;
-    min-height: 0;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 32px;
-    padding: 72px 0 48px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-}
+/* ---------------------------------------------------------- шапка страницы */
 
-.toolbar-title {
+/* Надстрочника нет, пересказывающего подзаголовка нет. Остаётся заголовок,
+ * действия справа и — только там, где текст объясняет устройство, — одна
+ * поясняющая строка. */
+.page-head {
     display: grid;
-    gap: 12px;
-    max-width: 1180px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px 32px;
+    padding: 32px 0 20px;
 }
 
-.toolbar-title h1 {
-    font-size: clamp(32px, 3.4vw, 48px);
-    line-height: 1.12;
-    font-weight: 500;
-    letter-spacing: -0.045em;
-}
+.page-title { display: grid; gap: 8px; min-width: 0; }
 
-.toolbar-title p {
-    max-width: 800px;
+.page-title p {
+    max-width: 760px;
     margin: 0;
     color: var(--text-tertiary);
-    font-size: 18px;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.page-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Действия внутри карточки стоят на той же правой кромке, что и действия
+ * страницы: иначе одна и та же кнопка на соседних экранах оказывается в
+ * разных местах. */
+.card-body > .page-actions,
+.card-body > form > .page-actions { justify-content: flex-start; }
+
+
+/* -------------------------------------------------------------- поверхности */
+
+/* Карточка — не плашка, а участок страницы: сверху линия, дальше воздух.
+ * Плашка с тенью превращала экран в стопку прямоугольников. */
+.card {
+    margin: 0 0 28px;
+    border-top: 1px solid var(--hairline);
+    background: transparent;
+}
+
+.card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 0 12px;
+}
+
+.card-head-actions { display: flex; align-items: center; gap: 8px; }
+
+.card-body {
+    display: grid;
+    gap: var(--gap-section);
+    padding: 0 0 24px;
+}
+
+/* Форма внутри участка — единственная заливка на странице. Она собирает поля
+ * в один предмет, чтобы они не расползались по белому полю. */
+.card-body > form {
+    padding: 18px;
+    border-radius: var(--radius-card);
+    background: var(--surface-raised);
+}
+
+/* Объясняющая подпись. Остаётся полной там, где ошибка необратима — удаление
+ * сотрудника, выпуск ключа, выкладка, — и сокращена до строки в остальных
+ * местах. */
+.card-note {
+    max-width: 80ch;
+    color: var(--text-tertiary);
+    font-size: 14px;
     line-height: 1.5;
 }
 
-.toolbar-title .eyebrow {
-    order: -1;
-    color: var(--text-secondary);
-    font-size: 14px;
-    line-height: 1.4;
+.card-danger { border-top-color: var(--red); }
+.card-danger .card-head h2 { color: var(--red); }
+.card-pending { border-top-color: var(--orange); }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+.grid > .card { margin-bottom: 0; }
+
+.stack { display: grid; gap: var(--gap-element); }
+
+.row {
+    display: flex;
+    gap: var(--gap-element);
+    flex-wrap: wrap;
+    align-items: flex-end;
 }
 
-.toolbar-hero {
-    display: block;
-    max-width: 1320px;
-    padding-top: 80px;
-    padding-bottom: 96px;
-}
-
-.toolbar-hero .toolbar-title {
-    gap: 40px;
-}
-
-.toolbar-hero .toolbar-title h1 {
-    max-width: 1180px;
-}
-
-.toolbar-hero .toolbar-title h1 span {
+.empty {
+    padding: 36px 0;
+    border-top: 1px solid var(--hairline);
+    display: grid;
+    gap: 6px;
     color: var(--text-tertiary);
+    font-size: 14px;
 }
 
-.toolbar-hero > form {
-    margin-top: 48px;
-}
+.empty strong { color: var(--text); font-size: 19px; font-weight: 500; }
 
-/* Действия и поля -------------------------------------------------------- */
+
+/* --------------------------------------------------------------- элементы */
 
 .button {
-    min-height: 44px;
-    padding: 10px 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 7px 14px;
     border: 1px solid transparent;
     border-radius: var(--radius-capsule);
+    background: var(--surface-raised);
     color: var(--text);
     font: inherit;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    background: var(--surface-raised);
-    box-shadow: none;
+    cursor: pointer;
+    white-space: nowrap;
 }
 
 .button:hover {
-    border-color: transparent;
     background: color-mix(in srgb, var(--surface-raised) 84%, var(--text) 16%);
+    text-decoration: none;
 }
 
-.button-primary {
-    color: var(--accent-text);
-    background: var(--accent);
-}
+.button-primary { background: var(--accent); color: var(--accent-text); }
+.button-primary:hover { background: var(--accent-hover); color: var(--accent-text); }
 
-.button-primary:hover {
-    color: var(--accent-text);
-    background: var(--accent-hover);
-}
-
-.button-danger {
-    color: var(--red);
-    background: color-mix(in srgb, var(--red) 10%, transparent);
-}
+.button-danger { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
+.button-danger:hover { background: color-mix(in srgb, var(--red) 18%, transparent); }
 
 .button-quiet {
     display: inline-grid;
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-    min-height: 44px;
     place-items: center;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
     padding: 0;
     background: transparent;
+    color: var(--text-secondary);
 }
 
-.button-quiet:hover {
-    background: var(--surface-hover);
+.button-quiet:hover { background: var(--surface-hover); color: var(--text); }
+
+.button[disabled],
+.button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+
+/* Кнопка внутри залитой формы обязана от неё отличаться: на сером фоне серая
+ * кнопка не читается как кнопка. */
+.card-body > form .button:not(.button-danger):not(.button-quiet) {
+    background: var(--accent);
+    color: var(--accent-text);
 }
 
-.field {
-    gap: 8px;
+.card-body > form .button:not(.button-danger):not(.button-quiet):hover {
+    background: var(--accent-hover);
 }
 
-.field label,
+.field { display: grid; gap: 5px; min-width: 0; }
+
+.field > label,
 .field-label {
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
 }
 
-.field-hint,
-.card-note,
-.sub {
-    color: var(--text-tertiary);
-    font-size: 14px;
-    line-height: 1.5;
-}
-
 input[type="text"],
+input[type="search"],
 input[type="password"],
 input[type="number"],
-input[type="search"],
 select,
 textarea {
-    min-height: 48px;
-    padding: 11px 14px;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 8px 12px;
     border: 1px solid transparent;
     border-radius: var(--radius-control);
+    background: var(--surface-raised);
     color: var(--text);
     font: inherit;
-    font-size: 15px;
-    background: var(--surface-raised);
-    box-shadow: none;
+    font-size: 14px;
 }
 
-textarea {
-    min-height: 120px;
+/* Поле внутри залитой формы — наоборот, светлое: иначе серое на сером
+ * перестаёт быть полем. */
+.card-body > form input[type="text"],
+.card-body > form input[type="search"],
+.card-body > form input[type="password"],
+.card-body > form input[type="number"],
+.card-body > form select,
+.card-body > form textarea {
+    background: var(--surface-solid);
+    border-color: var(--hairline);
 }
+
+textarea { min-height: 96px; resize: vertical; }
+
+/* Числовому полю ширина строки не нужна: «Тон, мс» во весь экран сообщает,
+ * что туда поместится, а не что туда кладут. */
+input[type="number"] { max-width: 170px; }
 
 input:focus,
 select:focus,
 textarea:focus {
     border-color: var(--hairline-strong);
     background: var(--surface-solid);
-    box-shadow: 0 0 0 1px var(--hairline-strong);
 }
 
-.employee-search {
-    flex-wrap: nowrap;
+input:disabled,
+select:disabled,
+textarea:disabled { color: var(--text-tertiary); }
+
+.field-hint {
+    max-width: 80ch;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.switch { display: inline-flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.switch input { width: auto; min-height: 0; margin-top: 3px; }
+.switch-text { display: grid; gap: 1px; font-size: 14px; }
+.switch-text span { color: var(--text-tertiary); font-size: 13px; }
+
+/* Вертикальная форма: метка слева в колонке 132. Метка над полем удваивала
+ * высоту каждой строки, и карточка из четырёх полей занимала экран. */
+.form-rows { display: grid; gap: var(--gap-element); }
+
+.form-rows .field {
+    grid-template-columns: var(--label-column) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+}
+
+.form-rows .field > label { text-align: right; }
+.form-rows .field-hint { grid-column: 2; }
+
+.search {
+    display: flex;
+    align-items: center;
     justify-content: flex-end;
-    max-width: 760px;
+    gap: 8px;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
 }
 
-.employee-search input {
-    width: 220px;
-}
+.search input[type="search"] { width: auto; flex: 0 1 210px; min-width: 150px; }
+.search select { width: auto; flex: 0 1 190px; min-width: 150px; }
 
-.employee-search select {
-    width: 190px;
-}
 
-/* Контентные секции ------------------------------------------------------ */
+/* ---------------------------------------------------------------- таблицы */
 
-.tiles {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    max-width: 1320px;
-    margin: 0 0 96px;
-    padding: 0;
+/* Ширины колонок задаются разметкой (colgroup у каждой таблицы), а не
+ * содержимым. Раскладка по содержимому расставляла одни и те же колонки
+ * по-разному на каждой странице и на каждой выборке: имя подлиннее — и
+ * соседний столбец уехал. */
+.table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+
+.table th {
+    height: 40px;
+    padding: 9px 14px;
     border-top: 1px solid var(--hairline);
     border-bottom: 1px solid var(--hairline);
-    overflow: visible;
-}
-
-.tile {
-    display: flex;
-    min-width: 0;
-    min-height: 176px;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 32px;
-    border: 0;
-    border-radius: 0;
-    color: var(--text);
-    background: transparent;
-    box-shadow: none;
-}
-
-.tile:first-child {
-    padding-left: 0;
-}
-
-.tile + .tile {
-    border-left: 1px solid var(--hairline);
-}
-
-a.tile:hover {
-    background: transparent;
-    text-decoration: none;
-}
-
-.tile-value {
-    order: 2;
-    color: var(--text);
-    font-size: clamp(44px, 4.3vw, 58px);
-    line-height: 0.95;
-    font-weight: 500;
-    letter-spacing: -0.055em;
-}
-
-.tile-name {
-    order: 1;
-    color: var(--text-secondary);
-    font-size: 14px;
-    line-height: 1.4;
-    font-weight: 500;
-}
-
-.tile-note {
-    order: 3;
     color: var(--text-tertiary);
-    font-size: 14px;
-}
-
-.card {
-    max-width: 1320px;
-    margin: 0 0 80px;
-    border: 0;
-    border-top: 1px solid var(--hairline);
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    overflow: visible;
-}
-
-.main > .card:last-child {
-    border-bottom: 0;
-}
-
-.card-head {
-    display: flex;
-    min-height: 0;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 24px 0 20px;
-    border: 0;
-}
-
-.card-head h2 {
-    font-size: 24px;
+    font-size: 12px;
     font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
 }
 
-.card-body {
-    display: grid;
-    gap: 24px;
-    padding: 0 0 40px;
+.table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
-.card-body > form {
-    padding: 28px;
-    border-radius: var(--radius-card);
+/* Первая и последняя колонки прижаты к полям страницы: внутренний отступ
+ * таблицы разрывал бы вертикаль, по которой выровнено всё остальное. */
+.table th:first-child,
+.table td:first-child { padding-left: 0; }
+.table th:last-child,
+.table td:last-child { padding-right: 0; }
+
+.table tr:hover td { background: color-mix(in srgb, var(--surface-hover) 60%, transparent); }
+
+.primary-cell { font-size: 15px; }
+
+/* Пометка на служебных ячейках: перенос внутри них запрещён, ширину им даёт
+ * colgroup. */
+.cell-tight { white-space: nowrap; }
+
+/* Действия строки — обычная ячейка с выключкой вправо, а не flex-контейнер:
+ * flex на td выключает ячейку из табличной раскладки, и линия строки
+ * обрывалась, не доходя до кнопок.
+ *
+ * width: 1% — приём, которым ячейку заставляют сжаться по содержимому:
+ * табличная раскладка растянет остальные, а этой оставит ровно кнопки. Без
+ * него колонка действий забирала себе четверть ширины и разгоняла остальные
+ * по краям. */
+.cell-actions { text-align: right; }
+.cell-actions > * { display: inline-flex; vertical-align: middle; }
+.cell-actions > * + * { margin-left: 6px; }
+
+.table .button { min-height: 32px; padding: 5px 12px; }
+
+/* Найденная поиском строка. Подсветка отвечает на «где оно», а не помечает
+ * состояние. */
+.row-found td { background: color-mix(in srgb, var(--orange) 14%, transparent); }
+
+.table-wrap { overflow-x: auto; }
+
+
+/* ---------------------------------------------------------------- значки */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--radius-capsule);
     background: var(--surface-raised);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
 }
 
-.card-body > form .button:not(.button-danger),
-.card-body > form button[type="submit"] {
-    background: var(--accent);
-    color: var(--accent-text);
-}
+.badge-ok { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+.badge-wait { background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--orange); }
+.badge-bad { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.badge-off { background: var(--surface-raised); color: var(--text-tertiary); }
 
-.grid {
-    display: grid;
-    gap: 40px;
-    max-width: 1320px;
-    margin-bottom: 80px;
-    border: 0;
-}
 
-.grid > .card {
-    margin-bottom: 0;
-    border-left: 0;
-    border-bottom: 0;
-}
+/* -------------------------------------------------------------- сообщения */
 
 .notice {
     display: flex;
     gap: 14px;
-    max-width: 1320px;
-    margin: 20px 0;
-    padding: 18px 20px;
-    border: 0;
+    margin: 16px 0;
+    padding: 16px 18px;
     border-radius: 16px;
-    color: var(--text);
     background: var(--surface-raised);
+    color: var(--text);
+    font-size: 14px;
 }
 
-.notice strong {
-    font-size: 16px;
-    font-weight: 500;
+.notice strong { display: block; font-size: 15px; font-weight: 600; }
+.notice p { margin-top: 5px; color: var(--text-secondary); font-size: 14px; }
+
+.notice-ok { background: color-mix(in srgb, var(--green) 10%, var(--bg)); }
+.notice-warn { background: color-mix(in srgb, var(--orange) 10%, var(--bg)); }
+.notice-bad { background: color-mix(in srgb, var(--red) 9%, var(--bg)); }
+
+
+/* ----------------------------------------------------------- ключ разово */
+
+/* Ключ показывается один раз. Переписывание его руками с экрана — главный
+ * источник «ключ не подходит», поэтому копирование стоит рядом с обоими
+ * видами: и с самим ключом, и с готовым сообщением. */
+.key-reveal {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    padding: 16px;
+    border-radius: var(--radius-card);
+    background: var(--surface-solid);
 }
 
-.notice p {
-    margin-top: 6px;
-    color: var(--text-secondary);
-    font-size: 15px;
+.key-value {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    letter-spacing: 0.04em;
+    user-select: all;
 }
 
-.notice-bad {
-    background: color-mix(in srgb, var(--red) 9%, var(--bg));
-}
-
-.notice-warn {
-    background: color-mix(in srgb, var(--orange) 10%, var(--bg));
-}
-
-.notice-ok {
-    background: color-mix(in srgb, var(--green) 10%, var(--bg));
-}
-
-.ends {
+.message {
     margin: 0;
-    padding: 0 0 24px;
-    list-style: none;
-    border-top: 1px solid var(--hairline);
+    max-width: 70ch;
+    font: inherit;
+    font-size: 14px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
 }
+
+
+/* ------------------------------------------------------------------ обзор */
+
+/* Три входа по продуктам и плитки того, что не закрыто. Делят их линии, а не
+ * рамки: плитка в рамке читается как кнопка, которой она не является. */
+.products {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 0 40px;
+    border-top: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+}
+
+.product {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    min-height: 150px;
+    padding: 26px 28px;
+    color: var(--text);
+}
+
+.product:first-child { padding-left: 0; }
+.product:hover { text-decoration: none; background: color-mix(in srgb, var(--surface-hover) 60%, transparent); }
+
+.product-name { font-size: 24px; font-weight: 500; letter-spacing: -0.03em; }
+.product-note { color: var(--text-tertiary); font-size: 14px; }
+.product-state { color: var(--text-secondary); font-size: 14px; }
+.product-soon .product-name { color: var(--text-secondary); }
+
+/* Три колонки, а не «сколько влезет»: одна плитка во всю ширину читается как
+ * заголовок раздела, а не как число. */
+.tiles {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 0 40px;
+    border-top: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+}
+
+.tile {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 128px;
+    padding: 24px 28px;
+    color: var(--text);
+}
+
+.tile:first-child { padding-left: 0; }
+a.tile:hover { text-decoration: none; background: color-mix(in srgb, var(--surface-hover) 60%, transparent); }
+
+/* Число под подписью, а не над ней: сперва читают, о чём счёт. */
+.tile-name { order: 1; color: var(--text-secondary); font-size: 14px; }
+.tile-value { order: 2; font-size: clamp(36px, 3.5vw, 48px); line-height: 0.95; letter-spacing: -0.05em; }
+.tile-note { order: 3; color: var(--text-tertiary); font-size: 13px; }
+
+.ends { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hairline); }
 
 .end {
     display: flex;
-    min-height: 76px;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
-    padding: 18px 0 18px 28px;
+    gap: 20px;
+    min-height: 56px;
+    margin: 0;
+    padding: 14px 0 14px 22px;
+    position: relative;
     border-bottom: 1px solid var(--hairline);
-    font-size: 17px;
-}
-
-.end::before {
-    top: 50%;
-    left: 4px;
-    width: 8px;
-    height: 8px;
-    transform: translateY(-50%);
-}
-
-.empty {
-    padding: 40px 0;
-    border-top: 1px solid var(--hairline);
-    border-radius: 0;
-    color: var(--text-secondary);
-    background: transparent;
-}
-
-.empty strong {
-    color: var(--text);
-    font-size: 20px;
-    font-weight: 500;
-}
-
-.howto {
-    padding: 0;
-    border-bottom: 1px solid var(--hairline);
-}
-
-.howto:first-child {
-    border-top: 1px solid var(--hairline);
-}
-
-.howto summary {
-    min-height: 76px;
-    padding: 22px 0;
-    color: var(--text);
-    font-size: 18px;
-    font-weight: 500;
-}
-
-.howto summary::after {
-    content: "+";
-    float: right;
-    color: var(--text-tertiary);
-    font-size: 24px;
-    line-height: 1;
-}
-
-.howto[open] summary::after {
-    content: "−";
-}
-
-.howto > :not(summary) {
-    max-width: 900px;
-    color: var(--text-secondary);
-}
-
-.section {
-    max-width: 1320px;
-    margin-bottom: 16px;
-    border: 0;
-    border-top: 1px solid var(--hairline);
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-.section > summary {
-    min-height: 72px;
-    padding: 20px 0;
-    font-size: 18px;
-}
-
-.section[open] > summary {
-    border-bottom: 1px solid var(--hairline);
-}
-
-.section > .card-body {
-    padding: 28px 0 48px;
-}
-
-/* Таблицы ---------------------------------------------------------------- */
-
-.table-wrap {
-    border: 0;
-    border-radius: 0;
-    overflow-x: auto;
-    background: transparent;
-}
-
-.table {
-    width: 100%;
     font-size: 15px;
 }
 
-.table th {
-    height: 48px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--hairline);
-    border-bottom: 1px solid var(--hairline);
-    color: var(--text-tertiary);
-    font-size: 13px;
-    font-weight: 500;
-    background: transparent;
+.end::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    transform: translateY(-50%);
 }
 
-.table th:first-child,
-.table td:first-child {
-    padding-left: 0;
+.end-preset::before { background: var(--orange); }
+.end-key::before { background: var(--orange); }
+.end-employee::before { background: var(--red); }
+
+
+/* ---------------------------------------------------------- предустановка */
+
+/* Просмотр и правка разделены: на странице просмотра нет ни одного поля
+ * ввода. Гармошка и замок «Разблокировать» отменены — случайно не тронешь
+ * то, что вообще не поле. */
+.section { margin: 0 0 28px; border-top: 1px solid var(--hairline); }
+
+.section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 16px 0 12px;
 }
 
-.table th:last-child,
-.table td:last-child {
-    padding-right: 0;
+.section-note { color: var(--text-tertiary); font-size: 13px; }
+
+/* Строки просмотра: слева имя поля в той же колонке, справа значение. Форма
+ * и просмотр совпадают по расстановке, и глаз не перестраивается. */
+.kv { display: grid; gap: 8px; margin: 0; }
+
+.kv-row {
+    display: grid;
+    grid-template-columns: var(--label-column) minmax(0, 1fr);
+    gap: 14px;
+    align-items: baseline;
 }
 
-.table td {
-    min-height: 60px;
-    padding: 16px;
-    border-bottom: 1px solid var(--hairline);
-    color: var(--text);
-}
+.kv-row dt { color: var(--text-tertiary); font-size: 13px; text-align: right; }
+.kv-row dd { margin: 0; font-size: 15px; }
 
-.table tr:hover td {
-    background: color-mix(in srgb, var(--surface-hover) 66%, transparent);
-}
-
-.badge,
-.status {
-    border: 0;
+/* Опасные поля — адреса АТС и стук. Замка больше нет, предупреждение живёт в
+ * окне выкладки; здесь остаётся отметка, что это за поля. */
+.danger-mark {
+    padding: 3px 10px;
     border-radius: var(--radius-capsule);
-    box-shadow: none;
+    background: color-mix(in srgb, var(--red) 12%, transparent);
+    color: var(--red);
+    font-size: 12px;
+    font-weight: 500;
 }
 
-/* Вход и первичная настройка -------------------------------------------- */
+/* Изменения словами перед выкладкой. Опасное всегда целиком и наверху,
+ * безобидное — свёрнуто счётчиком: двадцать строк подряд пролистают не читая,
+ * ровно как технический дифф, от которого отказались. */
+.changes { display: grid; gap: 4px; }
+
+.change {
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--surface-raised);
+    font-size: 14px;
+}
+
+.change-danger { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+
+.change-group > summary {
+    cursor: pointer;
+    padding: 10px 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+
+/* ------------------------------------------------------------------- окна */
+
+.sheet {
+    border: 0;
+    border-radius: 20px;
+    background: var(--surface-solid);
+    color: var(--text);
+    padding: 28px;
+    max-width: 520px;
+    width: calc(100vw - 32px);
+}
+
+.sheet::backdrop { background: rgba(0, 0, 0, 0.45); }
+.sheet h2 { margin-bottom: 12px; font-size: 22px; }
+.sheet p, .sheet ul { font-size: 14px; color: var(--text-secondary); }
+.sheet-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+
+
+/* ------------------------------------------------------------------- вход */
 
 .login {
     min-height: 100vh;
+    display: grid;
+    place-items: center;
     padding: 48px 20px;
-    background: var(--bg);
 }
 
 .login-card {
-    width: min(460px, 100%);
-    padding: 24px 0;
-    gap: 28px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-.login-card .brand-mark {
-    width: 96px;
-    height: 96px;
-    margin: 0 auto 4px;
-    border-radius: 0;
-}
-
-.login-card h1 {
-    font-size: 36px;
-    text-align: center;
-}
-
-.login-card > p {
-    color: var(--text-tertiary);
-    font-size: 16px;
-    text-align: center;
-}
-
-.login-card form {
     display: grid;
-    gap: 18px;
+    gap: 24px;
+    width: min(420px, 100%);
+    text-align: center;
 }
 
-.login-card .button-primary {
-    width: 100%;
-    min-height: 52px;
-}
+.login-card .brand-mark { width: 88px; height: 88px; margin: 0 auto; }
+.login-card h1 { font-size: 30px; }
+.login-card > div > p { color: var(--text-tertiary); font-size: 15px; }
+.login-card form { display: grid; gap: 14px; text-align: left; }
+.login-card .field > label { text-align: left; }
+.login-card .button-primary { width: 100%; min-height: 46px; }
 
-/* Адаптация -------------------------------------------------------------- */
+
+/* ------------------------------------------------------------- адаптивность */
+
+/* Две колонки — только выше 700 точек, как adminTwoColumnThreshold. */
+@media (min-width: 701px) {
+    .grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .products,
+    .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .product + .product { border-left: 1px solid var(--hairline); }
+    .tile + .tile { border-left: 1px solid var(--hairline); }
+}
 
 @media (max-width: 1080px) {
-    .sidebar {
-        gap: 24px;
-        padding-right: 40px;
-        padding-left: 40px;
-    }
-
-    .nav {
-        gap: 20px;
-    }
-
-    .main {
-        padding-right: 40px;
-        padding-left: 40px;
-    }
+    :root { --gutter: 32px; }
+    .nav { gap: 18px; }
 }
 
+/* Ниже 900 шапка становится двухэтажной: марка и вход сверху, продукты
+ * прокручиваемым рядом под ними. */
 @media (max-width: 900px) {
-    .sidebar {
-        position: sticky;
-        display: grid;
+    :root { --head: 56px; }
+
+    /* На телефоне линия под шапкой остаётся: там она в два этажа, ряд
+     * продуктов прокручивается вбок, и без края он сливается со страницей. */
+    .topbar-row {
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 0 16px;
         height: auto;
-        min-height: 0;
-        max-height: none;
-        padding: 8px 24px 0;
+        padding: 0 var(--gutter);
         border-bottom: 1px solid var(--hairline);
-        background: var(--bg);
     }
 
-    .brand {
-        min-height: 56px;
-    }
+    .brand { grid-row: 1; min-height: var(--head); }
 
-    .brand-mark {
-        width: 36px;
-        height: 36px;
-    }
-
-    .sidebar-footer {
-        min-height: 56px;
-    }
-
-    .who {
-        display: none;
-    }
+    /* Вход и оформление держатся справа от марки, а не уезжают третьей
+     * строкой: в разметке они стоят после навигации, и без явного места
+     * сетка отправила бы их под неё. */
+    .topbar-tools { grid-row: 1; grid-column: 2; min-height: var(--head); }
+    .who { display: none; }
 
     .nav {
+        grid-row: 2;
         grid-column: 1 / -1;
-        flex-direction: row;
         justify-content: flex-start;
-        gap: 28px;
-        margin: 0 -24px;
-        padding: 0 24px;
+        gap: 22px;
+        height: 46px;
+        margin: 0 calc(var(--gutter) * -1);
+        padding: 0 var(--gutter);
         overflow-x: auto;
-        overscroll-behavior-inline: contain;
         scrollbar-width: none;
     }
 
-    .nav::-webkit-scrollbar {
-        display: none;
-    }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav-item { height: 46px; }
+    .nav-item[aria-current="page"]::after,
+    .nav-group.is-active > .nav-item::after { bottom: 0; }
 
-    .nav-item {
-        min-height: 52px;
-    }
+    /* Подменю выпадением на телефоне не раскрыть — разделы показывает
+     * второй ряд, и он же прилипает под шапкой. */
+    .subnav { top: auto; }
 
-    .nav-item[aria-current="page"]::after {
-        bottom: 0;
-    }
-
-    .main {
-        min-height: calc(100vh - 117px);
-        padding-right: 24px;
-        padding-bottom: 80px;
-        padding-left: 24px;
-    }
-
-    .toolbar,
-    .toolbar-hero {
-        padding-top: 56px;
-        padding-bottom: 56px;
-    }
-
-    .toolbar .employee-search {
-        flex: 1 1 100%;
-        justify-content: flex-start;
-    }
-
-    .toolbar-hero .toolbar-title {
-        gap: 28px;
-    }
-
-    .toolbar-hero > form {
-        margin-top: 36px;
-    }
-
-    .card-head,
-    .card-body,
-    .notice,
-    .ends,
-    .tiles,
-    .table th,
-    .table td {
-        margin-right: 0;
-        margin-left: 0;
-    }
-
-    .grid {
-        gap: 24px;
-    }
+    .page-head { padding-top: 26px; }
 }
 
+/* Ниже 620 таблицы становятся списками карточек: панель открывают с телефона,
+ * и шесть колонок там не помещаются никак. */
 @media (max-width: 620px) {
-    .sidebar {
-        padding-right: 20px;
-        padding-left: 20px;
-    }
+    :root { --gutter: 20px; }
 
-    .nav {
-        margin-right: -20px;
-        margin-left: -20px;
-        padding-right: 20px;
-        padding-left: 20px;
-    }
+    h1 { font-size: 27px; }
 
-    .main {
-        padding-right: 20px;
-        padding-left: 20px;
-    }
+    .page-head { flex-direction: column; align-items: stretch; gap: 18px; }
 
-    .toolbar {
-        display: grid;
-        align-items: start;
-        gap: 28px;
-        padding: 44px 0 40px;
-    }
+    /* Поиск на телефоне встаёт под заголовком и во всю ширину: прижатый
+     * вправо, он рассыпался на три строки лесенкой. */
+    .card-head,
+    .section-head { display: grid; gap: 10px; }
+    .search { justify-content: flex-start; }
+    .search input[type="search"],
+    .search select { flex: 1 1 100%; }
 
-    .employee-search {
-        display: grid;
-        width: 100%;
-        max-width: none;
-        grid-template-columns: minmax(0, 1fr) auto;
-    }
-
-    .employee-search input,
-    .employee-search select {
-        width: 100%;
-    }
-
-    .employee-search input,
-    .employee-search select {
-        grid-column: 1 / -1;
-    }
-
-    .toolbar-title h1,
-    .toolbar-hero .toolbar-title h1 {
-        font-size: 30px;
-        line-height: 1.18;
-    }
-
-    .toolbar-title p {
-        font-size: 16px;
-    }
-
-    .toolbar-hero {
-        padding-top: 48px;
-        padding-bottom: 64px;
-    }
-
-    .tiles {
-        grid-template-columns: 1fr;
-        margin-bottom: 72px;
-        overflow: visible;
-    }
-
-    .tile,
-    .tile:first-child {
-        min-height: 132px;
-        padding: 24px 0;
-    }
-
-    .tile + .tile {
-        border-top: 1px solid var(--hairline);
-        border-left: 0;
-    }
-
-    .card {
-        margin-bottom: 64px;
-    }
-
-    .card-head {
-        display: grid;
-        gap: 8px;
-        padding-top: 20px;
-    }
-
-    .card-body {
-        padding-right: 0;
-        padding-left: 0;
-    }
-
-    .card-body > form {
-        margin-right: -4px;
-        margin-left: -4px;
-        padding: 20px;
-        border-radius: 18px;
-    }
-
-    .end {
-        display: grid;
-        justify-content: stretch;
-        gap: 8px;
-        padding-top: 20px;
-        padding-bottom: 20px;
-    }
-
-    .howto summary,
-    .section > summary {
-        font-size: 17px;
-    }
+    .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
+    .table thead { display: none; }
 
     .table tr {
-        padding: 18px 0;
+        padding: 16px 0;
         border-bottom: 1px solid var(--hairline);
     }
 
+    /* На телефоне таблица перестаёт быть таблицей, и заданные ширины ей
+     * только мешают. */
+    .table { table-layout: auto; }
+
     .table td {
-        min-height: 0;
+        display: grid;
+        grid-template-columns: 116px minmax(0, 1fr);
+        gap: 12px;
         padding: 4px 0;
         border: 0;
     }
 
     .table td::before {
-        min-width: 110px;
+        content: attr(data-label);
         color: var(--text-tertiary);
         font-size: 13px;
     }
 
-    .login-card .brand-mark {
-        width: 80px;
-        height: 80px;
-    }
+    .table td.cell-actions { display: block; text-align: left; padding-top: 12px; }
+    .table td.cell-actions::before { content: none; }
+    .table .button { min-height: 40px; }
+
+    .form-rows .field { grid-template-columns: minmax(0, 1fr); }
+    .form-rows .field > label { text-align: left; }
+    .form-rows .field-hint { grid-column: 1; }
+
+    .kv-row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .kv-row dt { text-align: left; }
+
+    .tile, .tile:first-child,
+    .product, .product:first-child { padding: 22px 0; }
+    .tile + .tile, .product + .product { border-top: 1px solid var(--hairline); }
+
+    .end { display: grid; gap: 6px; justify-items: start; }
+    .key-value { font-size: 22px; }
 }
 
-/* ------------------------------------------------ Dense operations pass
- * Pearl задаёт тон, но панель остаётся рабочим инструментом: заголовки и
- * формы компактны, а таблицы используют высоту экрана для данных. */
-
-@media (min-width: 901px) {
-    .sidebar {
-        height: 64px;
-        min-height: 64px;
-        max-height: 64px;
-        padding-right: 48px;
-        padding-left: 48px;
-    }
-
-    .brand,
-    .nav,
-    .nav-item {
-        height: 64px;
-        min-height: 64px;
-    }
-
-    .brand-mark {
-        width: 36px;
-        height: 36px;
-    }
-
-    .nav {
-        align-items: center;
-        transform: translateY(-2px);
-    }
-
-    .nav-item {
-        padding: 0;
-    }
-
-    .nav-item[aria-current="page"]::after {
-        bottom: 11px;
-    }
-
-    .main {
-        min-height: calc(100vh - 64px);
-        padding: 0 48px 64px;
-    }
-}
-
-.toolbar:not(.toolbar-hero) {
-    gap: 24px;
-    padding-top: 28px;
-    padding-bottom: 22px;
-}
-
-.toolbar-title {
-    gap: 6px;
-}
-
-.toolbar-title h1 {
-    font-size: 32px;
-    letter-spacing: -0.035em;
-}
-
-.toolbar-title p {
-    max-width: 720px;
-    font-size: 14px;
-    line-height: 1.45;
-}
-
-.toolbar-hero {
-    padding-top: 44px;
-    padding-bottom: 48px;
-}
-
-.toolbar-hero .toolbar-title {
-    gap: 20px;
-}
-
-.toolbar-hero .toolbar-title h1 {
-    font-size: clamp(32px, 3vw, 40px);
-}
-
-.toolbar-hero > form {
-    margin-top: 28px;
-}
-
-.button {
-    min-height: 36px;
-    padding: 7px 13px;
-    font-size: 13px;
-}
-
-input[type="text"],
-input[type="password"],
-input[type="number"],
-input[type="search"],
-select,
-textarea {
-    min-height: 40px;
-    padding: 8px 11px;
-    font-size: 14px;
-}
-
-.field {
-    gap: 5px;
-}
-
-.field label,
-.field-label {
-    font-size: 13px;
-}
-
-.card,
-.grid,
-.tiles,
-.notice {
-    max-width: none;
-}
-
-.card {
-    margin-bottom: 32px;
-}
-
-.card-head {
-    gap: 16px;
-    padding: 16px 0 12px;
-}
-
-.card-head h2 {
-    font-size: 19px;
-}
-
-.card-body {
-    gap: 16px;
-    padding-bottom: 24px;
-}
-
-.card-body > form {
-    padding: 18px;
-    border-radius: 14px;
-}
-
-.employee-tools {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 20px;
-}
-
-.compact-tool {
-    margin: 0;
-    border: 1px solid var(--hairline);
-    border-radius: 12px;
-    background: transparent;
-}
-
-.compact-tool > summary {
-    display: flex;
-    min-height: 48px;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    cursor: pointer;
-    list-style: none;
-}
-
-.compact-tool > summary::-webkit-details-marker {
-    display: none;
-}
-
-.compact-tool > summary::after {
-    content: "+";
-    margin-left: auto;
-    color: var(--text-tertiary);
-    font-size: 18px;
-}
-
-.compact-tool[open] > summary::after {
-    content: "−";
-}
-
-.compact-tool > summary strong {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.compact-tool > summary span {
-    color: var(--text-tertiary);
-    font-size: 13px;
-}
-
-.compact-tool[open] > summary {
-    border-bottom: 1px solid var(--hairline);
-}
-
-.compact-tool .card-body,
-.compact-tool .card-body > form {
-    padding: 14px;
-}
-
-.employee-list {
-    margin-bottom: 40px;
-}
-
-.employee-list .card-head {
-    padding-top: 12px;
-}
-
-.table {
-    font-size: 14px;
-}
-
-.table th {
-    position: sticky;
-    z-index: 5;
-    top: 64px;
-    padding: 9px 12px;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    background: var(--bg);
-}
-
-.table td {
-    padding: 8px 12px;
-    line-height: 1.35;
-}
-
-.table .button {
-    min-height: 32px;
-    padding: 5px 11px;
-}
-
-.tiles {
-    margin-bottom: 48px;
-}
-
-.tile {
-    min-height: 124px;
-    padding: 22px 24px;
-}
-
-.tile-value {
-    font-size: clamp(36px, 3.5vw, 48px);
-}
-
-@media (max-width: 1080px) and (min-width: 901px) {
-    .sidebar,
-    .main {
-        padding-right: 32px;
-        padding-left: 32px;
-    }
-
-    .nav {
-        gap: 18px;
-    }
-}
-
-@media (max-width: 900px) {
-    .toolbar:not(.toolbar-hero) {
-        padding-top: 28px;
-        padding-bottom: 20px;
-    }
-
-    .employee-tools {
-        grid-template-columns: 1fr;
-    }
-
-    .table th {
-        top: 117px;
-    }
-}
-
-@media (max-width: 620px) {
-    .toolbar-title h1,
-    .toolbar-hero .toolbar-title h1 {
-        font-size: 27px;
-    }
-
-    .compact-tool > summary {
-        position: relative;
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 2px;
-        padding: 12px 42px 12px 14px;
-    }
-
-    .compact-tool > summary::after {
-        position: absolute;
-        top: 11px;
-        right: 14px;
-    }
-
-    .button {
-        min-height: 44px;
-    }
-
-    .table td {
-        padding: 4px 0;
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
     }
 }

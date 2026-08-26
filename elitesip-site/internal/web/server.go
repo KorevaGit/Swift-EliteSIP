@@ -61,8 +61,8 @@ func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher,
 }
 
 var pages = []string{
-	"login", "setup", "overview", "employees", "employee",
-	"presets", "preset", "audit", "settings",
+	"login", "setup", "overview", "keys", "stub", "employees", "employee",
+	"presets", "preset", "preset_edit", "audit", "settings",
 }
 
 func (s *Server) parseTemplates() error {
@@ -98,6 +98,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /{$}", s.guard(s.redirectHome))
 	mux.Handle("GET /overview", s.guard(s.showOverview))
 	mux.Handle("POST /marks/pull", s.guard(s.pullMarks))
+	mux.Handle("GET /keys", s.guard(s.showKeys))
+	mux.Handle("GET /pbx", s.guard(s.showPBX))
+	mux.Handle("GET /sandbox", s.guard(s.showSandbox))
 	mux.Handle("GET /employees", s.guard(s.showEmployees))
 	mux.Handle("POST /employees", s.guard(s.createEmployee))
 	mux.Handle("GET /employees/{id}", s.guard(s.showEmployee))
@@ -107,19 +110,27 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /activations/{id}/revoke", s.guard(s.revokeActivation))
 
 	mux.Handle("GET /presets", s.guard(s.showPresets))
-	mux.Handle("POST /presets", s.guard(s.createPreset))
+	mux.Handle("POST /presets", s.guard(s.onlyAdmin(s.createPreset)))
 	mux.Handle("GET /presets/{id}", s.guard(s.showPreset))
-	mux.Handle("POST /presets/{id}", s.guard(s.savePreset))
-	mux.Handle("POST /presets/{id}/rollback", s.guard(s.rollback))
-	mux.Handle("POST /presets/{id}/password", s.guard(s.savePresetPassword))
-	mux.Handle("POST /publish", s.guard(s.publish))
+	mux.Handle("GET /presets/{id}/edit", s.guard(s.onlyAdmin(s.editPreset)))
+	mux.Handle("POST /presets/{id}", s.guard(s.onlyAdmin(s.savePreset)))
+	mux.Handle("POST /presets/{id}/borrow", s.guard(s.onlyAdmin(s.borrowSection)))
+	mux.Handle("POST /presets/{id}/delete", s.guard(s.onlyAdmin(s.deletePreset)))
+	mux.Handle("POST /presets/{id}/publish", s.guard(s.onlyAdmin(s.publishPreset)))
+	mux.Handle("POST /presets/{id}/rollback", s.guard(s.onlyAdmin(s.rollback)))
+	mux.Handle("POST /presets/{id}/password", s.guard(s.onlyAdmin(s.savePresetPassword)))
+	mux.Handle("POST /publish", s.guard(s.onlyAdmin(s.publish)))
 
 	mux.Handle("POST /activations/find", s.guard(s.findByKey))
 	mux.Handle("POST /machines/{installation}/reflash", s.guard(s.reflashMachine))
 
 	mux.Handle("GET /audit", s.guard(s.showAudit))
 	mux.Handle("GET /settings", s.guard(s.showSettings))
-	mux.Handle("POST /settings/app-link", s.guard(s.saveAppLink))
+	mux.Handle("POST /settings/app-link", s.guard(s.onlyAdmin(s.saveAppLink)))
+	mux.Handle("POST /settings/password", s.guard(s.changeOwnPassword))
+	mux.Handle("POST /settings/users", s.guard(s.onlyAdmin(s.createUser)))
+	mux.Handle("POST /settings/users/{id}/delete", s.guard(s.onlyAdmin(s.deleteUser)))
+	mux.Handle("POST /settings/users/{id}/password", s.guard(s.onlyAdmin(s.resetUserPassword)))
 
 	return mux
 }
@@ -149,6 +160,24 @@ func (s *Server) guard(next func(http.ResponseWriter, *http.Request, model.Admin
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), adminKey, admin)), admin)
 	})
+}
+
+// onlyAdmin пускает дальше только администратора.
+//
+// Проверка стоит на маршруте, а не в шаблоне: спрятать кнопку — это подсказка,
+// а не запрет, и адрес страницы правки набирается руками. Техподдержке при
+// этом ничего не прячется — она видит все страницы, и недоступны ей только
+// действия.
+func (s *Server) onlyAdmin(next func(http.ResponseWriter, *http.Request, model.Admin)) func(http.ResponseWriter, *http.Request, model.Admin) {
+	return func(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+		if !admin.IsAdmin() {
+			s.flash(r, "bad", "Это может только администратор",
+				"Техподдержка правит сотрудников и выдаёт ключи; предустановки, выкладка и пользователи панели — за администратором.")
+			s.back(w, r, "/overview")
+			return
+		}
+		next(w, r, admin)
+	}
 }
 
 func (s *Server) sendToLogin(w http.ResponseWriter, r *http.Request) {

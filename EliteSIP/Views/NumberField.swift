@@ -60,7 +60,18 @@ struct NumberField: NSViewRepresentable {
         // Только когда значение правда разошлось: присваивание `stringValue`
         // сбрасывает выделение и позицию курсора, и делать это на каждой
         // перерисовке значит мешать набирать.
-        if field.stringValue != text { field.stringValue = text }
+        if field.stringValue != text {
+            field.stringValue = text
+            // Число, не влезающее в поле, сдвигает видимую область вправо —
+            // и на Big Sur присваивание `stringValue` этот сдвиг не снимает:
+            // редактор остаётся прокрученным туда же, где стоял курсор перед
+            // очисткой. Пустая строка тогда рисуется (вместе с подсказкой)
+            // от той же смещённой точки — «Номер» выходит обрезанным слева.
+            // Явный сброс диапазона выделения возвращает прокрутку к началу.
+            if let editor = field.currentEditor() as? NSTextView {
+                editor.scrollRangeToVisible(NSRange(location: 0, length: 0))
+            }
+        }
         field.font = Self.font(size: fontSize)
         field.placeholderString = placeholder
         field.isEnabled = isEnabled

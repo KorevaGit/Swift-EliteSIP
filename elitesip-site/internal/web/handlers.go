@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/koreva/elitesip-site/internal/model"
+	"github.com/koreva/elitesip-site/internal/panel"
 	"github.com/koreva/elitesip-site/internal/storage"
 )
 
@@ -26,6 +27,10 @@ type overviewData struct {
 	// Behind — машины, отставшие от выложенной ревизии своей предустановки.
 	Behind int
 
+	// PendingKeys — выданные ключи, которых ещё не забрали. Плитка, а не
+	// строка счётчика: это одно из двух чисел, на которые смотрят не один раз.
+	PendingKeys int
+
 	// KnowsMachines — панель хоть раз что-то узнала о машинах.
 	//
 	// Пока Worker не заведён или ни одна машина не отметилась, плитка
@@ -34,11 +39,13 @@ type overviewData struct {
 	KnowsMachines bool
 }
 
-// showOverview рисует первый экран.
+// showOverview рисует первый экран — сквозную сводку по всем продуктам.
 //
-// Я возражал против отдельного экрана: на тридцати сотрудниках он почти всегда
-// пуст, и его перестали бы читать. Возражение снято инструкциями — они держат
-// экран полезным и в тихий день, когда хвостов нет.
+// Инструкции с него убраны 25 августа 2026 до тех пор, пока не будут написаны
+// заново. Возражение против отдельного экрана («на тридцати сотрудниках он
+// почти всегда пуст») тем самым вернулось в силу: снимали его именно они.
+// Ставка на то, что понятного интерфейса хватит; если не хватит — вернуть
+// инструкции дешевле, чем строить под них раздел заранее.
 func (s *Server) showOverview(w http.ResponseWriter, r *http.Request, admin model.Admin) {
 	overview, err := s.DB.Overview(r.Context(), time.Now())
 	if err != nil {
@@ -70,6 +77,13 @@ func (s *Server) showOverview(w http.ResponseWriter, r *http.Request, admin mode
 		return
 	}
 
+	pending := 0
+	for _, end := range overview.Loose {
+		if end.Kind == "key" {
+			pending++
+		}
+	}
+
 	s.render(w, r, "overview", page{
 		Title: "Обзор", Section: "overview", Admin: admin,
 		Data: overviewData{
@@ -78,6 +92,7 @@ func (s *Server) showOverview(w http.ResponseWriter, r *http.Request, admin mode
 			AppLinkSet:             link != "",
 			HasPresets:             len(presets) > 0,
 			Behind:                 behind,
+			PendingKeys:            pending,
 			KnowsMachines:          len(known) > 0,
 		},
 	})
@@ -106,6 +121,77 @@ func (s *Server) pullMarks(w http.ResponseWriter, r *http.Request, admin model.A
 	s.back(w, r, "/overview")
 }
 
+// -------------------------------------------------------------- выдача ключа
+
+// keysData — приветственный экран раздела «Выдать ключ».
+type keysData struct {
+	Presets    []storage.PresetSummary
+	LastPreset *int64
+	Recent     []storage.RecentIssue
+}
+
+// showKeys рисует раздел «Выдать ключ» — точку приземления EliteSIP.
+//
+// Открывается не формой, а объяснением и памятью о последних выдачах: нажатие
+// на «EliteSIP» в ряду ведёт сюда, и подсовывать форму тому, кто шёл смотреть
+// список, незачем. Сама форма разворачивается кнопкой «Приступить» — одна, как
+// и была: шагов здесь не заводится.
+func (s *Server) showKeys(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	presets, err := s.DB.ListPresets(r.Context(), false)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	// Пять последних. Не хвосты — их место на обзоре; здесь память о том, кому
+	// уже выдавали на этой неделе.
+	recent, err := s.DB.RecentIssues(r.Context(), 5)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+
+	s.render(w, r, "keys", page{
+		Title: "Выдать ключ", Section: "keys", Admin: admin,
+		Data: keysData{Presets: presets, LastPreset: s.lastPreset(r), Recent: recent},
+	})
+}
+
+// stubData — продукт, которого ещё нет.
+type stubData struct {
+	Name  string
+	About string
+	Plans []string
+}
+
+// showPBX и showSandbox рисуют настоящие страницы, а не неактивные пункты.
+//
+// Пункт, который «ничего не делает», на телефоне читается как поломка: там нет
+// ни наведения, ни курсора, по которым видно, что он отключён.
+func (s *Server) showPBX(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	s.render(w, r, "stub", page{
+		Title: "PBX", Section: "pbx", Admin: admin,
+		Data: stubData{
+			Name:  "PBX",
+			About: "Работа с самой АТС: пиры, очереди, маршруты. Пока всё это заводится руками на сервере, и панель туда не ходит.",
+			Plans: []string{
+				"Завести пира и увидеть его состояние — сейчас номер и SIP-пароль вбиваются в EliteSIP руками с уже заведённого пира.",
+				"Смена пароля пира при увольнении — единственное, что на самом деле останавливает машину.",
+				"Очереди и то, кто в них состоит.",
+			},
+		},
+	})
+}
+
+func (s *Server) showSandbox(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	s.render(w, r, "stub", page{
+		Title: "Песочница", Section: "sandbox", Admin: admin,
+		Data: stubData{
+			Name:  "Песочница",
+			About: "Ведение стажёров по шагам. Отдельный проект со своей логикой, к SIP-клиенту отношения не имеет.",
+		},
+	})
+}
+
 // ------------------------------------------------------------- сотрудники
 
 type employeesData struct {
@@ -114,6 +200,10 @@ type employeesData struct {
 	Query      string
 	PresetID   *int64
 	LastPreset *int64
+
+	// Machines — состояние машин по каждому сотруднику, для пятой колонки
+	// списка. Ключ — идентификатор сотрудника.
+	Machines map[int64]storage.MachineState
 }
 
 func (s *Server) showEmployees(w http.ResponseWriter, r *http.Request, admin model.Admin) {
@@ -135,12 +225,19 @@ func (s *Server) showEmployees(w http.ResponseWriter, r *http.Request, admin mod
 		return
 	}
 
+	states, err := s.DB.MachineStates(r.Context(), time.Now())
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+
 	s.render(w, r, "employees", page{
 		Title: "Сотрудники", Section: "employees", Admin: admin,
 		Data: employeesData{
 			Employees: people, Presets: presets,
 			Query: filter.Query, PresetID: filter.PresetID,
 			LastPreset: s.lastPreset(r),
+			Machines:   states,
 		},
 	})
 }
@@ -174,7 +271,7 @@ func (s *Server) lastPreset(r *http.Request) *int64 {
 // говорит, чего не хватает. Откатывать заведение было бы хуже: человек вбил
 // имя, номер и пароль, и терять их из-за незаполненной настройки не за что.
 func (s *Server) createEmployee(w http.ResponseWriter, r *http.Request, admin model.Admin) {
-	e, ok := s.employeeFromForm(w, r, "/employees")
+	e, ok := s.employeeFromForm(w, r, "/keys")
 	if !ok {
 		return
 	}
@@ -182,7 +279,7 @@ func (s *Server) createEmployee(w http.ResponseWriter, r *http.Request, admin mo
 	created, err := s.DB.CreateEmployee(r.Context(), actorOf(admin), e)
 	if err != nil {
 		s.flash(r, "bad", "Не заведён", friendly(err))
-		s.back(w, r, "/employees")
+		s.back(w, r, "/keys")
 		return
 	}
 	s.rememberPreset(r, admin, e.PresetID)
@@ -431,21 +528,110 @@ func (s *Server) revokeActivation(w http.ResponseWriter, r *http.Request, admin 
 
 // ------------------------------------------------------------------ журнал
 
+// auditData — журнал вместе с тем, чем его отбирают.
+type auditData struct {
+	Entries []model.AuditEntry
+	Actions []string
+	Actors  []string
+
+	Action string
+	Actor  string
+	Period string
+	Query  string
+
+	// HasMore — есть ли что показать за этой страницей. Считается лишней
+	// строкой в выборке, а не отдельным COUNT: пересчитывать весь журнал ради
+	// кнопки «показать ещё» незачем.
+	HasMore bool
+	Shown   int
+}
+
+// auditPageSize — сколько строк за раз. Кнопка «показать ещё» добирает хвост.
+const auditPageSize = 100
+
+// showAudit рисует журнал.
+//
+// Доказательная подшивка, а не лента: её открывают по конкретному поводу —
+// «кто сидел на 172 в прошлый вторник», «кто выложил правку, от которой
+// перестал звонить телефон». Отсюда четыре отбора и месяц по умолчанию.
 func (s *Server) showAudit(w http.ResponseWriter, r *http.Request, admin model.Admin) {
-	entries, err := s.DB.AuditPage(r.Context(), 300)
+	query := r.URL.Query()
+	data := auditData{
+		Action: query.Get("kind"),
+		Actor:  query.Get("who"),
+		Period: query.Get("period"),
+		Query:  strings.TrimSpace(query.Get("q")),
+	}
+	if data.Period == "" {
+		data.Period = "month"
+	}
+
+	shown := auditPageSize
+	if raw := query.Get("shown"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > auditPageSize && n <= 10000 {
+			shown = n
+		}
+	}
+	data.Shown = shown
+
+	filter := storage.AuditFilter{
+		Action: data.Action,
+		Actor:  data.Actor,
+		Since:  auditSince(data.Period, time.Now()),
+		Query:  data.Query,
+		// Одна лишняя строка сверх показываемых — по ней и видно, есть ли хвост.
+		Limit: shown + 1,
+	}
+
+	entries, err := s.DB.AuditPage(r.Context(), filter)
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
+	if len(entries) > shown {
+		data.HasMore = true
+		entries = entries[:shown]
+	}
+	data.Entries = entries
+
+	if data.Actions, err = s.DB.AuditActions(r.Context()); err != nil {
+		s.fail(w, err)
+		return
+	}
+	if data.Actors, err = s.DB.AuditActors(r.Context()); err != nil {
+		s.fail(w, err)
+		return
+	}
+
 	s.render(w, r, "audit", page{
-		Title: "Журнал", Section: "audit", Admin: admin, Data: entries,
+		Title: "Журнал", Section: "audit", Admin: admin, Data: data,
 	})
+}
+
+// auditSince переводит выбранный срок в дату.
+//
+// Готовые сроки, а не два поля с датами: «прошлый вторник» ищут глазами по
+// странице за неделю, а календарь на такой вопрос заставляет отвечать дважды.
+func auditSince(period string, now time.Time) time.Time {
+	switch period {
+	case "today":
+		return now.Truncate(24 * time.Hour)
+	case "week":
+		return now.AddDate(0, 0, -7)
+	case "all":
+		return time.Time{}
+	default:
+		return now.AddDate(0, -1, 0)
+	}
 }
 
 // --------------------------------------------------------------- настройки
 
 type settingsData struct {
 	AppLink string
+
+	// Users — пользователи панели. Заполняется только администратору.
+	Users []model.Admin
 }
 
 func (s *Server) showSettings(w http.ResponseWriter, r *http.Request, admin model.Admin) {
@@ -454,10 +640,180 @@ func (s *Server) showSettings(w http.ResponseWriter, r *http.Request, admin mode
 		s.fail(w, err)
 		return
 	}
+
+	// Список пользователей читается только администратору: техподдержке он не
+	// запрещён по смыслу, но и делать ей с ним нечего, а логины коллег на
+	// экране — лишнее место, где их можно прочитать через плечо.
+	var users []model.Admin
+	if admin.IsAdmin() {
+		users, err = s.DB.ListAdmins(r.Context())
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+	}
+
 	s.render(w, r, "settings", page{
 		Title: "Настройки", Section: "settings", Admin: admin,
-		Data: settingsData{AppLink: link},
+		Data: settingsData{AppLink: link, Users: users},
 	})
+}
+
+// createUser заводит пользователя панели.
+func (s *Server) createUser(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	login := strings.TrimSpace(r.FormValue("login"))
+	password := r.FormValue("password")
+	role := model.RoleSupport
+	if r.FormValue("role") == string(model.RoleAdmin) {
+		role = model.RoleAdmin
+	}
+
+	if login == "" {
+		s.flash(r, "bad", "Не заведён", "Имя не может быть пустым")
+		s.back(w, r, "/settings")
+		return
+	}
+	if len([]rune(password)) < 8 {
+		s.flash(r, "bad", "Не заведён", "Пароль не короче восьми знаков")
+		s.back(w, r, "/settings")
+		return
+	}
+
+	hash, err := panel.HashPassword(password)
+	if err != nil {
+		s.flash(r, "bad", "Не заведён", friendly(err))
+		s.back(w, r, "/settings")
+		return
+	}
+	if _, err := s.DB.CreateAdminWithRole(r.Context(), actorOf(admin), login, hash, role); err != nil {
+		s.flash(r, "bad", "Не заведён", friendly(err))
+		s.back(w, r, "/settings")
+		return
+	}
+
+	s.flash(r, "ok", "Пользователь заведён",
+		"Передайте ему имя и пароль — сменить пароль он сможет сам, в «Настройках».")
+	s.back(w, r, "/settings")
+}
+
+// deleteUser гасит пользователя панели.
+//
+// Гасит, а не удаляет: строки журнала должны остаться читаемыми. Два края
+// закрыты здесь, и оба бытовые, а не про безопасность: себя удалить нельзя —
+// жмут «удалить» в списке и попадают в свою строку; последнего администратора
+// удалить нельзя — панель осталась бы без того, кто заводит пользователей, и
+// чинилось бы это только командной строкой.
+func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if id == admin.ID {
+		s.flash(r, "bad", "Не удалён", "Себя удалить нельзя")
+		s.back(w, r, "/settings")
+		return
+	}
+
+	target, err := s.DB.AdminByID(r.Context(), id)
+	if err != nil {
+		s.flash(r, "bad", "Не удалён", "Такого пользователя нет")
+		s.back(w, r, "/settings")
+		return
+	}
+	if target.IsAdmin() {
+		count, err := s.DB.AdminRoleCount(r.Context(), model.RoleAdmin)
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		if count <= 1 {
+			s.flash(r, "bad", "Не удалён",
+				"Это последний администратор. Без него некому заводить пользователей, и вернуть его можно будет только из командной строки.")
+			s.back(w, r, "/settings")
+			return
+		}
+	}
+
+	if err := s.DB.DisableAdmin(r.Context(), actorOf(admin), id); err != nil {
+		s.flash(r, "bad", "Не удалён", friendly(err))
+		s.back(w, r, "/settings")
+		return
+	}
+	s.flash(r, "ok", "Пользователь удалён",
+		"Его сеансы оборваны. В журнале он остаётся: иначе его действия стали бы безымянными.")
+	s.back(w, r, "/settings")
+}
+
+// resetUserPassword задаёт чужой пароль.
+//
+// Нужен ровно затем, что забытый пароль техподдержки иначе не сбрасывается
+// никак. Чужой логин при этом не меняется: логин — подпись в журнале.
+func (s *Server) resetUserPassword(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	password := r.FormValue("password")
+	if len([]rune(password)) < 8 {
+		s.flash(r, "bad", "Пароль не сменён", "Не короче восьми знаков")
+		s.back(w, r, "/settings")
+		return
+	}
+
+	hash, err := panel.HashPassword(password)
+	if err != nil {
+		s.flash(r, "bad", "Пароль не сменён", friendly(err))
+		s.back(w, r, "/settings")
+		return
+	}
+	if err := s.DB.SetAdminPassword(r.Context(), actorOf(admin), id, hash); err != nil {
+		s.flash(r, "bad", "Пароль не сменён", friendly(err))
+		s.back(w, r, "/settings")
+		return
+	}
+	s.flash(r, "ok", "Пароль сменён", "Его сеансы оборваны — войдёт заново с новым паролем.")
+	s.back(w, r, "/settings")
+}
+
+// changeOwnPassword меняет пароль тому, кто вошёл.
+//
+// Пароль администратора — это доступ ко всем SIP-паролям конторы, и до
+// 25 августа 2026 сменить его из панели было нельзя вовсе: только через
+// командную строку, то есть позвав того, кто панель ставил.
+func (s *Server) changeOwnPassword(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	current := r.FormValue("current")
+	next := r.FormValue("password")
+
+	stored, err := s.DB.AdminByLogin(r.Context(), admin.Login)
+	if err != nil || panel.CheckPassword(stored.PasswordHash, current) != nil {
+		// Нынешний пароль спрашивается не для порядка: панель открывают надолго
+		// и оставляют открытой, и без него сменить пароль может любой, кто сел
+		// за чужой стол.
+		s.flash(r, "bad", "Пароль не сменён", "Нынешний пароль не подошёл")
+		s.back(w, r, "/settings")
+		return
+	}
+	if len([]rune(next)) < 8 {
+		s.flash(r, "bad", "Пароль не сменён", "Не короче восьми знаков")
+		s.back(w, r, "/settings")
+		return
+	}
+
+	hash, err := panel.HashPassword(next)
+	if err != nil {
+		s.flash(r, "bad", "Пароль не сменён", friendly(err))
+		s.back(w, r, "/settings")
+		return
+	}
+	if err := s.DB.SetAdminPassword(r.Context(), actorOf(admin), admin.ID, hash); err != nil {
+		s.flash(r, "bad", "Пароль не сменён", friendly(err))
+		s.back(w, r, "/settings")
+		return
+	}
+	s.flash(r, "ok", "Пароль сменён", "Прежние сеансы в других браузерах остаются открытыми.")
+	s.back(w, r, "/settings")
 }
 
 func (s *Server) saveAppLink(w http.ResponseWriter, r *http.Request, admin model.Admin) {

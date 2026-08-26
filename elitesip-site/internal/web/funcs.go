@@ -16,6 +16,7 @@ var templateFuncs = template.FuncMap{
 	"plural":    plural,
 	"deref":     deref,
 	"hasValue":  hasValue,
+	"add":       func(a, b int) int { return a + b },
 }
 
 // moment показывает время так, как его читает человек в этом часовом поясе.

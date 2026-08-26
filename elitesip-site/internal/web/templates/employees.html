@@ -1,119 +1,65 @@
 {{define "content"}}
 {{$data := .Data}}
-<div class="toolbar">
-    <div class="toolbar-title">
+<div class="page-head">
+    <div class="page-title">
         <h1>Сотрудники</h1>
         <p>Номер живёт и умирает вместе с человеком. Ключ выписывается на человека, машин у него может быть несколько.</p>
     </div>
-    <form method="get" action="/employees" class="search employee-search" role="search">
-        <input name="q" type="search" value="{{$data.Query}}" placeholder="имя или номер" aria-label="Поиск по имени или номеру">
-        <select name="preset" aria-label="Фильтр по предустановке">
-            <option value="">все предустановки</option>
-            {{range $data.Presets}}
-            <option value="{{.ID}}"
-                {{if and (hasValue $data.PresetID) (eq (deref $data.PresetID) .ID)}}selected{{end}}>{{.Name}}</option>
-            {{end}}
-        </select>
-        <button type="submit" class="button button-primary">Найти</button>
-        {{if or $data.Query (hasValue $data.PresetID)}}
-        <a class="button button-quiet" href="/employees">Сбросить</a>
-        {{end}}
-    </form>
+    <div class="page-actions">
+        <a class="button button-primary" href="/keys">Выдать ключ</a>
+    </div>
 </div>
 
-<div class="employee-tools">
-<details class="card compact-tool">
-    <summary>
-        <strong>Найти по ключу</strong>
-        <span>Проверить владельца и состояние</span>
-    </summary>
-    <div class="card-body">
-        <p class="card-note">
-            Сотрудник прислал ключ и говорит, что не работает? Вставьте его сюда — панель покажет,
-            чей он и что с ним: ждёт активации, забрали вчера, вытеснен новым или просрочен.
-            Пробелы, переносы и дефисы можно не убирать.
-        </p>
-        <form method="post" action="/activations/find" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
-            <div class="field" style="flex:1 1 240px;">
-                <label for="key">Ключ</label>
-                <input id="key" name="key" type="text" class="mono" placeholder="K7M2-9XQP-4TFB" autocomplete="off" required>
-            </div>
-            <button type="submit" class="button">Найти</button>
-        </form>
-    </div>
-</details>
-
-<details class="card compact-tool">
-    <summary>
-        <strong>Завести сотрудника</strong>
-        <span>Создать запись и выпустить ключ</span>
-    </summary>
-    <div class="card-body">
-        <form method="post" action="/employees" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
-            <div class="field" style="flex:2 1 200px;">
-                <label for="name">Имя</label>
-                <input id="name" name="name" type="text" placeholder="Пётр Смирнов" required>
-            </div>
-            <div class="field" style="flex:0 1 120px;">
-                <label for="number">Номер</label>
-                <input id="number" name="number" type="text" inputmode="numeric" placeholder="172">
-            </div>
-            <div class="field" style="flex:1 1 180px;">
-                <label for="sip_password">SIP-пароль</label>
-                <input id="sip_password" name="sip_password" type="text" placeholder="с АТС">
-            </div>
-            <div class="field" style="flex:1 1 180px;">
-                <label for="preset_id">Предустановка</label>
-                <select id="preset_id" name="preset_id">
-                    <option value="">не выбрана</option>
-                    {{range $data.Presets}}
-                    <option value="{{.ID}}"
-                        {{if and (hasValue $data.LastPreset) (eq (deref $data.LastPreset) .ID)}}selected{{end}}>{{.Name}}</option>
-                    {{end}}
-                </select>
-            </div>
-            <button type="submit" class="button button-primary">Завести и выпустить ключ</button>
-        </form>
-        <p class="card-note">
-            Ключ появится сразу за этой кнопкой — вместе с готовым сообщением, которое можно
-            скопировать и отправить. Номер и SIP-пароль берутся с АТС: панель там ничего не заводит.
-            Оставить их пустыми можно, но ключ тогда не выпустится, и карточка скажет об этом.
-        </p>
-        {{if not $data.Presets}}
-        <p class="card-note">
-            Предустановок пока нет. Ключ без предустановки не выпускается —
-            заведите её в разделе «Предустановки».
-        </p>
-        {{end}}
-    </div>
-</details>
-</div>
-
-<div class="card employee-list">
+<div class="card">
     <div class="card-head">
         <h2>Список</h2>
+        <form method="get" action="/employees" class="search" role="search">
+            <input name="q" type="search" value="{{$data.Query}}" placeholder="имя или номер" aria-label="Поиск по имени или номеру">
+            <select name="preset" aria-label="Отбор по предустановке">
+                <option value="">все предустановки</option>
+                {{range $data.Presets}}
+                <option value="{{.ID}}"
+                    {{if and (hasValue $data.PresetID) (eq (deref $data.PresetID) .ID)}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+            <button type="submit" class="button">Найти</button>
+            {{if or $data.Query (hasValue $data.PresetID)}}
+            <a class="button button-quiet" href="/employees">Сбросить</a>
+            {{end}}
+        </form>
     </div>
     {{if $data.Employees}}
     <table class="table">
+        <colgroup><col style="width:34%"><col style="width:10%"><col style="width:20%"><col style="width:22%"><col style="width:14%"></colgroup>
         <thead>
             <tr>
                 <th>Сотрудник</th>
                 <th>Номер</th>
                 <th>Предустановка</th>
+                <th>Машины</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
         {{range $data.Employees}}
+            {{$state := index $data.Machines .ID}}
             <tr>
                 <td data-label="Сотрудник" class="primary-cell">
                     <a href="/employees/{{.ID}}">{{.Name}}</a>
                 </td>
-                <td data-label="Номер">
+                <td data-label="Номер" class="cell-tight">
                     {{if .Number}}<span class="mono">{{.Number}}</span>{{else}}<span class="sub">не заполнен</span>{{end}}
                 </td>
-                <td data-label="Предустановка">
+                <td data-label="Предустановка" class="cell-tight">
                     {{if .PresetName}}{{.PresetName}}{{else}}<span class="sub">не выбрана</span>{{end}}
+                </td>
+                {{/* Пятая колонка заведена затем, чтобы на «а у Петрова-то что?»
+                     можно было ответить, не открывая Петрова. */}}
+                <td data-label="Машины" class="cell-tight">
+                    {{if $state.Live}}<span class="badge badge-ok">{{$state.Live}} на связи</span>{{end}}
+                    {{if $state.Silent}}<span class="badge badge-off">{{$state.Silent}} молчит</span>{{end}}
+                    {{if $state.Waiting}}<span class="badge badge-wait">ключ не забран</span>{{end}}
+                    {{if and (not $state.Live) (not $state.Silent) (not $state.Waiting)}}<span class="sub">нет машин</span>{{end}}
                 </td>
                 <td class="cell-actions">
                     <a class="button" href="/employees/{{.ID}}">Открыть</a>
@@ -130,7 +76,7 @@
     {{else}}
     <div class="empty">
         <strong>Пока никого</strong>
-        Заведите сотрудника с номером и предустановкой — и выпустите ему ключ.
+        Заводят сотрудника вместе с ключом — в разделе «Выдать ключ».
     </div>
     {{end}}
 </div>

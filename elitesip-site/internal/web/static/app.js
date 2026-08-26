@@ -7,38 +7,49 @@
 (function () {
     "use strict";
 
-    /* Оформление: как в системе → светлое → тёмное → как в системе.
+    /* Оформление: светлое ⇄ тёмное.
      *
-     * Три состояния, а не два: «как в системе» должно оставаться достижимым,
-     * иначе выбравший однажды тёмную тему больше никогда не вернётся к
-     * системной, не чистя хранилище браузера. */
-    var order = ["auto", "light", "dark"];
-    var names = { auto: "как в системе", light: "светлое", dark: "тёмное" };
+     * Два состояния, а не три. «Как в системе» отсюда убрано 26 августа
+     * 2026: третье состояние было неразличимо на глаз от того из двух, с
+     * которым совпадало, и нажатие на кнопку в этот момент выглядело как
+     * ничего не сделавшее. Пока выбора не сделали, тема берётся системная —
+     * это по-прежнему так, просто отдельной кнопки под это больше нет.
+     */
+    var names = { light: "светлое", dark: "тёмное" };
 
+    var icons = {
+        light: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>'
+             + '<line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>'
+             + '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>'
+             + '<line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>'
+             + '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+        dark: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
+    };
+
+    /* Что показано сейчас: выбранное человеком, а до выбора — системное. */
     function currentTheme() {
         var stored = null;
         try { stored = localStorage.getItem("elitesip-theme"); } catch (e) { /* приватный режим */ }
-        return order.indexOf(stored) === -1 ? "auto" : stored;
+        if (stored === "light" || stored === "dark") { return stored; }
+        return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark" : "light";
     }
 
     function applyTheme(theme) {
-        if (theme === "auto") {
-            document.documentElement.removeAttribute("data-theme");
-        } else {
-            document.documentElement.setAttribute("data-theme", theme);
-        }
+        document.documentElement.setAttribute("data-theme", theme);
         try { localStorage.setItem("elitesip-theme", theme); } catch (e) { /* приватный режим */ }
 
         document.querySelectorAll("[data-theme-toggle]").forEach(function (button) {
             button.title = "Оформление: " + names[theme];
+            var icon = button.querySelector("[data-theme-icon]");
+            if (icon) { icon.innerHTML = icons[theme]; }
         });
     }
 
     document.addEventListener("click", function (event) {
         var toggle = event.target.closest("[data-theme-toggle]");
         if (toggle) {
-            var next = order[(order.indexOf(currentTheme()) + 1) % order.length];
-            applyTheme(next);
+            applyTheme(currentTheme() === "dark" ? "light" : "dark");
             return;
         }
 
@@ -83,24 +94,19 @@
             return;
         }
 
-        /* Замок на адресах АТС и стуке.
-           Снимается насовсем до перезагрузки страницы: запирать обратно нечего —
-           замок сторожит случайное движение, а не злой умысел. */
-        var unlocker = event.target.closest("[data-unlock]");
-        if (unlocker) {
+        /* Развернуть спрятанный блок: форма заведения предустановки и форма
+           выдачи ключа лежат свёрнутыми и раскрываются кнопкой. Это не
+           гармошка со скрытыми настройками — это одно действие, которое не
+           должно занимать первый экран у тех, кто пришёл смотреть список. */
+        var opener2 = event.target.closest("[data-open]");
+        if (opener2) {
             event.preventDefault();
-            var name = unlocker.getAttribute("data-unlock");
-            var guarded = document.querySelector('[data-lockable="' + name + '"]');
-            if (guarded) {
-                guarded.removeAttribute("inert");
-                guarded.classList.remove("locked");
+            var block = document.getElementById(opener2.getAttribute("data-open"));
+            if (block) {
+                block.hidden = false;
+                var first = block.querySelector("input, select");
+                if (first) { first.focus(); }
             }
-            var section = unlocker.closest("details");
-            if (section) {
-                var mark = section.querySelector(".lock-mark");
-                if (mark) { mark.remove(); }
-            }
-            unlocker.remove();
             return;
         }
 
@@ -167,5 +173,12 @@
         if (firstInput) { firstInput.focus(); }
     }
 
-    applyTheme(currentTheme());
+    (function paintToggle() {
+        var theme = currentTheme();
+        document.querySelectorAll("[data-theme-toggle]").forEach(function (button) {
+            button.title = "Оформление: " + names[theme];
+            var icon = button.querySelector("[data-theme-icon]");
+            if (icon) { icon.innerHTML = icons[theme]; }
+        });
+    })();
 })();

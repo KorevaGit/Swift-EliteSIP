@@ -1,31 +1,46 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="toolbar">
-    <div class="toolbar-title">
+<div class="page-head">
+    <div class="page-title">
         <h1>Предустановки</h1>
         <p>Правка доезжает до машин за полчаса. Отложить её сотрудник не может — она ждёт только конца разговора.</p>
     </div>
-    <form method="post" action="/publish">
-        <button type="submit" class="button button-primary"
-                data-confirm="Выложить текущее состояние всех предустановок? Машины подхватят его в течение получаса.">
-            Выложить
-        </button>
-    </form>
+    {{if .Admin.IsAdmin}}
+    <div class="page-actions">
+        <form method="post" action="/publish">
+            {{/* Общая выкладка осталась исключением: обычная правка касается
+                 одной предустановки и выкладывается из её карточки. */}}
+            <button type="submit" class="button"
+                    data-confirm="Выложить сохранённые ревизии ВСЕХ предустановок? Уедут и те правки, которые ещё не собирались выкладывать.">
+                Выложить все
+            </button>
+        </form>
+    </div>
+    {{end}}
 </div>
 
 {{if $d.Pending}}
 <div class="notice notice-warn">
-    <p>
+    <div>
         <strong>Не выложено: {{$d.Pending}} {{plural $d.Pending "предустановка" "предустановки" "предустановок"}}</strong>
-        Сохранённая ревизия лежит в базе, но на машинах её ещё нет. Между «сохранил» и «уехало» стоит выкладка.
-    </p>
+        <p>Сохранённая ревизия лежит в базе, но на машинах её ещё нет. Между «сохранил» и «уехало» стоит выкладка.</p>
+    </div>
 </div>
 {{end}}
 
 <div class="card">
-    <div class="card-head"><h2>Завести предустановку</h2></div>
-    <div class="card-body">
-        <form method="post" action="/presets" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+    <div class="card-head">
+        <h2>Список</h2>
+        {{if .Admin.IsAdmin}}
+        <div class="card-head-actions">
+            {{/* Свёрнута: предустановку заводят раз в полгода, а развёрнутой она
+                 занимала первый экран над таблицей из трёх строк. */}}
+            <button type="button" class="button" data-open="new-preset">Завести</button>
+        </div>
+        {{end}}
+    </div>
+    <div class="card-body" id="new-preset" hidden>
+        <form method="post" action="/presets" class="row">
             <div class="field" style="flex:1 1 240px;">
                 <label for="name">Название</label>
                 <input id="name" name="name" type="text" placeholder="Менеджер" required>
@@ -37,12 +52,9 @@
             по внутреннему идентификатору, а не по имени.
         </p>
     </div>
-</div>
-
-<div class="card">
-    <div class="card-head"><h2>Список</h2></div>
     {{if $d.Presets}}
     <table class="table">
+        <colgroup><col style="width:30%"><col style="width:16%"><col style="width:22%"><col style="width:12%"><col style="width:20%"></colgroup>
         <thead>
             <tr>
                 <th>Название</th>
@@ -56,14 +68,14 @@
         {{range $d.Presets}}
             <tr>
                 <td data-label="Название" class="primary-cell"><a href="/presets/{{.ID}}">{{.Name}}</a></td>
-                <td data-label="Ревизия">
+                <td data-label="Ревизия" class="cell-tight">
                     {{if .Revision}}
                         {{.Revision}}<br><span class="sub">{{moment .RevisionAt}}</span>
                     {{else}}
                         <span class="sub">нет</span>
                     {{end}}
                 </td>
-                <td data-label="Состояние">
+                <td data-label="Состояние" class="cell-tight">
                     {{if not .Revision}}
                         <span class="badge badge-off">пустая</span>
                     {{else if .Published}}
@@ -71,9 +83,13 @@
                     {{else}}
                         <span class="badge badge-wait">не выложена</span>
                     {{end}}
+                    {{if not .AdminPasswordSet}}<br><span class="badge badge-bad">без пароля</span>{{end}}
                 </td>
-                <td data-label="Сотрудников">{{.EmployeeCount}}</td>
-                <td class="cell-actions"><a class="button" href="/presets/{{.ID}}">Открыть</a></td>
+                <td data-label="Сотрудников" class="cell-tight">{{.EmployeeCount}}</td>
+                <td class="cell-actions">
+                    <a class="button" href="/presets/{{.ID}}">Открыть</a>
+                    {{if $.Admin.IsAdmin}}<a class="button" href="/presets/{{.ID}}/edit">Править</a>{{end}}
+                </td>
             </tr>
         {{end}}
         </tbody>

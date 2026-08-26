@@ -93,6 +93,6 @@
 	     Адреса канала здесь нет: файл предустановок один на оба среза, и берётся
 	     он с того же канала, что и обновления, — из провижининга. -->
 	<key>ESPresetsPublicKey</key>
-	<string></string>
+	<string>1jz4LDSzCezH2YO5eMPpE5iJEEhs28FMPsBIh7e8Ock=</string>
 </dict>
 </plist>

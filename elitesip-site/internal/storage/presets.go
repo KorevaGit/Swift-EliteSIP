@@ -327,15 +327,46 @@ type BundleEntry struct {
 // Архивные предустановки не берутся: файл описывает то, чем управляют сейчас.
 // Предустановка без единой ревизии тоже не берётся — управлять ею пока нечем,
 // а пустая запись в файле заставила бы машину применить пустоту.
-func (db *DB) BundleEntries(ctx context.Context) ([]BundleEntry, error) {
-	rows, err := db.QueryContext(ctx, `
+//
+// only — та предустановка, которую выкладывают сейчас. У неё берётся последняя
+// **сохранённая** ревизия, у всех остальных — последняя **выложенная**.
+//
+// Так чинится ловушка, которая существовала до 25 августа 2026: файл собирался
+// по MAX(revision) для всех подряд, и человек, выложивший «Менеджера», молча
+// увозил на машины ещё и вчерашнюю недоделанную ревизию «Стажёра», которую
+// специально не выкладывали. В журнале это выглядело как выкладка «Менеджера».
+//
+// nil в only означает «выложить всё сохранённое» — прежнее поведение, и оно
+// остаётся доступным отдельной кнопкой, где так и написано.
+func (db *DB) BundleEntries(ctx context.Context, only *int64) ([]BundleEntry, error) {
+	// Отбор ревизии: у выкладываемой — свежайшая, у прочих — последняя из
+	// выложенных. Предустановка, которую ещё ни разу не выкладывали, в файл не
+	// попадает вовсе: на машинах её и так нет.
+	const pickLatest = `r.revision = (SELECT MAX(revision) FROM preset_revisions WHERE preset_id = p.id)`
+	const pickPublishedOrTarget = `
+		r.revision = (
+			SELECT MAX(revision) FROM preset_revisions
+			 WHERE preset_id = p.id
+			   AND (published_at IS NOT NULL OR p.id = ?))`
+
+	query := `
 		SELECT p.id, p.public_id, p.name, r.id, r.revision, r.schema_version, r.payload
 		  FROM presets p
 		  JOIN preset_revisions r
 		    ON r.preset_id = p.id
-		   AND r.revision = (SELECT MAX(revision) FROM preset_revisions WHERE preset_id = p.id)
+		   AND `
+	var args []any
+	if only == nil {
+		query += pickLatest
+	} else {
+		query += pickPublishedOrTarget
+		args = append(args, *only)
+	}
+	query += `
 		 WHERE p.archived_at IS NULL
-		 ORDER BY p.name`)
+		 ORDER BY p.name`
+
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("собрать содержимое файла предустановок: %w", err)
 	}
@@ -405,4 +436,74 @@ func (db *DB) PresetAdminPassword(ctx context.Context, presetID int64) (string, 
 		return "", fmt.Errorf("прочитать пароль предустановки %d: %w", presetID, err)
 	}
 	return password, nil
+}
+
+// PresetReach — кого касается выкладка этой предустановки.
+//
+// Число машин важнее числа предустановок: правку получают люди, а не строки в
+// базе. Считаются живые активации — отозванные машину не описывают.
+func (db *DB) PresetReach(ctx context.Context, presetID int64) (employees, machines int, err error) {
+	if err = db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM employees WHERE preset_id = ?`, presetID).Scan(&employees); err != nil {
+		return 0, 0, fmt.Errorf("посчитать сотрудников предустановки %d: %w", presetID, err)
+	}
+	if err = db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		  FROM activations
+		 WHERE preset_id = ? AND revoked_at IS NULL AND fetched_at IS NOT NULL`,
+		presetID).Scan(&machines); err != nil {
+		return 0, 0, fmt.Errorf("посчитать машины предустановки %d: %w", presetID, err)
+	}
+	return employees, machines, nil
+}
+
+// ErrPresetInUse — предустановку держат живые сотрудники.
+var ErrPresetInUse = errors.New("предустановку держат сотрудники")
+
+// ArchivePreset убирает предустановку из работы.
+//
+// Гасит, а не удаляет строку: на ревизии ссылается журнал, а на саму
+// предустановку — выданные активации, и удаление унесло бы вместе с ней ответ
+// на «что стояло на этой машине». В файл на R2 погашенная больше не попадает.
+//
+// Отказывает, пока за предустановкой числится хоть один сотрудник: иначе
+// человек остался бы с ключом, который не из чего собрать, и узналось бы это
+// при первой же попытке его выпустить.
+func (db *DB) ArchivePreset(ctx context.Context, actor *int64, id int64) error {
+	now := time.Now()
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("убрать предустановку: %w", err)
+	}
+	defer tx.Rollback()
+
+	var employees int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM employees WHERE preset_id = ?`, id).Scan(&employees); err != nil {
+		return fmt.Errorf("посчитать сотрудников предустановки %d: %w", id, err)
+	}
+	if employees > 0 {
+		return ErrPresetInUse
+	}
+
+	var name string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT name FROM presets WHERE id = ? AND archived_at IS NULL`, id).Scan(&name); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("прочитать предустановку %d: %w", id, err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE presets SET archived_at = ? WHERE id = ?`, formatTime(now), id); err != nil {
+		return fmt.Errorf("убрать предустановку %d: %w", id, err)
+	}
+	// Имя пишется в журнал: карточки не станет, а вопрос «что за предустановка
+	// стояла на этой машине» останется.
+	if err := logAction(ctx, tx, now, actor, "предустановка убрана", "preset", &id, name); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

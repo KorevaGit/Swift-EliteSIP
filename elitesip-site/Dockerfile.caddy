@@ -1,0 +1,13 @@
+# Caddy с модулем DNS-Cloudflare.
+#
+# Готовый образ не подходит: проверка HTTP-01 требует, чтобы до сервера
+# достучались снаружи, а он стоит внутри сети и наружу не смотрит намеренно.
+# Остаётся DNS-01 — она доказывает владение именем записью в зоне, и до самого
+# сервера ходить не надо. Модуль в стандартный образ не входит, поэтому сборка.
+FROM caddy:2-builder AS build
+
+RUN xcaddy build --with github.com/caddy-dns/cloudflare
+
+FROM caddy:2-alpine
+
+COPY --from=build /usr/bin/caddy /usr/bin/caddy

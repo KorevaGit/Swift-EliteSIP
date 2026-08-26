@@ -118,7 +118,7 @@ func TestDeletionLeavesNameAndNumberInAudit(t *testing.T) {
 		t.Fatalf("DeleteEmployee: %v", err)
 	}
 
-	entries, err := db.AuditPage(ctx, 10)
+	entries, err := db.AuditPage(ctx, AuditFilter{Limit: 10})
 	if err != nil {
 		t.Fatalf("AuditPage: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestActionsAreLogged(t *testing.T) {
 		t.Fatalf("UpdateEmployee: %v", err)
 	}
 
-	entries, err := db.AuditPage(ctx, 10)
+	entries, err := db.AuditPage(ctx, AuditFilter{Limit: 10})
 	if err != nil {
 		t.Fatalf("AuditPage: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestPasswordsStayOutOfAuditLog(t *testing.T) {
 		t.Fatalf("DeleteEmployee: %v", err)
 	}
 
-	entries, err := db.AuditPage(ctx, 10)
+	entries, err := db.AuditPage(ctx, AuditFilter{Limit: 10})
 	if err != nil {
 		t.Fatalf("AuditPage: %v", err)
 	}

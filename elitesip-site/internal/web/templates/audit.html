@@ -1,14 +1,42 @@
 {{define "content"}}
-<div class="toolbar">
-    <div class="toolbar-title">
+{{$d := .Data}}
+<div class="page-head">
+    <div class="page-title">
         <h1>Журнал</h1>
-        <p>Администраторы равны и все могут всё — поэтому на «кто это сделал» отвечает только он.</p>
+        <p>Отвечает на «кто это сделал»: пользователи панели равны в правах внутри своей роли, и другого ответа нет.</p>
     </div>
 </div>
 
 <div class="card">
-    {{if .Data}}
+    <div class="card-head">
+        <h2>События</h2>
+        {{/* Четыре отбора и ни одним больше: тип, человек, срок, поиск. */}}
+        <form method="get" action="/audit" class="search" role="search">
+            <select name="kind" aria-label="Отбор по типу события">
+                <option value="">все события</option>
+                {{range $d.Actions}}
+                <option value="{{.}}" {{if eq . $d.Action}}selected{{end}}>{{.}}</option>
+                {{end}}
+            </select>
+            <select name="who" aria-label="Отбор по человеку">
+                <option value="">все</option>
+                {{range $d.Actors}}
+                <option value="{{.}}" {{if eq . $d.Actor}}selected{{end}}>{{.}}</option>
+                {{end}}
+            </select>
+            <select name="period" aria-label="Отбор по сроку">
+                <option value="today" {{if eq $d.Period "today"}}selected{{end}}>сегодня</option>
+                <option value="week" {{if eq $d.Period "week"}}selected{{end}}>неделя</option>
+                <option value="month" {{if eq $d.Period "month"}}selected{{end}}>месяц</option>
+                <option value="all" {{if eq $d.Period "all"}}selected{{end}}>всё</option>
+            </select>
+            <input name="q" type="search" value="{{$d.Query}}" placeholder="номер или имя" aria-label="Поиск по подробностям">
+            <button type="submit" class="button">Найти</button>
+        </form>
+    </div>
+    {{if $d.Entries}}
     <table class="table">
+        <colgroup><col style="width:16%"><col style="width:24%"><col style="width:44%"><col style="width:16%"></colgroup>
         <thead>
             <tr>
                 <th>Когда</th>
@@ -18,22 +46,33 @@
             </tr>
         </thead>
         <tbody>
-        {{range .Data}}
+        {{range $d.Entries}}
             <tr>
-                <td data-label="Когда">{{moment .At}}<br><span class="sub">{{ago .At}}</span></td>
+                <td data-label="Когда" class="cell-tight">{{moment .At}}<br><span class="sub">{{ago .At}}</span></td>
                 <td data-label="Что" class="primary-cell">{{.Action}}</td>
                 <td data-label="Над чем">
                     {{if .Details}}{{.Details}}{{else}}<span class="sub">—</span>{{end}}
                 </td>
-                <td data-label="Кто">
-                    {{if .AdminID}}<span class="sub">администратор {{.AdminID}}</span>{{else}}<span class="sub">из командной строки</span>{{end}}
+                {{/* Имя, а не номер: прежде здесь стояло «администратор 3», при том
+                     что вся страница существует ради ответа на «кто это сделал». */}}
+                <td data-label="Кто" class="cell-tight">
+                    {{if .ActorLogin}}{{.ActorLogin}}{{else}}<span class="sub">из командной строки</span>{{end}}
                 </td>
             </tr>
         {{end}}
         </tbody>
     </table>
+    {{if $d.HasMore}}
+    <div class="card-body">
+        <a class="button" href="/audit?kind={{$d.Action}}&who={{$d.Actor}}&period={{$d.Period}}&q={{$d.Query}}&shown={{add $d.Shown 100}}">Показать ещё</a>
+    </div>
+    {{end}}
     {{else}}
-    <div class="empty"><strong>Журнал пуст</strong>Здесь появится всё, что делают в панели.</div>
+    <div class="empty">
+        <strong>Ничего не нашлось</strong>
+        За выбранный срок таких событий нет. Рутина старше трёх месяцев чистится сама;
+        удаления сотрудников остаются навсегда.
+    </div>
     {{end}}
 </div>
 {{end}}

@@ -318,3 +318,47 @@ func quote(s string) string {
 func trimFloat(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
+
+// ------------------------------------------------------- опасное и обычное
+
+// Report — те же изменения, но разделённые по цене ошибки.
+//
+// Разделение появилось 25 августа 2026 вместе с отменой замка на адресах АТС.
+// Прежде опасные поля стерёг замок в форме; теперь форма — отдельный режим, а
+// последним рубежом стало окно выкладки, и оно обязано показывать опасное
+// отдельно, а не строкой в общем списке из двадцати.
+type Report struct {
+	// Dangerous — то, из-за чего телефон перестаёт звонить на всех рабочих
+	// местах разом: адреса АТС, стук и доверие к сертификату. Показывается
+	// всегда целиком и первым.
+	Dangerous []string
+
+	// Ordinary — всё остальное: клавиши, очереди, конференция, защита приёма.
+	// Ошибка здесь стоит одного неверного набора, а не всей конторы, поэтому
+	// список можно сворачивать счётчиком.
+	Ordinary []string
+}
+
+// Empty — ничего не меняется.
+func (r Report) Empty() bool { return len(r.Dangerous) == 0 && len(r.Ordinary) == 0 }
+
+// Count — сколько изменений всего.
+func (r Report) Count() int { return len(r.Dangerous) + len(r.Ordinary) }
+
+// Grouped сличает две ревизии и раскладывает изменения по цене ошибки.
+func Grouped(before, after Fields) Report {
+	var r Report
+
+	r.Dangerous = append(r.Dangerous, addressChanges(before.SiteAddress, after.SiteAddress)...)
+	r.Dangerous = append(r.Dangerous, knockChanges(before.PortKnock, after.PortKnock)...)
+	r.Dangerous = append(r.Dangerous, trustChanges(
+		before.AcceptsAnyTLSCertificate, after.AcceptsAnyTLSCertificate)...)
+
+	r.Ordinary = append(r.Ordinary, dtmfChanges(before.DTMF, after.DTMF)...)
+	r.Ordinary = append(r.Ordinary, macroChanges(before.DTMF, after.DTMF)...)
+	r.Ordinary = append(r.Ordinary, queueChanges(before.Queues, after.Queues)...)
+	r.Ordinary = append(r.Ordinary, conferenceChanges(before.Conference, after.Conference)...)
+	r.Ordinary = append(r.Ordinary, guardChanges(before.IncomingCall, after.IncomingCall)...)
+
+	return r
+}

@@ -39,6 +39,14 @@ CREATE TABLE admins (
     login         TEXT    NOT NULL UNIQUE,
     password_hash TEXT    NOT NULL,
     created_at    TEXT    NOT NULL,
+    -- Роль: admin или support.
+    --
+    -- Две, а не три: «главный админ» — это просто первый заведённый, и
+    -- отдельной ролью он не выделяется. Техподдержка делает всю работу с
+    -- людьми, включая удаление сотрудника; не может она править
+    -- предустановки, выкладывать, менять адрес для скачивания и заводить
+    -- пользователей самой панели.
+    role          TEXT    NOT NULL DEFAULT 'admin',
     -- Не удаляем, а гасим: удалённый администратор унёс бы за собой свои
     -- строки журнала, то есть ровно то, ради чего журнал заведён.
     disabled_at   TEXT
@@ -278,10 +286,15 @@ CREATE TABLE audit_log (
     id        INTEGER PRIMARY KEY,
     at        TEXT    NOT NULL,
     admin_id  INTEGER REFERENCES admins(id),
+    -- Логин пишется прямо сюда, а не подтягивается связкой: пользователя
+    -- панели однажды погасят, и вся его история стала бы безымянной.
+    actor_login TEXT  NOT NULL DEFAULT '',
     action    TEXT    NOT NULL,
     entity    TEXT    NOT NULL DEFAULT '',
     entity_id INTEGER,
     details   TEXT    NOT NULL DEFAULT ''
 );
+
+CREATE INDEX audit_by_time ON audit_log(at);
 
 CREATE INDEX audit_log_by_time ON audit_log(at);

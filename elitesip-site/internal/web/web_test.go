@@ -351,8 +351,9 @@ func TestOverviewExplainsUnconfiguredPanel(t *testing.T) {
 		// поле предустановки, и жаловаться не на что.
 		"Нет ни одной предустановки",
 		"Не задан адрес, откуда качать приложение",
-		"Выдать ключ новому человеку",
-		"Человек уходит",
+		// Инструкций на обзоре больше нет: убраны 25 августа 2026 до того, как
+		// будут написаны заново. Остались объяснения того, чего не хватает —
+		// они и есть работа этого экрана на свежей панели.
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("на обзоре нет %q", want)
@@ -569,7 +570,9 @@ func TestLastPresetIsOfferedAgain(t *testing.T) {
 		t.Fatalf("выбор не запомнился: %q (%v)", stored, err)
 	}
 
-	list := httptest.NewRequest(http.MethodGet, "/employees", nil)
+	// Форма заведения живёт в разделе «Выдать ключ»: со страницы списка она
+	// уехала 25 августа 2026, чтобы одно действие не жило в двух местах.
+	list := httptest.NewRequest(http.MethodGet, "/keys", nil)
 	list.AddCookie(cookie)
 	w = httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, list)
@@ -819,5 +822,162 @@ func TestEmployeeCardShowsSilenceAndReflash(t *testing.T) {
 	}
 	if !strings.Contains(body, "/reflash") {
 		t.Error("у активированной машины нет кнопки перепрошивки")
+	}
+}
+
+// Техподдержка делает всю работу с людьми, но предустановки только смотрит.
+//
+// Проверка стоит на маршруте, а не на кнопке: спрятанная кнопка — подсказка, а
+// адрес страницы правки набирается руками.
+func TestSupportSeesEverythingAndEditsPeopleOnly(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	support, err := db.CreateAdminWithRole(ctx, nil, "olga", hash, model.RoleSupport)
+	if err != nil {
+		t.Fatalf("CreateAdminWithRole: %v", err)
+	}
+	token, _ := db.StartSession(ctx, support.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	card := "/presets/" + strconv.FormatInt(preset.ID, 10)
+
+	// Смотреть можно всё, включая карточку предустановки.
+	for _, path := range []string{"/overview", "/keys", "/employees", "/presets", card, "/audit", "/settings"} {
+		r := httptest.NewRequest(http.MethodGet, path, nil)
+		r.AddCookie(cookie)
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Errorf("%s закрыт для техподдержки: %d", path, w.Code)
+		}
+	}
+
+	// Заводить сотрудников — её работа.
+	create := post("/employees", url.Values{"name": {"Пётр"}, "number": {"172"}})
+	create.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, create)
+	if people, _ := db.ListEmployees(ctx, storage.EmployeeFilter{}); len(people) != 1 {
+		t.Error("техподдержка не смогла завести сотрудника")
+	}
+
+	// А править предустановку — нет, и правка не сохраняется.
+	for _, path := range []string{card, card + "/publish", card + "/password", "/publish"} {
+		r := post(path, url.Values{"admin_password": {"чужой"}})
+		r.AddCookie(cookie)
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+	}
+	if _, err := db.LatestRevision(ctx, preset.ID); err == nil {
+		t.Error("техподдержка сохранила ревизию предустановки")
+	}
+	if stored, _ := db.PresetAdminPassword(ctx, preset.ID); stored != "" {
+		t.Errorf("техподдержка сменила административный пароль: %q", stored)
+	}
+
+	// И страница правки ей не открывается, хотя адрес известен.
+	edit := httptest.NewRequest(http.MethodGet, card+"/edit", nil)
+	edit.AddCookie(cookie)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, edit)
+	if w.Code == http.StatusOK {
+		t.Error("страница правки открылась техподдержке")
+	}
+}
+
+// Опасное перед выкладкой стоит отдельно и целиком, а безобидное свёрнуто.
+//
+// Это то, что заменило собой замок на адресах АТС: замок сторожил случайное
+// движение в форме, а окно выкладки — последнее место, где правку читают перед
+// тем, как она станет обязательным обновлением на всех машинах разом.
+func TestDangerousChangesStandApartBeforePublish(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	first, _ := db.SaveRevision(ctx, nil, preset.ID, 1, []byte(
+		`{"siteAddresses":{"office":"10.0.0.5","remote":"crm.elitesochi.com"},
+		  "conference":{"featureCode":"*3","roomExtension":"8000"}}`), "")
+	if err := db.MarkPublished(ctx, nil, first.ID); err != nil {
+		t.Fatalf("MarkPublished: %v", err)
+	}
+	// Меняется и адрес АТС, и безобидный код конференции.
+	if _, err := db.SaveRevision(ctx, nil, preset.ID, 1, []byte(
+		`{"siteAddresses":{"office":"10.0.0.5","remote":"crm2.elitesochi.com"},
+		  "conference":{"featureCode":"*4","roomExtension":"8000"}}`), ""); err != nil {
+		t.Fatalf("SaveRevision: %v", err)
+	}
+
+	r := httptest.NewRequest(http.MethodGet, "/presets/"+strconv.FormatInt(preset.ID, 10), nil)
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+	body := w.Body.String()
+
+	if !strings.Contains(body, "Меняется связь с АТС") {
+		t.Error("опасное изменение не выделено отдельно")
+	}
+	danger := strings.Index(body, "Адрес АТС снаружи")
+	ordinary := strings.Index(body, "Остальные изменения")
+	if danger < 0 || ordinary < 0 {
+		t.Fatalf("изменения показаны не полностью: опасное %d, обычное %d", danger, ordinary)
+	}
+	if danger > ordinary {
+		t.Error("опасное стоит ниже безобидного — читать его будут после того, как пролистают")
+	}
+	if !strings.Contains(body, "Коснётся") {
+		t.Error("не сказано, кого касается выкладка")
+	}
+}
+
+// Раздел берётся из другой предустановки и подставляется в форму, ничего не
+// сохраняя: напечатанное в остальных разделах должно уцелеть.
+func TestBorrowSectionFillsFormWithoutSaving(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	source, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	if _, err := db.SaveRevision(ctx, nil, source.ID, 1, []byte(
+		`{"siteAddresses":{"office":"10.0.0.5","remote":"crm.elitesochi.com"}}`), ""); err != nil {
+		t.Fatalf("SaveRevision: %v", err)
+	}
+	target, _ := db.CreatePreset(ctx, nil, "Стажёр")
+
+	// В форме уже что-то напечатано — код конференции из другого раздела.
+	form := url.Values{
+		"section":       {"link"},
+		"from_link":     {strconv.FormatInt(source.ID, 10)},
+		"featureCode":   {"*77"},
+		"roomExtension": {"8000"},
+		"office":        {""},
+		"remote":        {""},
+	}
+	r := post("/presets/"+strconv.FormatInt(target.ID, 10)+"/borrow", form)
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "crm.elitesochi.com") {
+		t.Error("взятый раздел не подставился в форму")
+	}
+	if !strings.Contains(body, "*77") {
+		t.Error("подстановка затёрла напечатанное в другом разделе")
+	}
+	if _, err := db.LatestRevision(ctx, target.ID); err == nil {
+		t.Error("подстановка сохранила ревизию, хотя ничего сохранять не должна")
 	}
 }

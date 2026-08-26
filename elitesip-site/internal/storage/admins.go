@@ -29,6 +29,11 @@ var ErrDisabled = errors.New("администратор отключён")
 // хранения, и держать его тут значило бы тащить криптографию в каждый тест
 // базы.
 func (db *DB) CreateAdmin(ctx context.Context, actor *int64, login, passwordHash string) (model.Admin, error) {
+	return db.CreateAdminWithRole(ctx, actor, login, passwordHash, model.RoleAdmin)
+}
+
+// CreateAdminWithRole заводит пользователя панели с указанной ролью.
+func (db *DB) CreateAdminWithRole(ctx context.Context, actor *int64, login, passwordHash string, role model.Role) (model.Admin, error) {
 	now := time.Now()
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -37,9 +42,12 @@ func (db *DB) CreateAdmin(ctx context.Context, actor *int64, login, passwordHash
 	}
 	defer tx.Rollback()
 
+	if role != model.RoleSupport {
+		role = model.RoleAdmin
+	}
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO admins (login, password_hash, created_at) VALUES (?, ?, ?)`,
-		login, passwordHash, formatTime(now))
+		`INSERT INTO admins (login, password_hash, role, created_at) VALUES (?, ?, ?, ?)`,
+		login, passwordHash, string(role), formatTime(now))
 	if err != nil {
 		return model.Admin{}, fmt.Errorf("завести администратора %q: %w", login, err)
 	}
@@ -47,7 +55,8 @@ func (db *DB) CreateAdmin(ctx context.Context, actor *int64, login, passwordHash
 	if err != nil {
 		return model.Admin{}, fmt.Errorf("завести администратора %q: %w", login, err)
 	}
-	if err := logAction(ctx, tx, now, actor, "администратор заведён", "admin", &id, login); err != nil {
+	if err := logAction(ctx, tx, now, actor, "администратор заведён", "admin", &id,
+		login+" ("+string(role)+")"); err != nil {
 		return model.Admin{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -55,7 +64,7 @@ func (db *DB) CreateAdmin(ctx context.Context, actor *int64, login, passwordHash
 	}
 
 	return model.Admin{
-		ID: id, Login: login, PasswordHash: passwordHash,
+		ID: id, Login: login, PasswordHash: passwordHash, Role: role,
 		CreatedAt: now.UTC().Truncate(time.Second),
 	}, nil
 }
@@ -67,15 +76,17 @@ func (db *DB) AdminByLogin(ctx context.Context, login string) (model.Admin, erro
 		createdAt  string
 		disabledAt sql.NullString
 	)
+	var role string
 	err := db.QueryRowContext(ctx,
-		`SELECT id, login, password_hash, created_at, disabled_at FROM admins WHERE login = ?`, login).
-		Scan(&a.ID, &a.Login, &a.PasswordHash, &createdAt, &disabledAt)
+		`SELECT id, login, password_hash, role, created_at, disabled_at FROM admins WHERE login = ?`, login).
+		Scan(&a.ID, &a.Login, &a.PasswordHash, &role, &createdAt, &disabledAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.Admin{}, ErrNotFound
 	}
 	if err != nil {
 		return model.Admin{}, fmt.Errorf("прочитать администратора %q: %w", login, err)
 	}
+	a.Role = model.Role(role)
 	a.CreatedAt = readTime(createdAt)
 	a.DisabledAt = readNullTime(disabledAt)
 	return a, nil
@@ -123,11 +134,12 @@ func (db *DB) AdminBySession(ctx context.Context, token string) (model.Admin, er
 		disabledAt sql.NullString
 		expiresAt  string
 	)
+	var role string
 	err := db.QueryRowContext(ctx, `
-		SELECT a.id, a.login, a.password_hash, a.created_at, a.disabled_at, s.expires_at
+		SELECT a.id, a.login, a.password_hash, a.role, a.created_at, a.disabled_at, s.expires_at
 		  FROM sessions s JOIN admins a ON a.id = s.admin_id
 		 WHERE s.token_hash = ?`, hashToken(token)).
-		Scan(&a.ID, &a.Login, &a.PasswordHash, &createdAt, &disabledAt, &expiresAt)
+		Scan(&a.ID, &a.Login, &a.PasswordHash, &role, &createdAt, &disabledAt, &expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.Admin{}, ErrNotFound
 	}
@@ -138,6 +150,7 @@ func (db *DB) AdminBySession(ctx context.Context, token string) (model.Admin, er
 	if time.Now().After(readTime(expiresAt)) {
 		return model.Admin{}, ErrNotFound
 	}
+	a.Role = model.Role(role)
 	a.CreatedAt = readTime(createdAt)
 	a.DisabledAt = readNullTime(disabledAt)
 	if !a.Active() {
@@ -227,4 +240,73 @@ func (db *DB) SetAdminPassword(ctx context.Context, actor *int64, id int64, pass
 func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// ListAdmins перечисляет действующих пользователей панели.
+//
+// Погашенные не показываются: они существуют только затем, чтобы их строки в
+// журнале остались читаемыми, и в списке живых людей были бы кладбищем.
+func (db *DB) ListAdmins(ctx context.Context) ([]model.Admin, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, login, role, created_at
+		  FROM admins
+		 WHERE disabled_at IS NULL
+		 ORDER BY created_at`)
+	if err != nil {
+		return nil, fmt.Errorf("перечислить пользователей панели: %w", err)
+	}
+	defer rows.Close()
+
+	var out []model.Admin
+	for rows.Next() {
+		var (
+			a         model.Admin
+			role      string
+			createdAt string
+		)
+		if err := rows.Scan(&a.ID, &a.Login, &role, &createdAt); err != nil {
+			return nil, fmt.Errorf("прочитать строку пользователя панели: %w", err)
+		}
+		a.Role = model.Role(role)
+		a.CreatedAt = readTime(createdAt)
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// AdminByID читает пользователя панели по идентификатору.
+func (db *DB) AdminByID(ctx context.Context, id int64) (model.Admin, error) {
+	var (
+		a          model.Admin
+		role       string
+		createdAt  string
+		disabledAt sql.NullString
+	)
+	err := db.QueryRowContext(ctx,
+		`SELECT id, login, password_hash, role, created_at, disabled_at FROM admins WHERE id = ?`, id).
+		Scan(&a.ID, &a.Login, &a.PasswordHash, &role, &createdAt, &disabledAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Admin{}, ErrNotFound
+	}
+	if err != nil {
+		return model.Admin{}, fmt.Errorf("прочитать пользователя панели %d: %w", id, err)
+	}
+	a.Role = model.Role(role)
+	a.CreatedAt = readTime(createdAt)
+	a.DisabledAt = readNullTime(disabledAt)
+	return a, nil
+}
+
+// AdminRoleCount считает действующих пользователей с указанной ролью.
+//
+// Нужен затем, чтобы не остаться без администраторов: панель без единого
+// администратора чинится только из командной строки.
+func (db *DB) AdminRoleCount(ctx context.Context, role model.Role) (int, error) {
+	var count int
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM admins WHERE disabled_at IS NULL AND role = ?`, string(role)).
+		Scan(&count); err != nil {
+		return 0, fmt.Errorf("посчитать пользователей роли %q: %w", role, err)
+	}
+	return count, nil
 }

@@ -554,3 +554,43 @@ func (db *DB) SupersedePreviousOfMachine(ctx context.Context, installationID str
 	}
 	return int(affected), tx.Commit()
 }
+
+// RecentIssue — строка памяти на приветственном экране «Выдать ключ».
+//
+// Память, а не список хвостов: она отвечает на «кому я на этой неделе уже
+// выдавал». Незабранные ключи живут на обзоре, в «Незакрытом», и второго места
+// им не заводится.
+type RecentIssue struct {
+	EmployeeID int64
+	Name       string
+	Number     string
+	IssuedAt   time.Time
+}
+
+// RecentIssues возвращает последние выдачи, самые свежие первыми.
+func (db *DB) RecentIssues(ctx context.Context, limit int) ([]RecentIssue, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT e.id, e.name, e.number, a.issued_at
+		  FROM activations a
+		  JOIN employees e ON e.id = a.employee_id
+		 ORDER BY a.issued_at DESC, a.id DESC
+		 LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("перечислить последние выдачи: %w", err)
+	}
+	defer rows.Close()
+
+	var out []RecentIssue
+	for rows.Next() {
+		var (
+			one      RecentIssue
+			issuedAt string
+		)
+		if err := rows.Scan(&one.EmployeeID, &one.Name, &one.Number, &issuedAt); err != nil {
+			return nil, fmt.Errorf("прочитать строку последней выдачи: %w", err)
+		}
+		one.IssuedAt = readTime(issuedAt)
+		out = append(out, one)
+	}
+	return out, rows.Err()
+}

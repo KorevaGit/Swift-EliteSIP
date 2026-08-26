@@ -1,18 +1,19 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="toolbar">
-    <div class="toolbar-title">
+<div class="page-head">
+    <div class="page-title">
         <h1>{{$d.Employee.Name}}</h1>
-        <p>Заведён {{day $d.Employee.CreatedAt}}</p>
     </div>
-    <a class="button" href="/employees">К списку</a>
+    <div class="page-actions">
+        <a class="button" href="/employees">К списку</a>
+    </div>
 </div>
 
-<div class="grid">
+<div class="grid grid-two">
     <div class="card">
         <div class="card-head"><h2>Карточка</h2></div>
         <div class="card-body">
-            <form method="post" action="/employees/{{$d.Employee.ID}}" class="stack">
+            <form method="post" action="/employees/{{$d.Employee.ID}}" class="form-rows">
                 <div class="field">
                     <label for="name">Имя</label>
                     <input id="name" name="name" type="text" value="{{$d.Employee.Name}}" required>
@@ -25,8 +26,8 @@
                     <label for="sip_password">SIP-пароль</label>
                     <input id="sip_password" name="sip_password" type="text" value="{{$d.Employee.SIPPassword}}">
                     <span class="field-hint">
-                        Показан открытым: снимок этого экрана — готовая учётная запись, и панель нельзя
-                        показывать через плечо. Панель ничего не меняет на самой АТС — пир там заводят руками.
+                        Показан открытым: снимок этого экрана — готовая учётная запись. Панель ничего
+                        не меняет на самой АТС — пир там заводят руками.
                     </span>
                 </div>
                 <div class="field">
@@ -38,11 +39,15 @@
                         {{end}}
                     </select>
                 </div>
-                <button type="submit" class="button button-primary">Сохранить</button>
+                <div class="page-actions">
+                    <button type="submit" class="button button-primary">Сохранить</button>
+                </div>
             </form>
         </div>
     </div>
 
+    {{/* Повторный выпуск остаётся здесь, а не в разделе «Выдать ключ»: там
+         заводят нового человека, здесь выпускают замену потерянному. */}}
     <div class="card">
         <div class="card-head"><h2>Выпустить ключ</h2></div>
         <div class="card-body">
@@ -51,8 +56,7 @@
                     Ключ соберёт пакет — номер, SIP-пароль, предустановку и ключ доступа к каналу, —
                     зашифрует его и выложит наружу. Показан он будет один раз.
                 </p>
-                <form method="post" action="/employees/{{$d.Employee.ID}}/issue"
-                      style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+                <form method="post" action="/employees/{{$d.Employee.ID}}/issue" class="row">
                     <div class="field" style="flex:1 1 180px;">
                         <label for="note">Для какой машины</label>
                         <input id="note" name="note" type="text" placeholder="рабочий ноутбук, домашний">
@@ -75,39 +79,56 @@
     </div>
     {{if $d.Activations}}
     <table class="table">
+        <colgroup><col style="width:24%"><col style="width:18%"><col style="width:36%"><col style="width:22%"></colgroup>
         <thead>
             <tr>
-                <th>Ключ</th>
-                <th>Для чего</th>
-                <th>Выпущен</th>
                 <th>Машина</th>
                 <th>Состояние</th>
+                <th>Что известно</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
         {{range $d.Activations}}
             <tr id="activation-{{.ID}}"{{if eq .ID $d.Highlight}} class="row-found"{{end}}>
-                <td data-label="Ключ" class="mono primary-cell">{{.KeyPrefix}}…</td>
-                <td data-label="Для чего">{{if .Note}}{{.Note}}{{else}}<span class="sub">—</span>{{end}}</td>
-                <td data-label="Выпущен">
-                    {{moment .IssuedAt}}<br>
-                    <span class="sub">
-                        {{if eq (printf "%s" .State) "ожидает"}}годен ещё {{remaining .ExpiresAt}}{{else}}срок до {{moment .ExpiresAt}}{{end}}
-                    </span>
+                {{/* Три колонки вместо шести: «Машина» и «Состояние» рассказывали
+                     об одном и том же двумя способами, а на телефоне строка из
+                     шести подписей — это карточка в экран высотой. */}}
+                <td data-label="Машина" class="primary-cell">
+                    {{if .Note}}{{.Note}}{{else}}<span class="sub">без заметки</span>{{end}}<br>
+                    <span class="sub mono">{{.KeyPrefix}}…</span>
                 </td>
-                <td data-label="Машина">
-                    {{if .Checkin}}
+                <td data-label="Состояние" class="cell-tight">
+                    {{if eq (printf "%s" .State) "активировано"}}
                         {{if .Silent}}
                             {{/* Молчание — состояние, а не дата мелким шрифтом. Пять суток при
                                  двухчасовом опросе — это шестьдесят пропущенных заходов: не сбой
-                                 сети и не выходные, а повод выяснять. Машину могли сбросить на
-                                 месте и увезти — панель об этом не узнаёт никогда. */}}
-                            <span class="badge badge-off">молчит {{ago .Checkin.LastSeenAt}}</span><br>
+                                 сети и не выходные, а повод выяснять. */}}
+                            <span class="badge badge-off">молчит {{ago .Checkin.LastSeenAt}}</span>
+                        {{else if .Checkin}}
+                            <span class="badge badge-ok">на связи</span>
                         {{else}}
-                            на связи {{ago .Checkin.LastSeenAt}}<br>
+                            <span class="badge badge-ok">активировано</span>
                         {{end}}
+                    {{else if eq (printf "%s" .State) "ожидает"}}
+                        <span class="badge badge-wait">ждёт активации</span>
+                    {{else if eq (printf "%s" .State) "просрочено"}}
+                        <span class="badge badge-off">просрочено</span>
+                    {{else if eq (printf "%s" .State) "вытеснен"}}
+                        <span class="badge badge-off">вытеснен новым</span>
+                    {{else if eq (printf "%s" .State) "перепрошита"}}
+                        <span class="badge badge-off">сменена предустановка</span>
+                    {{else}}
+                        <span class="badge badge-bad">отозвано</span>
+                    {{end}}
+                </td>
+                <td data-label="Что известно">
+                    <span class="sub">
+                        выпущен {{moment .IssuedAt}}{{if eq (printf "%s" .State) "ожидает"}}, годен ещё {{remaining .ExpiresAt}}{{end}}
+                    </span><br>
+                    {{if .Checkin}}
                         <span class="sub">
+                            на связи {{ago .Checkin.LastSeenAt}},
                             {{if .Checkin.AppVersion}}версия {{.Checkin.AppVersion}}{{else}}версия неизвестна{{end}}{{if hasValue .Checkin.PresetRevision}}, ревизия {{deref .Checkin.PresetRevision}}{{end}}
                         </span>
                     {{else}}
@@ -116,32 +137,17 @@
                         <span class="sub">не отмечалась</span>
                     {{end}}
                 </td>
-                <td data-label="Состояние">
-                    {{if eq (printf "%s" .State) "активировано"}}
-                        <span class="badge badge-ok">активировано</span>
-                    {{else if eq (printf "%s" .State) "ожидает"}}
-                        <span class="badge badge-wait">ждёт активации</span>
-                    {{else if eq (printf "%s" .State) "просрочено"}}
-                        <span class="badge badge-off">просрочено</span>
-                    {{else if eq (printf "%s" .State) "вытеснен"}}
-                        <span class="badge badge-off">вытеснен новым</span>
-                    {{else if eq (printf "%s" .State) "перепрошита"}}
-                        <span class="badge badge-off">перепрошита</span>
-                    {{else}}
-                        <span class="badge badge-bad">отозвано</span>
-                    {{end}}
-                </td>
                 <td class="cell-actions">
                     {{if .CanReflash}}
                     {{/* Смена отдела: предустановка меняется удалённо, а не выездом к машине.
                          Ключ привязан к ней — введённый не там, он уходит по другому адресу
                          и не находит ничего, вместо того чтобы сгореть на проверке. */}}
-                    <form method="post" action="/machines/{{.InstallationID}}/reflash" style="display:inline;">
-                        <button type="submit" class="button">Перепрошить</button>
+                    <form method="post" action="/machines/{{.InstallationID}}/reflash">
+                        <button type="submit" class="button">Сменить предустановку</button>
                     </form>
                     {{end}}
                     {{if not .RevokedAt}}
-                    <form method="post" action="/activations/{{.ID}}/revoke" style="display:inline;">
+                    <form method="post" action="/activations/{{.ID}}/revoke">
                         <button type="submit" class="button button-danger"
                                 data-confirm="Отозвать активацию? Это учётная запись: машина продолжит работать, пока на АТС не сменят SIP-пароль пира.">
                             Отозвать
@@ -168,7 +174,9 @@
             Стоит отдельно от безобидных кнопок намеренно: прокрутив список машин,
             человек оказывается прямо над этой.
         </p>
-        <button type="button" class="button button-danger" data-dialog="delete-employee">Удалить</button>
+        <div class="page-actions">
+            <button type="button" class="button button-danger" data-dialog="delete-employee">Удалить</button>
+        </div>
     </div>
 </div>
 
@@ -182,7 +190,7 @@
         <li>{{len $d.Activations}} {{plural (len $d.Activations) "активация" "активации" "активаций"}} и отметки о связи его машин;</li>
         <li>возможность выпустить ему ключ.</li>
     </ul>
-    <p>Останется строка в журнале с именем и номером — по ней потом отвечают на «кто сидел на этом добавочном».</p>
+    <p>Останется строка в журнале с именем и номером — по ней потом отвечают на «кто сидел на этом добавочном». Её не чистит и уборка журнала.</p>
     <div class="notice notice-warn">
         <div>
             <strong>Смените SIP-пароль пира на АТС</strong>

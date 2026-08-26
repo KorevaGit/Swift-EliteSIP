@@ -15,8 +15,41 @@ type Admin struct {
 	ID           int64
 	Login        string
 	PasswordHash string
+	Role         Role
 	CreatedAt    time.Time
 	DisabledAt   *time.Time
+}
+
+// Role — что человеку в панели можно.
+//
+// Ролей две, а не три: «главный админ» — это просто первый заведённый, и
+// отдельной ролью он не выделяется. Разбор — docs/REDESIGN.md, «Права».
+type Role string
+
+const (
+	// RoleAdmin может всё.
+	RoleAdmin Role = "admin"
+
+	// RoleSupport — техподдержка: вся работа с людьми, включая удаление
+	// сотрудника, и просмотр предустановок целиком, включая административный
+	// пароль. Нельзя: править предустановки, выкладывать и откатывать, менять
+	// адрес для скачивания, заводить пользователей самой панели.
+	RoleSupport Role = "support"
+)
+
+// IsAdmin отвечает на единственный вопрос, который задаётся о правах.
+//
+// Именно так, а не перечнем разрешений на каждое действие: ролей две, и
+// таблица прав из двух столбцов — это та же проверка, только записанная в
+// шести местах вместо одного.
+func (a Admin) IsAdmin() bool { return a.Role != RoleSupport }
+
+// RoleName — как роль называется на экране.
+func (a Admin) RoleName() string {
+	if a.IsAdmin() {
+		return "администратор"
+	}
+	return "техподдержка"
 }
 
 // Active говорит, пускают ли этого администратора сегодня.
@@ -186,9 +219,17 @@ type Checkin struct {
 
 // AuditEntry — строка журнала действий.
 type AuditEntry struct {
-	ID       int64
-	At       time.Time
-	AdminID  *int64
+	ID      int64
+	At      time.Time
+	AdminID *int64
+
+	// ActorLogin — имя человека, записанное в самой строке.
+	//
+	// Именно записанное, а не подтянутое связкой: пользователя панели однажды
+	// погасят, и вся его история стала бы безымянной — ровно то, ради чего
+	// журнал заведён. Пусто — действие сделано из командной строки.
+	ActorLogin string
+
 	Action   string
 	Entity   string
 	EntityID *int64

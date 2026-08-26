@@ -193,3 +193,77 @@ func TestPublishStampsTime(t *testing.T) {
 		t.Errorf("время сборки %s, ожидалось %s", bundle.GeneratedAt, fixed)
 	}
 }
+
+// Выкладка одной предустановки не увозит с собой чужие сохранённые правки.
+//
+// До 25 августа 2026 увозила: файл собирался по MAX(revision) для всех подряд,
+// и человек, выложивший «Менеджера», молча отправлял на машины ещё и
+// вчерашнюю недоделанную ревизию «Стажёра». В журнале это выглядело как
+// выкладка «Менеджера» — то есть найти причину поломки было не по чему.
+func TestPublishOnlyLeavesOtherPresetsAlone(t *testing.T) {
+	publisher, sink, db, pubKey := newPublisher(t)
+	ctx := context.Background()
+
+	manager, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	trainee, _ := db.CreatePreset(ctx, nil, "Стажёр")
+
+	// Обе выложены и стоят на машинах.
+	if _, err := db.SaveRevision(ctx, nil, manager.ID, preset.SchemaVersion,
+		json.RawMessage(`{"conference":{"featureCode":"*3","roomExtension":"8000"}}`), ""); err != nil {
+		t.Fatalf("SaveRevision: %v", err)
+	}
+	if _, err := db.SaveRevision(ctx, nil, trainee.ID, preset.SchemaVersion,
+		json.RawMessage(`{"conference":{"featureCode":"*7","roomExtension":"7000"}}`), ""); err != nil {
+		t.Fatalf("SaveRevision: %v", err)
+	}
+	if _, err := publisher.Publish(ctx, nil); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+
+	// У «Стажёра» лежит недоделанная правка, выкладывать её не собирались.
+	if _, err := db.SaveRevision(ctx, nil, trainee.ID, preset.SchemaVersion,
+		json.RawMessage(`{"conference":{"featureCode":"*9","roomExtension":"9000"}}`), ""); err != nil {
+		t.Fatalf("SaveRevision: %v", err)
+	}
+	// А у «Менеджера» — та, которую выкладывают сейчас.
+	if _, err := db.SaveRevision(ctx, nil, manager.ID, preset.SchemaVersion,
+		json.RawMessage(`{"conference":{"featureCode":"*4","roomExtension":"8000"}}`), ""); err != nil {
+		t.Fatalf("SaveRevision: %v", err)
+	}
+
+	if _, err := publisher.PublishOnly(ctx, nil, manager.ID); err != nil {
+		t.Fatalf("PublishOnly: %v", err)
+	}
+
+	bundle, err := preset.Verify(sink.objects[BundleObjectKey], pubKey)
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+
+	for _, entry := range bundle.Presets {
+		fields, err := preset.Parse(entry.Fields)
+		if err != nil {
+			t.Fatalf("Parse %s: %v", entry.Name, err)
+		}
+		code := fields.Conference.FeatureCode
+		switch entry.Name {
+		case "Менеджер":
+			if code != "*4" {
+				t.Errorf("выкладываемая предустановка уехала не той ревизией: %q", code)
+			}
+		case "Стажёр":
+			if code != "*7" {
+				t.Errorf("чужая невыложенная правка уехала попутчиком: %q вместо %q", code, "*7")
+			}
+		}
+	}
+
+	// И она осталась невыложенной: дело по-прежнему висит на обзоре.
+	latest, err := db.LatestRevision(ctx, trainee.ID)
+	if err != nil {
+		t.Fatalf("LatestRevision: %v", err)
+	}
+	if latest.Published() {
+		t.Error("чужая ревизия отмечена выложенной, хотя на машины не уезжала")
+	}
+}

@@ -32,15 +32,28 @@ type BundlePublisher struct {
 	Now func() time.Time
 }
 
-// Publish выкладывает текущее состояние всех предустановок.
+// Publish выкладывает всё сохранённое разом.
 //
-// Выкладывается всё разом, а не одна изменённая: файл один, и собрать его
-// частично нельзя. Заодно это чинит расхождение, если прошлая выкладка
-// оборвалась на середине.
+// Отдельная кнопка «Выложить все» — и на ней так и написано. Заодно чинит
+// расхождение, если прошлая выкладка оборвалась на середине.
 func (p *BundlePublisher) Publish(ctx context.Context, actor *int64) (preset.Bundle, error) {
+	return p.publish(ctx, actor, nil)
+}
+
+// PublishOnly выкладывает одну предустановку.
+//
+// Файл на R2 по-прежнему выкладывается целиком — он один, и частичного там не
+// бывает, — но собирается он из последней выложенной ревизии каждой остальной
+// предустановки. Чужие сохранённые правки при этом остаются невыложенными, а
+// не уезжают попутчиками.
+func (p *BundlePublisher) PublishOnly(ctx context.Context, actor *int64, presetID int64) (preset.Bundle, error) {
+	return p.publish(ctx, actor, &presetID)
+}
+
+func (p *BundlePublisher) publish(ctx context.Context, actor *int64, only *int64) (preset.Bundle, error) {
 	now := p.now()
 
-	entries, err := p.DB.BundleEntries(ctx)
+	entries, err := p.DB.BundleEntries(ctx, only)
 	if err != nil {
 		return preset.Bundle{}, err
 	}

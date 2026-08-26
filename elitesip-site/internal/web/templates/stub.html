@@ -1,0 +1,21 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head">
+    <div class="page-title">
+        <h1>{{$d.Name}}</h1>
+        <p>Раздел в разработке.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p class="card-note">{{$d.About}}</p>
+        {{if $d.Plans}}
+        <p class="field-label">Что здесь появится</p>
+        <ul class="card-note">
+            {{range $d.Plans}}<li>{{.}}</li>{{end}}
+        </ul>
+        {{end}}
+    </div>
+</div>
+{{end}}
