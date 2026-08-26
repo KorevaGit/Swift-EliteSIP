@@ -60,7 +60,18 @@ struct NumberField: NSViewRepresentable {
         // Только когда значение правда разошлось: присваивание `stringValue`
         // сбрасывает выделение и позицию курсора, и делать это на каждой
         // перерисовке значит мешать набирать.
-        if field.stringValue != text { field.stringValue = text }
+        if field.stringValue != text {
+            field.stringValue = text
+            // Число, не влезающее в поле, сдвигает видимую область текста
+            // вправо. Присваивание `stringValue` эту прокрутку не снимает —
+            // редактор остаётся смещён туда же, где стоял курсор перед
+            // очисткой, и подсказка «Номер» рисуется от той же смещённой
+            // точки, то есть обрезанной слева. Замер живого поля на Big Sur
+            // 26 августа 2026: `scrollRangeToVisible` у самого редактора
+            // это не лечит, а очистка крестиком к тому же часто приходит уже
+            // без фокуса на поле, и тогда обращаться там вовсе не к чему.
+            if text.isEmpty { resetScroll(of: field) }
+        }
         field.font = Self.font(size: fontSize)
         field.placeholderString = placeholder
         field.isEnabled = isEnabled
@@ -68,6 +79,22 @@ struct NumberField: NSViewRepresentable {
         // регистрация не поднялась, — и момент, когда она поднимется,
         // приходится не на появление вида, а на любую следующую перерисовку.
         field.focusIfNeeded()
+    }
+
+    /// Снимает прокрутку однострочного поля, застрявшую от длинного номера.
+    ///
+    /// Помогает только полный пересбор сессии редактирования, а не
+    /// `scrollRangeToVisible`: `abortEditing()` рвёт привязку к старому
+    /// редактору без потери значения (оно уже присвоено строкой выше) — и на
+    /// следующем фокусе AppKit создаёт редактор заново, с нулевой
+    /// прокруткой. Фокус забирается следом безусловно, даже если поле перед
+    /// очисткой его не держало: пустое поле набора и так просит фокус на
+    /// появлении (см. `focusesOnAppear`), и после крестика оператор ждёт
+    /// того же — курсора, готового принять новый номер, а не щелчка мимо.
+    private func resetScroll(of field: NSTextField) {
+        field.abortEditing()
+        guard field.isEnabled, let window = field.window else { return }
+        window.makeFirstResponder(field)
     }
 
     func makeCoordinator() -> Coordinator {
