@@ -54,6 +54,7 @@ type SandboxDetail struct {
 	Marks     map[string]*Mark
 	Progress  []SectionProgress
 	Employees []EmployeeRow
+	Workbench []EmployeeDetail
 	Comments  []Comment
 
 	ExtensionsTotal int
@@ -104,6 +105,13 @@ func (db *DB) GetSandbox(ctx context.Context, id int64) (SandboxDetail, error) {
 	detail.Employees, err = db.sandboxEmployees(ctx, id, detail.Format)
 	if err != nil {
 		return SandboxDetail{}, err
+	}
+	for _, employee := range detail.Employees {
+		full, employeeErr := db.GetEmployee(ctx, id, employee.ID)
+		if employeeErr != nil {
+			return SandboxDetail{}, employeeErr
+		}
+		detail.Workbench = append(detail.Workbench, full)
 	}
 	detail.Comments, err = db.sandboxComments(ctx, id)
 	if err != nil {

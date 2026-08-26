@@ -590,3 +590,31 @@ func TestEmployeeCardDownloadsStableBitrixCSV(t *testing.T) {
 		t.Error("до подтверждения повторно скачалась другая порция")
 	}
 }
+
+func TestSandboxDesktopWorkbenchEditsEveryEmployeeInline(t *testing.T) {
+	s, db := newServer(t)
+	cookie := signedIn(t, db)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, s.newSandboxPost(cookie, map[string]string{
+		"rop": "Скрылева", "format": "office", "employees": "Петров Пётр\nИванова Анна", "extensions": "601-602",
+	}, "2516934\n2517017\n"))
+	cards, _ := s.Sand.ListSandboxes(context.Background(), false)
+	body := get(t, s, cookie, fmt.Sprintf("/sandbox/%d", cards[0].ID)).Body.String()
+	if !strings.Contains(body, "Рабочая таблица сотрудников") {
+		t.Fatal("на странице нет общего реестра")
+	}
+	for _, name := range []string{"Петров Пётр", "Иванова Анна"} {
+		if !strings.Contains(body, name) {
+			t.Errorf("в реестре нет %s", name)
+		}
+	}
+	if got := strings.Count(body, `/save"`); got != 2 {
+		t.Errorf("форм Битрикса %d, ожидалось по одной на сотрудника", got)
+	}
+	if got := strings.Count(body, `?n=300`); got != 2 {
+		t.Errorf("кнопок порции 300: %d", got)
+	}
+	if !strings.Contains(body, `class="table mobile-only"`) {
+		t.Error("не сохранён компактный мобильный список")
+	}
+}
