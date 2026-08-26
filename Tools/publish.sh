@@ -25,10 +25,13 @@ die() { printf '\nПРОВАЛ: %s\n' "$1" >&2; exit 1; }
 usage() {
     cat <<'USAGE'
 Использование:
-  Tools/publish.sh --channel stage|prod [--from build/release] [--dry-run]
+  Tools/publish.sh --channel stage|prod [--version 0.1.31]
+                   [--from build/release] [--dry-run]
 
   --channel   куда выкладывать. stage — updates-stage.elitesip.vip (Caddy на
               VPS), prod — get.elitesip.vip (бакет R2 за Worker'ом).
+  --version   какую версию выкладывать. По умолчанию — та, что стоит в
+              Config/Version.xcconfig, то есть последняя выпущенная.
   --from      каталог с артефактами выпуска (по умолчанию build/release).
   --dry-run   показать, что было бы сделано, и ничего не менять.
 
@@ -39,11 +42,13 @@ USAGE
 channel=""
 from_dir="build/release"
 dry_run=0
+version=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --channel) channel="${2:-}"; shift 2 ;;
         --from) from_dir="${2:-}"; shift 2 ;;
+        --version) version="${2:-}"; shift 2 ;;
         --dry-run) dry_run=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) usage; die "неизвестный аргумент: $1" ;;
@@ -87,10 +92,33 @@ printf '  %s → %s\n' "$channel" "$base_url"
 
 step "Артефакты"
 
+# Выкладывается **одна версия**, а не всё, что лежит в каталоге.
+#
+# Каталог выпусков не чистится между выпусками — там копятся образы и записи
+# всех версий с самого начала. Пока отбора не было, `publish.sh` покорно
+# перевыкладывал каждую: заливал обратно её ZIP и DMG и переписывал appcast
+# записью за записью, а какая окажется первой в фиде, решал порядок имён.
+#
+# Само по себе это выглядело безобидно — «выложили лишнего», — пока 26 августа
+# 2026 не выяснилось, чем оно оборачивается: удалённые из канала старые версии
+# **возвращались** следующей же выкладкой, вместе с файлами. То есть чистка
+# канала не держалась дольше одного выпуска.
+if [[ -z "$version" ]]; then
+    version=$(awk -F'= *' '/^MARKETING_VERSION/ {print $2}' Config/Version.xcconfig | tr -d ' ')
+    [[ -n "$version" ]] || die "не прочитать версию из Config/Version.xcconfig — задайте --version"
+fi
+
 shopt -s nullglob
-items=("$from_dir"/*.item.xml)
+items=("$from_dir"/*-"$version"-*.item.xml)
+all_items=("$from_dir"/*.item.xml)
 shopt -u nullglob
-(( ${#items[@]} > 0 )) || die "в $from_dir нет ни одной записи appcast (*.item.xml) — выпуск делался этим release.sh?"
+(( ${#items[@]} > 0 )) || die "в $from_dir нет записей appcast для версии $version (*.item.xml) — выпуск делался этим release.sh?"
+
+printf '  версия: %s\n' "$version"
+if (( ${#all_items[@]} > ${#items[@]} )); then
+    printf '  в каталоге лежат записи и других версий (%d) — они не трогаются\n' \
+        $(( ${#all_items[@]} - ${#items[@]} ))
+fi
 
 # EliteSIP-0.1.20-x86_64.item.xml       → срез x86_64
 # EliteSIP-0.1.20-arm64-nonotarized...  → срез arm64 (суффикс снимается первым)
