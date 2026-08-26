@@ -110,6 +110,14 @@ final class FirstRunFlow: ObservableObject {
     /// Адрес АТС — только для ручной ветки.
     @Published var host = ""
 
+    /// Помашинный доступ, забранный тем же заходом, что и пакет.
+    ///
+    /// Административный пароль лежит здесь, а не в пакете: он поле
+    /// предустановки, и панель везёт его отдельным подписанным объектом. Без
+    /// него мастер не закончится — иначе машина встала бы с «Управлением»,
+    /// открытым всякому.
+    @Published var openedAccess: MachineAccess?
+
     // MARK: - Ключ активации
 
     /// То, что ввёл сотрудник. Терпимо к разделителям и регистру — разбирает
@@ -202,6 +210,7 @@ final class FirstRunFlow: ObservableObject {
         notice = nil
         keyFailure = nil
         openedPackage = nil
+        openedAccess = nil
 
         let parsed: ActivationKey
         do {
@@ -216,7 +225,18 @@ final class FirstRunFlow: ObservableObject {
         defer { isOpeningKey = false }
 
         do {
-            openedPackage = try await ActivationService.fetch(key: parsed)
+            let package = try await ActivationService.fetch(key: parsed)
+
+            // Свой административный пароль забирается тем же заходом, а не
+            // потом по таймеру: между концом мастера и первым опросом канала
+            // «Управление» стояло бы открытым для всякого, а машина выглядела
+            // бы настроенной. Ключ к этому моменту уже сгорел, поэтому отказ
+            // здесь — это отказ всей активации, и сказать о нём надо сразу.
+            openedAccess = try await MachineService.fetchAccess(
+                installationID: package.installationID,
+                channelKey: package.channelKey
+            )
+            openedPackage = package
         } catch {
             keyFailure = (error as? LocalizedError)?.errorDescription
                 ?? PanelLinkError.keyDidNotOpen.errorDescription

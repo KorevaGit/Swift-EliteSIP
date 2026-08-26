@@ -154,3 +154,42 @@ final class MachineService {
         (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? ""
     }
 }
+
+extension MachineService {
+
+    /// Забрать свой административный пароль прямо сейчас, не дожидаясь такта.
+    ///
+    /// Нужно ровно в одном месте — в мастере, сразу после того, как ключ
+    /// открыл пакет. Ждать общего опроса там нельзя: между концом мастера и
+    /// первым заходом на канал «Управление» стояло бы открытым для всякого, а
+    /// машина при этом выглядела бы настроенной. Ту же дыру закрывали 17
+    /// августа 2026, когда пароль ещё был вшит в сборку.
+    ///
+    /// Отдельная функция, а не метод службы: службы в этот момент ещё нет —
+    /// она заводится при запуске приложения, а мастер идёт до него.
+    static func fetchAccess(installationID: String, channelKey: String) async throws -> MachineAccess {
+        guard let publicKey = PresetService.channelPublicKey else {
+            throw PanelLinkError.signatureDidNotMatch
+        }
+        guard let channel = Provisioning.secrets?.updates,
+              let url = channel.machineURL(prefix: "access", installationID: installationID)
+        else {
+            throw PanelLinkError.malformedBundle
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 20
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+
+        let pair = "\(installationID):\(channelKey)"
+        if let encoded = pair.data(using: .utf8)?.base64EncodedString() {
+            request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw PanelLinkError.malformedBundle
+        }
+        return try MachineAccess.verified(data, publicKey: publicKey, installationID: installationID)
+    }
+}
