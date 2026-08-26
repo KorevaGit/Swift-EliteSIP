@@ -24,6 +24,11 @@ func (s *Server) showLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) doLogin(w http.ResponseWriter, r *http.Request) {
+	if !s.checkCSRF(r) {
+		s.rejectCSRF(w)
+		return
+	}
+
 	login := strings.TrimSpace(r.FormValue("login"))
 	password := r.FormValue("password")
 
@@ -54,6 +59,10 @@ func (s *Server) doLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) doLogout(w http.ResponseWriter, r *http.Request) {
+	if !s.checkCSRF(r) {
+		s.rejectCSRF(w)
+		return
+	}
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		s.DB.EndSession(r.Context(), cookie.Value)
 	}
@@ -86,6 +95,10 @@ func (s *Server) doSetup(w http.ResponseWriter, r *http.Request) {
 	}
 	if count > 0 {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if !s.checkCSRF(r) {
+		s.rejectCSRF(w)
 		return
 	}
 

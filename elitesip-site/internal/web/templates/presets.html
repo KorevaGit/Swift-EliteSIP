@@ -8,6 +8,7 @@
     {{if .Admin.IsAdmin}}
     <div class="page-actions">
         <form method="post" action="/publish">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
             {{/* Общая выкладка осталась исключением: обычная правка касается
                  одной предустановки и выкладывается из её карточки. */}}
             <button type="submit" class="button"
@@ -41,6 +42,7 @@
     </div>
     <div class="card-body" id="new-preset" hidden>
         <form method="post" action="/presets" class="row">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
             <div class="field field-wide">
                 <label for="name">Название</label>
                 <input id="name" name="name" type="text" placeholder="Менеджер" required>

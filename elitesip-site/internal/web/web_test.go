@@ -79,12 +79,14 @@ func newServer(t *testing.T) (*Server, *storage.DB) {
 
 	out := &sink{}
 	machines := &panel.MachineWriter{Publisher: out, SigningKey: signing}
+	secret := []byte("секрет-сервера-для-проверки")
 	s, err := New(db, sandDB,
-		&panel.Issuer{DB: db, Publisher: out, Machines: machines, Secret: []byte("секрет-сервера-для-проверки")},
+		&panel.Issuer{DB: db, Publisher: out, Machines: machines, Secret: secret},
 		&panel.BundlePublisher{DB: db, Publisher: out, SigningKey: signing},
 		&panel.MarkCollector{DB: db, Reader: out},
 		&panel.Revoker{DB: db, Machines: machines, Deleter: out},
 		&panel.AccessPublisher{DB: db, Machines: machines},
+		secret,
 	)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -147,7 +149,7 @@ func TestSetupClosesAfterFirstAdmin(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	s.Handler().ServeHTTP(w, post("/setup", url.Values{"login": {"чужой"}, "password": {"длинный-пароль"}}))
+	s.Handler().ServeHTTP(w, anonPost(s, "/setup", url.Values{"login": {"чужой"}, "password": {"длинный-пароль"}}))
 	if got := w.Header().Get("Location"); got != "/login" {
 		t.Errorf("второй администратор завёлся через /setup")
 	}
@@ -164,7 +166,7 @@ func TestLoginAndLogout(t *testing.T) {
 	db.CreateAdmin(context.Background(), nil, "eugene", hash)
 
 	w := httptest.NewRecorder()
-	s.Handler().ServeHTTP(w, post("/login", url.Values{"login": {"eugene"}, "password": {"пароль-панели"}}))
+	s.Handler().ServeHTTP(w, anonPost(s, "/login", url.Values{"login": {"eugene"}, "password": {"пароль-панели"}}))
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("вход дал код %d", w.Code)
 	}
@@ -179,8 +181,7 @@ func TestLoginAndLogout(t *testing.T) {
 		t.Fatalf("после входа страница дала %d", w.Code)
 	}
 
-	out := httptest.NewRequest(http.MethodPost, "/logout", nil)
-	out.AddCookie(cookie)
+	out := s.authed(cookie, "/logout", nil)
 	w = httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, out)
 
@@ -201,10 +202,10 @@ func TestLoginTellsNothingExtra(t *testing.T) {
 	db.CreateAdmin(context.Background(), nil, "eugene", hash)
 
 	wrongName := httptest.NewRecorder()
-	s.Handler().ServeHTTP(wrongName, post("/login", url.Values{"login": {"нет-такого"}, "password": {"пароль-панели"}}))
+	s.Handler().ServeHTTP(wrongName, anonPost(s, "/login", url.Values{"login": {"нет-такого"}, "password": {"пароль-панели"}}))
 
 	wrongPassword := httptest.NewRecorder()
-	s.Handler().ServeHTTP(wrongPassword, post("/login", url.Values{"login": {"eugene"}, "password": {"не-тот"}}))
+	s.Handler().ServeHTTP(wrongPassword, anonPost(s, "/login", url.Values{"login": {"eugene"}, "password": {"не-тот"}}))
 
 	if wrongName.Body.String() != wrongPassword.Body.String() {
 		t.Error("ответы про чужое имя и про неверный пароль различаются")
@@ -232,8 +233,7 @@ func TestIssuedKeyIsShownOnce(t *testing.T) {
 	})
 	db.SetPresetAdminPassword(ctx, nil, preset.ID, "пароль-предустановки")
 
-	issue := post("/employees/1/issue", url.Values{"note": {"ноутбук"}})
-	issue.AddCookie(cookie)
+	issue := s.authed(cookie, "/employees/1/issue", url.Values{"note": {"ноутбук"}})
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, issue)
 	if w.Code != http.StatusSeeOther {
@@ -305,8 +305,7 @@ func TestKeyNeverTravelsInURL(t *testing.T) {
 	})
 	db.SetPresetAdminPassword(ctx, nil, preset.ID, "пароль-предустановки")
 
-	issue := post("/employees/1/issue", nil)
-	issue.AddCookie(cookie)
+	issue := s.authed(cookie, "/employees/1/issue", nil)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, issue)
 
@@ -418,13 +417,12 @@ func TestCreateAndIssueInOneAction(t *testing.T) {
 	db.SetPresetAdminPassword(ctx, nil, preset.ID, "пароль-предустановки")
 	db.SetSetting(ctx, nil, storage.SettingAppLink, "https://elitesip.vip/download")
 
-	create := post("/employees", url.Values{
+	create := s.authed(cookie, "/employees", url.Values{
 		"name":         {"Пётр Смирнов"},
 		"number":       {"172"},
 		"sip_password": {"секрет-172"},
 		"preset_id":    {strconv.FormatInt(preset.ID, 10)},
 	})
-	create.AddCookie(cookie)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, create)
 	if got := w.Header().Get("Location"); got != "/employees/1" {
@@ -464,8 +462,7 @@ func TestCreateKeepsEmployeeWhenKeyCannotBeIssued(t *testing.T) {
 	token, _ := db.StartSession(ctx, admin.ID)
 	cookie := &http.Cookie{Name: sessionCookie, Value: token}
 
-	create := post("/employees", url.Values{"name": {"Без всего"}})
-	create.AddCookie(cookie)
+	create := s.authed(cookie, "/employees", url.Values{"name": {"Без всего"}})
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, create)
 
@@ -523,8 +520,7 @@ func TestDeleteEmployeeWarnsAboutPeerPassword(t *testing.T) {
 		Name: "Анна Иванова", Number: "172", SIPPassword: "секрет",
 	})
 
-	del := post("/employees/1/delete", nil)
-	del.AddCookie(cookie)
+	del := s.authed(cookie, "/employees/1/delete", nil)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, del)
 	if got := w.Header().Get("Location"); got != "/employees" {
@@ -563,12 +559,11 @@ func TestLastPresetIsOfferedAgain(t *testing.T) {
 	preset, _ := db.CreatePreset(ctx, nil, "Менеджер")
 	db.CreatePreset(ctx, nil, "Секретарь")
 
-	create := post("/employees", url.Values{
+	create := s.authed(cookie, "/employees", url.Values{
 		"name":      {"Пётр"},
 		"number":    {"172"},
 		"preset_id": {strconv.FormatInt(preset.ID, 10)},
 	})
-	create.AddCookie(cookie)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, create)
 
@@ -644,10 +639,9 @@ func TestRollbackCreatesNewRevisionAndPublishesIt(t *testing.T) {
 	db.SaveRevision(ctx, nil, p.ID, preset.SchemaVersion,
 		[]byte(`{"conference":{"featureCode":"*9","roomExtension":"8000"}}`), "сломали")
 
-	back := post("/presets/1/rollback", url.Values{
+	back := s.authed(cookie, "/presets/1/rollback", url.Values{
 		"revision_id": {strconv.FormatInt(first.ID, 10)},
 	})
-	back.AddCookie(cookie)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, back)
 
@@ -686,10 +680,9 @@ func TestRollbackRefusesForeignRevision(t *testing.T) {
 	other, _ := db.CreatePreset(ctx, nil, "Секретарь")
 	foreign, _ := db.SaveRevision(ctx, nil, other.ID, preset.SchemaVersion, []byte(`{}`), "чужая")
 
-	back := post("/presets/1/rollback", url.Values{
+	back := s.authed(cookie, "/presets/1/rollback", url.Values{
 		"revision_id": {strconv.FormatInt(foreign.ID, 10)},
 	})
-	back.AddCookie(cookie)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, back)
 
@@ -699,10 +692,178 @@ func TestRollbackRefusesForeignRevision(t *testing.T) {
 	}
 }
 
+// Без токена формы POST от вошедшего пользователя отклоняется, даже с
+// настоящей курой сеанса: токен формы и сеанс — два разных условия.
+func TestGuardRejectsPostWithoutCSRFToken(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	r := post("/employees", url.Values{"name": {"Пётр"}})
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("код %d, ожидался 403", w.Code)
+	}
+	if people, _ := db.ListEmployees(ctx, storage.EmployeeFilter{}); len(people) != 0 {
+		t.Error("сотрудник создался без токена формы")
+	}
+}
+
+// Чужой (неверный) токен формы отклоняется так же, как отсутствующий: и
+// то, и другое — не то, что вывела render() для этого сеанса.
+func TestGuardRejectsPostWithWrongCSRFToken(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	r := post("/employees", url.Values{"name": {"Пётр"}, csrfField: {"чужой-токен"}})
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("код %d, ожидался 403", w.Code)
+	}
+}
+
+// Та же форма с верным токеном (тем, что кладёт браузер после показа
+// страницы) обязана продолжать работать — защита не должна ломать то, что
+// сама же требует.
+func TestGuardAcceptsPostWithValidCSRFToken(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	r := s.authed(cookie, "/employees", url.Values{"name": {"Пётр"}})
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("код %d при верном токене формы", w.Code)
+	}
+	if people, _ := db.ListEmployees(ctx, storage.EmployeeFilter{}); len(people) != 1 {
+		t.Error("сотрудник не создался с верным токеном формы")
+	}
+}
+
+// У /login сеанса ещё нет — токен цепляется за предварительную куку. Без неё
+// POST отклоняется так же, как и в обычных формах.
+func TestLoginRejectsPostWithoutCSRFToken(t *testing.T) {
+	s, db := newServer(t)
+	hash, _ := panel.HashPassword("пароль-панели")
+	db.CreateAdmin(context.Background(), nil, "eugene", hash)
+
+	r := post("/login", url.Values{"login": {"eugene"}, "password": {"пароль-панели"}})
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("код %d, ожидался 403", w.Code)
+	}
+}
+
+// Полный круг: GET /login выдаёт куку и печатает в форму токен от неё же —
+// POST с этой парой обязан пройти. Проверяет саму связку render/ensureCSRFCookie,
+// а не только ручную сборку токена в anonPost.
+func TestLoginFormTokenRoundTrips(t *testing.T) {
+	s, db := newServer(t)
+	hash, _ := panel.HashPassword("пароль-панели")
+	db.CreateAdmin(context.Background(), nil, "eugene", hash)
+
+	get := httptest.NewRequest(http.MethodGet, "/login", nil)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, get)
+
+	var preAuth *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		if c.Name == csrfCookie {
+			preAuth = c
+		}
+	}
+	if preAuth == nil {
+		t.Fatal("GET /login не выдал предварительную CSRF-куку")
+	}
+	formToken := csrfTokenFromHTML(t, w.Body.String())
+
+	login := post("/login", url.Values{"login": {"eugene"}, "password": {"пароль-панели"}, csrfField: {formToken}})
+	login.AddCookie(preAuth)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, login)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("вход с токеном из формы дал код %d", w.Code)
+	}
+}
+
+// csrfTokenFromHTML достаёт значение скрытого поля из отданной формы — как
+// это сделал бы браузер, отправляя её обратно.
+func csrfTokenFromHTML(t *testing.T, body string) string {
+	t.Helper()
+	marker := `name="csrf" value="`
+	i := strings.Index(body, marker)
+	if i < 0 {
+		t.Fatal("в форме нет скрытого поля csrf")
+	}
+	rest := body[i+len(marker):]
+	j := strings.IndexByte(rest, '"')
+	if j < 0 {
+		t.Fatal("не удалось прочитать значение поля csrf")
+	}
+	return rest[:j]
+}
+
 func post(path string, values url.Values) *http.Request {
 	r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(values.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	return r
+}
+
+// authed строит POST от вошедшего пользователя — с курительной сеанса и
+// верным CSRF-токеном, как их кладёт браузер после показа формы. Помогает
+// не повторять вычисление токена в каждом тесте, который уже был написан на
+// голый post() до появления защиты от подделки запросов.
+func (s *Server) authed(cookie *http.Cookie, path string, values url.Values) *http.Request {
+	values = cloneValues(values)
+	values.Set(csrfField, s.csrfToken(cookie.Value))
+	r := post(path, values)
+	r.AddCookie(cookie)
+	return r
+}
+
+// anonPost строит POST без сеанса — для /login и /setup, где токен цепляется
+// за предварительную CSRF-куку, а не за сеанс.
+func anonPost(s *Server, path string, values url.Values) *http.Request {
+	// Кука несёт только ASCII (RFC 6265) — не Server.ensureCSRFCookie, а
+	// значение здесь набрано руками для теста, вот и ограничение.
+	const raw = "test-preauth-csrf-cookie"
+	values = cloneValues(values)
+	values.Set(csrfField, s.csrfToken(raw))
+	r := post(path, values)
+	r.AddCookie(&http.Cookie{Name: csrfCookie, Value: raw})
+	return r
+}
+
+func cloneValues(v url.Values) url.Values {
+	out := url.Values{}
+	for k, vals := range v {
+		out[k] = append([]string(nil), vals...)
+	}
+	return out
 }
 
 func sessionFrom(t *testing.T, w *httptest.ResponseRecorder) *http.Cookie {
@@ -740,8 +901,7 @@ func TestFindByKeyLandsOnEmployeeCard(t *testing.T) {
 	}
 
 	// Ключ приходит из переписки как есть — с дефисами и переносом строки.
-	find := post("/activations/find", url.Values{"key": {key.String() + "\n"}})
-	find.AddCookie(cookie)
+	find := s.authed(cookie, "/activations/find", url.Values{"key": {key.String() + "\n"}})
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, find)
 
@@ -768,8 +928,7 @@ func TestFindByKeySaysWhenNothingFound(t *testing.T) {
 	token, _ := db.StartSession(ctx, admin.ID)
 	cookie := &http.Cookie{Name: sessionCookie, Value: token}
 
-	find := post("/activations/find", url.Values{"key": {"K7M2-9XQP-4TFB"}})
-	find.AddCookie(cookie)
+	find := s.authed(cookie, "/activations/find", url.Values{"key": {"K7M2-9XQP-4TFB"}})
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, find)
 
@@ -863,8 +1022,7 @@ func TestSupportSeesEverythingAndEditsPeopleOnly(t *testing.T) {
 	}
 
 	// Заводить сотрудников — её работа.
-	create := post("/employees", url.Values{"name": {"Пётр"}, "number": {"172"}})
-	create.AddCookie(cookie)
+	create := s.authed(cookie, "/employees", url.Values{"name": {"Пётр"}, "number": {"172"}})
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, create)
 	if people, _ := db.ListEmployees(ctx, storage.EmployeeFilter{}); len(people) != 1 {
@@ -873,8 +1031,7 @@ func TestSupportSeesEverythingAndEditsPeopleOnly(t *testing.T) {
 
 	// А править предустановку — нет, и правка не сохраняется.
 	for _, path := range []string{card, card + "/publish", card + "/password", "/publish"} {
-		r := post(path, url.Values{"admin_password": {"чужой"}})
-		r.AddCookie(cookie)
+		r := s.authed(cookie, path, url.Values{"admin_password": {"чужой"}})
 		w := httptest.NewRecorder()
 		s.Handler().ServeHTTP(w, r)
 	}
@@ -972,8 +1129,7 @@ func TestBorrowSectionFillsFormWithoutSaving(t *testing.T) {
 		"office":        {""},
 		"remote":        {""},
 	}
-	r := post("/presets/"+strconv.FormatInt(target.ID, 10)+"/borrow", form)
-	r.AddCookie(cookie)
+	r := s.authed(cookie, "/presets/"+strconv.FormatInt(target.ID, 10)+"/borrow", form)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 

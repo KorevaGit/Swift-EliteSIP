@@ -33,6 +33,7 @@
         {{if .Admin.IsAdmin}}
         <div class="card-head-actions">
             <form method="post" action="/presets/{{$d.Preset.ID}}/publish">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
                 <button type="submit" class="button button-primary">Выложить</button>
             </form>
         </div>
@@ -247,6 +248,7 @@
         {{/* Пароль техподдержка видит — он ей и нужен, — но не меняет. */}}
         {{if .Admin.IsAdmin}}
         <form method="post" action="/presets/{{$d.Preset.ID}}/password" class="row">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
             <div class="field field-wide">
                 <label for="admin_password">Новый пароль</label>
                 <input id="admin_password" name="admin_password" type="password" class="mono" autocomplete="new-password" required>
@@ -286,6 +288,7 @@
     <div class="sheet-actions">
         <button type="button" class="button" data-dialog-close>Отмена</button>
         <form method="post" action="/presets/{{$d.Preset.ID}}/delete">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
             <button type="submit" class="button button-danger">Убрать</button>
         </form>
     </div>
@@ -329,6 +332,7 @@
                          разными нажатиями». Правку готовят заранее, а откатываются, когда на
                          рабочих местах уже что-то сломалось. */}}
                     <form method="post" action="/presets/{{$d.Preset.ID}}/rollback">
+                        <input type="hidden" name="csrf" value="{{$.CSRF}}">
                         <input type="hidden" name="revision_id" value="{{$r.ID}}">
                         {{/* Откат выкладывается сразу — правку готовят заранее, а
                              откатываются, когда на местах уже сломалось. Подтверждение

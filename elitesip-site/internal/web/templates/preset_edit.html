@@ -23,6 +23,7 @@
      (formaction). Так напечатанное в остальных разделах не теряется, а
      подстановка ничего не сохраняет: показывает и ждёт «Сохранить». */}}
 <form id="preset-form" method="post" action="/presets/{{$d.Preset.ID}}" class="stack">
+<input type="hidden" name="csrf" value="{{$.CSRF}}">
 
 <div class="card section">
     <div class="section-head">

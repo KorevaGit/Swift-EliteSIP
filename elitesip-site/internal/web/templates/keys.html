@@ -26,6 +26,7 @@
              заведении. «Приступить» её только разворачивает. */}}
         <div id="issue-form" class="stack" hidden>
             <form method="post" action="/employees" class="row">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
                 <div class="field field-wide">
                     <label for="name">Имя</label>
                     <input id="name" name="name" type="text" placeholder="Пётр Смирнов" required>
@@ -101,6 +102,7 @@
             дефисы можно не убирать.
         </p>
         <form method="post" action="/activations/find" class="row">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
             <div class="field field-wide">
                 <label for="key">Ключ</label>
                 <input id="key" name="key" type="text" class="mono" placeholder="K7M2-9XQP-4TFB" autocomplete="off" required>

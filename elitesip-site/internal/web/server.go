@@ -47,6 +47,10 @@ type Server struct {
 	// Access разносит административный пароль по машинам предустановки.
 	Access *panel.AccessPublisher
 
+	// CSRFSecret подписывает токены форм — тот же секрет сервера, что и у
+	// отпечатков ключей в internal/panel, второго файла под него не заводим.
+	CSRFSecret []byte
+
 	templates map[string]*template.Template
 	flashes   flashStore
 }
@@ -58,9 +62,9 @@ type Server struct {
 // неудачный момент.
 func New(db *storage.DB, sandDB *sand.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher,
 	marks *panel.MarkCollector, revoker *panel.Revoker,
-	access *panel.AccessPublisher) (*Server, error) {
+	access *panel.AccessPublisher, csrfSecret []byte) (*Server, error) {
 	s := &Server{DB: db, Sand: sandDB, Issuer: issuer, Publisher: publisher, Marks: marks,
-		Revoker: revoker, Access: access}
+		Revoker: revoker, Access: access, CSRFSecret: csrfSecret}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -163,6 +167,10 @@ func (s *Server) guard(next func(http.ResponseWriter, *http.Request, model.Admin
 			// иначе браузер будет слать её до конца времён.
 			http.SetCookie(w, expiredCookie())
 			s.sendToLogin(w, r)
+			return
+		}
+		if r.Method == http.MethodPost && !s.checkCSRF(r) {
+			s.rejectCSRF(w)
 			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), adminKey, admin)), admin)
@@ -281,12 +289,18 @@ type page struct {
 	Section string
 	Admin   model.Admin
 	Flashes []Flash
+	CSRF    string
 	Data    any
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p page) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		p.Flashes = s.flashes.take(cookie.Value)
+		p.CSRF = s.csrfToken(cookie.Value)
+	} else {
+		// /login и /setup показываются без сеанса: токен цепляется за
+		// отдельную предварительную куку, которую ставит этот же вызов.
+		p.CSRF = s.ensureCSRFCookie(w, r)
 	}
 
 	t, ok := s.templates[name]

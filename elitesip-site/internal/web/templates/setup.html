@@ -15,6 +15,7 @@
         {{end}}
 
         <form method="post" action="/setup">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
             <div class="field">
                 <label for="login">Имя</label>
                 <input id="login" name="login" type="text" autocomplete="username" autofocus required>

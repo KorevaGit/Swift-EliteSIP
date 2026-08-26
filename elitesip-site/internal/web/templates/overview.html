@@ -9,6 +9,7 @@
              случая, когда техподдержка стоит над сотрудником, вводящим ключ
              прямо сейчас, и ждать пять минут ради «дошло» нечего. */}}
         <form method="post" action="/marks/pull">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
             <button type="submit" class="button">Сходить за отметками</button>
         </form>
     </div>

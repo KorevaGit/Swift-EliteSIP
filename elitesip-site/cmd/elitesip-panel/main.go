@@ -120,6 +120,7 @@ func serve() error {
 		&panel.MarkCollector{DB: db, Reader: sink, Machines: machines},
 		&panel.Revoker{DB: db, Machines: machines, Deleter: sink},
 		&panel.AccessPublisher{DB: db, Machines: machines},
+		secret,
 	)
 	if err != nil {
 		return err

@@ -15,6 +15,7 @@
                 останется «Установите EliteSIP» без ссылки.
             </p>
             <form method="post" action="/settings/app-link" class="row">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
                 <div class="field field-wide">
                     <label for="app_link">Адрес</label>
                     <input id="app_link" name="app_link" type="text" value="{{.Data.AppLink}}"
@@ -33,6 +34,7 @@
         <div class="card-head"><h2>Свой пароль</h2></div>
         <div class="card-body">
             <form method="post" action="/settings/password" class="form-rows">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
                 <div class="field">
                     <label for="current">Нынешний</label>
                     <input id="current" name="current" type="password" autocomplete="current-password" required>
@@ -63,6 +65,7 @@
     </div>
     <div class="card-body" id="new-user" hidden>
         <form method="post" action="/settings/users" class="row">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
             <div class="field">
                 <label for="user_login">Имя</label>
                 <input id="user_login" name="login" type="text" autocomplete="off" required>
@@ -100,12 +103,14 @@
                 <td data-label="Заведён">{{day .CreatedAt}}</td>
                 <td class="cell-actions">
                     <form method="post" action="/settings/users/{{.ID}}/password" class="row">
+                        <input type="hidden" name="csrf" value="{{$.CSRF}}">
                         <input class="field-narrow" name="password" type="password" placeholder="новый пароль"
                                autocomplete="new-password" required>
                         <button type="submit" class="button">Сменить пароль</button>
                     </form>
                     {{if ne .ID $.Admin.ID}}
                     <form method="post" action="/settings/users/{{.ID}}/delete">
+                        <input type="hidden" name="csrf" value="{{$.CSRF}}">
                         <button type="submit" class="button button-danger"
                                 data-confirm="Удалить {{.Login}}? Его сеансы оборвутся сразу. В журнале он останется — иначе его действия станут безымянными.">
                             Удалить
