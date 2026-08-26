@@ -26,19 +26,19 @@
              заведении. «Приступить» её только разворачивает. */}}
         <div id="issue-form" class="stack" hidden>
             <form method="post" action="/employees" class="row">
-                <div class="field" style="flex:2 1 200px;">
+                <div class="field field-wide">
                     <label for="name">Имя</label>
                     <input id="name" name="name" type="text" placeholder="Пётр Смирнов" required>
                 </div>
-                <div class="field" style="flex:0 1 120px;">
+                <div class="field field-narrow">
                     <label for="number">Номер</label>
                     <input id="number" name="number" type="text" inputmode="numeric" placeholder="172">
                 </div>
-                <div class="field" style="flex:1 1 180px;">
+                <div class="field">
                     <label for="sip_password">SIP-пароль</label>
                     <input id="sip_password" name="sip_password" type="text" placeholder="с АТС">
                 </div>
-                <div class="field" style="flex:1 1 180px;">
+                <div class="field">
                     <label for="preset_id">Предустановка</label>
                     <select id="preset_id" name="preset_id">
                         <option value="">не выбрана</option>
@@ -101,7 +101,7 @@
             дефисы можно не убирать.
         </p>
         <form method="post" action="/activations/find" class="row">
-            <div class="field" style="flex:1 1 240px;">
+            <div class="field field-wide">
                 <label for="key">Ключ</label>
                 <input id="key" name="key" type="text" class="mono" placeholder="K7M2-9XQP-4TFB" autocomplete="off" required>
             </div>

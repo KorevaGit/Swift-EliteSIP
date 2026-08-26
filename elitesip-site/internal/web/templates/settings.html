@@ -15,7 +15,7 @@
                 останется «Установите EliteSIP» без ссылки.
             </p>
             <form method="post" action="/settings/app-link" class="row">
-                <div class="field" style="flex:1 1 320px;">
+                <div class="field field-wide">
                     <label for="app_link">Адрес</label>
                     <input id="app_link" name="app_link" type="text" value="{{.Data.AppLink}}"
                            placeholder="https://elitesip.vip/download" autocomplete="off">
@@ -63,16 +63,16 @@
     </div>
     <div class="card-body" id="new-user" hidden>
         <form method="post" action="/settings/users" class="row">
-            <div class="field" style="flex:1 1 160px;">
+            <div class="field">
                 <label for="user_login">Имя</label>
                 <input id="user_login" name="login" type="text" autocomplete="off" required>
             </div>
-            <div class="field" style="flex:1 1 160px;">
+            <div class="field">
                 <label for="user_password">Пароль</label>
                 <input id="user_password" name="password" type="password" autocomplete="new-password" required>
                 <span class="field-hint">Не короче восьми знаков</span>
             </div>
-            <div class="field" style="flex:0 1 180px;">
+            <div class="field field-narrow">
                 <label for="user_role">Права</label>
                 <select id="user_role" name="role">
                     <option value="support" selected>Техподдержка</option>
@@ -100,8 +100,8 @@
                 <td data-label="Заведён">{{day .CreatedAt}}</td>
                 <td class="cell-actions">
                     <form method="post" action="/settings/users/{{.ID}}/password" class="row">
-                        <input name="password" type="password" placeholder="новый пароль"
-                               autocomplete="new-password" required style="width:150px;">
+                        <input class="field-narrow" name="password" type="password" placeholder="новый пароль"
+                               autocomplete="new-password" required>
                         <button type="submit" class="button">Сменить пароль</button>
                     </form>
                     {{if ne .ID $.Admin.ID}}

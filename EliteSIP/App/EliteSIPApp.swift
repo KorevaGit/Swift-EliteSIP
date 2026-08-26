@@ -240,7 +240,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settings: { [weak self] in self?.model.settings ?? AppSettings.default },
             apply: { [weak self] updated, note in
                 guard let self else { return }
+                let addressesBefore = self.model.settings.siteAddresses
                 self.model.settings = updated
+                // Смена адреса АТС в панели обязана доехать до профиля, а не
+                // остаться парой в настройках: регистрируется профиль.
+                self.model.alignProfileAddress(previous: addressesBefore)
                 self.model.persistSettings()
                 self.model.append(level: .info, message: "применено с панели: \(note)")
             },

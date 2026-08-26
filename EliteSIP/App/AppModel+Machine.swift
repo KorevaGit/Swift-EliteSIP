@@ -1,5 +1,6 @@
 import Foundation
 import PanelLink
+import SIPCore
 
 extension AppModel {
 
@@ -134,5 +135,57 @@ extension AppModel {
     func applyPendingReflashIfIdle() {
         guard let package = pendingReflash, !isInCall else { return }
         applyReflash(package)
+    }
+}
+
+// MARK: - Адрес АТС из предустановки
+
+extension AppModel {
+
+    /// Подтягивает адрес АТС к активному профилю после того, как приехала
+    /// предустановка.
+    ///
+    /// Пара адресов (`siteAddresses`) — это настройка машины, а регистрируется
+    /// профиль по своему `domain`, и одно из другого само не следует. До
+    /// 26 августа 2026 адрес переезжал **только** при ручном переключении
+    /// «Офис ↔ Удалённо»: предустановка клала пару в настройки и на этом
+    /// останавливалась. На свежей машине, поднятой ключом, домен оставался
+    /// пустым — номер есть, пароль есть, а регистрироваться некуда.
+    ///
+    /// - Parameter previous: пара, стоявшая до приезда предустановки. Нужна,
+    ///   чтобы отличить «адрес из нашей пары, просто устарел» от «чужой адрес,
+    ///   вписанный руками».
+    func alignProfileAddress(previous: SIPSiteAddresses) {
+        let addresses = settings.siteAddresses
+        guard !addresses.isEmpty else { return }
+
+        let profile = settings.profiles.active
+        let current = profile.account.domain
+
+        // Площадка выбирает адрес; `.automatic` не выбирает ничего, и тогда
+        // берётся офисный. Это не догадка о том, где сидит человек, а
+        // умолчание для машины, которую заводят: удалённого переключит
+        // «Работа», и стук там решит сам адрес.
+        let wanted = addresses.host(for: profile.site) ?? addresses.office
+        guard !wanted.isEmpty, wanted != current else { return }
+
+        // Переписывается пустой адрес и адрес из пары — прежней или новой.
+        // Лабораторный `127.0.0.1` и чужая АТС остаются на месте: приезд
+        // предустановки не должен незаметно уводить профиль на другой сервер.
+        // То же правило, что у переключения площадки.
+        guard current.isEmpty || previous.recognizes(current) || addresses.recognizes(current) else {
+            append(level: .info,
+                   message: "адрес АТС \(current) оставлен как есть: он не из пары предустановки")
+            return
+        }
+
+        var account = profile.account
+        account.domain = wanted
+        guard settings.profiles.setAccount(account, for: profile.id) else { return }
+
+        append(level: .info,
+               message: current.isEmpty
+                   ? "адрес АТС из предустановки: \(wanted)"
+                   : "адрес АТС из предустановки: \(current) → \(wanted)")
     }
 }

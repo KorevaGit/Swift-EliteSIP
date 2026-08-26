@@ -110,11 +110,11 @@
 <main class="main">
     {{range .Flashes}}
         <div class="notice notice-{{if eq .Kind "ok"}}ok{{else if eq .Kind "warn"}}warn{{else}}bad{{end}}">
-            <div style="flex:1; min-width:0;">
+            <div class="notice-body">
                 {{if .Title}}<strong>{{.Title}}</strong>{{end}}
                 {{if .Text}}<p>{{.Text}}</p>{{end}}
                 {{if .KeyOnce}}
-                    <div class="key-reveal" style="margin-top:12px;">
+                    <div class="key-reveal gap-s">
                         <span class="field-label">Ключ активации</span>
                         <span class="key-value" data-key>{{.KeyOnce}}</span>
                         <button type="button" class="button" data-copy="[data-key]">Скопировать ключ</button>
@@ -123,7 +123,7 @@
                 {{if .Message}}
                     {{/* Готовое сообщение рядом с ключом, а не вместо него: ключ диктуют
                          и по телефону, а сообщение вставляют в мессенджер целиком. */}}
-                    <div class="key-reveal" style="margin-top:10px;">
+                    <div class="key-reveal gap-s">
                         <span class="field-label">Сообщение сотруднику</span>
                         <pre class="message" data-message>{{.Message}}</pre>
                         <button type="button" class="button button-primary" data-copy="[data-message]">Скопировать сообщение</button>

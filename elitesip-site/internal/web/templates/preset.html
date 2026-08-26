@@ -67,7 +67,7 @@
             <div class="notice notice-bad">
                 <div>
                     <strong>Меняется связь с АТС</strong>
-                    <div class="changes" style="margin-top:6px;">
+                    <div class="changes gap-xs">
                         {{range $d.Pending.Dangerous}}<div class="change change-danger">{{.}}</div>{{end}}
                     </div>
                     <p>Ошибка здесь — телефон, который не звонит на всех рабочих местах разом.</p>
@@ -226,7 +226,7 @@
             <dl class="kv">
                 <div class="kv-row">
                     <dt>Пароль</dt>
-                    <dd><span class="mono" style="user-select:all;">{{$d.AdminPassword}}</span></dd>
+                    <dd><span class="mono pick-all">{{$d.AdminPassword}}</span></dd>
                 </div>
             </dl>
             <p class="card-note">
@@ -247,7 +247,7 @@
         {{/* Пароль техподдержка видит — он ей и нужен, — но не меняет. */}}
         {{if .Admin.IsAdmin}}
         <form method="post" action="/presets/{{$d.Preset.ID}}/password" class="row">
-            <div class="field" style="flex:1 1 240px;">
+            <div class="field field-wide">
                 <label for="admin_password">Новый пароль</label>
                 <input id="admin_password" name="admin_password" type="password" class="mono" autocomplete="new-password" required>
             </div>

@@ -46,18 +46,18 @@
 
         <div data-list="macro" class="stack">
             {{range $i, $m := $f.DTMF.Macros}}
-            <div data-row class="row" style="padding:8px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+            <div data-row class="row inset">
                 <input type="hidden" name="macroIndex" value="{{$i}}">
                 <input type="hidden" name="macroID_{{$i}}" value="{{$m.ID}}">
-                <div class="field" style="flex:1 1 160px;">
+                <div class="field">
                     <label>Подпись</label>
                     <input name="macroTitle_{{$i}}" type="text" value="{{$m.Title}}" placeholder="ЮРИСТ">
                 </div>
-                <div class="field" style="flex:1 1 140px;">
+                <div class="field">
                     <label>Набор</label>
                     <input name="macroSequence_{{$i}}" type="text" class="mono" value="{{$m.Sequence}}" placeholder="*02,101">
                 </div>
-                <label class="switch" style="flex:1 1 200px;">
+                <label class="switch">
                     <input type="hidden" name="macroTransfers_{{$i}}" value="0">
                     <input type="checkbox" name="macroTransfers_{{$i}}" value="1" {{if $m.TransfersCall}}checked{{end}}>
                     <span class="switch-text">Уводит звонок<span>идёт в историю как перевод</span></span>
@@ -73,17 +73,17 @@
         </div>
 
         <div class="row">
-            <div class="field" style="flex:1 1 120px;">
+            <div class="field field-narrow">
                 <label for="macroColumns">Клавиш в ряду</label>
                 <input id="macroColumns" name="macroColumns" type="number" min="1" max="4" value="{{$f.DTMF.MacroColumns}}">
                 <span class="field-hint">1–4</span>
             </div>
-            <div class="field" style="flex:1 1 120px;">
+            <div class="field field-narrow">
                 <label for="macroHeight">Высота клавиши</label>
                 <input id="macroHeight" name="macroHeight" type="number" min="44" max="96" value="{{$f.DTMF.MacroHeight}}">
                 <span class="field-hint">44–96 точек</span>
             </div>
-            <label class="switch" style="flex:1 1 220px;">
+            <label class="switch">
                 <input type="hidden" name="macroHeightIsManual" value="0">
                 <input type="checkbox" name="macroHeightIsManual" value="1" {{if $f.DTMF.MacroHeightIsManual}}checked{{end}}>
                 <span class="switch-text">Высоту задаёт человек<span>иначе панель меряет подписи сама</span></span>
@@ -91,15 +91,15 @@
         </div>
 
         <div class="row">
-            <div class="field" style="flex:1 1 120px;">
+            <div class="field field-narrow">
                 <label for="toneMilliseconds">Тон, мс</label>
                 <input id="toneMilliseconds" name="toneMilliseconds" type="number" value="{{$f.DTMF.ToneMilliseconds}}">
             </div>
-            <div class="field" style="flex:1 1 120px;">
+            <div class="field field-narrow">
                 <label for="gapMilliseconds">Промежуток, мс</label>
                 <input id="gapMilliseconds" name="gapMilliseconds" type="number" value="{{$f.DTMF.GapMilliseconds}}">
             </div>
-            <div class="field" style="flex:1 1 140px;">
+            <div class="field">
                 <label for="pauseMilliseconds">Пауза (запятая), мс</label>
                 <input id="pauseMilliseconds" name="pauseMilliseconds" type="number" value="{{$f.DTMF.PauseMilliseconds}}">
             </div>
@@ -108,11 +108,11 @@
         {{/* Конференция стоит здесь же: её код и добавочный комнаты — те же
              коды, что в макросах, и правят их так же редко. */}}
         <div class="row">
-            <div class="field" style="flex:1 1 140px;">
+            <div class="field">
                 <label for="featureCode">Код конференции</label>
                 <input id="featureCode" name="featureCode" type="text" class="mono" value="{{$f.Conference.FeatureCode}}">
             </div>
-            <div class="field" style="flex:1 1 140px;">
+            <div class="field">
                 <label for="roomExtension">Добавочный комнаты</label>
                 <input id="roomExtension" name="roomExtension" type="text" class="mono" value="{{$f.Conference.RoomExtension}}">
             </div>
@@ -141,14 +141,14 @@
 
         <div data-list="queue" class="stack">
             {{range $i, $q := $f.Queues.Queues}}
-            <div data-row class="row" style="padding:8px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+            <div data-row class="row inset">
                 <input type="hidden" name="queueIndex" value="{{$i}}">
                 <input type="hidden" name="queueID_{{$i}}" value="{{$q.ID}}">
-                <div class="field" style="flex:1 1 120px;">
+                <div class="field field-narrow">
                     <label>Номер</label>
                     <input name="queueNumber_{{$i}}" type="text" class="mono" value="{{$q.Number}}" placeholder="2929">
                 </div>
-                <div class="field" style="flex:2 1 200px;">
+                <div class="field field-wide">
                     <label>Название</label>
                     <input name="queueTitle_{{$i}}" type="text" value="{{$q.Title}}" placeholder="Горячий лид">
                 </div>
@@ -197,15 +197,15 @@
         </label>
 
         <div class="row">
-            <div class="field" style="flex:1 1 140px;">
+            <div class="field">
                 <label for="minimumTravel">Смещение окна, точек</label>
                 <input id="minimumTravel" name="minimumTravel" type="text" value="{{$f.IncomingCall.MinimumTravel}}">
             </div>
-            <div class="field" style="flex:1 1 140px;">
+            <div class="field">
                 <label for="screenMargin">Отступ от краёв, точек</label>
                 <input id="screenMargin" name="screenMargin" type="text" value="{{$f.IncomingCall.ScreenMargin}}">
             </div>
-            <div class="field" style="flex:1 1 140px;">
+            <div class="field">
                 <label for="targetCount">Кнопок-целей</label>
                 <input id="targetCount" name="targetCount" type="number" min="1" max="9" value="{{$f.IncomingCall.TargetCount}}">
                 <span class="field-hint">1 — обычная кнопка «Ответить»</span>
@@ -219,11 +219,11 @@
         </label>
 
         <div class="row">
-            <div class="field" style="flex:1 1 140px;">
+            <div class="field">
                 <label for="cursorTravel">Путь курсора, точек</label>
                 <input id="cursorTravel" name="cursorTravel" type="text" value="{{$f.IncomingCall.RequiredCursorTravel}}">
             </div>
-            <div class="field" style="flex:1 1 140px;">
+            <div class="field">
                 <label for="cursorSamples">Перемещений</label>
                 <input id="cursorSamples" name="cursorSamples" type="number" value="{{$f.IncomingCall.RequiredCursorSamples}}">
                 <span class="field-hint">одно — это прыжок</span>
@@ -270,11 +270,11 @@
         </p>
 
         <div class="row">
-            <div class="field" style="flex:1 1 200px;">
+            <div class="field">
                 <label for="office">Адрес изнутри офиса</label>
                 <input id="office" name="office" type="text" class="mono" value="{{$f.SiteAddress.Office}}">
             </div>
-            <div class="field" style="flex:1 1 200px;">
+            <div class="field">
                 <label for="remote">Адрес снаружи</label>
                 <input id="remote" name="remote" type="text" class="mono" value="{{$f.SiteAddress.Remote}}">
                 <span class="field-hint">именно на него открывает дорогу стук</span>
@@ -292,17 +292,17 @@
 
         <div data-list="knock" class="stack">
             {{range $i, $s := $f.PortKnock.Steps}}
-            <div data-row class="row" style="padding:8px; border-radius:var(--radius-card); background:var(--surface-sunken);">
+            <div data-row class="row inset">
                 <input type="hidden" name="knockIndex" value="{{$i}}">
-                <div class="field" style="flex:2 1 200px;">
+                <div class="field field-wide">
                     <label>Адрес</label>
                     <input name="knockHost_{{$i}}" type="text" class="mono" value="{{$s.Host}}" placeholder="основной адрес АТС">
                 </div>
-                <div class="field" style="flex:1 1 120px;">
+                <div class="field field-narrow">
                     <label>Байт в пакете</label>
                     <input name="knockBytes_{{$i}}" type="number" value="{{$s.PayloadBytes}}">
                 </div>
-                <div class="field" style="flex:1 1 100px;">
+                <div class="field field-narrow">
                     <label>Пакетов</label>
                     <input name="knockCount_{{$i}}" type="number" value="{{$s.Count}}">
                 </div>
@@ -313,12 +313,12 @@
         <div class="row"><button type="button" class="button" data-add="knock">Добавить шаг стука</button></div>
 
         <div class="row">
-            <div class="field" style="flex:1 1 160px;">
+            <div class="field">
                 <label for="spacingSeconds">Промежуток, с</label>
                 <input id="spacingSeconds" name="spacingSeconds" type="text" value="{{$f.PortKnock.SpacingSeconds}}">
                 <span class="field-hint">0,1–10</span>
             </div>
-            <div class="field" style="flex:1 1 160px;">
+            <div class="field">
                 <label for="repeatIntervalSeconds">Повтор, с</label>
                 <input id="repeatIntervalSeconds" name="repeatIntervalSeconds" type="text" value="{{$f.PortKnock.RepeatIntervalSeconds}}">
                 <span class="field-hint">60–3600</span>
