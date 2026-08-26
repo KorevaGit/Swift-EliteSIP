@@ -32,6 +32,7 @@ type EmployeeRow struct {
 	ID       int64
 	Name     string
 	Outcome  Outcome
+	Touched  bool
 	Progress []SectionProgress
 }
 
@@ -175,7 +176,11 @@ func (db *DB) sandboxEmployees(ctx context.Context, sandboxID int64, format Form
 		        CASE WHEN COALESCE(e.bitrix_login, '') <> ''
 		                   AND COALESCE(e.bitrix_pass, '') <> ''
 		                   AND COALESCE(e.bitrix_id, '') <> '' THEN 1 ELSE 0 END,
-		        CASE WHEN x.number IS NOT NULL THEN 1 ELSE 0 END
+		        CASE WHEN x.number IS NOT NULL THEN 1 ELSE 0 END,
+		        CASE WHEN COALESCE(e.bitrix_login, '') <> ''
+		                   OR COALESCE(e.bitrix_pass, '') <> ''
+		                   OR COALESCE(e.bitrix_id, '') <> ''
+		                   OR x.number IS NOT NULL OR COALESCE(e.outcome, '') <> '' THEN 1 ELSE 0 END
 		   FROM sand_employees e
 		   LEFT JOIN sandbox_extensions x
 		          ON x.employee_id = e.id AND x.released_at IS NULL
@@ -191,7 +196,7 @@ func (db *DB) sandboxEmployees(ctx context.Context, sandboxID int64, format Form
 		var employee EmployeeRow
 		var outcome string
 		var bitrix, extension bool
-		if err := rows.Scan(&employee.ID, &employee.Name, &outcome, &bitrix, &extension); err != nil {
+		if err := rows.Scan(&employee.ID, &employee.Name, &outcome, &bitrix, &extension, &employee.Touched); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("прочитать сотрудника песка: %w", err)
 		}
@@ -289,6 +294,11 @@ func detailStatus(detail SandboxDetail) Status {
 	}
 	if done > 0 {
 		return StatusRunning
+	}
+	for _, employee := range detail.Employees {
+		if employee.Touched {
+			return StatusRunning
+		}
 	}
 	return StatusStarted
 }

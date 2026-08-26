@@ -1,0 +1,55 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head">
+  <div class="page-title">
+    <a class="sub" href="/sandbox/{{$d.ID}}">← Песок {{$d.ROP}}</a>
+    <h1>{{$d.Name}}</h1>
+    <p>{{if $d.Remote}}Удалённый{{else}}Офисный{{end}} песок{{if $d.Outcome}} · исход зафиксирован {{dayAt $d.OutcomeAt}}{{end}}</p>
+  </div>
+  <div class="page-actions">
+    {{if eq (printf "%s" $d.Outcome) "hired"}}<span class="badge badge-ok">выведен в ОП</span>{{else if eq (printf "%s" $d.Outcome) "rejected"}}<span class="badge badge-off">не вышел</span>{{else}}<span class="badge badge-wait">в песке</span>{{end}}
+  </div>
+</div>
+
+<div class="card"><div class="card-head"><h2>Прогресс</h2></div><div class="shares sandbox-progress">{{range $d.Progress}}<span class="share" title="{{.Done}} из {{.Total}}"><span class="share-name">{{.Section}}</span><span class="share-bar"><i class="share-fill" style="{{width .Percent}}"></i></span><span class="share-value">{{.Percent}}%</span></span>{{end}}</div></div>
+
+<div class="grid grid-two">
+<section class="card">
+  <div class="card-head"><h2>Битрикс</h2>{{if and $d.BitrixLogin $d.BitrixPass $d.BitrixID}}<span class="badge badge-ok">готово</span>{{end}}</div>
+  <div class="card-body">
+  {{if not $d.ClosedAt}}<form method="post" action="/sandbox/{{$d.ID}}/employee/{{$d.EmployeeID}}/save" data-confirm="Если очистить созданный аккаунт, зависящие отметки, номер и исход тоже будут сняты. Сохранить?">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="cascade" value="1">
+    <div class="stack"><div class="field"><label>Логин</label><input type="text" name="login" value="{{$d.BitrixLogin}}"></div><div class="field"><label>Пароль</label><input type="text" name="password" value="{{$d.BitrixPass}}"></div><div class="field"><label>ID Битрикса</label><input type="text" name="bitrix_id" value="{{$d.BitrixID}}"></div><div class="page-actions"><button class="button" type="submit">Сохранить</button></div></div>
+  </form>{{else}}<dl class="kv"><div class="kv-row"><dt>Логин</dt><dd>{{$d.BitrixLogin}}</dd></div><div class="kv-row"><dt>Пароль</dt><dd>{{$d.BitrixPass}}</dd></div><div class="kv-row"><dt>ID</dt><dd>{{$d.BitrixID}}</dd></div></dl>{{end}}
+  </div>
+</section>
+<section class="card">
+  <div class="card-head"><h2>Номер и исход</h2></div>
+  <div class="card-body">
+  <p class="card-note">Текущий номер: {{if $d.Extension}}<strong>{{$d.Extension}}</strong>{{else}}не назначен{{end}}.</p>
+  {{if not $d.ClosedAt}}
+  <form method="post" action="/sandbox/{{$d.ID}}/employee/{{$d.EmployeeID}}/extension"><input type="hidden" name="csrf" value="{{$.CSRF}}"><div class="row"><div class="field"><label>Свободный номер</label><select name="number" required><option value="">Выберите</option>{{range $d.AvailableExtensions}}<option>{{.}}</option>{{end}}</select></div><button class="button" type="submit">Привязать</button></div></form>
+  <form method="post" action="/sandbox/{{$d.ID}}/employee/{{$d.EmployeeID}}/outcome"><input type="hidden" name="csrf" value="{{$.CSRF}}"><div class="row"><button class="button" name="outcome" value="hired" type="submit">Вывести в ОП</button><button class="button button-danger" name="outcome" value="rejected" type="submit" data-confirm="Подтвердить комплексное увольнение? Номер сотрудника будет освобождён.">Увольнение</button></div></form>
+  {{end}}
+  </div>
+</section>
+</div>
+
+{{if $d.LibraSQL}}<section class="card"><div class="card-head"><h2>SQL для Libra</h2><span class="sub">Панель его только готовит</span></div><pre class="code-block pick-all">{{$d.LibraSQL}}</pre></section>{{end}}
+
+<section class="card">
+ <div class="card-head"><h2>Работы по сотруднику</h2></div>
+ <div class="task-list">{{range $d.Tasks}}{{$mark := index $d.Marks .Key}}{{$done := $d.Done .Key}}{{$structured := or (eq .Key "bitrix") (eq .Key "extension") (eq .Key "outcome") (eq .Key "base_filled")}}
+  <div class="task-row {{if $done}}is-done{{end}}"><div class="task-toggle">{{if $structured}}<span class="task-check" aria-hidden="true">{{if $done}}✓{{end}}</span>{{else if not $d.ClosedAt}}<form method="post" action="/sandbox/{{$d.ID}}/employee/{{$d.EmployeeID}}/mark"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="task" value="{{.Key}}"><input type="hidden" name="cascade" value="1"><button class="task-check" type="submit" {{if $mark}}data-confirm="Снять отметку? Зависимые выполненные работы тоже будут сняты."{{end}} aria-label="{{if $mark}}Снять отметку{{else}}Отметить выполненной{{end}}">{{if $mark}}✓{{end}}</button></form>{{else}}<span class="task-check">{{if $mark}}✓{{end}}</span>{{end}}</div>
+  <div class="task-copy"><strong>{{.Title}}</strong><p>{{.About}}</p>{{if .LinksResolved}}<span class="task-links">{{range .LinksResolved}}{{if .Ready}}<a href="{{.URL}}" target="_blank" rel="noreferrer">{{.Title}} ↗</a>{{else}}<span class="sub">{{.Title}} — сначала заполните данные</span>{{end}}{{end}}</span>{{end}}{{if $mark}}<small>{{$mark.DoneLogin}} · {{moment $mark.DoneAt}}</small>{{end}}</div></div>
+ {{end}}</div>
+</section>
+
+<section class="card"><div class="card-head"><h2>Холодная база</h2><span class="sub">{{$d.DealsFree}} свободно</span></div><div class="card-body">
+ {{if not $d.ClosedAt}}<div class="row"><form method="post" action="/sandbox/{{$d.ID}}/employee/{{$d.EmployeeID}}/deals?n=300"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button class="button" type="submit">Скачать 300</button></form><form method="post" action="/sandbox/{{$d.ID}}/employee/{{$d.EmployeeID}}/deals?n=100"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button class="button" type="submit">Скачать 100</button></form></div>{{end}}
+ {{if $d.Batches}}<table class="table"><thead><tr><th>Порция</th><th>Сделок</th><th>Создана</th><th>Состояние</th></tr></thead><tbody>{{range $d.Batches}}<tr><td data-label="Порция">№ {{.ID}}</td><td data-label="Сделок">{{.Size}}</td><td data-label="Создана">{{moment .CreatedAt}}</td><td data-label="Состояние">{{if .ImportedAt}}<span class="badge badge-ok">налита</span> <span class="sub">{{.ImportedLogin}}</span>{{else if not $d.ClosedAt}}<form method="post" action="/sandbox/{{$d.ID}}/employee/{{$d.EmployeeID}}/deals/{{.ID}}/imported"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button class="button" type="submit">Файл налит</button></form>{{else}}<span class="badge badge-wait">не подтверждена</span>{{end}}</td></tr>{{end}}</tbody></table>{{end}}
+</div></section>
+
+{{if and (not $d.ClosedAt) .Admin.IsAdmin (not $d.BitrixLogin)}}<section class="card card-danger"><div class="card-head"><h2>Удаление</h2></div><div class="card-body"><form method="post" action="/sandbox/{{$d.ID}}/employee/{{$d.EmployeeID}}/delete"><input type="hidden" name="csrf" value="{{$.CSRF}}"><p class="card-note">Допустимо только пока аккаунт Битрикса ещё не создан.</p><button class="button button-danger" type="submit" data-confirm="Удалить {{$d.Name}} из песка?">Удалить сотрудника</button></form></div></section>{{end}}
+{{end}}

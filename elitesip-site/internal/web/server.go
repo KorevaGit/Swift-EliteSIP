@@ -75,6 +75,7 @@ var pages = []string{
 	"login", "setup", "overview", "keys", "stub", "employees", "employee",
 	"presets", "preset", "preset_edit", "audit", "settings",
 	"sandbox", "sandbox_archive", "sandbox_new", "sandbox_template", "sandbox_detail",
+	"sandbox_employee",
 }
 
 func (s *Server) parseTemplates() error {
@@ -125,6 +126,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /sandbox/{id}/employees", s.guard(s.addSandboxEmployee))
 	mux.Handle("POST /sandbox/{id}/comments", s.guard(s.addSandboxComment))
 	mux.Handle("POST /sandbox/{id}/close", s.guard(s.onlyAdmin(s.closeSandbox)))
+	mux.Handle("GET /sandbox/{id}/employee/{eid}", s.guard(s.showSandEmployee))
+	mux.Handle("POST /sandbox/{id}/employee/{eid}/mark", s.guard(s.markSandEmployee))
+	mux.Handle("POST /sandbox/{id}/employee/{eid}/save", s.guard(s.saveSandEmployee))
+	mux.Handle("POST /sandbox/{id}/employee/{eid}/extension", s.guard(s.assignSandExtension))
+	mux.Handle("POST /sandbox/{id}/employee/{eid}/outcome", s.guard(s.outcomeSandEmployee))
+	mux.Handle("POST /sandbox/{id}/employee/{eid}/deals", s.guard(s.downloadSandDeals))
+	mux.Handle("POST /sandbox/{id}/employee/{eid}/deals/{bid}/imported", s.guard(s.importedSandDeals))
+	mux.Handle("POST /sandbox/{id}/employee/{eid}/delete", s.guard(s.onlyAdmin(s.deleteSandEmployee)))
 	mux.Handle("GET /employees", s.guard(s.showEmployees))
 	mux.Handle("POST /employees", s.guard(s.createEmployee))
 	mux.Handle("GET /employees/{id}", s.guard(s.showEmployee))

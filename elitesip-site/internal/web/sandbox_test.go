@@ -552,3 +552,41 @@ func TestOnlyAdminClosesSandboxAndClosedCardIsReadOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestEmployeeCardDownloadsStableBitrixCSV(t *testing.T) {
+	s, db := newServer(t)
+	cookie := signedIn(t, db)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, s.newSandboxPost(cookie, map[string]string{
+		"rop": "Марк", "format": "office", "employees": "Петров Пётр", "extensions": "501",
+	}, "1, 2\n2516934, 10660\n2517017, 10660\n"))
+	cards, _ := s.Sand.ListSandboxes(context.Background(), false)
+	detail, _ := s.Sand.GetSandbox(context.Background(), cards[0].ID)
+	sid, eid := cards[0].ID, detail.Employees[0].ID
+	path := fmt.Sprintf("/sandbox/%d/employee/%d", sid, eid)
+
+	body := get(t, s, cookie, path).Body.String()
+	if !strings.Contains(body, "Петров Пётр") {
+		t.Fatal("карточка сотрудника не открылась")
+	}
+	if strings.Contains(body, "SQL для Libra") {
+		t.Error("SQL показан до заполнения ID")
+	}
+	postSandbox(t, s, cookie, path+"/save", url.Values{
+		"login": {"petrov"}, "password": {"secret"}, "bitrix_id": {"12817"},
+	})
+	body = get(t, s, cookie, path).Body.String()
+	if !strings.Contains(body, "INSERT INTO [dbo].[ESLibra_UsersAccess]") || !strings.Contains(body, "12817") {
+		t.Error("после сохранения ID не появился SQL Libra")
+	}
+
+	first := postSandbox(t, s, cookie, path+"/deals?n=300", nil)
+	want := "1, 2\n2516934, 12817\n2517017, 12817\n"
+	if first.Body.String() != want {
+		t.Fatalf("CSV:\n%q\nожидался:\n%q", first.Body.String(), want)
+	}
+	second := postSandbox(t, s, cookie, path+"/deals?n=100", nil)
+	if second.Body.String() != want {
+		t.Error("до подтверждения повторно скачалась другая порция")
+	}
+}

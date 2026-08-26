@@ -88,7 +88,7 @@
         <tbody>
         {{range $d.Employees}}
         <tr>
-            <td data-label="ФИО" class="primary-cell">{{.Name}}</td>
+            <td data-label="ФИО" class="primary-cell"><a href="/sandbox/{{$d.ID}}/employee/{{.ID}}">{{.Name}}</a></td>
             <td data-label="Исход">{{if .Outcome}}<span class="badge">{{.Outcome}}</span>{{else}}<span class="sub">не указан</span>{{end}}</td>
             <td data-label="Работы">
                 <span class="shares">

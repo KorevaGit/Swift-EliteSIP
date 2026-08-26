@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/koreva/elitesip-site/internal/model"
@@ -20,6 +21,166 @@ const maxDealsUpload = 8 << 20
 type sandboxesData struct {
 	Sandboxes []sand.SandboxCard
 	Archive   bool
+}
+
+func sandEmployeeIDs(r *http.Request) (int64, int64, error) {
+	sid, err := pathID(r)
+	if err != nil {
+		return 0, 0, err
+	}
+	eid, err := strconv.ParseInt(r.PathValue("eid"), 10, 64)
+	if err != nil || eid <= 0 {
+		return 0, 0, errors.New("bad employee id")
+	}
+	return sid, eid, nil
+}
+
+func (s *Server) showSandEmployee(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	sid, eid, e := sandEmployeeIDs(r)
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	d, e := s.Sand.GetEmployee(r.Context(), sid, eid)
+	if errors.Is(e, sand.ErrEmployeeNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if e != nil {
+		s.fail(w, e)
+		return
+	}
+	s.render(w, r, "sandbox_employee", page{Title: d.Name + " · Песочница", Section: "sandbox", Sub: "list", Admin: admin, Data: d})
+}
+
+func (s *Server) sandEmployeeBack(w http.ResponseWriter, r *http.Request, sid, eid int64) {
+	s.back(w, r, fmt.Sprintf("/sandbox/%d/employee/%d", sid, eid))
+}
+
+func (s *Server) markSandEmployee(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	sid, eid, e := sandEmployeeIDs(r)
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	cascade := r.FormValue("cascade") == "1"
+	marked, e := s.Sand.ToggleEmployeeMark(r.Context(), actorOfAdmin(admin), sid, eid, strings.TrimSpace(r.FormValue("task")), cascade)
+	if e != nil {
+		var c sand.CascadeRequired
+		if errors.As(e, &c) {
+			s.flash(r, "bad", "Нужно подтверждение", fmt.Sprintf("С этой отметкой снимется ещё %d. Повторите действие с подтверждением.", c.Count))
+		} else {
+			s.sandboxActionError(r, e)
+		}
+	} else if marked {
+		s.flash(r, "ok", "Работа выполнена", "Исполнитель и время сохранены.")
+	} else {
+		s.flash(r, "ok", "Отметка снята", "Зависящие отметки также сняты.")
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.sandEmployeeBack(w, r, sid, eid)
+}
+
+func (s *Server) saveSandEmployee(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	sid, eid, e := sandEmployeeIDs(r)
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	e = s.Sand.SaveEmployeeBitrix(r.Context(), actorOfAdmin(admin), sid, eid, r.FormValue("login"), r.FormValue("password"), r.FormValue("bitrix_id"), r.FormValue("cascade") == "1")
+	if e != nil {
+		s.sandboxActionError(r, e)
+	} else {
+		s.flash(r, "ok", "Данные Битрикса сохранены", "Задача закроется, когда заполнены логин, пароль и ID.")
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.sandEmployeeBack(w, r, sid, eid)
+}
+
+func (s *Server) assignSandExtension(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	sid, eid, e := sandEmployeeIDs(r)
+	if e == nil {
+		e = s.Sand.AssignEmployeeExtension(r.Context(), actorOfAdmin(admin), sid, eid, r.FormValue("number"))
+	}
+	if e != nil {
+		s.sandboxActionError(r, e)
+	} else {
+		s.flash(r, "ok", "Номер привязан", r.FormValue("number"))
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.sandEmployeeBack(w, r, sid, eid)
+}
+
+func (s *Server) outcomeSandEmployee(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	sid, eid, e := sandEmployeeIDs(r)
+	if e == nil {
+		e = s.Sand.SetEmployeeOutcome(r.Context(), actorOfAdmin(admin), sid, eid, sand.Outcome(r.FormValue("outcome")))
+	}
+	if e != nil {
+		s.sandboxActionError(r, e)
+	} else {
+		s.flash(r, "ok", "Исход сохранён", "Для не вышедшего номер освобождён вместе с комплексным увольнением.")
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.sandEmployeeBack(w, r, sid, eid)
+}
+
+func (s *Server) downloadSandDeals(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	sid, eid, e := sandEmployeeIDs(r)
+	n, _ := strconv.Atoi(r.URL.Query().Get("n"))
+	var b sand.DealBatch
+	if e == nil {
+		b, e = s.Sand.IssueDeals(r.Context(), actorOfAdmin(admin), sid, eid, n)
+	}
+	if e != nil {
+		s.sandboxActionError(r, e)
+		s.sandEmployeeBack(w, r, sid, eid)
+		return
+	}
+	d, e := s.Sand.GetEmployee(r.Context(), sid, eid)
+	if e != nil {
+		s.fail(w, e)
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="deals-%d.csv"`, b.ID))
+	fmt.Fprintln(w, "1, 2")
+	for _, deal := range b.Deals {
+		fmt.Fprintf(w, "%s, %s\n", deal, d.BitrixID)
+	}
+}
+
+func (s *Server) importedSandDeals(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	sid, eid, e := sandEmployeeIDs(r)
+	bid, pe := strconv.ParseInt(r.PathValue("bid"), 10, 64)
+	if e == nil {
+		e = pe
+	}
+	if e == nil {
+		e = s.Sand.MarkBatchImported(r.Context(), actorOfAdmin(admin), sid, eid, bid)
+	}
+	if e != nil {
+		s.sandboxActionError(r, e)
+	} else {
+		s.flash(r, "ok", "Файл отмечен налитым", "Теперь можно получить следующую порцию.")
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.sandEmployeeBack(w, r, sid, eid)
+}
+
+func (s *Server) deleteSandEmployee(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	sid, eid, e := sandEmployeeIDs(r)
+	if e == nil {
+		e = s.Sand.DeleteEmployee(r.Context(), actorOfAdmin(admin), sid, eid)
+	}
+	if e != nil {
+		s.sandboxActionError(r, e)
+		s.sandEmployeeBack(w, r, sid, eid)
+		return
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.flash(r, "ok", "Сотрудник удалён", "Аккаунт ещё не создавался.")
+	http.Redirect(w, r, fmt.Sprintf("/sandbox/%d", sid), http.StatusSeeOther)
 }
 
 func (s *Server) showSandboxes(w http.ResponseWriter, r *http.Request, admin model.Admin) {

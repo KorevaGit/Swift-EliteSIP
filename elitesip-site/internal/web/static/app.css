@@ -804,6 +804,7 @@ textarea:disabled { color: var(--text-tertiary); }
 .comment header strong { font-weight: 550; }
 .comment time { color: var(--text-tertiary); white-space: nowrap; }
 .comment p { max-width: 82ch; white-space: pre-wrap; line-height: 1.55; }
+.code-block { padding: 18px; border-radius: var(--radius-card); background: var(--surface-raised); overflow-x: auto; font-size: 13px; line-height: 1.55; }
 
 
 /* -------------------------------------------------------------- сообщения */
