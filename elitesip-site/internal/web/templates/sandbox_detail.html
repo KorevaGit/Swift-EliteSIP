@@ -80,46 +80,19 @@
 
 <div class="card">
     <div class="card-head">
-        <h2>Рабочая таблица сотрудников</h2>
-        <span class="sub">Все действия без перехода в отдельные карточки</span>
+        <h2>Сотрудники</h2>
+        <span class="sub">Сводка группы; задачи и редактирование — в карточке сотрудника</span>
     </div>
-    <div class="workbench desktop-only">
-    <table class="workbench-table">
-      <thead><tr><th class="workbench-person">Сотрудник</th><th>Битрикс</th><th>Номер</th><th>Задачи</th><th>Холодная база</th><th>Исход</th></tr></thead>
+    <table class="table employee-summary">
+      <thead><tr><th>Сотрудник</th><th>Данные Битрикса</th><th>Номер</th><th>Выполнено</th><th>Исход</th><th></th></tr></thead>
       <tbody>{{range $employee := $d.Workbench}}<tr>
-        <td class="workbench-person"><div class="person-line"><strong id="employee-name-{{$employee.EmployeeID}}">{{$employee.Name}}</strong><button type="button" class="copy-mini" data-copy="#employee-name-{{$employee.EmployeeID}}" title="Скопировать ФИО" aria-label="Скопировать ФИО {{$employee.Name}}">⧉</button></div><span class="shares">{{range $employee.Progress}}<span class="share" title="{{.Section}}: {{.Done}} из {{.Total}}"><span class="share-name">{{.Section}}</span><span class="share-value">{{.Percent}}%</span></span>{{end}}</span></td>
-        <td>
-          {{if not $d.ClosedAt}}<form class="cell-form" method="post" action="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}/save" data-confirm="Сохранить данные Битрикса? При очистке готового аккаунта зависящие данные будут сняты."><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="cascade" value="1"><input id="bitrix-login-{{$employee.EmployeeID}}" type="text" name="login" value="{{$employee.BitrixLogin}}" placeholder="Логин" aria-label="Логин {{$employee.Name}}"><input id="bitrix-pass-{{$employee.EmployeeID}}" type="text" name="password" value="{{$employee.BitrixPass}}" placeholder="Пароль" aria-label="Пароль {{$employee.Name}}"><div class="cell-form-line"><input id="bitrix-id-{{$employee.EmployeeID}}" type="text" name="bitrix_id" value="{{$employee.BitrixID}}" placeholder="ID" aria-label="ID Битрикса {{$employee.Name}}"><button class="button button-compact" type="submit">Сохранить</button></div><div class="copy-row"><button type="button" class="copy-mini copy-text" data-copy="#bitrix-login-{{$employee.EmployeeID}}">Логин</button><button type="button" class="copy-mini copy-text" data-copy="#bitrix-pass-{{$employee.EmployeeID}}">Пароль</button><button type="button" class="copy-mini copy-text" data-copy="#bitrix-id-{{$employee.EmployeeID}}">ID</button></div></form>{{else}}<span>{{$employee.BitrixLogin}}</span><br><span class="sub">ID {{$employee.BitrixID}}</span>{{end}}
-          {{if $employee.LibraSQL}}<details class="cell-details"><summary>SQL Libra</summary><pre class="code-block pick-all">{{$employee.LibraSQL}}</pre></details>{{end}}
-        </td>
-        <td>{{if $employee.Extension}}<strong class="mono">{{$employee.Extension}}</strong>{{else}}<span class="sub">не назначен</span>{{end}}{{if not $d.ClosedAt}}<form class="cell-form gap-xs" method="post" action="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}/extension"><input type="hidden" name="csrf" value="{{$.CSRF}}"><select name="number" aria-label="Номер {{$employee.Name}}" required><option value="">Из пула</option>{{range $employee.AvailableExtensions}}<option>{{.}}</option>{{end}}</select><button class="button button-compact" type="submit">Привязать</button></form>{{end}}</td>
-        <td><div class="workbench-tasks">{{range $task := $employee.Tasks}}{{$done := $employee.Done $task.Key}}{{$structured := or (eq $task.Key "bitrix") (eq $task.Key "extension") (eq $task.Key "outcome") (eq $task.Key "base_filled")}}<span class="workbench-task {{if $done}}is-done{{end}}" title="{{$task.About}}">{{if and (not $structured) (not $d.ClosedAt)}}<form method="post" action="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}/mark"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="task" value="{{$task.Key}}"><input type="hidden" name="cascade" value="1"><button type="submit" {{if $done}}data-confirm="Снять отметку и зависящие от неё работы?"{{end}}>{{if $done}}✓{{else}}○{{end}} {{$task.Title}}</button></form>{{else}}<span>{{if $done}}✓{{else}}○{{end}} {{$task.Title}}</span>{{end}}</span>{{end}}</div><div class="workbench-links">{{range $task := $employee.Tasks}}{{range $task.LinksResolved}}{{if .Ready}}<a href="{{.URL}}" target="_blank" rel="noreferrer">{{.Title}} ↗</a>{{end}}{{end}}{{end}}</div></td>
-        <td><strong>{{$employee.DealsFree}}</strong> <span class="sub">свободно</span>{{if not $d.ClosedAt}}<div class="cell-actions"><form method="post" action="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}/deals?n=300"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button class="button button-compact" type="submit">CSV 300</button></form><form method="post" action="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}/deals?n=100"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button class="button button-compact" type="submit">CSV 100</button></form></div>{{end}}{{range $employee.Batches}}{{if not .ImportedAt}}<form class="gap-xs" method="post" action="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}/deals/{{.ID}}/imported"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button class="button button-compact" type="submit">Порция {{.Size}} налита</button></form>{{end}}{{end}}</td>
-        <td>{{if eq (printf "%s" $employee.Outcome) "hired"}}<span class="badge badge-ok">в ОП</span>{{else if eq (printf "%s" $employee.Outcome) "rejected"}}<span class="badge badge-off">уволен</span>{{else if not $d.ClosedAt}}<div class="cell-actions cell-actions-column"><form method="post" action="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}/outcome"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button class="button button-compact" name="outcome" value="hired" type="submit">В ОП</button></form><form method="post" action="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}/outcome"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button class="button button-compact button-danger" name="outcome" value="rejected" type="submit" data-confirm="Подтвердить комплексное увольнение {{$employee.Name}}?">Уволить</button></form></div>{{else}}<span class="sub">не указан</span>{{end}}</td>
+        <td data-label="Сотрудник" class="primary-cell"><div class="summary-name"><a id="employee-name-{{$employee.EmployeeID}}" href="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}">{{$employee.Name}}</a><button type="button" class="copy-mini" data-copy="#employee-name-{{$employee.EmployeeID}}" title="Скопировать ФИО" aria-label="Скопировать ФИО {{$employee.Name}}">⧉</button></div></td>
+        <td data-label="Битрикс"><div class="bitrix-summary"><span><small>Логин</small><span id="bitrix-login-{{$employee.EmployeeID}}">{{if $employee.BitrixLogin}}{{$employee.BitrixLogin}}{{else}}—{{end}}</span><button type="button" class="copy-mini" data-copy="#bitrix-login-{{$employee.EmployeeID}}" aria-label="Скопировать логин">⧉</button></span><span><small>Пароль</small><span id="bitrix-pass-{{$employee.EmployeeID}}">{{if $employee.BitrixPass}}{{$employee.BitrixPass}}{{else}}—{{end}}</span><button type="button" class="copy-mini" data-copy="#bitrix-pass-{{$employee.EmployeeID}}" aria-label="Скопировать пароль">⧉</button></span><span><small>ID</small><span id="bitrix-id-{{$employee.EmployeeID}}">{{if $employee.BitrixID}}{{$employee.BitrixID}}{{else}}—{{end}}</span><button type="button" class="copy-mini" data-copy="#bitrix-id-{{$employee.EmployeeID}}" aria-label="Скопировать ID">⧉</button></span></div></td>
+        <td data-label="Номер">{{if $employee.Extension}}<strong class="mono">{{$employee.Extension}}</strong>{{else}}<span class="sub">не назначен</span>{{end}}</td>
+        <td data-label="Выполнено"><div class="summary-progress"><span class="share-bar"><i class="share-fill" style="{{width $employee.OverallPercent}}"></i></span><strong>{{$employee.OverallPercent}}%</strong></div></td>
+        <td data-label="Исход">{{if eq (printf "%s" $employee.Outcome) "hired"}}<span class="badge badge-ok">в ОП</span>{{else if eq (printf "%s" $employee.Outcome) "rejected"}}<span class="badge badge-off">уволен</span>{{else}}<span class="badge badge-wait">в песке</span>{{end}}</td>
+        <td data-label="" class="cell-actions"><a class="button button-compact" href="/sandbox/{{$d.ID}}/employee/{{$employee.EmployeeID}}">Открыть</a></td>
       </tr>{{end}}</tbody>
-    </table>
-    </div>
-    <table class="table mobile-only">
-        <thead><tr><th>ФИО</th><th>Исход</th><th>Работы по разделам</th></tr></thead>
-        <tbody>
-        {{range $d.Employees}}
-        <tr>
-            <td data-label="ФИО" class="primary-cell"><a href="/sandbox/{{$d.ID}}/employee/{{.ID}}">{{.Name}}</a></td>
-            <td data-label="Исход">{{if .Outcome}}<span class="badge">{{.Outcome}}</span>{{else}}<span class="sub">не указан</span>{{end}}</td>
-            <td data-label="Работы">
-                <span class="shares">
-                {{range .Progress}}
-                    <span class="share" title="{{.Done}} из {{.Total}}">
-                        <span class="share-name">{{.Section}}</span>
-                        <span class="share-bar"><i class="share-fill" style="{{width .Percent}}"></i></span>
-                        <span class="share-value">{{.Percent}}%</span>
-                    </span>
-                {{end}}
-                </span>
-            </td>
-        </tr>
-        {{end}}
-        </tbody>
     </table>
     {{if not $d.ClosedAt}}
     <div class="card-body sandbox-inline-form">

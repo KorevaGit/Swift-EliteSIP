@@ -83,6 +83,18 @@ func (d EmployeeDetail) Done(key string) bool {
 	return d.Marks[key] != nil
 }
 
+func (d EmployeeDetail) OverallPercent() int {
+	done, total := 0, 0
+	for _, section := range d.Progress {
+		done += section.Done
+		total += section.Total
+	}
+	if total == 0 {
+		return 0
+	}
+	return done * 100 / total
+}
+
 func (db *DB) GetEmployee(ctx context.Context, sandboxID, employeeID int64) (EmployeeDetail, error) {
 	var d EmployeeDetail
 	var format, created string

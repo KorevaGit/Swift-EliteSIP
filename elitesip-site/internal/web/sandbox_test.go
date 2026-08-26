@@ -591,7 +591,7 @@ func TestEmployeeCardDownloadsStableBitrixCSV(t *testing.T) {
 	}
 }
 
-func TestSandboxDesktopWorkbenchEditsEveryEmployeeInline(t *testing.T) {
+func TestSandboxEmployeeSummaryLeavesTasksInDetailCards(t *testing.T) {
 	s, db := newServer(t)
 	cookie := signedIn(t, db)
 	w := httptest.NewRecorder()
@@ -600,7 +600,7 @@ func TestSandboxDesktopWorkbenchEditsEveryEmployeeInline(t *testing.T) {
 	}, "2516934\n2517017\n"))
 	cards, _ := s.Sand.ListSandboxes(context.Background(), false)
 	body := get(t, s, cookie, fmt.Sprintf("/sandbox/%d", cards[0].ID)).Body.String()
-	if !strings.Contains(body, "Рабочая таблица сотрудников") {
+	if !strings.Contains(body, "Сводка группы") {
 		t.Fatal("на странице нет общего реестра")
 	}
 	for _, name := range []string{"Петров Пётр", "Иванова Анна"} {
@@ -608,22 +608,17 @@ func TestSandboxDesktopWorkbenchEditsEveryEmployeeInline(t *testing.T) {
 			t.Errorf("в реестре нет %s", name)
 		}
 	}
-	if got := strings.Count(body, `/save"`); got != 2 {
-		t.Errorf("форм Битрикса %d, ожидалось по одной на сотрудника", got)
-	}
-	if got := strings.Count(body, `?n=300`); got != 2 {
-		t.Errorf("кнопок порции 300: %d", got)
+	if strings.Contains(body, `/save"`) || strings.Contains(body, `?n=300`) {
+		t.Error("рабочие формы и задачи остались в сводной таблице")
 	}
 	// ФИО и три поля Битрикса копируются отдельно в каждой строке.
 	if got := strings.Count(body, `data-copy=`); got < 8 {
 		t.Errorf("кнопок копирования %d, ожидалось не меньше восьми", got)
 	}
-	for _, link := range []string{"Список пользователей", "Номера в gdocs"} {
-		if !strings.Contains(body, link+" ↗") {
-			t.Errorf("в рабочую таблицу не вернулась ссылка %q", link)
-		}
+	if got := strings.Count(body, `>Открыть</a>`); got != 2 {
+		t.Errorf("ссылок в подробные карточки %d", got)
 	}
-	if !strings.Contains(body, `class="table mobile-only"`) {
-		t.Error("не сохранён компактный мобильный список")
+	if !strings.Contains(body, `class="summary-progress"`) {
+		t.Error("в сводке нет общего процента")
 	}
 }
