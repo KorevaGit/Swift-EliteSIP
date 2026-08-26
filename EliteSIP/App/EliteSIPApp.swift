@@ -252,6 +252,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
+        presets.report = { [weak self] checking, result in
+            self?.model.notePresetCheckState(checking: checking, result: result)
+        }
         presets.noteContact = { [weak self] in
             guard let self else { return }
             self.model.settings.panel.lastContactAt = Date()

@@ -54,14 +54,12 @@ struct PanelStatusCard: View {
                     }
                 ))
 
-                SettingsButtonsRow {
-                    // При двухчасовом такте это не удобство, а необходимость:
-                    // администратор, сменивший адрес АТС, не должен ждать два
-                    // часа, чтобы убедиться, что правка доехала.
-                    Button("Проверить сейчас") {
-                        NSApp.sendAction(#selector(AppDelegate.checkPresetsNow(_:)), to: nil, from: nil)
-                    }
-                }
+                // При двухчасовом такте это не удобство, а необходимость:
+                // администратор, сменивший адрес АТС, не должен ждать два часа,
+                // чтобы убедиться, что правка доехала. Тот же компонент, что и
+                // у менеджера в «Техподдержке»: два одинаковых на вид действия
+                // должны и отвечать одинаково.
+                PresetCheckRow(isChecking: model.isCheckingPresets, result: model.presetCheckResult)
 
                 if model.settings.panel.mode == .managed {
                     SettingsNote("""

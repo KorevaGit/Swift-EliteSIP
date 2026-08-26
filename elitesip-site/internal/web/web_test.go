@@ -78,6 +78,7 @@ func newServer(t *testing.T) (*Server, *storage.DB) {
 		&panel.BundlePublisher{DB: db, Publisher: out, SigningKey: signing},
 		&panel.MarkCollector{DB: db, Reader: out},
 		&panel.Revoker{DB: db, Machines: machines, Deleter: out},
+		&panel.AccessPublisher{DB: db, Machines: machines},
 	)
 	if err != nil {
 		t.Fatalf("New: %v", err)

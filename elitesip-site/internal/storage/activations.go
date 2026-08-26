@@ -594,3 +594,40 @@ func (db *DB) RecentIssues(ctx context.Context, limit int) ([]RecentIssue, error
 	}
 	return out, rows.Err()
 }
+
+// MachineOfPreset — живая машина, работающая по этой предустановке.
+type MachineOfPreset struct {
+	InstallationID string
+	EmployeeID     int64
+}
+
+// MachinesOfPreset перечисляет живые машины предустановки.
+//
+// Живые — забранные, непогашенные и неотозванные: только у них есть ключ
+// канала, которым они ходят за своим доступом. Невостребованный ключ машиной
+// ещё не стал, а погашенная строка — это прошлая жизнь машины, и переписывать
+// по ней доступ значило бы вернуть пароль туда, откуда его увели.
+func (db *DB) MachinesOfPreset(ctx context.Context, presetID int64) ([]MachineOfPreset, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT installation_id, employee_id
+		  FROM activations
+		 WHERE preset_id = ?
+		   AND fetched_at IS NOT NULL
+		   AND superseded_at IS NULL
+		   AND revoked_at IS NULL
+		 ORDER BY id ASC`, presetID)
+	if err != nil {
+		return nil, fmt.Errorf("перечислить машины предустановки %d: %w", presetID, err)
+	}
+	defer rows.Close()
+
+	var out []MachineOfPreset
+	for rows.Next() {
+		var m MachineOfPreset
+		if err := rows.Scan(&m.InstallationID, &m.EmployeeID); err != nil {
+			return nil, fmt.Errorf("прочитать строку машины: %w", err)
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}

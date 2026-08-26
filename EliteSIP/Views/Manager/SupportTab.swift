@@ -72,6 +72,14 @@ struct SupportTab: View {
 
             UpdateCheckRow(isChecking: model.isCheckingForUpdates, result: model.updateCheckResult)
 
+            // Настройки — вторая линия того же канала, и спрашивают о ней тем
+            // же вопросом: «у меня точно свежее?». Показывается только у
+            // машины, которой управляет панель: на ручной проверять нечего, и
+            // кнопка, отвечающая «ничего не происходит», хуже её отсутствия.
+            if model.settings.panel.isManaged {
+                PresetCheckRow(isChecking: model.isCheckingPresets, result: model.presetCheckResult)
+            }
+
             // Поле ключа стоит здесь, а не в «Управлении», и это решение.
             //
             // Смена отдела перестала означать выезд к машине: администратор

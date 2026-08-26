@@ -19,6 +19,38 @@ import SwiftUI
 /// Вынесена сюда по той же причине, что и `SettingSlider`: две копии этой
 /// логики разошлись бы при первой же правке `UpdateService`, и заметили бы это
 /// не сразу — искать надо было бы в двух вью одновременно.
+/// «Проверить настройки сейчас» — то же, что `UpdateCheckRow`, но про панель.
+///
+/// Общим типом, а не двумя копиями в «Техподдержке» и «Управлении»: две
+/// копии разойдутся при первой же правке слов, и оператор с администратором
+/// увидят разные ответы на один вопрос.
+///
+/// Кнопка нужна не для удобства. Опрос канала идёт раз в два часа, и без неё
+/// администратор, сменивший адрес АТС, не может убедиться, что правка доехала,
+/// иначе как подождав эти два часа.
+struct PresetCheckRow: View {
+
+    let isChecking: Bool
+    let result: String?
+
+    var body: some View {
+        SettingsButtonsRow {
+            Button("Проверить настройки сейчас") {
+                NSApp.sendAction(#selector(AppDelegate.checkPresetsNow(_:)), to: nil, from: nil)
+            }
+            .disabled(isChecking)
+
+            if isChecking {
+                CompatSpinner()
+            } else if let result {
+                Text(verbatim: result)
+                    .font(Theme.Text.statusDetail)
+                    .compatForeground(Theme.Palette.textSecondary)
+            }
+        }
+    }
+}
+
 struct UpdateCheckRow: View {
 
     let isChecking: Bool

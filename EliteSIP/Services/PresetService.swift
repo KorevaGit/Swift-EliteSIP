@@ -37,6 +37,13 @@ final class PresetService {
     /// когда применять оказалось нечего, — а это как раз обычный случай.
     var noteContact: (() -> Void)?
 
+    /// Доложить, идёт ли проверка и чем кончилась прошлая.
+    ///
+    /// Нужно кнопке «Проверить настройки сейчас»: без ответа она молчит, и
+    /// нажавший не знает, случилось ли что-нибудь вообще. Тот же приём, что у
+    /// линии обновлений.
+    var report: ((Bool, String?) -> Void)?
+
     /// Можно ли применять прямо сейчас.
     ///
     /// Обновление предустановки **обязательное**, кнопки «Отложить» нет и быть
@@ -94,12 +101,16 @@ final class PresetService {
         guard let publicKey else {
             // не переводится: строка журнала
             log("предустановки выключены: в Info.plist нет открытого ключа линии")
+            report?(false, NSLocalizedString("линия выключена: нет ключа",
+                                             comment: "проверка предустановок"))
             return
         }
         let now = settings()
         guard now.panel.isManaged else {
             // не переводится: строка журнала
             log("предустановки не применяются: машина в ручном режиме")
+            report?(false, NSLocalizedString("машина в ручном режиме",
+                                             comment: "проверка предустановок"))
             return
         }
         guard let url = Provisioning.secrets?.updates?.presetsURL else {
@@ -108,6 +119,8 @@ final class PresetService {
             return
         }
         guard now.panel.hasChannelKey else {
+            report?(false, NSLocalizedString("у машины нет ключа канала",
+                                             comment: "проверка предустановок"))
             // Машина, поднятая ключом старого образца: панель её знает, а
             // ключа канала у неё нет — ходить нечем, пока не перепрошьют.
             // не переводится: строка журнала
@@ -116,6 +129,7 @@ final class PresetService {
         }
         guard !isFetching else { return }
         isFetching = true
+        report?(true, nil)
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
@@ -161,6 +175,7 @@ final class PresetService {
             // тот же, что у прочей рутины.
             // не переводится: строка журнала
             log("предустановки: канал недоступен — \(error.localizedDescription)")
+            report?(false, NSLocalizedString("канал недоступен", comment: "проверка предустановок"))
             return
         }
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
@@ -169,6 +184,9 @@ final class PresetService {
             // иначе одна ошибка на стороне канала стёрла бы все машины разом.
             // не переводится: строка журнала
             log("предустановки: канал ответил \(http.statusCode)")
+            report?(false, String(
+                format: NSLocalizedString("канал ответил %lld", comment: "проверка предустановок"),
+                Int64(http.statusCode)))
             return
         }
         guard let data else { return }
@@ -186,6 +204,8 @@ final class PresetService {
             // остаётся: подделанный байт обязан быть виден в журнале.
             // не переводится: строка журнала
             log("предустановки ОТБРОШЕНЫ: \(error.localizedDescription)")
+            report?(false, NSLocalizedString("файл отброшен: подпись не сошлась",
+                                             comment: "проверка предустановок"))
             return
         }
 
@@ -195,9 +215,15 @@ final class PresetService {
             // продолжает жить с тем, что применила раньше.
             // не переводится: строка журнала
             log("предустановки: своей записи в файле нет")
+            report?(false, NSLocalizedString("своей записи в файле нет",
+                                             comment: "проверка предустановок"))
             return
         }
-        guard entry.revision > now.panel.appliedRevision else { return }
+        guard entry.revision > now.panel.appliedRevision else {
+            report?(false, NSLocalizedString("настройки уже свежие",
+                                             comment: "проверка предустановок"))
+            return
+        }
 
         applyOrDefer(entry)
     }
@@ -208,6 +234,10 @@ final class PresetService {
             deferred = entry
             // не переводится: строка журнала
             log("предустановка \(entry.revision) ждёт: разговор или открытое «Управление»")
+            report?(false, String(
+                format: NSLocalizedString("ревизия %lld ждёт конца разговора",
+                                          comment: "проверка предустановок"),
+                Int64(entry.revision)))
             return
         }
         deferred = nil
@@ -221,6 +251,9 @@ final class PresetService {
         // не переводится: строка журнала
         apply(updated, "предустановка «\(entry.name)», ревизия \(entry.revision)")
         log("предустановка применена: «\(entry.name)», ревизия \(entry.revision)")
+        report?(false, String(
+            format: NSLocalizedString("применена ревизия %lld", comment: "проверка предустановок"),
+            Int64(entry.revision)))
     }
 
     /// Помеха ушла — доложить отложенное.

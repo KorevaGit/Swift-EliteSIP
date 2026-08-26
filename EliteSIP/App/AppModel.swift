@@ -622,6 +622,20 @@ final class AppModel: ObservableObject {
         updateCheckResult = result
     }
 
+    /// Идёт ли ручная проверка предустановок и чем кончилась прошлая.
+    ///
+    /// Отдельно от обновлений, хотя выглядит так же: линии разные и отвечают
+    /// разное. «Настройки уже свежие» и «новой версии нет» — два разных ответа
+    /// на два разных вопроса, и сводить их в одну строку значило бы врать
+    /// половине спрашивающих.
+    @Published private(set) var isCheckingPresets = false
+    @Published private(set) var presetCheckResult: String?
+
+    func notePresetCheckState(checking: Bool, result: String?) {
+        isCheckingPresets = checking
+        presetCheckResult = result
+    }
+
     /// Отключаться в разговоре нельзя.
     ///
     /// Снятие регистрации закрывает диалоги: кнопка «Отключить» рядом с бейджем

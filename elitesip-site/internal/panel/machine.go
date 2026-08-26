@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"strings"
+
 	"github.com/koreva/elitesip-site/internal/model"
 	"github.com/koreva/elitesip-site/internal/preset"
+	"github.com/koreva/elitesip-site/internal/storage"
 )
 
 // Приставки помашинных объектов. Те же, что у Worker'а, — worker/worker.js.
@@ -206,4 +209,63 @@ func (r *Revoker) Revoke(ctx context.Context, actor *int64, id int64) error {
 		return fmt.Errorf("активация отозвана и доступ обрублен, но пароль остался в бакете: %w", err)
 	}
 	return nil
+}
+
+// AccessPublisher разносит административный пароль по машинам предустановки.
+//
+// Нужен затем, что пароль — поле предустановки, а живёт он у машины: панель
+// кладёт его помашинным объектом при выпуске ключа. Сменили пароль в карточке
+// предустановки — и до тридцати работающих мест он сам не доедет, потому что
+// доезжать ему нечем: в общий файл предустановок блок доступа не входит
+// намеренно.
+//
+// До 26 августа 2026 этого прохода не было вовсе. Панель сохраняла новый
+// пароль в базу и писала в интерфейсе, что машины получат его «при следующей
+// выкладке доступа», — а такой выкладки в коде не существовало. Нашлось живой
+// проверкой.
+type AccessPublisher struct {
+	DB       accessStore
+	Machines *MachineWriter
+}
+
+// accessStore — то немногое, что нужно от базы.
+type accessStore interface {
+	MachinesOfPreset(ctx context.Context, presetID int64) ([]storage.MachineOfPreset, error)
+	PresetByID(ctx context.Context, presetID int64) (model.Preset, string, error)
+}
+
+// Republish переписывает доступ у всех живых машин предустановки.
+//
+// Возвращает, скольким машинам доступ переписан. Отказ на одной машине не
+// прекращает проход: остальные не должны остаться со старым паролем из-за
+// того, что до одной не дотянулись. Неудачные названы в ошибке — молчаливо
+// пропущенная машина означала бы «Управление», открывающееся паролем, которого
+// администратор уже не знает.
+func (a *AccessPublisher) Republish(ctx context.Context, presetID int64) (int, error) {
+	found, password, err := a.DB.PresetByID(ctx, presetID)
+	if err != nil {
+		return 0, err
+	}
+	if password == "" {
+		return 0, nil
+	}
+
+	machines, err := a.DB.MachinesOfPreset(ctx, presetID)
+	if err != nil {
+		return 0, err
+	}
+
+	var done int
+	var failed []string
+	for _, m := range machines {
+		if err := a.Machines.Access(ctx, m.InstallationID, found.PublicID, password); err != nil {
+			failed = append(failed, m.InstallationID)
+			continue
+		}
+		done++
+	}
+	if len(failed) > 0 {
+		return done, fmt.Errorf("доступ не переписан у машин: %s", strings.Join(failed, ", "))
+	}
+	return done, nil
 }

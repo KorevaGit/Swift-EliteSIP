@@ -3,6 +3,7 @@ package panel
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"sort"
 	"strings"
@@ -235,5 +236,79 @@ func TestRevokeCutsAccessAndLeavesSignedRevocation(t *testing.T) {
 	}
 	if len(list) != 1 || list[0].RevokedAt == nil {
 		t.Error("в базе активация не отмечена отозванной")
+	}
+}
+
+// Смена пароля предустановки обязана доехать до работающих машин: в общий файл
+// предустановок блок доступа не входит, и доехать сам он не может ничем.
+func TestAccessRepublishReachesLiveMachines(t *testing.T) {
+	issuer, _, db := newIssuer(t)
+	store := newStore()
+	issuer.Publisher = store
+	issuer.Machines.Publisher = store
+
+	ctx := context.Background()
+	employeeID := seedReady(t, db)
+
+	_, record, err := issuer.Issue(ctx, nil, employeeID, "")
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	if err := db.MarkFetched(ctx, record.ObjectKey, time.Now()); err != nil {
+		t.Fatalf("MarkFetched: %v", err)
+	}
+
+	if err := db.SetPresetAdminPassword(ctx, nil, record.PresetID, "новый-пароль"); err != nil {
+		t.Fatalf("SetPresetAdminPassword: %v", err)
+	}
+
+	publisher := &AccessPublisher{DB: db, Machines: issuer.Machines}
+	done, err := publisher.Republish(ctx, record.PresetID)
+	if err != nil {
+		t.Fatalf("Republish: %v", err)
+	}
+	if done != 1 {
+		t.Fatalf("переписано машин %d, ожидалась одна", done)
+	}
+
+	access, ok := store.objects[accessPrefix+record.InstallationID]
+	if !ok {
+		t.Fatal("объекта доступа нет")
+	}
+	if !bytes.Contains(access, []byte(base64.StdEncoding.EncodeToString([]byte("новый-пароль"))[:8])) {
+		// Пароль лежит внутри base64-конверта, поэтому ищем по разобранному.
+		var envelope struct{ Payload []byte }
+		if err := json.Unmarshal(access, &envelope); err != nil {
+			t.Fatalf("разобрать конверт: %v", err)
+		}
+		if !bytes.Contains(envelope.Payload, []byte("новый-пароль")) {
+			t.Error("в объекте доступа лежит не новый пароль")
+		}
+	}
+}
+
+// Невостребованный ключ машиной ещё не стал: переписывать по нему доступ
+// нечему, и в счёт он идти не должен.
+func TestAccessRepublishSkipsUnfetched(t *testing.T) {
+	issuer, _, db := newIssuer(t)
+	store := newStore()
+	issuer.Publisher = store
+	issuer.Machines.Publisher = store
+
+	ctx := context.Background()
+	employeeID := seedReady(t, db)
+
+	_, record, err := issuer.Issue(ctx, nil, employeeID, "")
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	publisher := &AccessPublisher{DB: db, Machines: issuer.Machines}
+	done, err := publisher.Republish(ctx, record.PresetID)
+	if err != nil {
+		t.Fatalf("Republish: %v", err)
+	}
+	if done != 0 {
+		t.Errorf("переписано машин %d, ожидалось ноль: ключ ещё не забирали", done)
 	}
 }

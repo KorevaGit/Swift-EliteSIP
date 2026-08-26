@@ -42,6 +42,9 @@ type Server struct {
 	// отдельности из разных экранов.
 	Revoker *panel.Revoker
 
+	// Access разносит административный пароль по машинам предустановки.
+	Access *panel.AccessPublisher
+
 	templates map[string]*template.Template
 	flashes   flashStore
 }
@@ -52,8 +55,10 @@ type Server struct {
 // должна ронять запуск, а не тот единственный экран, который откроют в
 // неудачный момент.
 func New(db *storage.DB, issuer *panel.Issuer, publisher *panel.BundlePublisher,
-	marks *panel.MarkCollector, revoker *panel.Revoker) (*Server, error) {
-	s := &Server{DB: db, Issuer: issuer, Publisher: publisher, Marks: marks, Revoker: revoker}
+	marks *panel.MarkCollector, revoker *panel.Revoker,
+	access *panel.AccessPublisher) (*Server, error) {
+	s := &Server{DB: db, Issuer: issuer, Publisher: publisher, Marks: marks,
+		Revoker: revoker, Access: access}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}

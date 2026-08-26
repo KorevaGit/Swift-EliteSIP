@@ -507,3 +507,30 @@ func (db *DB) ArchivePreset(ctx context.Context, actor *int64, id int64) error {
 	}
 	return tx.Commit()
 }
+
+// PresetByID читает предустановку вместе с её административным паролем.
+//
+// Пароль отдаётся здесь, а не отдельным запросом: зовут это ради выкладки
+// доступа, где нужны оба — публичный идентификатор и пароль, — и два запроса
+// означали бы окно, в котором между ними пароль сменили.
+func (db *DB) PresetByID(ctx context.Context, presetID int64) (model.Preset, string, error) {
+	var (
+		p          model.Preset
+		password   string
+		createdAt  string
+		archivedAt sql.NullString
+	)
+	err := db.QueryRowContext(ctx, `
+		SELECT id, public_id, name, admin_password, created_at, archived_at
+		  FROM presets WHERE id = ?`, presetID).
+		Scan(&p.ID, &p.PublicID, &p.Name, &password, &createdAt, &archivedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Preset{}, "", ErrNotFound
+	}
+	if err != nil {
+		return model.Preset{}, "", fmt.Errorf("прочитать предустановку %d: %w", presetID, err)
+	}
+	p.CreatedAt = readTime(createdAt)
+	p.ArchivedAt = readNullTime(archivedAt)
+	return p, password, nil
+}

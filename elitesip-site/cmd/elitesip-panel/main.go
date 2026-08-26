@@ -21,6 +21,7 @@ import (
 
 	"github.com/koreva/elitesip-site/internal/config"
 	"github.com/koreva/elitesip-site/internal/panel"
+	"github.com/koreva/elitesip-site/internal/preset"
 	"github.com/koreva/elitesip-site/internal/publish"
 	"github.com/koreva/elitesip-site/internal/storage"
 	"github.com/koreva/elitesip-site/internal/web"
@@ -40,6 +41,8 @@ func main() {
 		err = keygen()
 	case "admin":
 		err = addAdmin(os.Args[2:])
+	case "preset-import":
+		err = importPreset(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -59,6 +62,8 @@ func usage() {
   elitesip-panel serve              поднять панель (по умолчанию)
   elitesip-panel keygen             выпустить ключ подписи и секрет сервера
   elitesip-panel admin <имя>        завести администратора, пароль — со stdin
+  elitesip-panel preset-import <имя> <файл.json>
+                                    завести предустановку из управляемых полей
 
 Настройки берутся из окружения; секреты — путями к файлам, а не значениями.
 `)
@@ -107,6 +112,7 @@ func serve() error {
 		&panel.BundlePublisher{DB: db, Publisher: sink, SigningKey: signingKey},
 		&panel.MarkCollector{DB: db, Reader: sink, Machines: machines},
 		&panel.Revoker{DB: db, Machines: machines, Deleter: sink},
+		&panel.AccessPublisher{DB: db, Machines: machines},
 	)
 	if err != nil {
 		return err
@@ -273,5 +279,92 @@ func addAdmin(args []string) error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "заведён администратор %s (%d)\n", admin.Login, admin.ID)
+	return nil
+}
+
+// importPreset заводит предустановку из готового набора управляемых полей.
+//
+// Существует ради переноса того, что уже настроено на живой машине. Раньше это
+// делалось снимком настроек в самом приложении, но снимки убраны 25 августа
+// 2026: они были конторскими настройками в локальном файле, применяемом мимо
+// панели. Дорога «настроили машину — перенесли в панель» при этом нужна, и вот
+// она: поля вынимаются из `settings.json` рабочего места и кладутся сюда.
+//
+// Идёт тем же путём, что и правка через интерфейс: разбор, проверка, ревизия.
+// Класть в базу запросом мимо них было бы быстрее и означало бы предустановку,
+// которую панель считает годной, а машина не понимает.
+func importPreset(args []string) error {
+	if len(args) != 2 || strings.TrimSpace(args[0]) == "" {
+		return errors.New("нужно имя и файл: elitesip-panel preset-import <имя> <файл.json>")
+	}
+	name := strings.TrimSpace(args[0])
+
+	raw, err := os.ReadFile(args[1])
+	if err != nil {
+		return fmt.Errorf("прочитать %s: %w", args[1], err)
+	}
+
+	fields, err := preset.Parse(raw)
+	if err != nil {
+		return err
+	}
+	if problems := fields.Validate(); len(problems) > 0 {
+		for _, p := range problems {
+			fmt.Fprintln(os.Stderr, "  —", p)
+		}
+		return fmt.Errorf("предустановка не годится: замечаний %d", len(problems))
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	db, err := storage.Open(cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// Одноимённая не заводится второй раз, а получает новую ревизию: имя —
+	// то, по чему человек её узнаёт, и два «Менеджера» в списке означали бы
+	// вопрос «который из них», на который никто не ответит.
+	existing, err := db.ListPresets(ctx, true)
+	if err != nil {
+		return err
+	}
+	var id int64
+	for _, p := range existing {
+		if p.Name == name {
+			id = p.ID
+			break
+		}
+	}
+	if id == 0 {
+		created, err := db.CreatePreset(ctx, nil, name)
+		if err != nil {
+			return err
+		}
+		id = created.ID
+		fmt.Fprintf(os.Stderr, "заведена предустановка %q\n", name)
+	} else {
+		fmt.Fprintf(os.Stderr, "предустановка %q уже есть — добавляю ревизию\n", name)
+	}
+
+	// Поля пересобираются из разобранного, а не берутся файлом как есть:
+	// так в базу ложится ровно то, что панель поняла, без чужих полей рядом.
+	canonical, err := fields.Canonical()
+	if err != nil {
+		return err
+	}
+
+	revision, err := db.SaveRevision(ctx, nil, id, preset.SchemaVersion, canonical, "перенос с рабочей машины")
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(os.Stderr, "ревизия %d сохранена\n", revision.Revision)
+	fmt.Fprintln(os.Stderr, "не забудьте задать административный пароль и выложить файл предустановок")
 	return nil
 }
