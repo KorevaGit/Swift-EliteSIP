@@ -28,15 +28,21 @@
     --green: #287a45;
     --orange: #a56416;
 
-    --bg: #f6f6f7;
+    /* Холст почти белый.
+     *
+     * Сплошное серое поле было слишком заметным: панель — это карточки, а
+     * читался фон между ними. Разницу заливок убавили до едва различимой, и
+     * держит карточку теперь её собственный край и тень, а не подложка под
+     * ней. Внимание остаётся на содержимом. 27 августа 2026. */
+    --bg: #fbfbfc;
     --surface: #ffffff;
     --surface-solid: #ffffff;
-    --surface-raised: #f2f2f4;
-    --surface-sunken: #f2f2f4;
-    --surface-hover: #f2f2f4;
+    --surface-raised: #f3f3f5;
+    --surface-sunken: #f6f6f8;
+    --surface-hover: #f1f1f3;
 
-    --hairline: #d9d9d9;
-    --hairline-strong: #bcbcbc;
+    --hairline: #e3e3e6;
+    --hairline-strong: #c4c4c8;
 
     --text: #000000;
     --text-secondary: #666666;
@@ -97,10 +103,23 @@
 
     /* Высота шапки. Отсюда же считается верх страницы и отступ прилипших
      * элементов — число одно, и меняется оно в одном месте. */
-    --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.055);
+    /* Две тени вместо одной: ближняя рисует край, дальняя отрывает карточку
+     * от холста. На почти белом фоне одна мягкая тень пропадала. */
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.045);
 
     --head: 60px;
-    --gutter: 40px;
+    /* Боковые поля минимальные и одни на всё: их держат и шапка, и разделы, и
+     * страница, поэтому число здесь одно. Сорок точек отводили под поля
+     * полосу шире иного столбца таблицы. */
+    --gutter: var(--space-5);
+
+    /* На сколько подчёркивание отступает от строки текста.
+     *
+     * Одно число на оба ряда — продуктов и разделов. Раньше их было два: у
+     * продуктов подчёркивание стояло в 15 точках от низа ряда, у разделов в
+     * нуле, и при разной высоте рядов это давало разное расстояние до текста.
+     * Видно это было сразу, а объяснить нечем. */
+    --underline-drop: var(--space-1);
 
     /* Прежние имена оставлены — ими размечена вся разметка, — но значения
      * берутся из общей шкалы, а не задаются рядом со своими числами. Два
@@ -111,6 +130,11 @@
 
     /* Ширина колонки под метки в вертикальных формах. */
     --label-column: 132px;
+
+    /* Три ширины поля — по тому, что в него кладут. Четвёртой не будет. */
+    --field-short: 130px;
+    --field-medium: 320px;
+    --field-long: 100%;
 
     --font: "Manrope", -apple-system, BlinkMacSystemFont, "Helvetica Neue",
         "Segoe UI", system-ui, sans-serif;
@@ -378,12 +402,18 @@ time { font-variant-numeric: tabular-nums; }
     font-weight: 600;
 }
 
+/* Подчёркивание отсчитывается от строки текста, а не от низа ряда.
+ *
+ * Ряды разной высоты — 60 у продуктов, 44 у разделов, — и подчёркивание,
+ * прибитое к низу, оказывается на разном расстоянии от букв. Формула
+ * одна: середина ряда минус половина строки минус общий отступ. */
 .nav-item[aria-current="page"]::after,
-.nav-group.is-active > .nav-item::after {
+.nav-group.is-active > .nav-item::after,
+.subnav-item[aria-current="page"]::after {
     content: "";
     position: absolute;
     right: 0;
-    bottom: 15px;
+    bottom: calc((100% - 1.45em) / 2 - var(--underline-drop));
     left: 0;
     height: 1px;
     background: currentColor;
@@ -441,15 +471,7 @@ time { font-variant-numeric: tabular-nums; }
 .subnav-item:hover { color: var(--text); text-decoration: none; }
 .subnav-item[aria-current="page"] { color: var(--text); font-weight: 600; }
 
-.subnav-item[aria-current="page"]::after {
-    content: "";
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 1px;
-    background: currentColor;
-}
+
 
 .topbar-tools {
     display: flex;
@@ -466,10 +488,14 @@ time { font-variant-numeric: tabular-nums; }
 /* Панель занимает всю ширину окна: колонка посередине оставляла бы поля,
  * которые на рабочем инструменте нечем занять. Выравнивание держат не общая
  * ширина, а заданные разметкой доли колонок в таблицах. */
+/* Потолка ширины нет. Он стоял на 1600 и на широком мониторе отодвигал
+ * карточку на две с лишним сотни точек от края — это и были «боковые
+ * отступы», которых никто не просил. Комментарий рядом всё это время
+ * утверждал обратное: «панель занимает всю ширину окна». Теперь занимает. */
 .main {
     display: block;
-    width: min(1600px, 100%);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     padding: var(--space-5) var(--gutter) calc(var(--space-8) * 2);
 }
 
@@ -654,6 +680,9 @@ time { font-variant-numeric: tabular-nums; }
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
+    /* Пол по ширине. Без него «Найти» рядом с «Приступить» выглядела ужатой:
+     * ширина кнопки шла за длиной подписи, и ряд кнопок получался рваным. */
+    min-width: calc(var(--control-height) * 2.5);
     transition: background var(--motion), color var(--motion), border-color var(--motion);
 }
 
@@ -672,6 +701,7 @@ time { font-variant-numeric: tabular-nums; }
     display: inline-grid;
     place-items: center;
     width: var(--control-height);
+    /* Значковая кнопка квадратная: пол ширины обычной ей не подходит. */
     min-width: var(--control-height);
     height: var(--control-height);
     padding: 0;
@@ -770,9 +800,35 @@ textarea {
  * а не стоит по центру. */
 textarea { min-height: 96px; padding: var(--space-2) var(--space-3); resize: vertical; }
 
-/* Числовому полю ширина строки не нужна: «Тон, мс» во весь экран сообщает,
- * что туда поместится, а не что туда кладут. */
-input[type="number"] { max-width: 170px; }
+/* Ширина поля означает, что в него кладут, — а не сколько места осталось в
+ * строке.
+ *
+ * Правило было записано для числовых полей и только для них: «Тон, мс» во
+ * весь экран сообщает, что туда поместится, а не что туда кладут. Но ровно то
+ * же верно для короткого текста, и там оно не действовало: «Код конференции»
+ * со значением `*3` растягивался на шестьсот шестьдесят точек, «Смещение
+ * окна» на четыреста сорок, а рядом стояло числовое в сто семьдесят. Одна
+ * карточка, четыре разные ширины, и ни одна ничего не значит.
+ *
+ * Ступени три, и каждая названа содержимым:
+ *   короткое  — число, код, добавочный;
+ *   среднее   — имя, подпись, номер;
+ *   длинное   — адрес, строка набора, всё, что читают целиком.
+ * Поле без класса берёт среднюю: это безопаснее, чем во всю строку. */
+input[type="number"],
+input.mono:not([type="search"]) { max-width: var(--field-short); }
+
+.card-body .field > input[type="text"],
+.card-body .field > input[type="password"],
+.card-body .field > input[type="date"],
+.card-body .field > select { max-width: var(--field-medium); }
+
+.card-body .field-wide > input,
+.card-body .field-wide > select,
+.card-body .field > textarea { max-width: var(--field-long); }
+
+.card-body .field-narrow > input,
+.card-body .field-narrow > select { max-width: var(--field-short); }
 
 input:focus,
 select:focus,
@@ -887,7 +943,7 @@ textarea:disabled { color: var(--text-tertiary); }
 .cell-actions > * { display: inline-flex; vertical-align: middle; }
 .cell-actions > * + * { margin-left: var(--space-2); }
 
-.table .button { min-height: var(--control-height-compact); padding: 0 var(--space-3); }
+.table .button { min-width: 0; min-height: var(--control-height-compact); padding: 0 var(--space-3); }
 
 /* Найденная поиском строка. Подсветка отвечает на «где оно», а не помечает
  * состояние. */
@@ -1022,7 +1078,7 @@ textarea:disabled { color: var(--text-tertiary); }
 .comment time { color: var(--text-tertiary); white-space: nowrap; }
 .comment p { max-width: 82ch; white-space: pre-wrap; line-height: 1.55; }
 .code-block { padding: var(--space-5); border-radius: var(--radius-card); background: var(--surface-raised); overflow-x: auto; font-size: var(--text-sm); line-height: 1.55; }
-.button-compact { min-height: var(--control-height-compact); padding: 0 var(--space-3); font-size: var(--text-xs); }
+.button-compact { min-width: 0; min-height: var(--control-height-compact); padding: 0 var(--space-3); font-size: var(--text-xs); }
 .copy-mini { flex: 0 0 auto; min-height: var(--control-height-mini); padding: var(--space-1) var(--space-1); border: 1px solid var(--hairline); border-radius: var(--radius-capsule); background: transparent; color: var(--text-tertiary); font: inherit; font-size: var(--text-xs); cursor: pointer; }
 .copy-mini:hover { color: var(--text); background: var(--hover-surface); }
 .summary-name { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
@@ -1320,7 +1376,7 @@ a.tile:hover { text-decoration: none; background: var(--hover-surface); }
 }
 
 @media (max-width: 1080px) {
-    :root { --gutter: 32px; }
+    :root { --gutter: var(--space-4); }
     .nav { gap: var(--space-5); }
     .overview-layout { grid-template-columns: minmax(0, 1fr); }
 }
@@ -1368,8 +1424,7 @@ a.tile:hover { text-decoration: none; background: var(--hover-surface); }
 
     .nav::-webkit-scrollbar { display: none; }
     .nav-item { height: 46px; }
-    .nav-item[aria-current="page"]::after,
-    .nav-group.is-active > .nav-item::after { bottom: 0; }
+
 
     /* Подменю выпадением на телефоне не раскрыть — разделы показывает
      * второй ряд, и он же прилипает под шапкой. */
@@ -1381,7 +1436,7 @@ a.tile:hover { text-decoration: none; background: var(--hover-surface); }
 /* Ниже 620 таблицы становятся списками карточек: панель открывают с телефона,
  * и шесть колонок там не помещаются никак. */
 @media (max-width: 620px) {
-    :root { --gutter: 20px; }
+    :root { --gutter: var(--space-4); }
 
     h1 { font-size: var(--text-lg); }
 
@@ -1394,8 +1449,11 @@ a.tile:hover { text-decoration: none; background: var(--hover-surface); }
     .section-head { display: grid; gap: var(--space-3); }
     .form-actions { display: grid; gap: var(--space-3); }
     .search { justify-content: flex-start; }
+    /* На телефоне поиск встаёт столбцом во всю ширину — и кнопка вместе с
+     * полями, а не одна ужатая под ними. */
     .search input[type="search"],
-    .search select { flex: 1 1 100%; }
+    .search select,
+    .search .button { flex: 1 1 100%; max-width: none; }
 
     .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
     .table thead { display: none; }
