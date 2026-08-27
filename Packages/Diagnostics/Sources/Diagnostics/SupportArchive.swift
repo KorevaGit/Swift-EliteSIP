@@ -30,11 +30,18 @@ public enum SupportArchive {
     ///   - logs: файлы журнала, обычно `LogFile.files()`.
     ///   - summary: содержимое `summary.txt`. Секреты сюда класть нельзя —
     ///     маскирование журнала на эту строку не распространяется.
+    ///   - extras: что ещё положить рядом, именем файла к содержимому.
+    ///     Заведено под обезличенные настройки: до 27 августа 2026 они уходили
+    ///     в поддержку отдельной кнопкой, и половина обращений приезжала без
+    ///     них — потому что нажать надо было две кнопки, а очевидна одна.
+    ///     Секреты сюда класть нельзя по тому же правилу, что и в `summary`:
+    ///     маскирование журнала на эти файлы не распространяется.
     ///   - destination: куда положить готовый `.zip`.
     @discardableResult
     public static func make(
         logs: [URL],
         summary: String,
+        extras: [String: Data] = [:],
         destination: URL
     ) throws -> URL {
         let manager = FileManager.default
@@ -44,6 +51,9 @@ public enum SupportArchive {
         defer { try? manager.removeItem(at: staging) }
 
         try Data(summary.utf8).write(to: staging.appendingPathComponent("summary.txt"))
+        for (name, contents) in extras {
+            try? contents.write(to: staging.appendingPathComponent(name))
+        }
         for url in logs {
             let copy = staging.appendingPathComponent(url.lastPathComponent)
             try? manager.copyItem(at: url, to: copy)

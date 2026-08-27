@@ -91,9 +91,26 @@ struct ProfileCard: View {
                 expandedID = isExpanded ? nil : profileID
             } label: {
                 HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
+                    // Квадратный кадр и своя базовая линия — оба обязательны.
+                    //
+                    // `ChevronDown` держит кадр 7×3.5, и поворот на -90° рисует
+                    // его лежащим на боку **за пределами** этого кадра: раскладке
+                    // достаётся полоска в три с половиной точки, а видно стрелку
+                    // в семь. Квадрат по `Icon.medium` возвращает нарисованное
+                    // внутрь кадра в обоих положениях.
+                    //
+                    // Базовая линия нужна потому, что ряд выровнен по первой
+                    // строке текста, а у фигуры текста нет вовсе: SwiftUI берёт
+                    // за её базовую линию нижний край, и стрелка уезжала вверх
+                    // относительно подписи. Здесь она привязана к середине
+                    // кадра, поднятой на половину высоты прописной, — то есть к
+                    // тому же месту, где сидит середина букв рядом.
                     ChevronDown()
                         .rotationEffect(.degrees(isExpanded ? 0 : -90))
-                        .frame(width: Theme.Icon.medium)
+                        .frame(width: Theme.Icon.medium, height: Theme.Icon.medium)
+                        .alignmentGuide(.firstTextBaseline) { box in
+                            box[VerticalAlignment.center] + Theme.Icon.medium / 3
+                        }
 
                     if isEditingLabel {
                         // `labelsHidden` обязателен: без него первый строковый

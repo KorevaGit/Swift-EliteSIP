@@ -3,10 +3,12 @@ package web
 import (
 	"context"
 	"crypto/ed25519"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -81,7 +83,7 @@ func newServer(t *testing.T) (*Server, *storage.DB) {
 	machines := &panel.MachineWriter{Publisher: out, SigningKey: signing}
 	secret := []byte("секрет-сервера-для-проверки")
 	s, err := New(db, sandDB,
-		&panel.Issuer{DB: db, Publisher: out, Machines: machines, Secret: secret},
+		&panel.Issuer{DB: db, Publisher: out, Bin: out, Machines: machines, Secret: secret},
 		&panel.BundlePublisher{DB: db, Publisher: out, SigningKey: signing},
 		&panel.MarkCollector{DB: db, Reader: out},
 		&panel.Revoker{DB: db, Machines: machines, Deleter: out},
@@ -1142,5 +1144,192 @@ func TestBorrowSectionFillsFormWithoutSaving(t *testing.T) {
 	}
 	if _, err := db.LatestRevision(ctx, target.ID); err == nil {
 		t.Error("подстановка сохранила ревизию, хотя ничего сохранять не должна")
+	}
+}
+
+// Кнопка «Добавить» без заготовки строки — это мёртвая кнопка.
+//
+// Проверка живёт затем, что сломалось это молча и надолго: `addRow` в app.js
+// ищет `[data-template="<имя>"]` и при отсутствии выходит без единого слова в
+// консоль. Ни одной заготовки в форме не было вовсе — то есть ни клавишу, ни
+// очередь, ни шаг стука нельзя было добавить с самого появления формы, а
+// предустановка без клавиши перевода приезжает на машину рабочей на вид.
+func TestEveryAddButtonHasItsRowTemplate(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	p, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	db.SaveRevision(ctx, nil, p.ID, preset.SchemaVersion,
+		[]byte(`{"siteAddresses":{"office":"192.168.1.2","remote":"crm.elitesochi.com"}}`), "первая")
+
+	r := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/presets/%d/edit", p.ID), nil)
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+
+	body := w.Body.String()
+	adders := regexp.MustCompile(`data-add="([a-z]+)"`).FindAllStringSubmatch(body, -1)
+	if len(adders) == 0 {
+		t.Fatal("в форме не нашлось ни одной кнопки «Добавить» — проверять нечего")
+	}
+	for _, adder := range adders {
+		name := adder[1]
+		if !strings.Contains(body, `data-template="`+name+`"`) {
+			t.Errorf("у кнопки data-add=%q нет заготовки строки data-template=%q", name, name)
+		}
+	}
+
+	// Заготовка обязана быть <template>: содержимое обычного скрытого блока
+	// уходит в форму вместе с настоящими строками, и на сервер приезжает
+	// строка с индексом __INDEX__.
+	if strings.Count(body, "<template data-template=") != len(adders) {
+		t.Error("заготовка строки собрана не элементом <template>")
+	}
+}
+
+// Новая строка приезжает с индексом вида «n0», а не с числом.
+//
+// Счётчик в app.js нумерует добавленные строки отдельно от существующих —
+// иначе удаление из середины дало бы двум полям одно имя. Разбор формы обязан
+// быть к этому безразличен, и клавише перевода обязан достаться её признак:
+// без него ЮРИСТ отправит `*02` и не попадёт в историю как перевод.
+func TestFreshMacroRowKeepsItsTransferMark(t *testing.T) {
+	form := url.Values{}
+	form.Set("macroIndex", "n0")
+	form.Set("macroID_n0", "")
+	form.Set("macroTitle_n0", "ЮРИСТ")
+	form.Set("macroSequence_n0", "*02,101")
+	form.Add("macroTransfers_n0", "0")
+	form.Add("macroTransfers_n0", "1")
+
+	r := httptest.NewRequest(http.MethodPost, "/presets/1", strings.NewReader(form.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err := r.ParseForm(); err != nil {
+		t.Fatalf("разбор формы: %v", err)
+	}
+
+	fields, err := fieldsFromForm(r)
+	if err != nil {
+		t.Fatalf("fieldsFromForm: %v", err)
+	}
+	if len(fields.DTMF.Macros) != 1 {
+		t.Fatalf("клавиш разобрано %d, ждали одну", len(fields.DTMF.Macros))
+	}
+	macro := fields.DTMF.Macros[0]
+	if macro.ID == "" {
+		t.Error("новой клавише не выдан идентификатор")
+	}
+	if macro.Title != "ЮРИСТ" || macro.Sequence != "*02,101" {
+		t.Errorf("клавиша разобрана как %q / %q", macro.Title, macro.Sequence)
+	}
+	if !macro.TransfersCall {
+		t.Error("признак перевода потерян — клавиша уедет на машину обычной")
+	}
+}
+
+// Правка номера гасит невыданные ключи — иначе они поднимут машину со старым.
+//
+// Пакет активации запечатывается в момент выпуска: номер и SIP-пароль
+// застывают в нём. Ключ, выданный вчера и введённый завтра, поднимал рабочее
+// место с прежним добавочным — молча и с виду успешно. Панель отвечала на это
+// строкой во всплывающем сообщении, то есть надеждой на внимательность.
+func TestChangingNumberKillsUnfetchedKeys(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	p, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	db.SaveRevision(ctx, nil, p.ID, preset.SchemaVersion, []byte(`{}`), "")
+	db.SetPresetAdminPassword(ctx, nil, p.ID, "пароль-предустановки")
+
+	create := s.authed(cookie, "/employees", url.Values{
+		"name":         {"Пётр Смирнов"},
+		"number":       {"172"},
+		"sip_password": {"секрет-172"},
+		"preset_id":    {strconv.FormatInt(p.ID, 10)},
+	})
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, create)
+
+	issued, err := db.ListActivations(ctx, 1)
+	if err != nil || len(issued) != 1 {
+		t.Fatalf("активаций записано %d (%v)", len(issued), err)
+	}
+	bucket := s.Issuer.Bin.(*sink)
+	if _, err := bucket.Get(ctx, issued[0].ObjectKey); err != nil {
+		t.Fatalf("пакета нет в бакете сразу после выпуска: %v", err)
+	}
+
+	// Меняем номер — тот самый случай, ради которого всё это.
+	edit := s.authed(cookie, "/employees/1", url.Values{
+		"name":         {"Пётр Смирнов"},
+		"number":       {"173"},
+		"sip_password": {"секрет-172"},
+		"preset_id":    {strconv.FormatInt(p.ID, 10)},
+	})
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, edit)
+
+	// Ключ работает объектом в бакете, а не строкой в базе: проверяем бакет.
+	if _, err := bucket.Get(ctx, issued[0].ObjectKey); err == nil {
+		t.Error("пакет остался в бакете — ключ всё ещё поднимет машину со старым номером")
+	}
+	pending, err := db.UnfetchedActivations(ctx, 1)
+	if err != nil {
+		t.Fatalf("UnfetchedActivations: %v", err)
+	}
+	if len(pending) != 0 {
+		t.Errorf("невостребованных ключей осталось %d, ждали ноль", len(pending))
+	}
+}
+
+// Правка имени ключей не трогает: в пакет оно не входит ничем, что мешало бы
+// машине встать. Иначе исправленная опечатка стоила бы сотруднику ключа.
+func TestFixingNameKeepsUnfetchedKeys(t *testing.T) {
+	s, db := newServer(t)
+	ctx := context.Background()
+
+	hash, _ := panel.HashPassword("пароль-панели")
+	admin, _ := db.CreateAdmin(ctx, nil, "eugene", hash)
+	token, _ := db.StartSession(ctx, admin.ID)
+	cookie := &http.Cookie{Name: sessionCookie, Value: token}
+
+	p, _ := db.CreatePreset(ctx, nil, "Менеджер")
+	db.SaveRevision(ctx, nil, p.ID, preset.SchemaVersion, []byte(`{}`), "")
+	db.SetPresetAdminPassword(ctx, nil, p.ID, "пароль-предустановки")
+
+	create := s.authed(cookie, "/employees", url.Values{
+		"name":         {"Пётр Смрнов"},
+		"number":       {"172"},
+		"sip_password": {"секрет-172"},
+		"preset_id":    {strconv.FormatInt(p.ID, 10)},
+	})
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, create)
+
+	edit := s.authed(cookie, "/employees/1", url.Values{
+		"name":         {"Пётр Смирнов"},
+		"number":       {"172"},
+		"sip_password": {"секрет-172"},
+		"preset_id":    {strconv.FormatInt(p.ID, 10)},
+	})
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, edit)
+
+	pending, err := db.UnfetchedActivations(ctx, 1)
+	if err != nil {
+		t.Fatalf("UnfetchedActivations: %v", err)
+	}
+	if len(pending) != 1 {
+		t.Errorf("невостребованных ключей осталось %d, ждали один", len(pending))
 	}
 }

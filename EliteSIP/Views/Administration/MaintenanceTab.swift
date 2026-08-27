@@ -31,20 +31,27 @@ struct MaintenanceTab: View {
         // «выпустить ключ» — одно нажатие в панели, и приезжает свежее, а не
         // годичной давности.
         SettingsSection("Для поддержки") {
+            // Кнопка одна, и это правка 27 августа 2026.
+            //
+            // Их было две — «журнал» и «файл настроек», — и вторую надо было
+            // знать: очевидна из них одна, а поддержке нужны обе. Вдобавок
+            // подпись под второй противоречила сама себе: обещала «сырой файл
+            // как он есть на диске» и тут же «включая несохранённое из этого
+            // окна» — а выгружалось как раз второе. Настройки уезжают теперь
+            // внутри архива, обезличенные, и забыть их нельзя.
             SettingsButtonsRow {
-                Button("Выгрузить журнал…") { Task { await exportLog() } }
-                Button("Выгрузить файл настроек…") { exportSettings() }
+                Button("Выгрузить архив для поддержки…") { Task { await exportLog() } }
             }
 
             SettingsNote("""
-                Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о \
-                сборке и системе внутри, секреты замаскированы.
+                Тот же архив, что и «Собрать логи» у менеджера: журнал, сведения о сборке и \
+                системе, настройки этой машины. Секреты замаскированы, пароли профилей и \
+                административный доступ из настроек убраны.
                 """)
 
             SettingsNote("""
-                Файл настроек — сырой `settings.json` как он есть на диске, включая \
-                несохранённое из этого окна. Он для разбора жалобы, а не для переноса: другая \
-                машина его не примет, и всё машинное в нём остаётся как было.
+                Настройки в архиве — те, что видно в этом окне, включая несохранённое. Они для \
+                разбора жалобы, а не для переноса: другая машина их не примет.
                 """)
 
             SettingsNote("""
@@ -123,23 +130,13 @@ struct MaintenanceTab: View {
 
     // MARK: - Действия
 
-    private func exportSettings() {
-        guard let url = save(name: "elitesip-settings.json") else { return }
-        do {
-            try model.exportSettings(to: url)
-            show(String(format: NSLocalizedString("Настройки выгружены в %@.", comment: "итог выгрузки настроек"), url.lastPathComponent))
-        } catch {
-            show(String(format: NSLocalizedString("Не удалось выгрузить настройки: %@", comment: "выгрузка настроек не удалась"), error.localizedDescription))
-        }
-    }
-
     private func exportLog() async {
         guard let url = save(name: SupportArchive.suggestedName()) else { return }
         do {
             try await model.exportLog(to: url)
-            show(String(format: NSLocalizedString("Журнал выгружен в %@.", comment: "итог выгрузки журнала"), url.lastPathComponent))
+            show(String(format: NSLocalizedString("Архив выгружен в %@.", comment: "итог выгрузки архива"), url.lastPathComponent))
         } catch {
-            show(String(format: NSLocalizedString("Не удалось выгрузить журнал: %@", comment: "выгрузка журнала не удалась"), error.localizedDescription))
+            show(String(format: NSLocalizedString("Не удалось собрать архив: %@", comment: "выгрузка архива не удалась"), error.localizedDescription))
         }
     }
 

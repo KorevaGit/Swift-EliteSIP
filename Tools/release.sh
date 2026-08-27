@@ -317,10 +317,23 @@ release_one() {
 
     step "[$label] Подпись"
 
+    # `--preserve-metadata=entitlements` — не украшение.
+    #
+    # Под маску попадают не только библиотеки, но и Updater.app с двумя .xpc
+    # Sparkle, а у них свои entitlements, положенные при сборке Sparkle.
+    # `--force --sign` без сохранения снимает их подчистую, и обновление
+    # ломается не при подписи, а много позже — на установке, уже у оператора.
+    # Сегодня это сходит с рук только потому, что App Sandbox выключен и
+    # XPC-путь установщика не задействован. Найдено аудитом 27 августа 2026.
+    #
+    # Сохраняются именно entitlements и ничего больше: флаги нам нужны свои —
+    # Hardened Runtime ставится этой же командой, — а сохранение флагов вернуло
+    # бы подпись Sparkle без него, то есть отказ нотарификации.
     local nested
     while IFS= read -r nested; do
         [[ -n "$nested" ]] || continue
-        codesign --force --sign "$identity" $sign_flags "$nested" 2>/dev/null \
+        codesign --force --sign "$identity" $sign_flags \
+            --preserve-metadata=entitlements "$nested" 2>/dev/null \
             || fail "[$label] не подписалось вложенное: $nested"
         ok "вложенное подписано: ${nested#"$app/Contents/Frameworks/"}"
     done < <(nested_signables "$app/Contents/Frameworks")

@@ -378,6 +378,9 @@ final class AppModel: ObservableObject {
             ?? logDirectory.appendingPathComponent(SupportArchive.suggestedName())
         let logFile = logFile
         let summary = supportSummary
+        // Настройки снимаются здесь, на главном потоке, а не внутри очереди:
+        // они читаются из модели, а модель живёт только тут.
+        let extras = portableSettingsJSON.map { ["settings.json": $0] } ?? [:]
 
         return try await withCheckedThrowingContinuation { continuation in
             Self.archiveQueue.async {
@@ -386,6 +389,7 @@ final class AppModel: ObservableObject {
                     return try SupportArchive.make(
                         logs: logFile?.files() ?? [],
                         summary: summary,
+                        extras: extras,
                         destination: target
                     )
                 })

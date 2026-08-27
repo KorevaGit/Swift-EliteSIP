@@ -33,7 +33,15 @@ final class MachineService {
 
     private let log: (String) -> Void
 
-    private var isAsking = false
+    /// Что сейчас спрашивается — по приставке, а не одним флагом на всё.
+    ///
+    /// Флаг был один на обе линии, и они мешали друг другу: такты у них разные
+    /// — отзыв каждые пятнадцать минут, доступ в общем цикле, — и при
+    /// наложении второй запрос молча отбрасывался. Заметнее всего на запуске,
+    /// где оба идут почти одновременно: административный пароль мог не
+    /// приехать до следующего такта, а машина при этом выглядела настроенной.
+    /// Найдено аудитом 27 августа 2026.
+    private var asking: Set<String> = []
 
     init(publicKey: Curve25519.Signing.PublicKey?,
          settings: @escaping () -> AppSettings,
@@ -99,8 +107,8 @@ final class MachineService {
         guard let channel = Provisioning.secrets?.updates,
               let url = channel.machineURL(prefix: prefix, installationID: now.panel.installationID)
         else { return }
-        guard !isAsking else { return }
-        isAsking = true
+        guard !asking.contains(prefix) else { return }
+        asking.insert(prefix)
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
@@ -118,7 +126,7 @@ final class MachineService {
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             Task { @MainActor in
                 guard let self else { return }
-                self.isAsking = false
+                self.asking.remove(prefix)
 
                 if let error {
                     // Нет связи — обычное состояние, а не беда.

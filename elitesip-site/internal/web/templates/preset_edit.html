@@ -4,7 +4,7 @@
 {{/* Правка — отдельный режим и вся предустановка целиком: одна кнопка, одна
      ревизия. Разделы раскрыты подряд, замка нет: он сторожил случайное
      движение в форме, которая всегда была формой, а сюда надо войти нарочно. */}}
-<div class="page-head">
+<div class="page-head page-head-entity">
     <div class="page-title">
         <h1>{{$d.Preset.Name}} · правка</h1>
         <p>Сохранение создаёт ревизию, но на машины её не увозит: между «сохранил» и «уехало» стоит выкладка.</p>
@@ -67,6 +67,30 @@
             </div>
             {{end}}
         </div>
+
+        <!-- Заготовка новой строки. Именно <template>, а не спрятанный div:
+             содержимое <template> инертно и в форму не уходит, — иначе скрытая
+             строка с индексом __INDEX__ отправлялась бы вместе с настоящими. -->
+        <template data-template="macro">
+            <div data-row class="row inset">
+                <input type="hidden" name="macroIndex" value="__INDEX__">
+                <input type="hidden" name="macroID___INDEX__" value="">
+                <div class="field">
+                    <label>Подпись</label>
+                    <input name="macroTitle___INDEX__" type="text" value="" placeholder="ЮРИСТ">
+                </div>
+                <div class="field">
+                    <label>Набор</label>
+                    <input name="macroSequence___INDEX__" type="text" class="mono" value="" placeholder="*02,101">
+                </div>
+                <label class="switch">
+                    <input type="hidden" name="macroTransfers___INDEX__" value="0">
+                    <input type="checkbox" name="macroTransfers___INDEX__" value="1">
+                    <span class="switch-text">Уводит звонок<span>идёт в историю как перевод</span></span>
+                </label>
+                <button type="button" class="button button-danger" data-remove>Убрать</button>
+            </div>
+        </template>
 
         <div class="row">
             <button type="button" class="button" data-add="macro">Добавить клавишу</button>
@@ -157,6 +181,21 @@
             </div>
             {{end}}
         </div>
+        <template data-template="queue">
+            <div data-row class="row inset">
+                <input type="hidden" name="queueIndex" value="__INDEX__">
+                <input type="hidden" name="queueID___INDEX__" value="">
+                <div class="field field-narrow">
+                    <label>Номер</label>
+                    <input name="queueNumber___INDEX__" type="text" class="mono" value="" placeholder="2929">
+                </div>
+                <div class="field field-wide">
+                    <label>Название</label>
+                    <input name="queueTitle___INDEX__" type="text" value="" placeholder="Горячий лид">
+                </div>
+                <button type="button" class="button button-danger" data-remove>Убрать</button>
+            </div>
+        </template>
         <div class="row"><button type="button" class="button" data-add="queue">Добавить очередь</button></div>
     </div>
 </div>
@@ -311,6 +350,24 @@
             </div>
             {{end}}
         </div>
+        <template data-template="knock">
+            <div data-row class="row inset">
+                <input type="hidden" name="knockIndex" value="__INDEX__">
+                <div class="field field-wide">
+                    <label>Адрес</label>
+                    <input name="knockHost___INDEX__" type="text" class="mono" value="" placeholder="основной адрес АТС">
+                </div>
+                <div class="field field-narrow">
+                    <label>Байт в пакете</label>
+                    <input name="knockBytes___INDEX__" type="number" value="0">
+                </div>
+                <div class="field field-narrow">
+                    <label>Пакетов</label>
+                    <input name="knockCount___INDEX__" type="number" value="0">
+                </div>
+                <button type="button" class="button button-danger" data-remove>Убрать</button>
+            </div>
+        </template>
         <div class="row"><button type="button" class="button" data-add="knock">Добавить шаг стука</button></div>
 
         <div class="row">

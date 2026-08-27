@@ -17,6 +17,8 @@ struct AdminUnlockView: View {
         case password
         /// Пароль принят: предупреждение до того, как окно откроется.
         case warning
+        /// Машина не настроена: пускать некуда и не во что.
+        case unconfigured
     }
 
     @State private var step: Step = .password
@@ -29,6 +31,7 @@ struct AdminUnlockView: View {
             switch step {
             case .password: passwordStep
             case .warning: warningStep
+            case .unconfigured: unconfiguredStep
             }
 
             if let problem {
@@ -39,9 +42,24 @@ struct AdminUnlockView: View {
         }
         .padding(Theme.Metrics.contentPadding)
         .frame(width: Theme.Metrics.dialogWidth)
-        // Пароль не задан — спрашивать нечего, но предупреждение показать надо:
-        // открытые настройки не делают правку менее последствийной.
+        // Порядок проверок здесь и есть решение о том, кого пускать.
+        //
+        // **Непройденный мастер запирает «Управление» раньше пароля.** Сброс
+        // машины уносит пароль вместе со всем остальным и зовёт мастер, но окно
+        // мастера закрывается крестиком: сбросить машину и уйти было можно, и
+        // оставалась она с пустыми настройками и «Управлением», открытым
+        // всякому, — ровно тем состоянием, ради лечения которого мастер и
+        // заведён. Найдено аудитом 27 августа 2026.
+        //
+        // Пароль после этого проверяется как раньше: незащищённая, но
+        // настроенная машина — это законное состояние (пароль снимают руками),
+        // и предупреждение ей всё равно показывается: открытые настройки не
+        // делают правку менее последствийной.
         .onAppear {
+            guard model.firstRun == .passed else {
+                step = .unconfigured
+                return
+            }
             guard !model.isAdministrationProtected else { return }
             try? model.unlockAdministration(password: "")
             step = .warning
@@ -95,6 +113,40 @@ struct AdminUnlockView: View {
         } catch {
             problem = error.localizedDescription
             passwordDraft = ""
+        }
+    }
+
+    // MARK: - Машина не настроена
+
+    /// Тупик с одним выходом — в мастер.
+    ///
+    /// Не «пароль не подошёл» и не пустое окно: человек здесь не ошибся, он
+    /// пришёл в настройки машины, которой ещё нет. Единственное осмысленное
+    /// действие — закончить настройку, и кнопка делает ровно его.
+    private var unconfiguredStep: some View {
+        Group {
+            CompatLabel(title: "Машина ещё не настроена", symbol: "exclamationmark.triangle")
+                .font(.headline)
+                .compatForeground(.orange)
+
+            Text("""
+                Первоначальная настройка не пройдена: у машины нет ни рабочего места, ни                 административного пароля. Пока это так, «Управление» не открывается — иначе                 настройки ненастроенной машины правил бы кто угодно.
+                """)
+            .font(.footnote)
+            .compatForeground(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Отмена") { isPresented = false }
+                Button("Продолжить настройку") {
+                    isPresented = false
+                    NSApp.sendAction(
+                        #selector(AppDelegate.showFirstRunAfterReset(_:)), to: nil, from: nil
+                    )
+                }
+                .compatProminentButtonStyle()
+                .compatKeyboardShortcut("\r", modifiers: [])
+            }
         }
     }
 

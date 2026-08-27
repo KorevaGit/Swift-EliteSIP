@@ -170,4 +170,42 @@ struct LogFileTests {
         #expect(size > 0)
         #expect(destination.lastPathComponent.hasSuffix(".zip"))
     }
+
+    /// Настройки уезжают внутри архива, а не отдельной кнопкой.
+    ///
+    /// Кнопок было две, и вторую надо было знать: половина обращений в
+    /// поддержку приезжала без настроек. Проверка распаковывает архив тем же
+    /// `ditto`, каким он собран, — читать содержимое zip своими силами здесь
+    /// незачем.
+    @Test("Архив несёт то, что положили рядом с журналом")
+    func supportArchiveCarriesExtras() throws {
+        let directory = makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let log = LogFile(settings: .init(directory: directory))
+        log.write("строка для архива", level: "info")
+        log.flush()
+
+        let destination = directory.appendingPathComponent(SupportArchive.suggestedName())
+        try SupportArchive.make(
+            logs: log.files(),
+            summary: "EliteSIP 0.1.0",
+            extras: ["settings.json": Data(#"{"здесь":"настройки"}"#.utf8)],
+            destination: destination
+        )
+
+        let unpacked = directory.appendingPathComponent("unpacked", isDirectory: true)
+        let ditto = Process()
+        ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        ditto.arguments = ["-x", "-k", destination.path, unpacked.path]
+        try ditto.run()
+        ditto.waitUntilExit()
+        #expect(ditto.terminationStatus == 0)
+
+        let found = FileManager.default
+            .enumerator(at: unpacked, includingPropertiesForKeys: nil)?
+            .compactMap { ($0 as? URL)?.lastPathComponent } ?? []
+        #expect(found.contains("settings.json"))
+        #expect(found.contains("summary.txt"))
+    }
 }

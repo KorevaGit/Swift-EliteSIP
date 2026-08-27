@@ -36,7 +36,14 @@ extension AppModel {
     /// уезжает точно так же, как от первого. И блок административного
     /// доступа — проверочное значение с запечатанной копией пароля, которую
     /// открывает общий для всех установок код.
-    func exportSettings(to destination: URL) throws {
+    /// Настройки без секретов — теми же байтами, какими они уедут в поддержку.
+    ///
+    /// Отдельным свойством, а не кодом внутри выгрузки, потому что уезжают они
+    /// теперь **внутри архива**, а не своей кнопкой. Кнопок было две — «журнал»
+    /// и «файл настроек», — и вторую надо было знать: очевидна из них одна, и
+    /// половина обращений приезжала без настроек. Второй способ собрать этот же
+    /// файл однажды собрал бы его иначе, поэтому способ один.
+    var portableSettingsJSON: Data? {
         var portable = settings
         portable.profiles = SIPProfileList(
             profiles: settings.profiles.profiles.map { profile in
@@ -50,8 +57,7 @@ extension AppModel {
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try Self.write(try encoder.encode(portable), to: destination)
-        append(level: .info, message: "настройки выгружены в файл, пароли из выгрузки убраны")
+        return try? encoder.encode(portable)
     }
 
     /// Пишет файл, доступный только владельцу.
@@ -83,7 +89,7 @@ extension AppModel {
     /// что мы думаем.
     func exportLog(to destination: URL) async throws {
         _ = try await makeSupportArchive(to: destination)
-        append(level: .info, message: "журнал выгружен в файл")
+        append(level: .info, message: "архив для поддержки выгружен: журнал и обезличенные настройки")
     }
 
     // MARK: - Чистка

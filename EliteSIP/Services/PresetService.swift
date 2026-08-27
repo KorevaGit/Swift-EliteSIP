@@ -133,6 +133,14 @@ final class PresetService {
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
+        // Кэш запрещён явно, как у пакета активации и помашинных объектов.
+        //
+        // Без этой строки ответ канала с кэширующими заголовками оседает в
+        // `URLCache` процесса, и новая ревизия не доезжает до истечения его
+        // срока — притом что канал отвечает, отметка связи обновляется, и
+        // выглядит всё исправным. Единственная из трёх линий, где запрета не
+        // стояло. Найдено аудитом 27 августа 2026.
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 
         // **Помашинная пара, а не общая из бандла.** Общая лежит открытым
         // текстом в каждом приложении и открывает теперь только выпуски: иначе
@@ -219,7 +227,16 @@ final class PresetService {
                                              comment: "проверка предустановок"))
             return
         }
-        guard entry.revision > now.panel.appliedRevision else {
+        // Обычное правило — «применяем то, что новее применённого». Признак
+        // `wantsResync` его отменяет, и это единственный случай, когда та же
+        // самая ревизия накладывается второй раз.
+        //
+        // Отменять правило пришлось потому, что без отмены возврат машины под
+        // предустановку не возвращал ничего: ревизия за время жизни своим умом
+        // не менялась, локальные правки накопились, а проверка отвечала
+        // «настройки уже свежие». Кнопка при этом обещала прямо обратное.
+        // Найдено аудитом 27 августа 2026.
+        guard now.panel.wantsResync || entry.revision > now.panel.appliedRevision else {
             report?(false, NSLocalizedString("настройки уже свежие",
                                              comment: "проверка предустановок"))
             return
@@ -243,14 +260,21 @@ final class PresetService {
         deferred = nil
 
         var updated = settings()
+        let wasResync = updated.panel.wantsResync
         updated.apply(ManagedFields.parse(entry.fields))
         updated.panel.presetName = entry.name
         updated.panel.appliedRevision = entry.revision
         updated.panel.appliedAt = Date()
+        // Просьба выполнена — снимается здесь и только здесь. Оставленный
+        // признак означал бы, что машина переприменяет предустановку каждые два
+        // часа, затирая ей же разрешённое локальное.
+        updated.panel.wantsResync = false
 
         // не переводится: строка журнала
         apply(updated, "предустановка «\(entry.name)», ревизия \(entry.revision)")
-        log("предустановка применена: «\(entry.name)», ревизия \(entry.revision)")
+        log(wasResync
+            ? "предустановка переприменена по просьбе машины: «\(entry.name)», ревизия \(entry.revision)"
+            : "предустановка применена: «\(entry.name)», ревизия \(entry.revision)")
         report?(false, String(
             format: NSLocalizedString("применена ревизия %lld", comment: "проверка предустановок"),
             Int64(entry.revision)))

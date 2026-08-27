@@ -115,7 +115,7 @@ func serve() error {
 	machines := &panel.MachineWriter{Publisher: sink, SigningKey: signingKey}
 
 	site, err := web.New(db, sandDB,
-		&panel.Issuer{DB: db, Publisher: sink, Machines: machines, Secret: secret},
+		&panel.Issuer{DB: db, Publisher: sink, Bin: sink, Machines: machines, Secret: secret},
 		&panel.BundlePublisher{DB: db, Publisher: sink, SigningKey: signingKey},
 		&panel.MarkCollector{DB: db, Reader: sink, Machines: machines},
 		&panel.Revoker{DB: db, Machines: machines, Deleter: sink},
