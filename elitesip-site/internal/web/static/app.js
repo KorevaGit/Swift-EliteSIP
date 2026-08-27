@@ -166,6 +166,11 @@
         }
         var index = "n" + (counters[listName]++);
 
+        /* Заглушка «здесь пока пусто» уходит вместе с первой строкой: она
+         * объясняет пустой список, а не соседствует с непустым. */
+        var empty = list.querySelector("[data-empty]");
+        if (empty) { empty.remove(); }
+
         var html = template.innerHTML.replace(/__INDEX__/g, index);
         var holder = document.createElement("div");
         holder.innerHTML = html.trim();
