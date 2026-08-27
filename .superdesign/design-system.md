@@ -1,131 +1,132 @@
-# EliteSIP Panel — Pearl Editorial System
+# EliteSIP Panel — Compact Framed Workspace
 
 ## Product context
 
-EliteSIP Panel is a compact Russian-language administrative site for a small office SIP client. Its jobs are operational rather than analytical: create employees, issue activation keys, maintain presets, inspect the audit trail, and edit installation settings. The interface must feel like a quiet tool, not a SaaS metrics dashboard.
+EliteSIP Panel is a compact Russian-language administrative site for a small office SIP client. Its jobs are operational rather than analytical: create employees, issue activation keys, maintain presets, work with sandbox trainees, inspect the audit trail, and edit installation settings. The interface must feel like a quiet, compact operational tool, not a SaaS metrics dashboard.
 
-Primary routes: Overview, Employees, Presets, Audit log, Settings. Preserve the existing information architecture, actions, Russian copy, semantic states, forms, tables, and disclosure sections.
+Preserve the existing information architecture, actions, Russian copy, semantic states, forms, tables, and disclosure sections across all routes.
 
-## Primary visual source
+## Primary visual direction
 
-Pearl by Dawid Pietrasiak is the single visual reference. Adapt its editorial restraint to an administrative application; do not reproduce its portfolio content or decorative project cards.
+The user-provided EliteSIP admin screenshot is the primary visual reference. Treat it as a direction, not a pixel-perfect target: retain its compact top navigation and framed content groups, but improve alignment, density, responsive behavior, and visual polish.
 
-Source: https://pearl.framer.website/
+Core traits:
 
-Key Pearl traits to preserve:
-
-- white-dominant matte canvas;
+- very light neutral canvas with white working cards;
 - Manrope throughout, mostly weight 500;
-- strong black/gray typographic hierarchy;
-- measured outer margins and deliberate empty space outside working data;
+- restrained black/gray hierarchy without display-sized page titles;
+- compact, consistent outer margins and tight vertical rhythm;
 - transparent inset top navigation;
-- broad, calm surfaces with soft 24px corners only when content is truly grouped;
+- related content packed into bounded cards with 14–16px corners, subtle borders, and one restrained shadow;
 - solid black pill actions;
-- no gradients, blur, glass, glow, or ornamental illustration;
-- restrained motion and no dashboard decoration.
+- no gradients, blur, glass, glow, ornamental illustration, or dashboard decoration.
 
 ## Application shell
 
-- Replace the sidebar completely with top navigation.
-- Desktop header: 72px minimum height, transparent white background, 80px horizontal inset, official EliteSIP AppIcon at left with the name EliteSIP; primary route links in one horizontal row; theme and account/logout controls aligned right.
-- Active navigation is communicated by black text and a fine underline or small dot. Never use a filled navigation pill.
-- The header remains compact and may become sticky with an opaque white background and one subtle hairline only after scrolling.
-- Desktop content is fluid and wide: 48px side gutters, maximum useful width 1600–1800px. Do not constrain working tables to a narrow centered column.
-- Mobile header has a compact brand/action row and a second horizontally scrollable navigation row. All routes remain visible and discoverable; no sidebar and no hamburger drawer.
+- No sidebar.
+- Desktop header: 64px minimum height, transparent white background, 48px horizontal inset, official EliteSIP brand mark and product name at left; primary products in one horizontal row; theme, account, and logout controls aligned right.
+- Active navigation uses black text and a fine underline. Never use a filled navigation pill.
+- Product subnavigation is a compact second row only where needed.
+- Desktop content is fluid and wide: 32–48px side gutters and a maximum useful width around 1600px. Working tables must not be constrained to a narrow centered column.
+- Mobile header has a compact brand/action row and horizontally scrollable navigation rows. No hamburger drawer.
 
-Use the exact supplied official EliteSIP AppIcon in every logo position. Do not replace it with initials, emoji, generic telephone marks, invented SVGs, or text alone.
+Use the exact supplied official EliteSIP logo in every logo position. Do not replace it with initials, emoji, a generic telephone mark, an invented SVG, or text alone.
 
 ## Color system
 
 Light is the primary designed theme.
 
-- Canvas: #FFFFFF
+- Canvas: #F6F6F7
+- Card surface: #FFFFFF
 - Primary ink: #000000
-- Secondary ink: #969696
-- Muted ink: #666666
-- Quiet surface: #F2F2F4, adapted from Pearl's pale lavender-gray surface
+- Secondary ink: #666666
+- Tertiary ink: #969696
+- Quiet surface: #F2F2F4
 - Hairline: #D9D9D9
+- Strong hairline: #BCBCBC
 - Inverse surface: #000000
 - Inverse ink: #FFFFFF
 - Primary action: black background, white text
-- Link/action text: black with underline on hover; avoid generic bright blue in the product UI
 - Success: #287A45
 - Warning: #A56416
 - Danger: #B33A35
 
 Semantic colors are reserved for real status and validation. Never use them as decoration.
 
-Dark theme, where retained, is a quiet tonal inversion: #111111 canvas, #F5F5F5 ink, #A5A5A5 secondary ink, #1C1C1C surface, #343434 hairline. It must keep the same Pearl hierarchy and matte character.
+Dark theme is a quiet tonal inversion: #111111 canvas, #1C1C1C cards, #F5F5F5 ink, #A5A5A5 secondary ink, #343434 hairline. It must retain the same density and hierarchy.
 
 ## Typography
 
 - Family: Manrope, with system sans-serif fallbacks.
-- Weight: 500 for almost all text; 600 only for critical compact labels when needed.
-- Page title: 32px / 1.15 desktop, 30px / 1.15 tablet, 26px / 1.2 mobile. The overview may use a larger 36px editorial statement.
-- Page-title supporting clause may continue at exactly the same size and weight in #969696, following Pearl's black-then-gray sentence treatment.
-- Section title: 20px / 1.3.
-- Table/form heading: 16px / 1.35.
+- Weight: 500 for most text; 600 for critical compact labels and actions.
+- Page title: 22–24px desktop, 21–22px tablet, 20px mobile. Omit it entirely when active navigation and card headings already provide sufficient orientation.
+- Never use an editorial hero sentence or display-sized introductory heading in the admin portal.
+- Card title: 17–20px / 1.3.
+- Table/form heading: 15–17px / 1.35.
 - Body and controls: 14px / 1.4.
-- Caption/metadata: 13px / 1.4, gray.
-- Avoid uppercase micro-labels, excessive tracking, and tiny 11–12px dashboard text.
+- Caption/metadata: 12–13px / 1.4, gray.
+- Avoid uppercase micro-labels and excessive tracking.
 
 ## Spacing and geometry
 
-- Base unit: 8px.
-- Desktop page gutter: 48px; tablet: 32px; mobile: 16–20px.
-- Section rhythm: 24–40px between major regions.
-- Internal content gaps: 8px, 12px, 16px, or 24px.
+- Base unit: 4px, with common gaps of 8, 12, 16, 20, and 24px.
+- Desktop page gutter: 32–48px; tablet: 24–32px; mobile: 14–18px.
+- Section rhythm: 12–20px between major regions.
+- Card padding: 18–24px desktop, 16–18px mobile.
 - Controls: 36–40px desktop; preserve 44px touch targets on mobile.
-- Pill action radius: 999px.
-- True grouped surface radius: 24px.
-- Compact input/table row radius: 10–12px only when required.
-- Avoid nesting rounded containers. A page section should usually be typography plus rows on the white canvas.
+- Primary action radius: 999px.
+- Grouped card radius: 14–16px.
+- Input radius: 10–12px.
+- Cards use a 1px neutral border and one restrained shadow such as 0 4px 16px rgba(0,0,0,.06). Never stack multiple shadow styles.
+- Avoid nested rounded containers. Tinted inset rows are allowed only for controls, summaries, or status details inside a card.
 
-## Overview composition
+## Representative overview composition
 
 The Overview page is the representative screen for approval.
 
-1. Top navigation, no sidebar.
-2. Editorial page introduction with a small contextual eyebrow and a large two-tone sentence: black title clause plus gray operational summary.
-3. One black pill action for refreshing marks, aligned naturally with the introduction rather than floating in a toolbar.
-4. Three operational counts presented as large typographic columns on the white canvas. No stat cards, colored icons, or miniature charts.
-5. Problems and unfinished work rendered as spacious service-list rows with hairline dividers, clear text, status markers, and trailing actions/arrows.
-6. The help section is a restrained accordion/list with large readable row labels and dividers, echoing Pearl's services list.
-7. A black inverse footer band may contain secondary navigation, version/service state, and account actions. Do not force it into the first viewport.
+1. Keep the existing top navigation and product architecture; no sidebar.
+2. Remove the large page title and editorial introduction. Start with operational content immediately after a compact optional context/action row.
+3. Use a responsive two-column workspace: a wider primary column for product/state summary and unresolved work; a secondary column for setup status, quick actions, and help. Collapse to one column on narrow screens.
+4. Put each meaningful content group in a clean card frame. Card headers contain a short title, optional one-line explanation, and trailing action or count where useful.
+5. Operational counts are compact summary cells inside one card, not separate oversized stat cards. Values should usually be 26–34px, never hero-sized.
+6. Problems and unfinished work are compact rows inside their parent cards. Separate rows with subtle internal hairlines; do not use page-wide divider bands.
+7. Help is a compact accordion card with 48–56px rows.
 
 ## Tables, forms, and detail pages
 
-- Tables are the dominant working plane and should use available width.
-- Header row uses muted 12–13px labels; body rows are 14px with 40–44px height and hairline separators. A normal desktop viewport should show many records without turning the table into a separate scroll box.
-- Avoid enclosing tables in cards. Only place a table on a quiet surface when it must be visually separated from a creation form.
-- Forms use clear labels above inputs, compact vertical spacing, and simple white or quiet-gray fields with a 1px hairline. Secondary creation and diagnostic forms may be collapsed into disclosure rows so the working list stays primary.
-- Use a single black pill as the primary submit action. Secondary actions are plain text or pale-gray pills.
-- Destructive actions remain visually restrained until focused, hovered, or confirmed.
-- Preset sections use large disclosure rows instead of many independent frames.
+- Tables use available width inside one table card.
+- Header rows use a quiet gray fill and muted 12–13px labels. Body rows are 14px with 40–44px height and subtle internal separators. The card supplies the outer boundary; avoid duplicate borders around the table.
+- Forms are grouped into cards by task. Use compact labels, tight vertical spacing, and white or quiet-gray fields with a 1px hairline.
+- On mixed pages, place the form card beside or above the dominant table card according to available width. Keep the working list visually primary.
+- Use one black pill as the primary submit action. Secondary actions are plain text or pale-gray pills.
+- Destructive actions remain restrained until focused, hovered, or confirmed.
+- Preset sections use compact cards or disclosure groups: one card per coherent domain, never one per field.
+- Status badges are allowed only where a text state needs rapid scanning. Keep them small, low-contrast, and semantic.
 
 ## Motion
 
-- 140–220ms ease-out transitions.
-- Small opacity and vertical-offset entrances are allowed on page load.
-- Navigation underline, row arrow, and disclosure chevron may animate subtly.
-- No parallax, spring bounce, hover lift, scale-up cards, animated gradients, or glass effects.
+- 140–200ms ease-out transitions.
+- Navigation underline, row arrow, button fill, and disclosure chevron may animate subtly.
+- No parallax, spring bounce, scale-up cards, animated gradients, or glass effects.
+- An interactive card may only adjust its border or shadow slightly on hover.
 - Respect prefers-reduced-motion.
 
 ## Responsive behavior
 
-- Desktop: top navigation and wide working canvas.
-- Tablet: reduce gutters; allow actions to wrap under the title; keep navigation horizontally scrollable if required.
-- Mobile: two-row header, horizontally scrollable route bar, single-column content, full-width controls, list-style tables with labels preserved.
-- Never create horizontal document overflow. Only the navigation row may scroll horizontally.
+- Desktop: top navigation and compact two- or three-column card grids where the content supports them.
+- Tablet: reduce gutters and collapse grids intentionally; allow header actions to wrap.
+- Mobile: two-row header, horizontally scrollable route bar, single-column cards, full-width controls, and list-style tables with labels preserved.
+- Never create horizontal document overflow. Only navigation and genuinely wide data tables may scroll within their own bounded region.
 - Preserve minimum 44px touch targets.
 
 ## Guardrails
 
 - No sidebar.
-- No grid of SaaS statistic cards.
-- No excessive boxes, frames, chips, badges, or icon tiles.
-- No gradients, glass, blur, neon, shadows on structural regions, or AI-generated decorative imagery.
-- No generic dashboard hero copy or invented analytics.
-- Do not add charts unless the source product genuinely contains chart data.
-- Do not copy Pearl's portfolio text, project artwork, or creator identity.
+- No display-sized page headings or editorial hero copy.
+- No grid of isolated SaaS statistic cards; group related metrics into one summary card.
+- Every frame must correspond to a clear task or information group. Do not box individual labels, fields, or rows.
+- No page-wide divider bands as the primary grouping mechanism.
+- No gradients, glass, blur, neon, heavy shadows, or AI-generated decorative imagery.
+- No generic dashboard copy, invented analytics, or charts unsupported by the product.
+- Do not change product behavior or invent new data.
 - Use only the fonts, colors, spacing, and component styles defined here.

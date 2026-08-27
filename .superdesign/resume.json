@@ -8,8 +8,7 @@
       "activeDraftId": "95d02f68-42aa-4542-853d-7297f36c73d3",
       "designSystemPath": ".superdesign/design-system.md",
       "referenceIds": [
-        "EliteSIP-Assets.xcassets-AppIcon.appiconset-icon_512x512.png",
-        "a5fc1060-c35b-4bbf-8949-4720b31f7cde"
+        "EliteSIP-Assets.xcassets-AppIcon.appiconset-icon_512x512.png"
       ],
       "brandAssets": {
         "logo": {
@@ -26,10 +25,10 @@
         "elitesip-site/internal/web/static/app.css:900:3101"
       ],
       "fingerprints": {
-        ".superdesign/design-system.md": "58c3083fd34008e583f6d28d0aeb9300ac57ad3b76c55cb9f947485a3b09451d",
-        "elitesip-site/internal/web/templates/base.html": "aa8721420c2c32ba0376fff40be8687df182068105f9601392e7c3b6b9419f27",
-        "elitesip-site/internal/web/templates/overview.html": "c4f76dbe34bed9a86fd9618e1635906c906647b1a85b4b286749d466adab5b84",
-        "elitesip-site/internal/web/static/app.css": "a7832fc9e7d73dbe3232a3a0b6c64dff52d868f1f6ef0e8ae0d65bc7d79b0399"
+        ".superdesign/design-system.md": "3377f8109331dababc28cee714bd71da16e376335c6cb704705da0f8a7521d5a",
+        "elitesip-site/internal/web/templates/base.html": "eb0b7f29618236888d51a6db46bd8e9c82b3e2a191837ce5d4230e2eb1d4684a",
+        "elitesip-site/internal/web/templates/overview.html": "331f3724a3a7ad844b1abd1302f39e05f794d566f2a32772e60429d820d621b5",
+        "elitesip-site/internal/web/static/app.css": "eb94c11aecbccf187c7152df9a9146e52ffa489543ebc048b021e51ec4773e18"
       },
       "components": [
         {
@@ -47,10 +46,10 @@
           "currentVersion": 1
         },
         "95d02f68-42aa-4542-853d-7297f36c73d3": {
-          "title": "EliteSIP — редакционный обзор операций",
-          "visualDirection": "Pearl-inspired editorial operations interface with top navigation",
+          "title": "EliteSIP — компактный рабочий обзор",
+          "visualDirection": "compact framed workspace with no page title, grouped operational cards, and top navigation",
           "parentDraftId": "f27e140d-4eae-4f4d-9dbd-888b11c52661",
-          "currentVersion": 4
+          "currentVersion": 6
         },
         "45728375-857a-4ae0-8f20-d835f35ed9a4": {
           "title": "EliteSIP Overview — macOS ChatGPT Redesign",
@@ -59,7 +58,7 @@
           "currentVersion": 2
         }
       },
-      "updatedAt": "2026-08-25T16:11:03Z"
+      "updatedAt": "2026-08-27T05:53:36Z"
     }
   }
 }
