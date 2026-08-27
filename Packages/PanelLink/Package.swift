@@ -13,7 +13,7 @@ import PackageDescription
 // снаружи, чтобы тест мог подать свои. Опрос канала и применение настроек
 // живут в приложении.
 //
-// Границу «что панель, а что машина» задаёт elitesip-site/docs/CONTRACT.md.
+// Границу «что панель, а что машина» задаёт elitesupport/docs/CONTRACT.md.
 let package = Package(
     name: "PanelLink",
     // Отказы пакета показываются человеку — тот же довод, что у AdminAccess:

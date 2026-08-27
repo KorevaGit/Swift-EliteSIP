@@ -5,7 +5,7 @@ import Testing
 
 /// Помашинные объекты, собранные **настоящей панелью на Go**.
 ///
-/// Перевыпускаются `go run ./cmd/fixtures` в `elitesip-site`. Разойдутся
+/// Перевыпускаются `go run ./cmd/fixtures` в `elitesupport`. Разойдутся
 /// стороны — разойдётся здесь, а не на машине, которую сбросили не вовремя.
 enum MachineFixture {
     static let installationID = "8f2c4a1b9d3e5f60"

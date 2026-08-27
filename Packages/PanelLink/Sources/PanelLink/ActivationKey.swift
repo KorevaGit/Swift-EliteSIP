@@ -8,7 +8,7 @@ import Foundation
 /// Отсюда главное следствие для приложения: **ключ нигде не сохраняется.** Он
 /// одноразовый, и второй раз пакет не отдадут.
 ///
-/// Формат и выводы адресов — elitesip-site/docs/CONTRACT.md.
+/// Формат и выводы адресов — elitesupport/docs/CONTRACT.md.
 public struct ActivationKey: Sendable, Equatable {
 
     /// Алфавит Crockford Base32.
@@ -97,7 +97,7 @@ public struct BoundActivationKey: Sendable {
     /// Взято у панели, а панель взяла его у `AdminAccess.KeyDerivation`. Argon2id
     /// здесь был бы уместнее, но его нет ни в CryptoKit, ни в CommonCrypto на
     /// Catalina, а тянуть ради него зависимость в однозависимое приложение
-    /// нельзя — разбор в elitesip-site/docs/DECISIONS.md.
+    /// нельзя — разбор в elitesupport/docs/DECISIONS.md.
     static let iterations = 150_000
 
     static let nameLength = 16

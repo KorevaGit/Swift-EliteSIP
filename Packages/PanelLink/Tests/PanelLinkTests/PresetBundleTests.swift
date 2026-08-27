@@ -9,7 +9,7 @@ import Testing
 /// кодом, проверяла бы только то, что мы согласны сами с собой. Ключ у образца
 /// выведен из постоянного зерна, чтобы файл был воспроизводим.
 ///
-/// Перевыпускается `go run ./cmd/fixtures` в `elitesip-site`.
+/// Перевыпускается `go run ./cmd/fixtures` в `elitesupport`.
 enum BundleFixture {
     static let publicKey = "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg="
     static let signed = Data(base64Encoded: """
