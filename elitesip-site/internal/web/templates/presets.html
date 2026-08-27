@@ -1,25 +1,5 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="page-head">
-    <div class="page-title">
-        <h1>Предустановки</h1>
-        <p>Правка доезжает до машин за полчаса. Отложить её сотрудник не может — она ждёт только конца разговора.</p>
-    </div>
-    {{if .Admin.IsAdmin}}
-    <div class="page-actions">
-        <form method="post" action="/publish">
-            <input type="hidden" name="csrf" value="{{$.CSRF}}">
-            {{/* Общая выкладка осталась исключением: обычная правка касается
-                 одной предустановки и выкладывается из её карточки. */}}
-            <button type="submit" class="button"
-                    data-confirm="Выложить сохранённые ревизии ВСЕХ предустановок? Уедут и те правки, которые ещё не собирались выкладывать.">
-                Выложить все
-            </button>
-        </form>
-    </div>
-    {{end}}
-</div>
-
 {{if $d.Pending}}
 <div class="notice notice-warn">
     <div>
@@ -31,9 +11,17 @@
 
 <div class="card">
     <div class="card-head">
-        <h2>Список</h2>
+        <div class="card-head-copy">
+            <h2>Предустановки</h2>
+            <p class="card-note">Правка доезжает до машин за полчаса. Отложить её сотрудник не может — она ждёт только конца разговора.</p>
+        </div>
         {{if .Admin.IsAdmin}}
         <div class="card-head-actions">
+            <form method="post" action="/publish">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <button type="submit" class="button"
+                        data-confirm="Выложить сохранённые ревизии ВСЕХ предустановок? Уедут и те правки, которые ещё не собирались выкладывать.">Выложить все</button>
+            </form>
             {{/* Свёрнута: предустановку заводят раз в полгода, а развёрнутой она
                  занимала первый экран над таблицей из трёх строк. */}}
             <button type="button" class="button" data-open="new-preset">Завести</button>

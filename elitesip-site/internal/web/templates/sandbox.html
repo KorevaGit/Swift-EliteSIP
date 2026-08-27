@@ -1,19 +1,15 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="page-head">
-    <div class="page-title">
-        <h1>Пески</h1>
-        <p>Песок — это РОП и вся его группа стажёров разом. У одного РОПа незакрытый песок только один.</p>
-    </div>
-    <div class="page-actions">
-        <a class="button button-primary" href="/sandbox/new">Завести песок</a>
-    </div>
-</div>
-
 <div class="card">
     <div class="card-head">
-        <h2>Идут сейчас</h2>
-        {{if $d.Sandboxes}}<span class="sub">{{len $d.Sandboxes}} {{plural (len $d.Sandboxes) "песок" "песка" "песков"}}</span>{{end}}
+        <div class="card-head-copy">
+            <h2>Пески</h2>
+            <p class="card-note">Песок — это РОП и вся его группа стажёров разом. У одного РОПа незакрытый песок только один.</p>
+        </div>
+        <div class="card-head-actions">
+            {{if $d.Sandboxes}}<span class="sub">{{len $d.Sandboxes}} {{plural (len $d.Sandboxes) "песок" "песка" "песков"}}</span>{{end}}
+            <a class="button button-primary" href="/sandbox/new">Завести песок</a>
+        </div>
     </div>
     {{if $d.Sandboxes}}
     <table class="table">

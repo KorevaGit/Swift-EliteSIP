@@ -1,15 +1,12 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="page-head">
-    <div class="page-title">
-        <h1>Выдать ключ</h1>
-        <p>Ключ живёт двое суток и срабатывает один раз. Панель его не хранит: потерялся — выпустите новый в карточке сотрудника.</p>
-    </div>
-</div>
-
+<div class="content-grid">
 <div class="card">
     <div class="card-head">
-        <h2>Новый человек</h2>
+        <div class="card-head-copy">
+            <h2>Новый человек</h2>
+            <p class="card-note">Ключ живёт двое суток и срабатывает один раз. Панель его не хранит: потерялся — выпустите новый в карточке сотрудника.</p>
+        </div>
         <div class="card-head-actions">
             <button type="button" class="button button-primary" data-open="issue-form">Приступить</button>
         </div>
@@ -67,11 +64,28 @@
             {{end}}
         </div>
     </div>
+<div class="card">
+    <div class="card-head"><h2>Ключ не подошёл</h2></div>
+    <div class="card-body">
+        <p class="card-note">
+            Вставьте ключ, который прислал сотрудник, — панель покажет, чей он и что с ним:
+            ждёт активации, забрали вчера, вытеснен новым или просрочен. Пробелы, переносы и
+            дефисы можно не убирать.
+        </p>
+        <form method="post" action="/activations/find" class="row">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <div class="field field-wide">
+                <label for="key">Ключ</label>
+                <input id="key" name="key" type="text" class="mono" placeholder="K7M2-9XQP-4TFB" autocomplete="off" required>
+            </div>
+            <button type="submit" class="button">Найти</button>
+        </form>
+    </div>
+</div>
 </div>
 
 {{/* Память, а не хвосты: «кому я уже выдавал на этой неделе». Незабранные
-     ключи висят на обзоре, и второго списка им не заводится. Пустой блок не
-     показывается вовсе — экран открывается при каждом нажатии на «EliteSIP». */}}
+     ключи висят на обзоре, и второго списка им не заводится. */}}
 {{if $d.Recent}}
 <div class="card">
     <div class="card-head">
@@ -92,23 +106,4 @@
     </table>
 </div>
 {{end}}
-
-<div class="card">
-    <div class="card-head"><h2>Ключ не подошёл</h2></div>
-    <div class="card-body">
-        <p class="card-note">
-            Вставьте ключ, который прислал сотрудник, — панель покажет, чей он и что с ним:
-            ждёт активации, забрали вчера, вытеснен новым или просрочен. Пробелы, переносы и
-            дефисы можно не убирать.
-        </p>
-        <form method="post" action="/activations/find" class="row">
-            <input type="hidden" name="csrf" value="{{$.CSRF}}">
-            <div class="field field-wide">
-                <label for="key">Ключ</label>
-                <input id="key" name="key" type="text" class="mono" placeholder="K7M2-9XQP-4TFB" autocomplete="off" required>
-            </div>
-            <button type="submit" class="button">Найти</button>
-        </form>
-    </div>
-</div>
 {{end}}

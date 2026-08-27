@@ -1,22 +1,16 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="page-head">
-    <div class="page-title">
-        <h1>Шаблон работ</h1>
-        <p>Только просмотр. Шаблон — часть кода и меняется вместе с выпуском панели: редактора здесь нет и не планируется.</p>
-    </div>
-    <div class="page-actions">
-        {{/* Два формата рядом, потому что вопрос обычно звучит как «а у
-             удалёнщиков что вместо ключей». */}}
-        <a class="button{{if not $d.Remote}} button-primary{{end}}" href="/sandbox/template">Офис</a>
-        <a class="button{{if $d.Remote}} button-primary{{end}}" href="/sandbox/template?format=remote">Удалёнка</a>
-    </div>
-</div>
-
 <div class="card">
     <div class="card-head">
-        <h2>По песку целиком</h2>
-        <span class="sub">{{len $d.Sandbox}} {{plural (len $d.Sandbox) "работа" "работы" "работ"}}</span>
+        <div class="card-head-copy">
+            <h2>Шаблон работ</h2>
+            <p class="card-note">Только просмотр. Шаблон — часть кода и меняется вместе с выпуском панели: редактора здесь нет и не планируется.</p>
+        </div>
+        <div class="card-head-actions">
+            <span class="sub">{{len $d.Sandbox}} {{plural (len $d.Sandbox) "работа" "работы" "работ"}}</span>
+            <a class="button{{if not $d.Remote}} button-primary{{end}}" href="/sandbox/template">Офис</a>
+            <a class="button{{if $d.Remote}} button-primary{{end}}" href="/sandbox/template?format=remote">Удалёнка</a>
+        </div>
     </div>
     {{template "tasks" $d.Sandbox}}
 </div>

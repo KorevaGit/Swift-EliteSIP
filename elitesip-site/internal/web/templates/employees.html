@@ -1,18 +1,13 @@
 {{define "content"}}
 {{$data := .Data}}
-<div class="page-head">
-    <div class="page-title">
-        <h1>Сотрудники</h1>
-        <p>Номер живёт и умирает вместе с человеком. Ключ выписывается на человека, машин у него может быть несколько.</p>
-    </div>
-    <div class="page-actions">
-        <a class="button button-primary" href="/keys">Выдать ключ</a>
-    </div>
-</div>
-
 <div class="card">
     <div class="card-head">
-        <h2>Список</h2>
+        <div class="card-head-copy">
+            <h2>Сотрудники</h2>
+            <p class="card-note">Номер живёт и умирает вместе с человеком. Ключ выписывается на человека, машин у него может быть несколько.</p>
+        </div>
+        <div class="card-head-actions">
+        <a class="button button-primary" href="/keys">Выдать ключ</a>
         <form method="get" action="/employees" class="search" role="search">
             <input name="q" type="search" value="{{$data.Query}}" placeholder="имя или номер" aria-label="Поиск по имени или номеру">
             <select name="preset" aria-label="Отбор по предустановке">
@@ -27,6 +22,7 @@
             <a class="button button-quiet" href="/employees">Сбросить</a>
             {{end}}
         </form>
+        </div>
     </div>
     {{if $data.Employees}}
     <table class="table">

@@ -1,15 +1,11 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="page-head">
-    <div class="page-title">
-        <h1>Журнал</h1>
-        <p>Отвечает на «кто это сделал»: пользователи панели равны в правах внутри своей роли, и другого ответа нет.</p>
-    </div>
-</div>
-
 <div class="card">
     <div class="card-head">
-        <h2>События</h2>
+        <div class="card-head-copy">
+            <h2>События</h2>
+            <p class="card-note">Отвечает на «кто это сделал»: пользователи панели равны в правах внутри своей роли, и другого ответа нет.</p>
+        </div>
         {{/* Четыре отбора и ни одним больше: тип, человек, срок, поиск. */}}
         <form method="get" action="/audit" class="search" role="search">
             <select name="kind" aria-label="Отбор по типу события">

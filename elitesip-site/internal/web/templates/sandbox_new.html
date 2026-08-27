@@ -1,18 +1,23 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="page-head">
-    <div class="page-title">
-        <h1>Новый песок</h1>
-        <p>Одна форма со всем сразу. Черновиков нет: песок без людей нечем закрыть, и в списке он читается как поломка.</p>
-    </div>
-    <div class="page-actions">
-        <a class="button" href="/sandbox">Отмена</a>
-    </div>
-</div>
-
 {{if $d.Problem}}
 <div class="notice notice-bad"><p>{{$d.Problem}}</p></div>
 {{end}}
+
+<div class="card">
+    <div class="card-head">
+        <div class="card-head-copy">
+            <h2>Новый песок из Excel</h2>
+            <p class="card-note">Одна форма со всем сразу. Черновиков нет: песок без людей нечем закрыть, и в списке он читается как поломка.</p>
+        </div>
+        <div class="card-head-actions"><span class="sub">ФИО, логин, пароль, ID Битрикса, номер</span><a class="button" href="/sandbox">Отмена</a></div>
+    </div>
+    <div class="card-body"><form method="post" action="/sandbox/import" enctype="multipart/form-data">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <div class="row"><div class="field"><label>РОП</label><select name="rop" required><option value="">выберите</option>{{range $d.ROPs}}<option>{{.}}</option>{{end}}</select></div><div class="field"><label>Формат</label><select name="format"><option value="office">Офис</option><option value="remote">Удалёнка</option></select></div><div class="field field-wide"><label>Файл .xlsx</label><input type="file" name="employees_xlsx" accept=".xlsx" required></div><button class="button" type="submit">Импортировать</button></div>
+        <p class="card-note">Обязательна только колонка «ФИО». Отметки, комментарии, исходы и сделки из файла не переносятся.</p>
+    </form></div>
+</div>
 
 {{/* enctype нужен файлу холодной базы: без него браузер пришлёт одно имя
      файла вместо его содержимого, и пул сделок молча окажется пустым. */}}

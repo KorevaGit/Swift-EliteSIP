@@ -1,19 +1,22 @@
 {{define "content"}}
 {{$d := .Data}}
-<div class="page-head">
-    <div class="page-title">
-        <h1>Архив песков</h1>
-        <p>Закрытые пески. Закрыть песок может только администратор, и в журнале это видно отдельной записью.</p>
-    </div>
-    <div class="page-actions">
-        <a class="button" href="/sandbox">К открытым</a>
-    </div>
-</div>
-
 <div class="card">
     <div class="card-head">
-        <h2>Закрытые</h2>
-        {{if $d.Sandboxes}}<span class="sub">{{len $d.Sandboxes}} {{plural (len $d.Sandboxes) "песок" "песка" "песков"}}</span>{{end}}
+        <div class="card-head-copy">
+            <h2>Архив песков</h2>
+            <p class="card-note">Закрытые пески. Закрыть песок может только администратор, и в журнале это видно отдельной записью.</p>
+        </div>
+        <div class="card-head-actions">
+            {{if $d.Sandboxes}}<span class="sub">{{len $d.Sandboxes}} {{plural (len $d.Sandboxes) "песок" "песка" "песков"}}</span>{{end}}
+            <a class="button" href="/sandbox">К открытым</a>
+            <form class="search" method="get" action="/sandbox/archive">
+                <select name="rop"><option value="">Все РОПы</option>{{range $d.ROPs}}<option {{if eq . $d.Filter.ROP}}selected{{end}}>{{.}}</option>{{end}}</select>
+                <select name="format"><option value="">Любой формат</option><option value="office" {{if eq (printf "%s" $d.Filter.Format) "office"}}selected{{end}}>Офис</option><option value="remote" {{if eq (printf "%s" $d.Filter.Format) "remote"}}selected{{end}}>Удалёнка</option></select>
+                <input type="date" name="from" value="{{$d.From}}" aria-label="Закрыт с">
+                <input type="date" name="to" value="{{$d.To}}" aria-label="Закрыт по">
+                <button class="button" type="submit">Показать</button>
+            </form>
+        </div>
     </div>
     {{if $d.Sandboxes}}
     <table class="table">
