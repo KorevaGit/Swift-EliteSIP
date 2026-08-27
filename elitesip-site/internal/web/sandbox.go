@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/koreva/elitesip-site/internal/model"
 	"github.com/koreva/elitesip-site/internal/sand"
@@ -21,6 +22,10 @@ const maxDealsUpload = 8 << 20
 type sandboxesData struct {
 	Sandboxes []sand.SandboxCard
 	Archive   bool
+	ROPs      []string
+	Filter    sand.ArchiveFilter
+	From      string
+	To        string
 }
 
 func sandEmployeeIDs(r *http.Request) (int64, int64, error) {
@@ -192,7 +197,15 @@ func (s *Server) showSandboxArchive(w http.ResponseWriter, r *http.Request, admi
 }
 
 func (s *Server) listSandboxes(w http.ResponseWriter, r *http.Request, admin model.Admin, archive bool) {
-	cards, err := s.Sand.ListSandboxes(r.Context(), archive)
+	var cards []sand.SandboxCard
+	var err error
+	filter := sand.ArchiveFilter{}
+	if archive {
+		filter = sand.ArchiveFilter{ROP: r.URL.Query().Get("rop"), Format: sand.Format(r.URL.Query().Get("format")), From: parseDate(r.URL.Query().Get("from")), To: parseDate(r.URL.Query().Get("to"))}
+		cards, err = s.Sand.ListArchive(r.Context(), filter)
+	} else {
+		cards, err = s.Sand.ListSandboxes(r.Context(), false)
+	}
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -204,8 +217,67 @@ func (s *Server) listSandboxes(w http.ResponseWriter, r *http.Request, admin mod
 	}
 	s.render(w, r, view, page{
 		Title: title, Section: "sandbox", Sub: sub, Admin: admin,
-		Data: sandboxesData{Sandboxes: cards, Archive: archive},
+		Data: sandboxesData{Sandboxes: cards, Archive: archive, ROPs: sand.ROPs(), Filter: filter, From: r.URL.Query().Get("from"), To: r.URL.Query().Get("to")},
 	})
+}
+
+func parseDate(value string) time.Time { t, _ := time.Parse("2006-01-02", value); return t }
+
+func (s *Server) exportSandboxCSV(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, e := pathID(r)
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	rows, e := s.Sand.ExportEmployees(r.Context(), id)
+	if e != nil {
+		s.fail(w, e)
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="sandbox-%d.csv"`, id))
+	w.Write([]byte{0xEF, 0xBB, 0xBF})
+	if e = sand.WriteEmployeesCSV(w, rows); e != nil {
+		s.fail(w, e)
+	}
+}
+func (s *Server) exportSandboxXLSX(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	id, e := pathID(r)
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	rows, e := s.Sand.ExportEmployees(r.Context(), id)
+	if e != nil {
+		s.fail(w, e)
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="sandbox-%d.xlsx"`, id))
+	if e = sand.WriteEmployeesXLSX(w, rows); e != nil {
+		s.fail(w, e)
+	}
+}
+func (s *Server) importSandboxXLSX(w http.ResponseWriter, r *http.Request, admin model.Admin) {
+	file, _, e := r.FormFile("employees_xlsx")
+	if e != nil {
+		s.flash(r, "bad", "Excel не прочитан", "Выберите файл .xlsx.")
+		s.back(w, r, "/sandbox/new")
+		return
+	}
+	defer file.Close()
+	people, e := sand.ReadEmployeesXLSX(file)
+	if e == nil {
+		_, e = s.Sand.ImportSandbox(r.Context(), actorOfAdmin(admin), r.FormValue("rop"), sand.Format(r.FormValue("format")), people)
+	}
+	if e != nil {
+		s.flash(r, "bad", "Импорт не выполнен", e.Error())
+		s.back(w, r, "/sandbox/new")
+		return
+	}
+	s.Sand.DeliverAudit(r.Context(), s.DB, 0)
+	s.flash(r, "ok", "Песок импортирован", fmt.Sprintf("Сотрудников: %d. История и отметки не переносились.", len(people)))
+	http.Redirect(w, r, "/sandbox", http.StatusSeeOther)
 }
 
 // newSandboxData — форма создания вместе с тем, что в ней уже набрано.

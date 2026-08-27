@@ -332,7 +332,7 @@ func TestArchiveShowsClosedOnly(t *testing.T) {
 	if !strings.Contains(archive, "Марк") {
 		t.Error("закрытого песка нет в архиве")
 	}
-	if strings.Contains(archive, "Кочура") {
+	if strings.Contains(archive, `href="/sandbox/1">Кочура</a>`) {
 		t.Error("идущий песок попал в архив")
 	}
 

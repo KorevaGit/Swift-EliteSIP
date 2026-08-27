@@ -121,7 +121,10 @@ func (s *Server) Handler() http.Handler {
 	// Форма несёт файл холодной базы, поэтому тело ограничивается и разбирается
 	// до проверки токена: иначе слишком большой файл сказал бы «форма устарела».
 	mux.Handle("POST /sandbox", s.limitUpload(maxDealsUpload, s.guard(s.createSandbox)))
+	mux.Handle("POST /sandbox/import", s.limitUpload(16<<20, s.guard(s.importSandboxXLSX)))
 	mux.Handle("GET /sandbox/{id}", s.guard(s.showSandboxDetail))
+	mux.Handle("GET /sandbox/{id}/export.csv", s.guard(s.exportSandboxCSV))
+	mux.Handle("GET /sandbox/{id}/export.xlsx", s.guard(s.exportSandboxXLSX))
 	mux.Handle("POST /sandbox/{id}/mark", s.guard(s.markSandboxTask))
 	mux.Handle("POST /sandbox/{id}/employees", s.guard(s.addSandboxEmployee))
 	mux.Handle("POST /sandbox/{id}/comments", s.guard(s.addSandboxComment))

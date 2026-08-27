@@ -150,6 +150,11 @@ func serve() error {
 	} else if removed > 0 {
 		fmt.Fprintf(os.Stderr, "из журнала убрано строк старше трёх месяцев: %d\n", removed)
 	}
+	if removed, err := sandDB.PurgeRejected(context.Background(), time.Now()); err != nil {
+		fmt.Fprintf(os.Stderr, "не удалось обезличить не вышедших из песочницы: %v\n", err)
+	} else if removed > 0 {
+		fmt.Fprintf(os.Stderr, "в песочнице обезличено не вышедших сотрудников: %d\n", removed)
+	}
 
 	server := &http.Server{
 		Addr:              cfg.Listen,
