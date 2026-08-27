@@ -1,6 +1,8 @@
 package web
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"math"
@@ -19,6 +21,38 @@ var templateFuncs = template.FuncMap{
 	"width":     width,
 	"dayAt":     dayAt,
 	"add":       func(a, b int) int { return a + b },
+	"asset":     assetURL,
+}
+
+// assetURL дописывает к статике отпечаток её содержимого.
+//
+// Метка в ссылке была проставлена руками — `?v=compact-1`, — и с тех пор не
+// менялась ни разу, сколько бы ни правили сам лист. Браузер администратора
+// держал стиль месячной давности и показывал прошлую панель поверх свежей
+// разметки; поймать это можно было только жёсткой перезагрузкой, о которой
+// надо догадаться. Ровно на это ушёл круг проверки 27 августа 2026.
+//
+// Отпечаток считается один раз при запуске: файлы вшиты в бинарь `go:embed`,
+// и меняются они только вместе с ним.
+func assetURL(name string) string {
+	if sum, ok := assetSums[name]; ok {
+		return "/static/" + name + "?v=" + sum
+	}
+	return "/static/" + name
+}
+
+var assetSums = map[string]string{}
+
+// hashAssets считает отпечатки вшитой статики. Зовётся при сборке сервера.
+func hashAssets(read func(string) ([]byte, error), names ...string) {
+	for _, name := range names {
+		data, err := read("static/" + name)
+		if err != nil {
+			continue
+		}
+		sum := sha256.Sum256(data)
+		assetSums[name] = hex.EncodeToString(sum[:])[:12]
+	}
 }
 
 // dayAt — дата необязательного времени.

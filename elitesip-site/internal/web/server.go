@@ -81,6 +81,11 @@ var pages = []string{
 func (s *Server) parseTemplates() error {
 	s.templates = make(map[string]*template.Template, len(pages))
 
+	// Отпечатки статики считаются здесь же, до первого разбора шаблонов:
+	// ссылку на лист собирает шаблонная функция `asset`, и к моменту разбора
+	// отпечатки обязаны быть готовы.
+	hashAssets(staticFS.ReadFile, "app.css", "app.js")
+
 	for _, name := range pages {
 		t, err := template.New("base.html").Funcs(templateFuncs).
 			ParseFS(templateFS, "templates/base.html", "templates/"+name+".html")

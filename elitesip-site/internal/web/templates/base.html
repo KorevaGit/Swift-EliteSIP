@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{.Title}} · Элитная поддержка</title>
-<link rel="stylesheet" href="/static/app.css?v=compact-1">
+<link rel="stylesheet" href="{{asset "app.css"}}">
 <link rel="icon" href="/static/brand-mark.png">
 <script>
     /* Тема ставится до первой отрисовки: иначе тёмная система на мгновение
@@ -147,6 +147,6 @@
     {{template "content" .}}
 {{end}}
 
-<script src="/static/app.js"></script>
+<script src="{{asset "app.js"}}"></script>
 </body>
 </html>
