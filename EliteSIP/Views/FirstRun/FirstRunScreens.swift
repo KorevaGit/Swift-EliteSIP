@@ -417,8 +417,16 @@ struct FirstRunUserScreen: View {
         SecureField("Административный пароль", text: $flow.adminPassword)
     }
 
+    /// Пара адресов АТС — одним рядом, как и добавочный с паролем.
+    ///
+    /// Рядом, а не двумя строками: это один ответ на вопрос «где АТС», а не две
+    /// настройки. Подписи внутри полей — на этом экране их нет ни у одного поля,
+    /// и заводить их ради одного ряда значило бы сломать вид всего экрана.
     private var hostField: some View {
-        TextField("Адрес АТС", text: $flow.host)
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            TextField("Адрес АТС из офиса", text: $flow.officeHost)
+            TextField("Адрес АТС из дома", text: $flow.remoteHost)
+        }
     }
 
 }

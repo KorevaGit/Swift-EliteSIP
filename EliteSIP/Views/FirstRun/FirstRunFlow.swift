@@ -107,8 +107,30 @@ final class FirstRunFlow: ObservableObject {
     /// руками, и спрашивать про площадку значило бы спрашивать дважды об одном.
     @Published var site: SIPProfileSite = .office
 
-    /// Адрес АТС — только для ручной ветки.
-    @Published var host = ""
+    /// Пара адресов одной и той же АТС — только для ручной ветки.
+    ///
+    /// Двумя полями, а не одним «Адрес АТС», с 27 августа 2026. Одно поле
+    /// заводило машину так, будто у АТС один адрес, а их два — изнутри сети и
+    /// снаружи, — и вторая половина пары оставалась заводской. Переключатель
+    /// «Работа» у менеджера после такой настройки уводил его на чужой адрес
+    /// либо не делал ничего, и починить это можно было только через
+    /// «Управление», куда менеджера не пускают.
+    ///
+    /// Заполнены заводской парой, а не пусты: у ручной ветки половина машин —
+    /// наши же, и стирать известный адрес ради того, чтобы его вписали заново,
+    /// незачем.
+    @Published var officeHost = SIPSiteAddresses.production.office
+    @Published var remoteHost = SIPSiteAddresses.production.remote
+
+    /// Адрес, на который машина зарегистрируется прямо сейчас.
+    ///
+    /// Офисный, если он вписан, иначе домашний: у удалённого места офисной
+    /// половины может не быть вовсе. Площадка при этом остаётся `.automatic` —
+    /// стучать или нет решает сам адрес.
+    var host: String {
+        let office = officeHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        return office.isEmpty ? remoteHost.trimmingCharacters(in: .whitespacesAndNewlines) : office
+    }
 
     /// Помашинный доступ, забранный тем же заходом, что и пакет.
     ///
@@ -191,8 +213,9 @@ final class FirstRunFlow: ObservableObject {
                 // Разобран выше; сюда не доходит.
                 return openedPackage != nil
             case .manual:
-                return !trimmedNumber.isEmpty && !password.isEmpty
-                    && !host.trimmingCharacters(in: .whitespaces).isEmpty
+                // Хотя бы одна половина пары: место бывает и чисто офисным,
+                // и чисто удалённым, а без обеих регистрироваться некуда.
+                return !trimmedNumber.isEmpty && !password.isEmpty && !host.isEmpty
             }
         }
     }

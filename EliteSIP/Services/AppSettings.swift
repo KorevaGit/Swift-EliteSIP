@@ -909,6 +909,33 @@ struct AppSettings: Codable, Sendable, Equatable {
             queues = try container.decodeIfPresent([Queue].self, forKey: .queues) ?? []
         }
 
+        /// Как называть раздачу, когда номер очереди в вызове не приехал.
+        ///
+        /// На боевом диалплане в `From` лежит номер клиента, а не номер
+        /// очереди (снято 27 августа 2026), и `title(forCallerNumber:)` там не
+        /// срабатывает никогда. Раздачу в этом случае узнаёт форма `From` — см.
+        /// `IncomingCallSubject.campaign`, — но какая именно из очередей
+        /// позвонила, из вызова не следует, и назвать её точно нечем.
+        ///
+        /// Поэтому название берётся у словаря целиком, и только когда оно
+        /// одно на все годные записи. У заказчика так и есть: сорок
+        /// очередей, и у всех «🔥Горячая раздача🔥» — то есть номер очереди
+        /// администратора и не интересовал, он вписывал их, чтобы номера **не**
+        /// показывались.
+        ///
+        /// `nil`, когда названий несколько: выбрать из них наугад значило бы
+        /// подписать вызов чужой кампанией, а это хуже, чем не подписать
+        /// вовсе. Тогда показывается то, что прислал сервер.
+        var commonTitle: String? {
+            var found: String?
+            for queue in queues where queue.isUsable {
+                let title = queue.title.trimmingCharacters(in: .whitespaces)
+                if let found, found != title { return nil }
+                found = title
+            }
+            return found
+        }
+
         /// Название раздачи по номеру звонящего. `nil` — вызов обычный.
         func title(forCallerNumber number: String) -> String? {
             let wanted = Queue.normalized(number)

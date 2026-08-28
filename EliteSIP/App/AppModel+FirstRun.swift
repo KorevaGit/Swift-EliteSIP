@@ -87,7 +87,7 @@ extension AppModel {
             return nil
 
         case .manual:
-            let host = flow.host.trimmingCharacters(in: .whitespacesAndNewlines)
+            let host = flow.host
             guard !host.isEmpty else { return nil }
             return (
                 SIPAccount(
@@ -186,7 +186,14 @@ extension AppModel {
             applyActivation(package)
 
         case .manual:
-            let host = flow.host.trimmingCharacters(in: .whitespacesAndNewlines)
+            let host = flow.host
+            // Пара адресов — из того же ввода, что и домен профиля. Без этой
+            // записи машина вставала с доменом от человека и с заводской парой
+            // рядом, и переключатель «Работа» уводил менеджера на чужой адрес.
+            settings.siteAddresses = SIPSiteAddresses(
+                office: flow.officeHost.trimmingCharacters(in: .whitespacesAndNewlines),
+                remote: flow.remoteHost.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
             // Домен равен адресу сервера, транспорт — умолчание. Площадка
             // остаётся `.automatic`: стучать или нет решает сам адрес
             // (`PortKnockSequence.isInternal`), и спрашивать об этом того, кто

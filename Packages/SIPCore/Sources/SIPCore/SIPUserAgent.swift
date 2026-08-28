@@ -1842,6 +1842,12 @@ public actor SIPUserAgent {
         )
 
         log(.info, "<- INVITE от \(call.displayNumber), ответили 180")
+        // ВРЕМЕННО (поиск добавочного раздающего сотрудника, 27 августа 2026).
+        // Печатает заголовки входящего INVITE как есть. Снять, когда решение
+        // про подпись под раздачей будет принято.
+        log(.debug, "<- INVITE сырые заголовки:\n" + request.headers.fields
+            .map { "  \($0.name): \($0.value)" }
+            .joined(separator: "\n"))
         continuation.yield(.state(.incoming))
         eventContinuation.yield(.incomingCall(call))
     }

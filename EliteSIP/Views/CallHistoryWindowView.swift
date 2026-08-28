@@ -1320,18 +1320,32 @@ private struct CallHistoryRow: View {
     /// Свой номер — из активного профиля; у записей чужого профиля его не
     /// бывает, потому что список профилем и так отобран.
     private var title: String {
-        guard record.direction == .incoming else { return record.title }
-        let subject = IncomingCallSubject(
+        switch subject {
+        case .none: return record.title
+        case .selfCall: return IncomingCallSubject.dealTitle
+        case .queue(let queueTitle, _): return queueTitle
+        // Не `record.title`: у записи без имени заголовком стоит номер, и
+        // мобильный обязан приехать сюда под маской, как и везде.
+        case .caller(let number, let name):
+            guard let name, !name.isEmpty else {
+                return IncomingCallSubject.shown(number: number)
+            }
+            return name
+        }
+    }
+
+    /// Разбор входящего — один на заголовок и на нижнюю строку.
+    ///
+    /// `nil` у исходящих: там про что вызов, знает сам оператор, он его и
+    /// набрал.
+    private var subject: IncomingCallSubject? {
+        guard record.direction == .incoming else { return nil }
+        return IncomingCallSubject(
             callerNumber: record.number,
             callerName: record.displayName,
             ownNumber: model.settings.account.username,
             queues: model.settings.queues
         )
-        switch subject {
-        case .selfCall: return IncomingCallSubject.dealTitle
-        case .queue(let queueTitle): return queueTitle
-        case .caller: return record.title
-        }
     }
 
     /// Под именем — то, чем оно подтверждается: сам номер, если наверху стоит
@@ -1350,8 +1364,24 @@ private struct CallHistoryRow: View {
         // строка у большинства звонков пустая — строка выглядит наполовину
         // отвалившейся, а высоту всё равно занимает, потому что справа под ней
         // стоит дата. Пустое место, которое нельзя убрать, хуже повтора.
-        if !record.number.isEmpty {
-            parts.append(record.number)
+        // Мобильный уходит вниз под маской — как и в окне входящего, и в
+        // шапке панели.
+        //
+        // Решение от 20 августа 2026 («номер не теряется — он остаётся ниже»)
+        // при этом устояло, но по другому доводу: тогда считалось, что внизу
+        // номер очереди, показывать который не жалко. Живые INVITE 27 августа
+        // показали обратное — очередь оставляет в `From` номер клиента, — и
+        // нижняя строка оказалась ровно тем местом, где скрытый в окне
+        // мобильный лежал открытым списком за весь день. Маска чинит это, не
+        // оставляя строку пустой.
+        //
+        // Исходящие маски не получают: туда номер набрал сам оператор.
+        if !record.number.isEmpty, subject?.hidesNumber != true {
+            parts.append(
+                record.direction == .incoming
+                    ? IncomingCallSubject.shown(number: record.number)
+                    : record.number
+            )
         }
         if record.role == .consultation {
             parts.append(NSLocalizedString("консультация", comment: "пометка звонка в истории"))

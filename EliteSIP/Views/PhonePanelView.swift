@@ -678,9 +678,11 @@ struct CallHeader: View {
 
                 HStack(spacing: Theme.Metrics.tightSpacing) {
                     // Номер показывается только когда крупным идёт имя, иначе
-                    // он повторил бы сам себя.
-                    if hasName {
-                        Text(model.activeLine?.peer ?? "")
+                    // он повторил бы сам себя. На раздаче и на звонке по сделке
+                    // его нет вовсе — решает это `IncomingCallSubject`, тот же,
+                    // что и в окне входящего.
+                    if let number = secondaryNumber {
+                        Text(number)
                             .font(Theme.Text.callerNumber)
                             .compatForeground(Theme.Palette.textSecondary)
                             .lineLimit(1)
@@ -715,14 +717,33 @@ struct CallHeader: View {
         }
     }
 
-    private var hasName: Bool {
-        !(model.activeLine?.displayName ?? "").isEmpty
+    /// Номер мелкой строкой — или ничего.
+    ///
+    /// У входящего решение принимает разбор вызова: он же прячет мобильный
+    /// клиента на раздаче. У исходящего разбора нет и быть не может — номер
+    /// набрал сам оператор, — поэтому там правило прежнее: номер под именем,
+    /// если имя есть.
+    private var secondaryNumber: String? {
+        guard let line = model.activeLine else { return nil }
+        if let subject = line.subject { return subject.secondaryNumber }
+        let name = line.displayName ?? ""
+        return name.isEmpty || line.peer.isEmpty ? nil : line.peer
     }
 
+
+    /// Крупная строка: про что вызов, а не откуда он пришёл.
+    ///
+    /// До 27 августа 2026 здесь стояло `displayName ?? peer` — то есть шапка
+    /// печатала то, что приехало в `From`, и знать не знала про разбор,
+    /// которым живёт окно входящего. Оператор видел «Вызов по сделке» на
+    /// входящем и собственный добавочный «172» через секунду после ответа, а
+    /// на раздаче — скрытый в окне мобильный клиента, показанный крупно в
+    /// панели.
     private var title: String {
-        let line = model.activeLine
-        let name = line?.displayName ?? ""
-        return name.isEmpty ? (line?.peer ?? "") : name
+        guard let line = model.activeLine else { return "" }
+        if let subject = line.subject { return subject.headline }
+        let name = line.displayName ?? ""
+        return name.isEmpty ? line.peer : name
     }
 
     private var duration: String? {
@@ -763,7 +784,11 @@ struct LineField: View {
                     )
                     .frame(width: Theme.Metrics.statusDotDiameter)
 
-                Text(line.displayName?.isEmpty == false ? line.displayName! : line.title)
+                // То же правило, что в шапке: линия на удержании не имеет
+                // права показывать номер, скрытый на входящем.
+                Text(line.subject?.headline ?? (
+                    line.displayName?.isEmpty == false ? line.displayName! : line.title
+                ))
                     .font(Theme.Text.lineTitle)
                     .lineLimit(1)
 

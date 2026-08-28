@@ -764,6 +764,17 @@ final class AppModel: ObservableObject {
         /// не с цифрами.
         var displayName: String?
 
+        /// Про что этот вызов — тот же разбор, по которому окно входящего
+        /// решает, что показать. `nil` у исходящих: там про что вызов, знает
+        /// сам оператор, он его и набрал.
+        ///
+        /// Хранится на линии, а не пересчитывается в шапке, по двум причинам.
+        /// Разбор опирается на настройки — словарь очередей и свой добавочный,
+        /// — а те правятся посреди разговора, и заголовок менялся бы под
+        /// оператором. И `From` после ответа уже недоступен: линия помнит
+        /// только то, что в неё положили.
+        var subject: IncomingCallSubject?
+
         /// Момент соединения. Ставится сам при переходе в разговор — иначе
         /// пришлось бы помнить об этом в трёх местах, откуда фаза меняется.
         var connectedAt: Date?
@@ -2112,6 +2123,7 @@ final class AppModel: ObservableObject {
             isOutgoing: false,
             peer: call.displayNumber,
             displayName: call.callerName,
+            subject: incomingSubject(for: call),
             phase: .incoming,
             status: NSLocalizedString("Входящий", comment: "состояние линии")
         ))
