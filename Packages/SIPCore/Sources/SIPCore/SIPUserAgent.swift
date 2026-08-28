@@ -1835,6 +1835,7 @@ public actor SIPUserAgent {
             callID: callID,
             callerNumber: from?.uri.user ?? "",
             callerName: from?.displayName,
+            requestsAutoAnswer: Self.requestsAutoAnswer(request),
             calledNumber: request.to?.uri.user ?? account.username,
             offer: request.body,
             offerContentType: request.contentType,
@@ -1842,14 +1843,24 @@ public actor SIPUserAgent {
         )
 
         log(.info, "<- INVITE от \(call.displayNumber), ответили 180")
-        // ВРЕМЕННО (поиск добавочного раздающего сотрудника, 27 августа 2026).
-        // Печатает заголовки входящего INVITE как есть. Снять, когда решение
-        // про подпись под раздачей будет принято.
-        log(.debug, "<- INVITE сырые заголовки:\n" + request.headers.fields
-            .map { "  \($0.name): \($0.value)" }
-            .joined(separator: "\n"))
         continuation.yield(.state(.incoming))
         eventContinuation.yield(.incomingCall(call))
+    }
+
+    /// Просит ли сервер снять трубку сам.
+    ///
+    /// Заголовок нестандартный и пишется у разных АТС по-разному, поэтому
+    /// сравнение нечувствительно к регистру с обеих сторон: имя приводит к
+    /// каноническому виду `SIPHeaders`, значение — мы здесь. `TRUE`, `true` и
+    /// `True` — одно и то же слово.
+    ///
+    /// Всё, кроме утвердительного значения, считается отсутствием просьбы:
+    /// `X-Autoanswer: FALSE` — это явное «не надо», и толковать его как признак
+    /// раздачи было бы прямо наоборот смыслу.
+    private static func requestsAutoAnswer(_ request: SIPRequest) -> Bool {
+        guard let value = request.headers.first("X-Autoanswer") else { return false }
+        let normalized = value.trimmingCharacters(in: .whitespaces).lowercased()
+        return normalized == "true" || normalized == "yes" || normalized == "1"
     }
 
     /// Отвечает на чужой повторный INVITE.

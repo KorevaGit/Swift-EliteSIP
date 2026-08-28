@@ -174,10 +174,14 @@ struct IncomingCallSettingsTab: View {
                 Button {
                     incomingCall.show(
                         subject: IncomingCallSubject(
-                            callerNumber: "2929",
-                            callerName: "AutoDialer",
-                            ownNumber: model.settings.account.username,
-                            queues: model.settings.queues
+                            // Боевая форма раздачи, а не выдуманная: добавочный
+                            // колл-центра и просьба автоответа. Проверка
+                            // показывает ровно то, что оператор увидит на живом
+                            // вызове, — ради этого её и открывают.
+                            callerNumber: "712",
+                            callerName: "Call_Center",
+                            requestsAutoAnswer: true,
+                            ownNumber: model.settings.account.username
                         ),
                         policy: model.settings.incomingCall,
                         onAnswer: {},
@@ -197,8 +201,7 @@ struct IncomingCallSettingsTab: View {
                         subject: IncomingCallSubject(
                             callerNumber: model.settings.account.username,
                             callerName: nil,
-                            ownNumber: model.settings.account.username,
-                            queues: model.settings.queues
+                            ownNumber: model.settings.account.username
                         ),
                         policy: model.settings.incomingCall,
                         onAnswer: {},

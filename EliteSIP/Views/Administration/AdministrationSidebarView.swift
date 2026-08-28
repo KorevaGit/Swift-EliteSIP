@@ -184,7 +184,9 @@ struct AdministrationSidebarView: View {
         case .macros:
             return now.dtmf != snapshot.dtmf
         case .queues:
-            return now.queues != snapshot.queues
+            // Раздел стал справкой: править в нём нечего, значит и разойтись со
+            // снимком он не может.
+            return false
         case .history:
             return now.history != snapshot.history
         case .diagnostics:

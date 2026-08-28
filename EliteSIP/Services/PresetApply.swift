@@ -25,11 +25,11 @@ extension AppSettings {
     mutating func apply(_ fields: ManagedFields) {
         applyDTMF(fields.dtmf)
         applyIncomingCall(fields.incomingCall)
-        applyQueues(fields.queues)
         applyConference(fields.conference)
         applyPortKnock(fields.portKnock)
         applySiteAddresses(fields.siteAddresses)
         applyTLSTrust(fields.acceptsAnyTLSCertificate)
+        applyTransport(fields.transport)
 
         // Признак «этим управляет сервер» выводится из режима машины, а не из
         // файла, и ставится здесь — в одном месте на все управляемые поля.
@@ -97,22 +97,6 @@ extension AppSettings {
         incomingCall = incomingCall.normalized
     }
 
-    // MARK: - Очереди
-
-    private mutating func applyQueues(_ incoming: ManagedFields.Queues?) {
-        guard let incoming, let list = incoming.queues else { return }
-
-        // Целиком, по той же причине, что и клавиши: убранная администратором
-        // очередь обязана исчезнуть.
-        queues = AppSettings.QueueDirectory(queues: list.map { queue in
-            var result = AppSettings.QueueDirectory.Queue()
-            result.id = Self.identity(queue.id)
-            if let number = queue.number { result.number = number }
-            if let title = queue.title { result.title = title }
-            return result
-        })
-    }
-
     // MARK: - Конференция
 
     private mutating func applyConference(_ incoming: ManagedFields.Conference?) {
@@ -169,6 +153,21 @@ extension AppSettings {
     private mutating func applyTLSTrust(_ incoming: Bool?) {
         guard let incoming else { return }
         acceptsAnyTLSCertificate = incoming
+    }
+
+    /// Протокол связи с АТС активного профиля.
+    ///
+    /// Незнакомая строка не применяется вовсе — это то же правило, что и у
+    /// `nil`, и по той же причине. Панель проверяет значение у себя и присылает
+    /// одно из двух, но разбор здесь обязан быть терпимым: приехавшее из
+    /// будущего `ws` не должно уводить рабочее место на UDP молча.
+    ///
+    /// Порт не трогается. Свой, вписанный руками, остаётся своим; пустой так и
+    /// остаётся пустым, и тогда `SIPAccount` берёт умолчание нового транспорта
+    /// по RFC 3261 — 5060 для UDP, 5061 для TLS.
+    private mutating func applyTransport(_ incoming: String?) {
+        guard let incoming, let transport = SIPTransport(name: incoming) else { return }
+        profiles.active.account.transport = transport
     }
 
     // MARK: - Опознание строк

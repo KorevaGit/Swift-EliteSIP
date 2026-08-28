@@ -28,7 +28,6 @@ public struct ManagedFields: Sendable, Equatable {
 
     public var dtmf: DTMF?
     public var incomingCall: CallGuard?
-    public var queues: Queues?
     public var conference: Conference?
     public var portKnock: PortKnock?
     public var siteAddresses: SiteAddresses?
@@ -36,6 +35,18 @@ public struct ManagedFields: Sendable, Equatable {
     /// Живёт в приложении внутри активного профиля, а не в `AppSettings`, —
     /// поэтому и в контракте стоит полем верхнего уровня.
     public var acceptsAnyTLSCertificate: Bool?
+
+    /// Протокол связи с АТС: `udp` или `tls`.
+    ///
+    /// Строкой, а не `SIPTransport`, потому что `PanelLink` не зависит от
+    /// `SIPCore` и зависеть не должен: здесь разбор байтов панели, а не модель
+    /// линии. Опознаёт строку тот, кто накладывает поля, — там же, где живёт
+    /// правило «незнакомое не применяется».
+    ///
+    /// Управляется панелью потому, что это свойство АТС, а не машины: сменили
+    /// на стороне сервера — сменить надо разом на всех местах. Порт с
+    /// протоколом не приезжает: умолчания RFC 3261 приложение знает само.
+    public var transport: String?
 
     // MARK: - Блоки
 
@@ -90,16 +101,6 @@ public struct ManagedFields: Sendable, Equatable {
         }
     }
 
-    public struct Queues: Sendable, Equatable, Decodable {
-        public var queues: [Queue]?
-    }
-
-    public struct Queue: Sendable, Equatable, Decodable {
-        public var id: String?
-        public var number: String?
-        public var title: String?
-    }
-
     public struct Conference: Sendable, Equatable, Decodable {
         public var featureCode: String?
         public var roomExtension: String?
@@ -143,11 +144,11 @@ public struct ManagedFields: Sendable, Equatable {
 
         fields.dtmf = decode(DTMF.self, from: root["dtmf"])
         fields.incomingCall = decode(CallGuard.self, from: root["incomingCall"])
-        fields.queues = decode(Queues.self, from: root["queues"])
         fields.conference = decode(Conference.self, from: root["conference"])
         fields.portKnock = decode(PortKnock.self, from: root["portKnock"])
         fields.siteAddresses = decode(SiteAddresses.self, from: root["siteAddresses"])
         fields.acceptsAnyTLSCertificate = root["acceptsAnyTLSCertificate"] as? Bool
+        fields.transport = root["transport"] as? String
 
         return fields
     }

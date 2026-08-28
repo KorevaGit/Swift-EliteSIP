@@ -58,7 +58,6 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// Заводит администратор, менеджеру недоступен. Пустой словарь ничего не
     /// ломает: без совпадения вызов считается обычным и показывает номер, то
     /// есть ровно прежнее поведение.
-    var queues: QueueDirectory = QueueDirectory()
     var minimumLogLevel: SIPLogLevel
 
     /// Журнал в файле. Отдельно от `minimumLogLevel`: на экране нужен короткий,
@@ -214,7 +213,6 @@ struct AppSettings: Codable, Sendable, Equatable {
         ringtone: RingtoneSettings = RingtoneSettings(),
         dtmf: DTMFSettings = DTMFSettings(),
         conference: ConferenceSettings = ConferenceSettings(),
-        queues: QueueDirectory = QueueDirectory(),
         minimumLogLevel: SIPLogLevel = .info,
         logFile: LogFileSettings = LogFileSettings(),
         history: CallHistorySettings = CallHistorySettings(),
@@ -230,7 +228,6 @@ struct AppSettings: Codable, Sendable, Equatable {
         self.ringtone = ringtone
         self.dtmf = dtmf
         self.conference = conference
-        self.queues = queues
         self.minimumLogLevel = minimumLogLevel
         self.logFile = logFile
         self.history = history
@@ -264,7 +261,6 @@ struct AppSettings: Codable, Sendable, Equatable {
         conference =
             try container.decodeIfPresent(ConferenceSettings.self, forKey: .conference)
                 ?? ConferenceSettings()
-        queues = try container.decodeIfPresent(QueueDirectory.self, forKey: .queues) ?? QueueDirectory()
         minimumLogLevel = try container.decodeIfPresent(SIPLogLevel.self, forKey: .minimumLogLevel) ?? .info
         // Файла настроек без этого ключа достаточно, чтобы журнал заработал:
         // умолчание включено. Диагностика, которую надо сперва включить, не
@@ -846,104 +842,6 @@ struct AppSettings: Codable, Sendable, Equatable {
 
         func sequence(of macro: Macro) -> DTMFSequence {
             DTMFSequence(macro.sequence, pauseMilliseconds: pauseMilliseconds)
-        }
-    }
-
-    /// Соответствия «номер очереди → как называть раздачу оператору».
-    ///
-    /// Существует ради одного места — главной строки окна входящего. По боевым
-    /// CDR на плечо агента приходит CallerID очереди, а не клиента: клиентский
-    /// лежит в `accountcode` и в SIP не приезжает вовсе. То есть на раздаче
-    /// номер одинаков от вызова к вызову и не сообщает ничего, а название
-    /// кампании сообщает, как здороваться.
-    ///
-    /// Словарь заодно и различает два вида входящих. Номер найден — это
-    /// раздача, и номер в окне не показывается вовсе. Не найден — обычный
-    /// звонок, коллега по внутреннему или клиент, и номер остаётся главным.
-    /// Отдельного признака «это очередь» в SIP нет, а гадать по длине номера
-    /// или по имени `AutoDialer` значило бы зашить в клиент чужой диалплан.
-    struct QueueDirectory: Codable, Sendable, Equatable {
-
-        struct Queue: Codable, Sendable, Equatable, Identifiable, Hashable {
-            var id: UUID = UUID()
-            /// Номер, с которого приходит раздача. В боевой конфигурации 2929.
-            var number: String = ""
-            /// Как называть её оператору: «Горячий лид», «Повторное обращение».
-            var title: String = ""
-
-            init(id: UUID = UUID(), number: String = "", title: String = "") {
-                self.id = id
-                self.number = number
-                self.title = title
-            }
-
-            init(from decoder: Decoder) throws {
-                let container = try decoder.container(keyedBy: CodingKeys.self)
-                id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-                number = try container.decodeIfPresent(String.self, forKey: .number) ?? ""
-                title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
-            }
-
-            /// Годна ли запись к применению. Половина записи хуже её отсутствия:
-            /// номер без названия убрал бы номер из окна и не дал взамен ничего.
-            var isUsable: Bool {
-                !Queue.normalized(number).isEmpty
-                    && !title.trimmingCharacters(in: .whitespaces).isEmpty
-            }
-
-            /// Сравнение по цифрам: номер в настройки вписывает человек, а
-            /// человек пишет и «2929», и «29 29».
-            static func normalized(_ number: String) -> String {
-                number.filter { $0.isNumber || $0 == "*" || $0 == "#" }
-            }
-        }
-
-        var queues: [Queue] = []
-
-        init(queues: [Queue] = []) {
-            self.queues = queues
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            queues = try container.decodeIfPresent([Queue].self, forKey: .queues) ?? []
-        }
-
-        /// Как называть раздачу, когда номер очереди в вызове не приехал.
-        ///
-        /// На боевом диалплане в `From` лежит номер клиента, а не номер
-        /// очереди (снято 27 августа 2026), и `title(forCallerNumber:)` там не
-        /// срабатывает никогда. Раздачу в этом случае узнаёт форма `From` — см.
-        /// `IncomingCallSubject.campaign`, — но какая именно из очередей
-        /// позвонила, из вызова не следует, и назвать её точно нечем.
-        ///
-        /// Поэтому название берётся у словаря целиком, и только когда оно
-        /// одно на все годные записи. У заказчика так и есть: сорок
-        /// очередей, и у всех «🔥Горячая раздача🔥» — то есть номер очереди
-        /// администратора и не интересовал, он вписывал их, чтобы номера **не**
-        /// показывались.
-        ///
-        /// `nil`, когда названий несколько: выбрать из них наугад значило бы
-        /// подписать вызов чужой кампанией, а это хуже, чем не подписать
-        /// вовсе. Тогда показывается то, что прислал сервер.
-        var commonTitle: String? {
-            var found: String?
-            for queue in queues where queue.isUsable {
-                let title = queue.title.trimmingCharacters(in: .whitespaces)
-                if let found, found != title { return nil }
-                found = title
-            }
-            return found
-        }
-
-        /// Название раздачи по номеру звонящего. `nil` — вызов обычный.
-        func title(forCallerNumber number: String) -> String? {
-            let wanted = Queue.normalized(number)
-            guard !wanted.isEmpty else { return nil }
-            return queues
-                .first { $0.isUsable && Queue.normalized($0.number) == wanted }?
-                .title
-                .trimmingCharacters(in: .whitespaces)
         }
     }
 

@@ -2106,8 +2106,8 @@ final class AppModel: ObservableObject {
         IncomingCallSubject(
             callerNumber: call.displayNumber,
             callerName: call.callerName,
-            ownNumber: settings.account.username,
-            queues: settings.queues
+            requestsAutoAnswer: call.requestsAutoAnswer,
+            ownNumber: settings.account.username
         )
     }
 
@@ -2145,7 +2145,11 @@ final class AppModel: ObservableObject {
             direction: .incoming,
             number: call.callerNumber,
             sipLogin: call.callerNumber.isEmpty ? nil : call.callerNumber,
-            displayName: call.callerName
+            displayName: call.callerName,
+            // Признак раздачи хранится в записи: заголовок, по которому она
+            // узнаётся, живёт не дольше вызова, а номер и имя у раздачи и у
+            // звонка коллеги неотличимы.
+            wasDistribution: call.requestsAutoAnswer
         )
 
         if !settings.incomingCall.isEnabled {

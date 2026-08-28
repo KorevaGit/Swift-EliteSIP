@@ -90,7 +90,8 @@ extension AppModel {
         number: String,
         sipLogin: String? = nil,
         displayName: String? = nil,
-        role: CallRecord.Role = .primary
+        role: CallRecord.Role = .primary,
+        wasDistribution: Bool = false
     ) {
         guard let historyStore else { return }
         let record = CallRecord(
@@ -106,7 +107,8 @@ extension AppModel {
             // читаемой. Правило «пустая метка значит номер» берётся у самого
             // профиля, а не повторяется здесь — иначе два места однажды
             // разойдутся.
-            profileLabel: settings.profiles.active.title
+            profileLabel: settings.profiles.active.title,
+            wasDistribution: wasDistribution
         )
         historyRecordIDs[lineID] = record.id
         historyStore.begin(record)
@@ -247,28 +249,6 @@ extension AppModel {
         guard let historyStore else { return 0 }
         historyStore.flush()
         return historyStore.count(matching: .all, scope: CallHistoryStore.Scope(profileID: id))
-    }
-
-    /// Номера, которые приходили на эту машину, но в словаре очередей не
-    /// названы.
-    ///
-    /// Подсказка для «Очередей», и она отвечает на настоящую нехватку: номера
-    /// очередей знает Asterisk заказчика, а боевой сервер у нас на чтение.
-    /// Вбитая с голоса ошибка в цифре не проявляется ничем — вызов просто
-    /// остаётся без названия.
-    ///
-    /// **В словарь ничего не попадает само.** Список только предлагает; строку
-    /// заводит нажатие, и название всё равно вписывает человек. Иначе словарь
-    /// зарос бы номерами, пришедшими не из очереди.
-    func unnamedIncomingNumbers() -> [NumberSighting] {
-        guard let historyStore else { return [] }
-        historyStore.flush()
-        // Длина отсекает лидов: номер очереди на FreePBX короткий, номер
-        // клиента — полный телефонный. Шесть цифр покрывают и трёхзначные
-        // добавочные, и четырёхзначные очереди боевой АТС.
-        return historyStore
-            .incomingNumbers(maximumDigits: 6)
-            .filter { settings.queues.title(forCallerNumber: $0.number) == nil }
     }
 
     /// Удаляет историю профилей, которых больше нет.

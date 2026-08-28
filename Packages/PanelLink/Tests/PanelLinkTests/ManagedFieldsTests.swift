@@ -18,11 +18,26 @@ struct ManagedFieldsTests {
 
         #expect(fields.dtmf != nil)
         #expect(fields.incomingCall == nil)
-        #expect(fields.queues == nil)
         #expect(fields.conference == nil)
         #expect(fields.portKnock == nil)
         #expect(fields.siteAddresses == nil)
         #expect(fields.acceptsAnyTLSCertificate == nil)
+        #expect(fields.transport == nil)
+    }
+
+    /// Протокол приезжает строкой и разбирается строкой: опознаёт её тот, кто
+    /// накладывает поля, — там же, где живёт правило «незнакомое не применяется».
+    @Test("протокол связи с АТС читается как есть")
+    func transportIsReadVerbatim() {
+        #expect(parse(#"{"transport":"udp"}"#).transport == "udp")
+        #expect(parse(#"{"transport":"tls"}"#).transport == "tls")
+
+        // Незнакомое сюда доходит нетронутым — отсеивает его наложение, а не
+        // разбор: разбор не знает, что умеет линия.
+        #expect(parse(#"{"transport":"ws"}"#).transport == "ws")
+
+        // Не строка — это не «умолчание», а «поля нет»: машина сохранит своё.
+        #expect(parse(#"{"transport":5060}"#).transport == nil)
     }
 
     /// То же правило на уровне поля: «панель прислала ноль» и «панель ничего не
@@ -99,13 +114,12 @@ struct ManagedFieldsTests {
             .contains { $0.label == "isServerManaged" } == false)
     }
 
-    @Test("клавиши и очереди разбираются списком")
+    @Test("клавиши разбираются списком")
     func listsAreParsed() {
         let fields = parse("""
             {"dtmf":{"macros":[
                {"id":"a","title":"ЮРИСТ","sequence":"*02,101","transfersCall":true},
-               {"id":"b","title":"СКЛАД","sequence":"*02,110"}]},
-             "queues":{"queues":[{"id":"q","number":"1000","title":"Раздача"}]}}
+               {"id":"b","title":"СКЛАД","sequence":"*02,110"}]}}
             """)
 
         let macros = fields.dtmf?.macros
@@ -115,9 +129,20 @@ struct ManagedFieldsTests {
         // У второй клавиши пометки нет — и это «администратор не сказал», а не
         // «перевода тут нет».
         #expect(macros?[1].transfersCall == nil)
+    }
 
-        #expect(fields.queues?.queues?.count == 1)
-        #expect(fields.queues?.queues?[0].number == "1000")
+    /// Панель прежних ревизий шлёт словарь очередей — клиент его больше не
+    /// знает. Незнакомый ключ обязан быть пропущен молча, а не уронить разбор:
+    /// иначе машина, не успевшая получить новую ревизию, осталась бы вообще без
+    /// управляемых полей.
+    @Test("словарь очередей от старой панели пропускается молча")
+    func retiredQueueDictionaryIsIgnored() {
+        let fields = parse("""
+            {"queues":{"queues":[{"id":"q","number":"1000","title":"Раздача"}]},
+             "conference":{"featureCode":"*3"}}
+            """)
+
+        #expect(fields.conference?.featureCode == "*3")
     }
 
     @Test("стук разбирается вместе с шагами")

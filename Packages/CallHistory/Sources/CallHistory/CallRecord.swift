@@ -161,6 +161,19 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
     public var wasTransferred: Bool
     public var wasConference: Bool
 
+    /// Пришёл ли этот вызов раздачей лида.
+    ///
+    /// Хранится, а не выводится заново при показе, и это принципиально.
+    /// Раздачу отличает от звонка коллеги единственный признак — заголовок
+    /// `X-Autoanswer` во входящем INVITE, — а он живёт ровно столько, сколько
+    /// сам вызов. Номер и имя, которые остаются в записи, у раздачи и у
+    /// коллеги неотличимы: у обоих внутренний добавочный и подпись.
+    ///
+    /// `false` у записей, заведённых до появления колонки: старую раздачу
+    /// история покажет номером, как показывала до 28 августа 2026. Пересчитать
+    /// её задним числом не из чего.
+    public var wasDistribution: Bool
+
     public init(
         id: UUID = UUID(),
         callID: String,
@@ -178,7 +191,8 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
         endReason: String? = nil,
         outcomeCode: Outcome? = nil,
         wasTransferred: Bool = false,
-        wasConference: Bool = false
+        wasConference: Bool = false,
+        wasDistribution: Bool = false
     ) {
         self.id = id
         self.callID = callID
@@ -197,6 +211,7 @@ public struct CallRecord: Sendable, Identifiable, Equatable {
         self.outcomeCode = outcomeCode
         self.wasTransferred = wasTransferred
         self.wasConference = wasConference
+        self.wasDistribution = wasDistribution
     }
 
     /// Разговор состоялся.

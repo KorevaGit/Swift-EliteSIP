@@ -35,6 +35,21 @@ public struct SIPIncomingCall: Sendable {
     /// Отображаемое имя из From, если сервер его прислал.
     public let callerName: String?
 
+    /// Сервер просит снять трубку самостоятельно (`X-Autoanswer: TRUE`).
+    ///
+    /// Заголовок нестандартный: его ставит диалплан заказчика, и ставит ровно
+    /// на раздачу лида — снято с боевых вызовов 28 августа 2026, три раздачи
+    /// подряд с ним и семнадцать прочих входящих без него.
+    ///
+    /// Для `SIPCore` это только факт из заголовка, а не команда. **Мы ему не
+    /// подчиняемся, и это не упущение.** Приложение написано затем, чтобы
+    /// принятие вызова требовало живого человека (docs/anti-autoclicker.md);
+    /// автоответ по просьбе сервера отдал бы лид пустому месту — ровно то, от
+    /// чего защищаемся. Наверх факт уходит потому, что в нём есть другой смысл:
+    /// он единственный отличает раздачу от обычного звонка коллеги, у которого
+    /// такой же внутренний номер и такое же имя.
+    public let requestsAutoAnswer: Bool
+
     /// Номер, на который звонили. Отличается от нашего, когда вызов пришёл
     /// через очередь или переадресацию.
     public let calledNumber: String
@@ -50,6 +65,7 @@ public struct SIPIncomingCall: Sendable {
         callID: String,
         callerNumber: String,
         callerName: String?,
+        requestsAutoAnswer: Bool = false,
         calledNumber: String,
         offer: Data,
         offerContentType: String?,
@@ -58,6 +74,7 @@ public struct SIPIncomingCall: Sendable {
         self.callID = callID
         self.callerNumber = callerNumber
         self.callerName = callerName
+        self.requestsAutoAnswer = requestsAutoAnswer
         self.calledNumber = calledNumber
         self.offer = offer
         self.offerContentType = offerContentType

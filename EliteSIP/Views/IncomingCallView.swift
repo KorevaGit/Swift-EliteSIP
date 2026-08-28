@@ -77,6 +77,23 @@ enum IncomingCallSubject: Equatable {
     /// про него забыли, и молча сломать его при смене добавочного.
     static let dealTitle = NSLocalizedString("Вызов по сделке", comment: "заголовок окна входящего по сделке")
 
+    /// Заголовок раздачи.
+    ///
+    /// Строкой в коде, а не настройкой, и это отмена словаря очередей
+    /// (28 августа 2026). Словарь сверял номер звонящего с номером очереди —
+    /// а боевой диалплан в вызов номер очереди не кладёт вовсе: там добавочный
+    /// сотрудника, переведшего лид. Сорок заполненных записей не совпадали ни
+    /// с одним вызовом и не могли совпасть; от словаря работало ровно одно —
+    /// название, одинаковое во всех сорока.
+    ///
+    /// Соседство с `dealTitle` не случайно: тот стал строкой в коде по тому же
+    /// доводу. Настройка, которую невозможно заполнить неправильно, — это не
+    /// настройка, а обряд, и цена ему — сломанная подпись у всех разом, стоит
+    /// одному из сорока названий разойтись с прочими.
+    static let distributionTitle = NSLocalizedString(
+        "🔥Горячая раздача🔥", comment: "заголовок окна входящего на раздаче"
+    )
+
     /// Разбор того, что пришло в INVITE.
     ///
     /// Одно место на все вызовы окна, включая проверочный показ из настроек:
@@ -90,27 +107,41 @@ enum IncomingCallSubject: Equatable {
     init(
         callerNumber: String,
         callerName: String?,
-        ownNumber: String,
-        queues: AppSettings.QueueDirectory
+        requestsAutoAnswer: Bool = false,
+        ownNumber: String
     ) {
-        let own = AppSettings.QueueDirectory.Queue.normalized(ownNumber)
-        let caller = AppSettings.QueueDirectory.Queue.normalized(callerNumber)
+        let own = Self.digits(ownNumber)
+        let caller = Self.digits(callerNumber)
 
         if !own.isEmpty, own == caller {
             self = .selfCall
-        } else if let title = queues.title(forCallerNumber: callerNumber) {
-            self = .queue(title: title, number: callerNumber)
-        } else if let campaign = Self.campaign(number: caller, name: callerName) {
-            // Название — из словаря, а не то, что прислал сервер. Сервер
-            // присылает склейку диалплана («MTS TestIT_Peleshko»), и читать её
-            // оператору незачем: она называет транк и кампанию, а не то, как
-            // здороваться. Словарь называет раздачу словами, которые выбрал
-            // администратор. Имя из `From` остаётся запасным — на случай, когда
-            // словарь пуст или названий в нём несколько.
-            self = .queue(title: queues.commonTitle ?? campaign, number: callerNumber)
+        } else if requestsAutoAnswer {
+            // Просьба снять трубку самостоятельно — и есть признак раздачи.
+            //
+            // Прямой признак, а не догадка по форме `From`, и потому главный.
+            // Боевая раздача приходит с внутреннего номера и с именем, то есть
+            // выглядит ровно как звонок коллеги, и отличить их по номеру или
+            // имени нельзя в принципе:
+            //
+            // ```
+            // раздача:  "Call_Center"                   <716>  X-Autoanswer: TRUE
+            // раздача:  "GORACHAYA RAZDACHACall Center"  <710>  X-Autoanswer: TRUE
+            // коллега:  "Semenov_Artyom"                 <132>  — заголовка нет
+            // ```
+            self = .queue(title: Self.distributionTitle, number: callerNumber)
+        } else if Self.campaign(number: caller, name: callerName) {
+            self = .queue(title: Self.distributionTitle, number: callerNumber)
         } else {
             self = .caller(number: callerNumber, name: callerName)
         }
+    }
+
+    /// Только цифры и служебные знаки.
+    ///
+    /// Номер приходит из SIP по-разному: `+7…`, `8 (918)…`, просто `712`.
+    /// Сравнивать их между собой можно только по цифрам.
+    private static func digits(_ number: String) -> String {
+        number.filter { $0.isNumber || $0 == "*" || $0 == "#" }
     }
 
     /// Сколько цифр делает номер внешним.
@@ -134,14 +165,13 @@ enum IncomingCallSubject: Equatable {
     /// добавочного.
     ///
     /// - Parameter number: только цифры, уже нормализованные.
-    /// - Returns: название кампании или `nil`, если вызов не раздача.
-    private static func campaign(number: String, name: String?) -> String? {
-        guard let name else { return nil }
+    /// - Returns: раздача ли это.
+    private static func campaign(number: String, name: String?) -> Bool {
+        guard let name else { return false }
         let title = name.trimmingCharacters(in: .whitespaces)
-        guard !title.isEmpty else { return nil }
-        guard AppSettings.QueueDirectory.Queue.normalized(title) != number else { return nil }
-        guard number.count >= externalNumberLength else { return nil }
-        return title
+        guard !title.isEmpty else { return false }
+        guard digits(title) != number else { return false }
+        return number.count >= externalNumberLength
     }
 
     /// Мобильный номер под маской: `+7` и звёздочки.
@@ -162,7 +192,7 @@ enum IncomingCallSubject: Equatable {
     ///
     /// - Returns: маска или `nil`, если номер не мобильный.
     static func masked(_ number: String) -> String? {
-        let digits = AppSettings.QueueDirectory.Queue.normalized(number)
+        let digits = Self.digits(number)
         guard digits.count == 11 else { return nil }
         guard digits.first == "7" || digits.first == "8" else { return nil }
         guard digits.dropFirst().first == "9" else { return nil }

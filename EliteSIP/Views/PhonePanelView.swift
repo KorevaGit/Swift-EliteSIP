@@ -635,10 +635,12 @@ struct PhonePanelView: View {
     private func showIncomingCallDemo() {
         incomingCall.show(
             subject: IncomingCallSubject(
-                callerNumber: "2929",
-                callerName: "AutoDialer",
-                ownNumber: model.settings.account.username,
-                queues: model.settings.queues
+                // Боевая форма раздачи: добавочный колл-центра и просьба
+                // автоответа, по которой она и опознаётся.
+                callerNumber: "712",
+                callerName: "Call_Center",
+                requestsAutoAnswer: true,
+                ownNumber: model.settings.account.username
             ),
             policy: model.settings.incomingCall,
             onAnswer: {},

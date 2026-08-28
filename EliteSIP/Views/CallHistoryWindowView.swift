@@ -1343,8 +1343,8 @@ private struct CallHistoryRow: View {
         return IncomingCallSubject(
             callerNumber: record.number,
             callerName: record.displayName,
-            ownNumber: model.settings.account.username,
-            queues: model.settings.queues
+            requestsAutoAnswer: record.wasDistribution,
+            ownNumber: model.settings.account.username
         )
     }
 

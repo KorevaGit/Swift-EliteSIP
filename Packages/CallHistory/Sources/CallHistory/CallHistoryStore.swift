@@ -89,7 +89,7 @@ public final class CallHistoryStore: @unchecked Sendable {
     private static let recordColumns = """
         id, call_id, server_call_id, direction, role, number, sip_login, display_name, \
         profile_id, profile_label, started_at, answered_at, ended_at, end_reason, \
-        outcome_code, was_transferred, was_conference
+        outcome_code, was_transferred, was_conference, was_distribution
         """
 
     /// Что показывает окно, кроме направления.
@@ -229,7 +229,8 @@ public final class CallHistoryStore: @unchecked Sendable {
                 end_reason TEXT,
                 outcome_code INTEGER,
                 was_transferred INTEGER NOT NULL DEFAULT 0,
-                was_conference INTEGER NOT NULL DEFAULT 0
+                was_conference INTEGER NOT NULL DEFAULT 0,
+                was_distribution INTEGER NOT NULL DEFAULT 0
             );
             """)
 
@@ -275,6 +276,13 @@ public final class CallHistoryStore: @unchecked Sendable {
         let columns = try database.query("PRAGMA table_info(calls);") { $0.text(1) ?? "" }
         if !columns.contains("outcome_code") {
             try database.execute("ALTER TABLE calls ADD COLUMN outcome_code INTEGER;")
+        }
+        // Раздача лида. Умолчание — ноль, то есть «обычный звонок»: у записей,
+        // заведённых до 28 августа 2026, признака нет и взять его негде.
+        if !columns.contains("was_distribution") {
+            try database.execute(
+                "ALTER TABLE calls ADD COLUMN was_distribution INTEGER NOT NULL DEFAULT 0;"
+            )
         }
     }
 
@@ -324,7 +332,7 @@ public final class CallHistoryStore: @unchecked Sendable {
             try? database.run(
                 """
                 INSERT OR REPLACE INTO calls (\(Self.recordColumns))
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 [
                     .text(record.id.uuidString),
@@ -344,6 +352,7 @@ public final class CallHistoryStore: @unchecked Sendable {
                     Self.code(record.outcomeCode),
                     .flag(record.wasTransferred),
                     .flag(record.wasConference),
+                    .flag(record.wasDistribution),
                 ]
             )
         }
@@ -652,7 +661,8 @@ public final class CallHistoryStore: @unchecked Sendable {
             // прочтение отвечало на оба вопроса.
             outcomeCode: CallRecord.Outcome(rawValue: Int(row.integer(14))),
             wasTransferred: row.flag(15),
-            wasConference: row.flag(16)
+            wasConference: row.flag(16),
+            wasDistribution: row.flag(17)
         )
     }
 
