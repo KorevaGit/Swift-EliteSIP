@@ -39,3 +39,6 @@ Lab/.env
 
 # Снимки конфигов FreePBX-стенда — рабочие файлы, не история проекта
 Lab/freepbx-snapshots/
+
+# Установщики на сайте — артефакты выпуска, лежат в build/release и на сервере.
+Site/downloads/
