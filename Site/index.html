@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>EliteSIP — телефон для macOS</title>
-<meta name="description" content="Рабочий телефон конторы для Mac: линии, перевод, конференция, история звонков. Две сборки — под процессоры Apple и под Intel.">
+<meta name="description" content="Нативный телефон для Mac под нашу АТС: история звонков со снимками экрана, переключение офис/дом, обновления сами, подключение одним ключом.">
 <link rel="icon" href="assets/icon-256.png" type="image/png">
 <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -15,10 +15,10 @@
   <div class="wrap top-in">
     <a class="brand" href="/"><img src="assets/icon-256.png" alt="" width="30" height="30">EliteSIP</a>
     <nav class="nav">
+      <a href="#istoriya">История</a>
+      <a href="#rabota">Офис и дом</a>
+      <a href="#klyuch">Подключение</a>
       <a href="#skachat">Скачать</a>
-      <a href="#umeet">Возможности</a>
-      <a href="#obnovleniya">Обновления</a>
-      <a href="#nachat">Как начать</a>
     </nav>
     <a class="btn" href="#skachat">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 2v9m0 0L4.6 7.6M8 11l3.4-3.4M2.5 13.5h11"/></svg>
@@ -31,31 +31,178 @@
 
 <section class="band-tight">
   <div class="wrap">
-    <p class="display" data-headline>
-      <span data-when-unknown>Рабочий телефон для Mac.</span>
-      <span data-when-known hidden>Ваш Mac — <span data-arch-slot></span>.</span>
+    <h1 class="display" style="max-width:14ch">Телефон для тех, кто говорит весь день.</h1>
+    <p class="lead" style="margin-top:var(--s7);max-width:50ch">
+      EliteSIP — приложение macOS для нашей АТС. Не универсальный SIP-клиент, который надо
+      настраивать по бумажке, а рабочий телефон: подключается одним ключом, помнит все разговоры,
+      переключается между офисом и домом и обновляется сам.
     </p>
-    <p class="lead" style="margin-top:var(--s7);max-width:46ch">
-      Приложение одно, выпусков два: под процессоры Apple и под Intel. Если не знаете, какой у вас, —
-      меню Apple в углу экрана, «Об этом Mac», строка «Чип» или «Процессор».
-    </p>
+    <div style="display:flex;gap:var(--s4);flex-wrap:wrap;margin-top:var(--s7)">
+      <a class="btn" href="#skachat">Скачать для Mac</a>
+      <a class="btn btn-quiet" href="#istoriya">Что внутри</a>
+    </div>
   </div>
 </section>
 
-<!-- Выбор сборки. Страница определяет Mac и отмечает нужную, но обе остаются
-     с настоящими кнопками: ошибись определение — человек не в тупике. -->
-<section class="band-tight" id="skachat">
+<section class="band-tight">
   <div class="wrap">
-    <div class="picks">
-      <article class="pick" data-arch="arm64" data-arch-name="Apple Silicon">
-        <div class="pick-tag">
-          <span class="label">arm64</span>
-          <span class="verdict">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>
-            это ваш Mac
-          </span>
-        </div>
-        <h2>Apple Silicon</h2>
+    <figure class="shot shot-wide">
+      <img onerror="this.closest('figure').hidden=true" src="assets/shots/call.png" alt="Экран вызова EliteSIP: номер, кнопки удержания, перевода и конференции, быстрые набор-кнопки" width="1200" height="900">
+      <figcaption>Экран вызова: линия, быстрые кнопки и всё обслуживание разговора в одном окне</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="band rule-top" id="istoriya">
+  <div class="wrap">
+    <div class="feature">
+      <div class="feature-copy">
+        <span class="label">История</span>
+        <h2>История, в которой правда можно разобраться</h2>
+        <p>
+          Все разговоры за смену: кто, когда, сколько длился и чем закончился — «занято»,
+          «не ответил», продолжительность до секунды. Отбор по входящим, исходящим и пропущенным,
+          группировка по дням, поиск.
+        </p>
+        <p>
+          И то, чего нет в обычном софтфоне: <strong>к звонку можно приложить снимок экрана</strong>.
+          Разговор, о котором потом спорят, перестаёт быть словом против слова.
+        </p>
+      </div>
+      <figure class="shot feature-shot">
+        <img onerror="this.closest('figure').hidden=true" src="assets/shots/history.png" alt="Окно истории звонков: фильтры, длительность и статусы разговоров по дням" width="1240" height="820">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="band rule-top" id="rabota">
+  <div class="wrap">
+    <div class="feature flip">
+      <div class="feature-copy">
+        <span class="label">Рабочее место</span>
+        <h2>Офис и дом — одним переключателем</h2>
+        <p>
+          Из офиса АТС видна по внутреннему адресу, из дома — нет. В обычном клиенте это означает
+          лезть в настройки и менять сервер руками каждый раз.
+        </p>
+        <p>
+          Здесь — переключатель. Он меняет адрес АТС и заново поднимает регистрацию. А если из дома
+          перестало подключаться без видимой причины — сменился адрес у домашнего интернета, —
+          есть кнопка «Исправить сеть»: открывает дорогу до АТС снаружи, один раз и прямо сейчас.
+        </p>
+      </div>
+      <figure class="shot feature-shot">
+        <img onerror="this.closest('figure').hidden=true" src="assets/shots/settings.png" alt="Настройки: переключатель «Офис / Из дома» и кнопка «Исправить сеть»" width="1340" height="1020">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="band rule-top" id="klyuch">
+  <div class="wrap two">
+    <div>
+      <span class="label">Подключение</span>
+      <h2 style="margin-top:var(--s4)">Один ключ вместо страницы настроек</h2>
+      <p class="lead" style="margin-top:var(--s5)">
+        Обычный SIP-клиент просит сервер, домен, логин, пароль, транспорт, порт и список кодеков —
+        и ошибиться можно в любом из полей.
+      </p>
+      <p class="lead">
+        EliteSIP просит одно: ключ активации. Всё остальное — адрес АТС, добавочный, кодеки,
+        макросы, коды перевода и конференции — приезжает из техподдержки само и обновляется без вас.
+      </p>
+    </div>
+    <ol class="numbers" style="margin-top:0">
+      <li><b>01</b><span><strong>Попросите ключ у техподдержки.</strong> По одному на рабочее место. Он срабатывает один раз и живёт двое суток.</span></li>
+      <li><b>02</b><span><strong>Введите его при первом запуске.</strong> Приложение настроит себя само и зарегистрируется на АТС.</span></li>
+      <li><b>03</b><span><strong>Всё.</strong> Дальше настройки приезжают централизованно — вручную ничего править не нужно.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section class="band rule-top">
+  <div class="wrap">
+    <div class="head">
+      <span class="label">Возможности</span>
+      <h2>Что ещё он умеет</h2>
+    </div>
+
+    <div class="cols" style="margin-top:var(--s9)">
+      <div class="col">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="11" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
+        <h3>Три линии сразу</h3>
+        <p>До трёх разговоров одновременно, переключение одним нажатием. Ни один не теряется и не сбрасывается молча, пока вы говорите с другим.</p>
+      </div>
+      <div class="col">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 8h13l-3-3M21 16H8l3 3"/></svg>
+        <h3>Перевод с консультацией</h3>
+        <p>Можно сначала поговорить с коллегой, убедиться, что он берёт звонок, и только потом отдать. Или перевести сразу, если разбираться некогда.</p>
+      </div>
+      <div class="col">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="16" cy="14" r="3"/><path d="M3.5 20c.6-2.7 2.8-4.4 5.5-4.4M11 20c.6-2.2 2.6-3.6 5-3.6s4.4 1.4 5 3.6"/></svg>
+        <h3>Конференция в одно нажатие</h3>
+        <p>Свести двух собеседников и себя в один разговор — кнопкой, а не набором служебного кода, который надо помнить.</p>
+      </div>
+      <div class="col">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></svg>
+        <h3>Запись разговора</h3>
+        <p>Штатная запись АТС включается и выключается прямо из окна вызова.</p>
+      </div>
+      <div class="col">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M12 3.5v17M7 8.5v7M17 8.5v7M3.5 11v3M20.5 11v3"/></svg>
+        <h3>Своя громкость</h3>
+        <p>Отдельные ручки усиления микрофона и громкости собеседника. Тише делается звонок, а не вся машина, — и «меня плохо слышно» лечится ползунком, а не сменой гарнитуры.</p>
+      </div>
+      <div class="col">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 12h3l2.5-6 3 13 2.5-9 2 4h5"/></svg>
+        <h3>Диагностика внутри</h3>
+        <p>Проверка звука и связи прямо в приложении: устройства, форматы, регистрация на АТС. Чтобы «меня не слышно» перестало быть загадкой для всех сразу.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band rule-top">
+  <div class="wrap two">
+    <div>
+      <span class="label">Обновления</span>
+      <h2 style="margin-top:var(--s4)">Обновляется само — но спрашивает</h2>
+      <p class="lead" style="margin-top:var(--s5)">
+        Новая версия не требует ни администратора, ни переустановки. Приложение само замечает выпуск
+        и <strong>предлагает</strong> обновиться: «Обновить» или «Отложить».
+      </p>
+      <p class="lead">
+        Отложить можно сколько угодно раз, и предложение никогда не приходит во время разговора.
+        Обновление проверяется подписью: подменённый файл не поставится.
+      </p>
+    </div>
+    <div class="note">
+      <h3>Живой интерфейс macOS</h3>
+      <p style="margin-top:var(--s3)">
+        Приложение написано на Swift и SwiftUI — это настоящее окно macOS, а не сайт в рамке.
+        Отсюда и внешний вид, и то, что оно занимает четыре мегабайта, запускается мгновенно
+        и работает на маках, которым шесть лет.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="band rule-top" id="skachat">
+  <div class="wrap">
+    <div class="head">
+      <span class="label">Скачать</span>
+      <h2>Две сборки — возьмите свою</h2>
+      <p class="lead" style="margin-top:var(--s5)">
+        Приложение одно, выпусков два: под процессоры Apple и под Intel. Не знаете, какой у вас, —
+        меню Apple в углу экрана, «Об этом Mac», строка «Чип» или «Процессор».
+      </p>
+    </div>
+
+    <div class="picks" style="margin-top:var(--s9)">
+      <article class="pick">
+        <span class="label">arm64</span>
+        <h3>Apple Silicon</h3>
         <p class="macs">Маки с чипом M1, M2, M3, M4 — почти всё, что куплено с конца 2020 года.</p>
         <p class="os">macOS 11 Big Sur и новее</p>
         <div class="pick-act">
@@ -64,15 +211,9 @@
         </div>
       </article>
 
-      <article class="pick" data-arch="x86_64" data-arch-name="Intel">
-        <div class="pick-tag">
-          <span class="label">x86_64</span>
-          <span class="verdict">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>
-            это ваш Mac
-          </span>
-        </div>
-        <h2>Intel</h2>
+      <article class="pick">
+        <span class="label">x86_64</span>
+        <h3>Intel</h3>
         <p class="macs">Маки с процессором Intel Core i5, i7, i9 — до перехода на чипы Apple.</p>
         <p class="os">macOS 10.15 Catalina и новее</p>
         <div class="pick-act">
@@ -84,169 +225,14 @@
   </div>
 </section>
 
-<section class="band">
-  <div class="wrap two">
-    <div>
-      <span class="label">О приложении</span>
-      <h2 style="margin-top:var(--s4)">Рабочий телефон, а не универсальный SIP-клиент</h2>
-      <p class="lead" style="margin-top:var(--s5)">
-        EliteSIP собран под нашу АТС и под то, как в конторе разговаривают. Это обычное приложение
-        macOS, написанное на Swift, — не сайт в окне и не Electron. Оно занимает четыре мегабайта,
-        запускается мгновенно и работает на маках, которым шесть лет.
-      </p>
-      <p class="lead">
-        Ставится один раз. Дальше настройки приезжают из техподдержки сами, а обновления приложение
-        предлагает само — и никогда посреди разговора.
-      </p>
-    </div>
-    <div class="slab">
-      <img src="assets/icon-512.png" alt="Иконка EliteSIP" width="168" height="168">
-    </div>
-  </div>
-</section>
-
-<section class="band rule-top" id="umeet">
-  <div class="wrap">
-    <div class="head">
-      <span class="label">Возможности</span>
-      <h2>Всё, что нужно за смену у телефона</h2>
-    </div>
-
-    <div class="cols" style="margin-top:var(--s9)">
-      <div class="col">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="11" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
-        <h3>Три линии</h3>
-        <p>До трёх разговоров одновременно. Переключение одним нажатием, ни один не теряется и не сбрасывается молча.</p>
-      </div>
-      <div class="col">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 8h13l-3-3M21 16H8l3 3"/></svg>
-        <h3>Перевод звонка</h3>
-        <p>Слепой — отдать сразу. С консультацией — сначала поговорить с коллегой и убедиться, что он берёт.</p>
-      </div>
-      <div class="col">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="9" cy="9" r="3"/><circle cx="16" cy="14" r="3"/><path d="M3.5 20c.6-2.7 2.8-4.4 5.5-4.4M11 20c.6-2.2 2.6-3.6 5-3.6s4.4 1.4 5 3.6"/></svg>
-        <h3>Конференция</h3>
-        <p>Свести двух собеседников и себя в один разговор.</p>
-      </div>
-      <div class="col">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>
-        <h3>Удержание и DTMF</h3>
-        <p>Удержание без потери линии. Тональный набор в разговоре — для голосовых меню, добавочных и кодов.</p>
-      </div>
-      <div class="col">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.4 2"/></svg>
-        <h3>История звонков</h3>
-        <p>Кто звонил, когда, сколько длился разговор и чем закончился. С поиском.</p>
-      </div>
-      <div class="col">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></svg>
-        <h3>Запись разговора</h3>
-        <p>Штатная запись АТС, включается и выключается из приложения.</p>
-      </div>
-      <div class="col">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 12h3l2.5-6 3 13 2.5-9 2 4h5"/></svg>
-        <h3>Диагностика</h3>
-        <p>Проверка звука и связи внутри приложения: устройства, форматы, регистрация. Чтобы «меня не слышно» перестало быть загадкой.</p>
-      </div>
-      <div class="col">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M12 3.5v17M7 8.5v7M17 8.5v7M3.5 11v3M20.5 11v3"/></svg>
-        <h3>Усиление и громкость</h3>
-        <p>Своя ручка микрофона и своя громкость собеседника — тише делается звонок, а не вся машина.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="band rule-top" id="obnovleniya">
-  <div class="wrap two">
-    <div>
-      <span class="label">Обновления</span>
-      <h2 style="margin-top:var(--s4)">Обновляется само — но спрашивает</h2>
-      <p class="lead" style="margin-top:var(--s5)">
-        Приложение раз в полчаса заглядывает в канал обновлений. Если вышел новый выпуск, оно
-        <strong>предложит</strong> обновиться: «Обновить» или «Отложить». Отложить можно сколько
-        угодно раз — никто не выключит вам телефон посреди рабочего дня.
-      </p>
-      <p class="lead">
-        Предложение не приходит во время разговора. Само обновление проверяется подписью: подменённый
-        файл приложение не поставит.
-      </p>
-    </div>
-    <div class="note">
-      <h3>Ставится в обход Gatekeeper?</h3>
-      <p style="margin-top:var(--s3)">
-        Нет. Каждый выпуск подписан сертификатом Apple Developer ID и нотарифицирован Apple — и тот,
-        что вы скачиваете здесь, и тот, что приезжает обновлением. Билет вшит в файл, поэтому
-        проверка проходит даже без интернета.
-      </p>
-    </div>
-  </div>
-</section>
-
-<section class="band rule-top" id="nachat">
-  <div class="wrap two">
-    <div>
-      <span class="label">Установка</span>
-      <h2 style="margin-top:var(--s4)">Как начать</h2>
-      <p class="lead" style="margin-top:var(--s5)">
-        Три шага. Дольше всего — ждать ключ, остальное занимает минуту.
-      </p>
-    </div>
-    <ol class="numbers" style="margin-top:0">
-      <li><b>01</b><span><strong>Скачайте сборку для своего Mac.</strong> Выше отмечена та, что вам подходит. Если отметки нет — посмотрите «Об этом Mac».</span></li>
-      <li><b>02</b><span><strong>Перенесите EliteSIP в «Программы».</strong> Откройте DMG и перетащите приложение в папку, на которую показывает стрелка.</span></li>
-      <li><b>03</b><span><strong>Активируйте ключом.</strong> Ключ выдаёт техподдержка — по одному на рабочее место. Он срабатывает один раз и живёт двое суток, поэтому просите его, когда готовы ставить.</span></li>
-    </ol>
-  </div>
-</section>
-
-<section class="band rule-top">
-  <div class="wrap center">
-    <span class="label">Выпуск</span>
-    <h2 style="margin-top:var(--s4)">Что именно вы ставите</h2>
-    <p class="lead" style="margin-top:var(--s5)">
-      Один выпуск, две сборки из одного кода. Обе подписаны и нотарифицированы.
-    </p>
-
-    <table class="specs" style="margin-top:var(--s9);text-align:left">
-      <thead>
-        <tr><th>Что</th><th>Apple Silicon</th><th>Intel</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>Версия</th><td class="val">0.1.34 · сборка 38</td><td class="val">0.1.34 · сборка 38</td></tr>
-        <tr><th>Архитектура</th><td class="val">arm64</td><td class="val">x86_64</td></tr>
-        <tr><th>Система</th><td class="val">macOS 11.0+</td><td class="val">macOS 10.15+</td></tr>
-        <tr><th>Образ</th><td class="val">DMG · 4,4 МБ</td><td class="val">DMG · 4,8 МБ</td></tr>
-        <tr><th>Подпись</th><td class="val" colspan="2">Developer ID Application: Evgenii Korolkov (AKH3FW2JK6)</td></tr>
-        <tr><th>Нотарификация</th><td class="val" colspan="2">Apple, билет прикреплён</td></tr>
-        <tr><th>Язык</th><td class="val" colspan="2">русский, английский</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="band rule-top">
-  <div class="wrap center">
-    <h2 class="h1">Возьмите свою сборку</h2>
-    <p class="lead" style="margin-top:var(--s5);margin-bottom:var(--s7)">
-      Ниже — обе. Та, что подходит вашему Mac, отмечена наверху страницы.
-    </p>
-    <div style="display:flex;gap:var(--s4);flex-wrap:wrap;justify-content:center">
-      <a class="btn" href="m-series.html">Для Apple Silicon</a>
-      <a class="btn btn-quiet" href="intel-series.html">Для Intel</a>
-    </div>
-  </div>
-</section>
-
 </main>
 
 <footer class="foot">
   <div class="wrap">
     <div class="foot-nav">
-      <a href="#skachat">Скачать</a>
-      <a href="#umeet">Возможности</a>
-      <a href="#obnovleniya">Обновления</a>
-      <a href="#nachat">Как начать</a>
+      <a href="#istoriya">История</a>
+      <a href="#rabota">Офис и дом</a>
+      <a href="#klyuch">Подключение</a>
       <a href="m-series.html">Apple Silicon</a>
       <a href="intel-series.html">Intel</a>
     </div>
@@ -257,6 +243,5 @@
   </div>
 </footer>
 
-<script src="assets/detect.js"></script>
 </body>
 </html>

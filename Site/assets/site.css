@@ -369,28 +369,26 @@ p:last-child { margin-bottom: 0; }
 .center .head, .center p { margin-left: auto; margin-right: auto; }
 .center .lead { max-width: 54ch; }
 
-/* --------------------------------------------------- выбор сборки (главное) */
+/* ------------------------------------------------------- выбор сборки
+
+   Определения архитектуры на сайте нет намеренно. Единственный доступный
+   браузеру признак — имя видеоядра WebGL, а современный Safari отдаёт
+   «Apple GPU» и на Intel тоже: определение уверенно врало. Две равные
+   карточки и человеческая подсказка «Об этом Mac» не ошибаются никогда. */
 
 .picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s6); }
 .pick {
     display: flex; flex-direction: column;
-    padding: var(--s7) var(--s6) var(--s6);
+    padding: var(--s7) 0 0;
     border-top: 1px solid var(--rule);
-    transition: border-color .25s ease;
 }
-.pick.is-live { border-top-color: var(--gold-bright); border-top-width: 2px; padding-top: calc(var(--s7) - 1px); }
-.pick-tag { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s5); }
-.verdict {
-    display: none; align-items: center; gap: 6px;
-    font: 500 0.75rem/1 var(--mono); color: var(--gold);
-}
-.pick.is-live .verdict { display: inline-flex; }
-.verdict svg { width: 13px; height: 13px; }
-.pick h2 { margin-bottom: var(--s3); }
-.pick .macs { color: var(--ink-2); font-size: 0.9375rem; margin-bottom: var(--s3); }
+.pick .label { margin-bottom: var(--s5); }
+.pick h3 { font-size: 1.75rem; font-weight: 400; margin-bottom: var(--s3); }
+.pick .macs { color: var(--ink-2); font-size: 0.9375rem; margin-bottom: var(--s3); max-width: 34ch; }
 .pick .os { font: 400 0.8125rem/1.5 var(--mono); color: var(--ink-2); margin: 0 0 var(--s6); }
 .pick-act { margin-top: auto; display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; }
 .pick-size { font: 400 0.75rem/1 var(--mono); color: var(--ink-3); }
+
 
 /* ------------------------------------------------------------------ таблица */
 
@@ -456,4 +454,57 @@ p:last-child { margin-bottom: 0; }
 .pick.is-live .verdict { animation: mark-in .45s cubic-bezier(.16, 1, .3, 1) .1s backwards; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* ------------------------------------------------------------------ снимки
+
+   Крупные фигуры с настоящими окнами приложения. Снимок — главный довод на
+   рекламной странице: он показывает продукт, а не рассказывает о нём. Поэтому
+   ему отдана половина полосы, а не миниатюра в углу. */
+
+.feature { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--s9); align-items: center; }
+.feature + .feature { margin-top: var(--s10); }
+.feature.flip .feature-shot { order: -1; }
+.feature-copy { max-width: 46ch; }
+.feature-copy h2 { margin-bottom: var(--s5); }
+.feature-copy .label { margin-bottom: var(--s4); }
+.feature-copy p { color: var(--ink-2); }
+
+.shot {
+    margin: 0;
+    padding: var(--s7);
+    border-radius: var(--radius);
+    background: var(--raise);
+    display: grid; place-items: center;
+}
+.shot-wide { padding: var(--s8); }
+.shot img {
+    display: block; width: 100%; height: auto;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+.shot img.plain { box-shadow: none; border-radius: 0; }
+.shot figcaption {
+    margin-top: var(--s5);
+    font: 400 0.75rem/1.5 var(--mono); color: var(--ink-3); text-align: center;
+}
+
+/* Пока файла снимка нет, фигура не показывается вовсе: пустая рамка
+   выглядела бы поломкой. */
+.shot:has(img[hidden]) { display: none; }
+
+/* Перечень возможностей: две колонки крупным, а не восемь мелким по всей
+   полосе. Мелкий текст, растянутый на 1260px, не читается. */
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s7) var(--s9); }
+.col { border-top: 1px solid var(--rule); padding-top: var(--s5); }
+.col svg { width: 22px; height: 22px; color: var(--ink); margin-bottom: var(--s4); }
+.col h3 { margin-bottom: var(--s3); font-size: 1.25rem; }
+.col p { font-size: 0.9375rem; color: var(--ink-2); margin: 0; max-width: 44ch; }
+
+@media (max-width: 900px) {
+    .feature { grid-template-columns: minmax(0, 1fr); gap: var(--s7); }
+    .feature.flip .feature-shot { order: 0; }
+    .feature + .feature { margin-top: var(--s9); }
+    .cols { grid-template-columns: minmax(0, 1fr); gap: var(--s6); }
+    .shot { padding: var(--s5); }
 }
