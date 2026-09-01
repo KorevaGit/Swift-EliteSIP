@@ -124,7 +124,7 @@ INVITE»; без исправления она видит четыре INVITE в
 параллельных линий и резерваций RTP/RTCP» — выполнен. Инструмент:
 `sipcheck --lines` и `sipcheck --consult`, стенд `elitesip-lab13` (с 31 июля
 2026 это FreePBX-стенд `elitesip-freepbx`, порты и номера те же, разбор —
-[Lab/README.md](../Lab/README.md)).
+[FreePBXLab/README.md](../../FreePBXLab/README.md)).
 
 Три линии одновременно (`--lines 700,701,702`):
 

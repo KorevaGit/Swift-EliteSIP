@@ -41,8 +41,8 @@
 **31 июля 2026 закрыты пункты 2–4** — пришли реальные `sip show settings`,
 `sip show peer` (на живом зарегистрированном тестовом пире) и
 `rtp show settings`. Настройки перенесены в лабораторный конфиг
-([sip.conf](../Lab/asterisk/config/sip.conf),
-[rtp.conf](../Lab/asterisk/config/rtp.conf)) без боевых IP, номера и имени —
+([sip.conf](../../FreePBXLab/asterisk/config/sip.conf),
+[rtp.conf](../../FreePBXLab/asterisk/config/rtp.conf)) без боевых IP, номера и имени —
 только сами параметры, по принципу конфиденциальности из
 [ROADMAP.md](ROADMAP.md#конфиденциальность-конфигурации). Пункт 1 (сам
 диалплан) остаётся открытым.
@@ -112,7 +112,7 @@ rtp show settings
 Пришло 31 июля 2026: `Strict RTP: Yes`, `ICE support: Yes`, диапазон портов
 шире лабораторного (у нас меньше — так и задумано, ограничение публикации
 портов в Docker, не совместимости). `strictrtp` перенесён в
-[rtp.conf](../Lab/asterisk/config/rtp.conf); `icesupport` — нет: лабораторный
+[rtp.conf](../../FreePBXLab/asterisk/config/rtp.conf); `icesupport` — нет: лабораторный
 Asterisk собран без pjproject/pjnath, и `rtp show settings` после включения
 параметра просто не печатает строку ICE support вообще — проверено на живом
 контейнере. Если ICE понадобится для проверки удалённого профиля (M2b), сборку
@@ -133,10 +133,10 @@ MikroTik. L2TP/IPsec на шлюзе есть, но только для айфо
 
 | Ответ | Куда идёт | Статус |
 |---|---|---|
-| `features.conf` / `extensions_custom.conf` | [Lab/asterisk/config/features.conf](../Lab/asterisk/config/features.conf) | ждём |
-| `sip show settings` | [Lab/asterisk/config/sip.conf](../Lab/asterisk/config/sip.conf), секция `[general]` | перенесено 31.07.2026 |
+| `features.conf` / `extensions_custom.conf` | [FreePBXLab/asterisk/config/features.conf](../../FreePBXLab/asterisk/config/features.conf) | ждём |
+| `sip show settings` | [FreePBXLab/asterisk/config/sip.conf](../../FreePBXLab/asterisk/config/sip.conf), секция `[general]` | перенесено 31.07.2026 |
 | `sip show peer` | тот же `sip.conf`, секции пиров | перенесено 31.07.2026 |
-| `rtp show settings` | [Lab/asterisk/config/rtp.conf](../Lab/asterisk/config/rtp.conf) | перенесено 31.07.2026 |
+| `rtp show settings` | [FreePBXLab/asterisk/config/rtp.conf](../../FreePBXLab/asterisk/config/rtp.conf) | перенесено 31.07.2026 |
 
 Пока не пришёл пункт 1, диалплан конференции и обеих dynamic-фич остаётся
 лабораторным прототипом с явно помеченными догадками — менять клиентское

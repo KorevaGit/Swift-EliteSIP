@@ -71,10 +71,12 @@ Packages/CallHistory/   локальная история звонков: SQLite
 Config/                 entitlements
 docs/                   решения, которые нужно объяснять: аудиотракт, защита
                         от автокликеров, удержание и DTMF
-Lab/                    стенд в Docker: FreePBX 15 на Asterisk 13.38.3,
-                        боевой версии, — и для отладки клиента, и для
-                        понимания устройства сервера
 ```
+
+Стенд лаборатории вынесен из репозитория и живёт отдельным проектом
+`~/Projects/FreePBXLab` — FreePBX 15 на Asterisk 13.38.3, боевой версии, и для
+отладки клиента, и для понимания устройства сервера. Своего git у него нет
+намеренно: это стенд, а не продукт.
 
 Текущее состояние и грабли — [docs/STATE.md](docs/STATE.md). Согласованные
 продуктовые решения и следующие работы — [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -133,7 +135,7 @@ Tools/sync-strings.py && Tools/check-strings.py
 
 Три линии сразу и консультационный перевод против живой АТС. Цели 700/701/702
 уводят звонок в `Local`-канал: перевести можно только канал, у которого есть
-собеседник, а внутри `Echo()` его нет — см. [Lab/README.md](Lab/README.md):
+собеседник, а внутри `Echo()` его нет — см. [FreePBXLab/README.md](../FreePBXLab/README.md):
 
 ```bash
 (cd Tools/sipcheck && swift run sipcheck --user 100 --password elite100 --lines 700,701,702)
@@ -158,8 +160,8 @@ Tools/sync-strings.py && Tools/check-strings.py
 (cd Tools/audioprobe && swift run audioprobe list)
 ```
 
-Проверка против живой АТС и лаборатория — [Lab/README.md](Lab/README.md).
-Настройки для клиентов, включая PortSIP на телефоне — [Lab/CLIENTS.md](Lab/CLIENTS.md).
+Проверка против живой АТС и лаборатория — [FreePBXLab/README.md](../FreePBXLab/README.md).
+Настройки для клиентов, включая PortSIP на телефоне — [FreePBXLab/CLIENTS.md](../FreePBXLab/CLIENTS.md).
 
 ## Этапы
 
@@ -182,10 +184,10 @@ Tools/sync-strings.py && Tools/check-strings.py
       генерирует: контексты `from-internal`, `sub-record-check`, очереди,
       `MixMonitor`. Отдельный контейнер, не поверх лабы — см. ниже. Очередь
       раздачи 2929 заводится сама при старте контейнера, поэтому её поведение
-      входит в воспроизводимую проверку — [Lab/FREEPBX.md](Lab/FREEPBX.md)
+      входит в воспроизводимую проверку — [FreePBXLab/FREEPBX.md](../FreePBXLab/FREEPBX.md)
 - [x] **M1.6** — настоящая история FreePBX: постоянные CDR/CEL в MariaDB,
       обязательная запись разговоров, прослушивание и скачивание записей из
-      отчёта CDR — [Lab/FREEPBX.md](Lab/FREEPBX.md)
+      отчёта CDR — [FreePBXLab/FREEPBX.md](../FreePBXLab/FREEPBX.md)
 - [x] **M2** ⟨аудит 1⟩ — исходящий звонок, RTP, аудиотракт, джиттер-буфер, раздельный выбор
       устройств и переключение на ходу. Сборка под оба среза выпуска проверяется
       скриптом `Tools/check-compat.sh`. Остаётся эксплуатационная приёмка на
@@ -256,7 +258,7 @@ Tools/sync-strings.py && Tools/check-strings.py
 Задача стенда другая: не отладка клиента, а возможность увидеть, какие файлы и
 какой диалплан FreePBX создаёт под очередь раздачи и запись разговоров, и
 сверить с боевыми CDR и CEL. Разбор и инструмент для сравнения «до/после» —
-в [Lab/FREEPBX.md](Lab/FREEPBX.md).
+в [FreePBXLab/FREEPBX.md](../FreePBXLab/FREEPBX.md).
 
 ## Что известно про бой из CDR и CEL
 

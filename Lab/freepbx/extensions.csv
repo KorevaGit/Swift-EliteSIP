@@ -1,9 +1,0 @@
-extension,name,description,tech,secret,recording_in_external,recording_in_internal,recording_out_external,recording_out_internal,recording_ondemand
-100,Agent 100,Тестовый агент,sip,elite100,force,force,force,force,enabled
-101,Agent 101,Тестовый агент,sip,elite101,force,force,force,force,enabled
-102,Agent 102,Тестовый агент,sip,elite102,force,force,force,force,enabled
-103,Agent 103,Тестовый агент,sip,elite103,force,force,force,force,enabled
-634,Manager_634,Менеджер,sip,elite634,force,force,force,force,enabled
-711,Call_Center,Оператор колл-центра,sip,elite711,force,force,force,force,enabled
-724,Call Center udalen,Удалённый оператор,sip,elite724,force,force,force,force,enabled
-807,Manager_807,Менеджер,sip,elite807,force,force,force,force,enabled
