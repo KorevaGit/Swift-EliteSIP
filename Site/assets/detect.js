@@ -7,10 +7,10 @@
  *
  * Работающий признак — имя видеоядра из WebGL: у Apple Silicon это «Apple
  * GPU» или «Apple M…», у старых машин — Intel, AMD или Radeon. Признак
- * косвенный, поэтому он **только подсвечивает** нужную позицию. Обе сборки
- * остаются на странице, кнопки у обеих настоящие, и без JS страница работает
- * ровно так же — просто без подсказки. Спрятать одну из двух было бы
- * ошибкой: ошибись определение, человек остался бы без выхода.
+ * косвенный, поэтому он **только отмечает** нужную сборку. Обе остаются на
+ * странице с настоящими кнопками, и без JS страница работает так же — просто
+ * без отметки. Спрятать одну из двух было бы ошибкой: ошибись определение,
+ * человек остался бы без выхода.
  */
 (function () {
     "use strict";
@@ -39,23 +39,21 @@
     var arch = guess();
     if (!arch) return;
 
-    var block = document.querySelector('[data-arch="' + arch + '"]');
-    if (!block) return;
+    var pick = document.querySelector('[data-arch="' + arch + '"]');
+    if (!pick) return;
+    pick.classList.add("is-live");
 
-    block.classList.add("is-live");
-
-    /* Заголовок договаривает то, что показала позиция. Разметка держит оба
-       варианта текста, скрипт только переключает — так страница без JS
-       остаётся осмысленной, а не обрубленной. */
+    /* Заголовок договаривает то, что показала отметка. Разметка держит оба
+       варианта, скрипт только переключает — без JS страница осмысленна, а не
+       обрублена. */
     var head = document.querySelector("[data-headline]");
-    if (head) {
-        var known = head.querySelector("[data-when-known]");
-        var unknown = head.querySelector("[data-when-unknown]");
-        var name = block.getAttribute("data-arch-name") || "";
-        if (known && unknown) {
-            known.querySelector("[data-arch-slot]").textContent = name;
-            unknown.hidden = true;
-            known.hidden = false;
-        }
-    }
+    if (!head) return;
+    var known = head.querySelector("[data-when-known]");
+    var unknown = head.querySelector("[data-when-unknown]");
+    var slot = known && known.querySelector("[data-arch-slot]");
+    if (!known || !unknown || !slot) return;
+
+    slot.textContent = pick.getAttribute("data-arch-name") || "";
+    unknown.hidden = true;
+    known.hidden = false;
 })();
