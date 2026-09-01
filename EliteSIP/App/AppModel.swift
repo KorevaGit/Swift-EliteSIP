@@ -53,6 +53,15 @@ final class AppModel: ObservableObject {
             if settings.logFile != oldValue.logFile {
                 openLogFileIfNeeded()
             }
+            // Громкость — единственная настройка звука, которая обязана
+            // действовать посреди разговора. Устройство и кодек посреди него
+            // не сменить (тракт пришлось бы пересобрать), а ползунок двигают
+            // ровно потому, что собеседника плохо слышно ПРЯМО СЕЙЧАС, — и
+            // ответ «со следующего звонка» на это не годится.
+            if settings.audio.microphoneGain != oldValue.audio.microphoneGain
+                || settings.audio.playbackVolume != oldValue.audio.playbackVolume {
+                applyAudioGains()
+            }
             // Срок хранения меняет администратор, и уменьшение срока обязано
             // сработать сразу, а не при следующем запуске: это удаление
             // персональных данных, а не настройка отображения.
@@ -206,6 +215,10 @@ final class AppModel: ObservableObject {
     /// перерисовке формы: `deinit` останавливает движок, и запись оборвалась бы
     /// от любого движения интерфейса.
     var selfTest: VoiceSelfTest?
+
+    /// Опрос уровней на время самопроверки. Живёт здесь, а работает в
+    /// `AppModel+SelfTest`: расширение своих хранимых свойств не заводит.
+    var selfTestLevelTask: Task<Void, Never>?
 
     /// Общий аудиотракт. Заводится при первом звонке или первой самопроверке —
     /// см. `voiceBus()`.
@@ -1242,7 +1255,9 @@ final class AppModel: ObservableObject {
                 inputDeviceUID: settings.audio.inputDeviceUID,
                 outputDeviceUID: settings.audio.outputDeviceUID,
                 releasesDeviceWhenIdle: settings.audio.releasesDeviceWhenIdle,
-                automaticGainControl: settings.audio.automaticGainControl
+                automaticGainControl: settings.audio.automaticGainControl,
+                microphoneGain: Float(settings.audio.microphoneGain),
+                playbackVolume: Float(settings.audio.playbackVolume)
             )
             session.onDiagnostic = { [weak self] text in
                 Task { @MainActor in self?.append(level: .debug, message: "звук: \(text)") }
@@ -1672,6 +1687,21 @@ final class AppModel: ObservableObject {
         // по ней и понятно, что его поставили на удержание. А вот собственное
         // удержание глушит приём — оператор в это время говорит с другим.
         media.isReceivingAudio = !isBackground && !line.isOnHold
+    }
+
+    /// Досылает громкость во все живые линии.
+    ///
+    /// Во все, а не только в активную: тракт у линий общий, но значение хранит
+    /// каждая своя и досылает его при получении тракта. Обойти фоновые значило
+    /// бы вернуть оператору линию с прежней громкостью ровно тогда, когда он
+    /// только что её и поправил.
+    private func applyAudioGains() {
+        let gain = Float(settings.audio.microphoneGain)
+        let volume = Float(settings.audio.playbackVolume)
+        for line in lines {
+            line.media?.microphoneGain = gain
+            line.media?.playbackVolume = volume
+        }
     }
 
     /// Собирает ответ на чужой повторный INVITE.

@@ -44,18 +44,32 @@ extension AppModel {
                         inputDeviceUID: settings.audio.inputDeviceUID,
                         outputDeviceUID: settings.audio.outputDeviceUID,
                         releasesDeviceWhenIdle: settings.audio.releasesDeviceWhenIdle,
-                        automaticGainControl: settings.audio.automaticGainControl
+                        automaticGainControl: settings.audio.automaticGainControl,
+                        microphoneGain: Float(settings.audio.microphoneGain),
+                        playbackVolume: Float(settings.audio.playbackVolume)
                     )
                 )
                 test.onDiagnostic = { [weak self] text in
                     Task { @MainActor in self?.append(level: .debug, message: "самопроверка: \(text)") }
                 }
                 test.onPhase = { [weak self] phase in
-                    Task { @MainActor in self?.selfTestPhase = phase }
+                    Task { @MainActor in
+                        self?.selfTestPhase = phase
+                        // Опрос уровней снимается по концу проверки, а не по
+                        // флагу внутри самого опроса: флаг взводится этим же
+                        // обработчиком, то есть асинхронно, и первый виток
+                        // цикла успевал прочитать его ещё не взведённым и
+                        // выйти, не показав ни одного уровня.
+                        switch phase {
+                        case .finished, .failed: self?.stopSelfTestLevelPolling()
+                        case .idle, .recording, .playing: break
+                        }
+                    }
                 }
                 selfTest = test
                 append(level: .info, message: "самопроверка звука: запись \(VoiceSelfTest.recordingSeconds) с")
                 test.start()
+                startSelfTestLevelPolling(of: test)
             } catch {
                 selfTestPhase = .failed(error.localizedDescription)
                 append(level: .error, message: "самопроверка звука не запустилась: \(error.localizedDescription)")
@@ -68,6 +82,29 @@ extension AppModel {
         selfTest?.cancel()
         selfTest = nil
         selfTestPhase = .idle
+        stopSelfTestLevelPolling()
+    }
+
+    /// Опрос уровней на время проверки.
+    ///
+    /// Свой, а не общий `startLevelPolling`: тот спрашивает активную линию, а
+    /// здесь линии нет вовсе — тракт держит сама проверка. Тем же шагом в
+    /// 50 мс: индикатор один и тот же, и дрожать по-разному он не должен.
+    private func startSelfTestLevelPolling(of test: VoiceSelfTest) {
+        selfTestLevelTask?.cancel()
+        selfTestLevelTask = Task { [weak self, weak test] in
+            while !Task.isCancelled {
+                try? await Task.sleep(.milliseconds(50))
+                guard let self, let test else { return }
+                audioLevels.update(input: test.inputLevel, output: test.outputLevel)
+            }
+        }
+    }
+
+    func stopSelfTestLevelPolling() {
+        selfTestLevelTask?.cancel()
+        selfTestLevelTask = nil
+        audioLevels.reset()
     }
 
     /// Что показать под кнопкой.

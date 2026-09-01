@@ -60,6 +60,18 @@ public actor SIPTransactionLayer {
         var retransmitTask: Task<Void, Never>?
         var timeoutTask: Task<Void, Never>?
         var completedTask: Task<Void, Never>?
+
+        /// Отмену попросили раньше, чем пришёл первый 1xx.
+        ///
+        /// RFC 3261 §9.1: CANCEL нельзя слать, пока на INVITE не пришёл
+        /// провизорный ответ. До него сервер мог ещё не завести транзакцию —
+        /// такой CANCEL получает 481, а сам INVITE продолжает звонить у
+        /// вызываемого, и вешает трубку в итоге только таймаут набора.
+        /// Промах дешёвый: достаточно оператору передумать в первые полсекунды
+        /// после набора.
+        ///
+        /// Поэтому просьба запоминается и исполняется на первом же 1xx.
+        var cancelsWhenProceeding = false
     }
 
     /// Серверная сторона INVITE: RFC 3261 §17.2.1 плюс §13.3.1.4 для 2xx.
@@ -318,9 +330,46 @@ public actor SIPTransactionLayer {
             return false
         }
 
+        // Первого 1xx ещё не было — отмену откладываем до него (RFC 3261 §9.1,
+        // разбор у `cancelsWhenProceeding`). Наверх это всё равно «отменяем»:
+        // для звонящего разницы нет, а таймер B в состоянии calling жив и
+        // закроет транзакцию сам, если 1xx не придёт вовсе.
+        guard transaction.state == .proceeding else {
+            inviteTransactions[key]?.cancelsWhenProceeding = true
+            return true
+        }
+
+        await sendCancel(key: key, transaction: transaction)
+        return true
+    }
+
+    /// Шлёт CANCEL и заводит предел ожидания 487.
+    ///
+    /// Предел обязателен, и это вторая половина той же поломки. На первом 1xx
+    /// таймер B снимается — гудки идут сколько угодно, обрывать их по таймеру
+    /// нельзя. Но у ОТМЕНЁННОГО INVITE ждать больше нечего, кроме финального
+    /// ответа, а он теряется ровно так же, как всякий другой. Без предела
+    /// запись жила в таблице до выхода из приложения, и вместе с ней —
+    /// подвешенная на её поток задача звонка: по одной на каждую отмену.
+    private func sendCancel(key: String, transaction: InviteTransaction) async {
         let cancel = Self.makeCancel(for: transaction.request)
         _ = try? await send(cancel)
-        return true
+
+        // Место таймера B, снятого на 1xx: он уже не нужен, а поле свободно.
+        let limit = timers.transactionTimeout
+        inviteTransactions[key]?.timeoutTask = Task { [weak self] in
+            do { try await Task.sleep(limit) } catch { return }
+            await self?.expireCancelledInvite(key: key)
+        }
+    }
+
+    /// Отменённый INVITE, на который так и не пришёл финальный ответ.
+    private func expireCancelledInvite(key: String) {
+        guard let transaction = inviteTransactions.removeValue(forKey: key) else { return }
+        transaction.retransmitTask?.cancel()
+        transaction.completedTask?.cancel()
+        transaction.continuation.yield(.timeout)
+        transaction.continuation.finish()
     }
 
     /// Отправляет ответ на входящий запрос и запоминает его для ретрансмиссий.
@@ -709,6 +758,14 @@ public actor SIPTransactionLayer {
             transaction.state = .proceeding
             inviteTransactions[key] = transaction
             transaction.continuation.yield(.provisional(response))
+
+            // Отмену просили раньше, чем сервер отозвался. Вот он отозвался —
+            // теперь CANCEL законен. Наверх про этот 1xx уже сказано, и это
+            // правильно: звонок в этот момент отменяется, а не начинается.
+            if transaction.cancelsWhenProceeding {
+                inviteTransactions[key]?.cancelsWhenProceeding = false
+                await sendCancel(key: key, transaction: transaction)
+            }
             return
         }
 

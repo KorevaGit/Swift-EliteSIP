@@ -37,6 +37,11 @@ public actor SIPUserAgent {
     private let transactions: SIPTransactionLayer
     private let userAgentName: String
 
+    /// Предел гудков этого агента. Задаётся при создании — см.
+    /// `defaultRingingLimit`; параметром, а не константой, потому что иначе его
+    /// не проверить: тест не станет ждать три минуты.
+    private let ringingLimit: Interval
+
     public nonisolated let events: AsyncStream<Event>
     private nonisolated let eventContinuation: AsyncStream<Event>.Continuation
 
@@ -69,6 +74,24 @@ public actor SIPUserAgent {
     /// для конференции. Четвёртую линию оператор не удержит в голове, а
     /// каждая занимает пару портов RTP/RTCP и свой диалог на сервере.
     public static let maximumLines = 3
+
+    /// Сколько терпеть гудки без финального ответа — значение по умолчанию.
+    ///
+    /// Слой транзакций после первого 1xx не ограничивает исходящий звонок
+    /// ничем, и это правильно: таймер B живёт только в состоянии calling,
+    /// потому что гудеть у вызываемого может сколько угодно — обрывать это по
+    /// таймеру транзакции нельзя. Но «сколько угодно» там означает буквально
+    /// вечность, и линия оставалась в «Гудках» навсегда всякий раз, когда
+    /// финальный ответ до нас не доехал: UDP через интернет, протухший
+    /// NAT-биндинг — и все ретрансмиссии 486 по таймеру G уходят в никуда.
+    /// Единственным выходом оставался отбой руками, а пара портов RTP и место
+    /// линии всё это время числились занятыми.
+    ///
+    /// Три минуты — величина таймера C из RFC 3261 §16.6, той же природы
+    /// («прокси не ждёт вечно») и с тем же смыслом: это не срок дозвона, а
+    /// признак того, что разговаривать уже не с кем. Живой звонок столько не
+    /// гудит: и АТС, и мобильная сеть сдаются раньше.
+    public static let defaultRingingLimit: Interval = .seconds(180)
 
     private struct ActiveCall {
 
@@ -120,6 +143,10 @@ public actor SIPUserAgent {
         /// Обновление сессии или слежение за чужим — смотря какая роль нам
         /// досталась. Задача одна: ролей взаимоисключающие две.
         var sessionTimerTask: Task<Void, Never>?
+
+        /// Предел гудков. Заводится на первом 1xx, снимается вместе с линией.
+        /// Разбор — у `SIPUserAgent.ringingLimit`.
+        var ringingTimeoutTask: Task<Void, Never>?
     }
 
     // MARK: - Линии
@@ -178,7 +205,9 @@ public actor SIPUserAgent {
         // Снимать таймер сессии надо именно здесь: это единственная точка, через
         // которую линия исчезает, а переживший её таймер положил бы трубку на
         // чужом разговоре — Call-ID к тому времени принадлежит уже не ему.
-        calls.removeValue(forKey: callID)?.sessionTimerTask?.cancel()
+        let removed = calls.removeValue(forKey: callID)
+        removed?.sessionTimerTask?.cancel()
+        removed?.ringingTimeoutTask?.cancel()
         lineOrder.removeAll { $0 == callID }
     }
 
@@ -251,6 +280,7 @@ public actor SIPUserAgent {
         timers: SIPTransactionLayer.Timers = .init(),
         userAgentName: String = SIPUserAgent.defaultUserAgentName,
         transferResultTimeout: Interval = .seconds(60),
+        ringingLimit: Interval = SIPUserAgent.defaultRingingLimit,
         keepAliveInterval: Interval? = nil,
         sessionTimerPolicy: SIPSessionTimerPolicy = SIPSessionTimerPolicy(),
         pathOpener: SIPPathOpener? = nil
@@ -260,6 +290,7 @@ public actor SIPUserAgent {
         self.transactions = SIPTransactionLayer(channel: channel, timers: timers)
         self.userAgentName = userAgentName
         self.transferResultTimeout = transferResultTimeout
+        self.ringingLimit = ringingLimit
         self.keepAliveInterval =
             keepAliveInterval ?? Self.defaultKeepAliveInterval(for: account.transport)
         self.sessionTimerPolicy = sessionTimerPolicy
@@ -888,6 +919,7 @@ public actor SIPUserAgent {
                         log(.debug, "<- \(response.statusCode) \(response.reasonPhrase)")
                         if response.statusCode >= 180 {
                             emitCallState(.ringing, of: callID)
+                            armRingingLimit(callID: callID)
                         }
 
                     case .success(let response):
@@ -960,6 +992,13 @@ public actor SIPUserAgent {
                 }
 
                 guard needsRetry else {
+                    // Линии может уже не быть: отбой оператора и предел гудков
+                    // закрывают звонок сами, а поток транзакции завершается
+                    // после них — своим 487 или своим же пределом ожидания.
+                    // Второй финал на том же продолжении ничего не изменит, но
+                    // в журнале оставит «звонок прерван» поверх настоящей
+                    // причины, и разбирающий жалобу прочтёт именно его.
+                    guard calls[callID] != nil else { return }
                     finishCall(
                         callID: callID,
                         with: .failed(status: 0, reason: NSLocalizedString("звонок прерван", bundle: .module, comment: "причина, которую видит оператор")),
@@ -990,7 +1029,15 @@ public actor SIPUserAgent {
         response: SIPResponse,
         local: SIPEndpoint
     ) async {
-        guard var call = calls[callID] else { return }
+        // Линии уже нет: 200 OK разошёлся в сети с нашим CANCEL или с пределом
+        // гудков. Промолчать нельзя — на той стороне это состоявшийся разговор.
+        // Без ACK сервер повторяет ответ по таймерам, а потом остаётся с
+        // диалогом, о котором мы не знаем: у вызываемого снята трубка, в
+        // наушниках тишина, и кладёт её в итоге только таймаут сессии.
+        guard var call = calls[callID] else {
+            await closeStrayAnswer(request: request, response: response, local: local)
+            return
+        }
 
         guard let dialog = SIPDialog(initiatorRequest: request, response: response) else {
             log(.error, "в 200 OK нет Contact — диалог собрать невозможно")
@@ -1004,6 +1051,11 @@ public actor SIPUserAgent {
 
         call.dialog = dialog
         call.state = .answered
+        // Гудки кончились ответом — предел на них больше не нужен. Сам по себе
+        // он и не сработал бы (проверяет отсутствие диалога), но задача висела
+        // бы до своего срока на каждом состоявшемся разговоре.
+        call.ringingTimeoutTask?.cancel()
+        call.ringingTimeoutTask = nil
         calls[callID] = call
 
         armSessionTimer(
@@ -1028,6 +1080,40 @@ public actor SIPUserAgent {
         log(.info, "<- 200 OK, отправлен ACK")
         call.continuation.yield(.state(.answered))
         call.continuation.yield(.answered(body: response.body, contentType: response.contentType))
+    }
+
+    /// Подтверждает и тут же закрывает разговор, которого у нас уже нет.
+    ///
+    /// Порядок обязателен: сначала ACK, потом BYE. BYE без ACK сервер имеет
+    /// полное право не принять — диалог для него ещё не подтверждён.
+    private func closeStrayAnswer(
+        request: SIPRequest,
+        response: SIPResponse,
+        local: SIPEndpoint
+    ) async {
+        guard let dialog = SIPDialog(initiatorRequest: request, response: response),
+              let sequence = request.cseq?.number
+        else {
+            log(.error, "200 OK на снятую линию, а диалог собрать нечем — закрыть её нечем тоже")
+            return
+        }
+
+        log(.warning, "200 OK пришёл на уже снятую линию — подтверждаем и кладём трубку")
+
+        var via = SIPVia(transport: account.transport, host: local.host, port: local.port)
+        via.branch = SIPToken.branch()
+        via.requestRport()
+        let ack = dialog.makeRequest(
+            .ack,
+            sequence: sequence,
+            via: via,
+            contact: localContact(local),
+            userAgent: userAgentName
+        )
+        try? await transactions.sendWithoutTransaction(ack)
+
+        let (updated, byeSequence) = dialog.nextSequence()
+        await sendBye(dialog: updated, sequence: byeSequence, local: local)
     }
 
     // MARK: - Таймер сессии (RFC 4028)
@@ -1702,6 +1788,53 @@ public actor SIPUserAgent {
             method: method,
             digestURI: uri.description,
             nonceCount: nonceCount
+        )
+    }
+
+    /// Заводит предел гудков. Повторный вызов ничего не меняет.
+    ///
+    /// Именно здесь, а не в слое транзакций: там знают про запрос и ответы, а
+    /// «сколько уместно ждать человека у телефона» — вопрос звонка, и ответ на
+    /// него один на все три линии. Взводится на первом 1xx, потому что до него
+    /// звонок закрывает таймер B, и два предела подряд означали бы два разных
+    /// ответа на «почему сняло».
+    private func armRingingLimit(callID: String) {
+        guard var call = calls[callID], call.ringingTimeoutTask == nil else { return }
+
+        let limit = ringingLimit
+        // catch с возвратом, а не `try?`: отменённая задача обязана замолчать,
+        // иначе снятие линии само же и объявит её просроченной.
+        call.ringingTimeoutTask = Task { [weak self] in
+            do { try await Task.sleep(limit) } catch { return }
+            await self?.expireRinging(callID: callID)
+        }
+        calls[callID] = call
+    }
+
+    /// Гудки идут дольше отпущенного — снимаем звонок.
+    ///
+    /// CANCEL уходит обязательно и раньше, чем закрывается линия у нас: молча
+    /// забыть про INVITE значит оставить его звонить у вызываемого, а на
+    /// сервере — висеть до его собственного таймаута.
+    private func expireRinging(callID: String) async {
+        // Диалог означает, что 200 OK всё-таки пришёл, пока мы просыпались:
+        // отменять уже нечего, и это разговор, а не гудки.
+        guard let call = calls[callID], call.role == .caller, call.dialog == nil else { return }
+
+        log(.warning, "гудки без ответа дольше \(ringingLimit) — снимаем звонок")
+        _ = try? await transactions.cancelInvite(branch: call.branch)
+
+        finishCall(
+            callID: callID,
+            with: .failed(
+                status: 408,
+                reason: NSLocalizedString(
+                    "никто не ответил",
+                    bundle: .module,
+                    comment: "причина, которую видит оператор"
+                )
+            ),
+            continuation: call.continuation
         )
     }
 

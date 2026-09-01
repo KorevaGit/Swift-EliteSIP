@@ -128,6 +128,11 @@ public final class MediaSession: @unchecked Sendable {
     /// фона отдавал бы линию с чужой громкостью и чужим mute.
     private struct AudioState {
         var isMuted = false
+        /// Множители громкости. Хранятся здесь по той же причине, что и mute:
+        /// ползунок двигают когда угодно, в том числе пока тракт у соседней
+        /// линии, и значение обязано дожить до возврата.
+        var microphoneGain: Float = 1
+        var playbackVolume: Float = 1
         /// Что успел намерить движок, пока звук был наш. Для сводки после
         /// звонка: счётчики общего тракта обнуляются на смене владельца, и
         /// спросить их у уже отпущенного движка нельзя.
@@ -186,7 +191,9 @@ public final class MediaSession: @unchecked Sendable {
         inputDeviceUID: String? = nil,
         outputDeviceUID: String? = nil,
         releasesDeviceWhenIdle: Bool = true,
-        automaticGainControl: Bool = false
+        automaticGainControl: Bool = false,
+        microphoneGain: Float = 1,
+        playbackVolume: Float = 1
     ) throws {
         localPort = reservation.rtpPort
         portReservation = reservation
@@ -201,7 +208,9 @@ public final class MediaSession: @unchecked Sendable {
             inputDeviceUID: inputDeviceUID,
             outputDeviceUID: outputDeviceUID,
             releasesDeviceWhenIdle: releasesDeviceWhenIdle,
-            automaticGainControl: automaticGainControl
+            automaticGainControl: automaticGainControl,
+            microphoneGain: microphoneGain,
+            playbackVolume: playbackVolume
         )
         self.bus = try bus ?? VoiceAudioBus(configuration: audioConfiguration)
         transport = UnfairLock(
@@ -218,6 +227,15 @@ public final class MediaSession: @unchecked Sendable {
         // Раньше момента, чем `start()`, ничего не случится: сокет ещё не
         // запущен, и звать обработчики некому.
         wireTransport()
+
+        // Громкость запоминается у линии сразу, а не только в конфигурации
+        // тракта: `claimAudio` досылает в движок именно эти значения, и без
+        // засева первый же захват тракта вернул бы единицу поверх выбранного.
+        // Берётся из конфигурации, потому что границы проверила уже она.
+        audio.withLock { state in
+            state.microphoneGain = audioConfiguration.microphoneGain
+            state.playbackVolume = audioConfiguration.playbackVolume
+        }
     }
 
     /// Собирает пару RTP и RTCP под уже согласованные параметры.
@@ -336,9 +354,13 @@ public final class MediaSession: @unchecked Sendable {
         try bus.claim(token, configuration: audioConfiguration, handlers: makeHandlers())
         // Всё, что накопилось на линии, пока звука у неё не было, досылается
         // сразу: mute, поставленный на фоновой линии, обязан пережить возврат.
-        let muted = audio.withLock { $0.isMuted }
+        let (muted, gain, volume) = audio.withLock {
+            ($0.isMuted, $0.microphoneGain, $0.playbackVolume)
+        }
         bus.withEngine(token) { engine in
             engine.isMuted = muted
+            engine.microphoneGain = gain
+            engine.playbackVolume = volume
             audio.withLock { state in
                 state.route = engine.route
                 state.usesEchoCancellation = engine.usesEchoCancellation
@@ -644,6 +666,32 @@ public final class MediaSession: @unchecked Sendable {
         set {
             audio.withLock { $0.isMuted = newValue }
             bus.withEngine(token) { $0.isMuted = newValue }
+        }
+    }
+
+    /// Усиление микрофона и громкость воспроизведения.
+    ///
+    /// Хранятся у сессии и досылаются в тракт, как и mute: тракт общий, у
+    /// фоновой линии его нет вовсе, а ползунок двигают не спрашивая, какая
+    /// линия сейчас звучит.
+    public var microphoneGain: Float {
+        get { audio.withLock { $0.microphoneGain } }
+        set {
+            // Границы проверяются здесь тоже, а не только в движке: значение
+            // хранится у линии и досылается ею — сохранить непроверенное
+            // значило бы вернуть его в тракт при следующем захвате.
+            let value = newValue.clampedGain(to: VoiceAudioEngine.Configuration.microphoneGainLimit)
+            audio.withLock { $0.microphoneGain = value }
+            bus.withEngine(token) { $0.microphoneGain = value }
+        }
+    }
+
+    public var playbackVolume: Float {
+        get { audio.withLock { $0.playbackVolume } }
+        set {
+            let value = newValue.clampedGain(to: 1)
+            audio.withLock { $0.playbackVolume = value }
+            bus.withEngine(token) { $0.playbackVolume = value }
         }
     }
 

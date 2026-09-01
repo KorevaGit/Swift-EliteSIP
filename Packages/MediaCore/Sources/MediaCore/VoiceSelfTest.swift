@@ -63,6 +63,14 @@ public final class VoiceSelfTest: @unchecked Sendable {
     /// Общий тракт вместо своего движка — это ещё и единственный способ
     /// гарантировать, что проверка и разговор не откроют устройство
     /// одновременно: владелец у тракта один, и он же решает, кому отказать.
+    /// Уровни микрофона и воспроизведения, пока проверка идёт.
+    ///
+    /// Нужны ползунку усиления: выставлять его вслепую нечем, а звонка ради
+    /// настройки не заведёшь. Ноль, когда тракт не наш, — то есть между
+    /// проверками; для индикатора это ровно «тишина», а не «нет данных».
+    public var inputLevel: Float { bus.withEngine(token) { $0.inputLevel } ?? 0 }
+    public var outputLevel: Float { bus.withEngine(token) { $0.outputLevel } ?? 0 }
+
     public init(bus: VoiceAudioBus, configuration: VoiceAudioEngine.Configuration) throws {
         self.bus = bus
         self.configuration = configuration

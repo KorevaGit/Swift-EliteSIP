@@ -233,6 +233,11 @@ struct SettingsResolvedValue: View {
             text
                 .font(.footnote)
                 .compatForeground(Theme.Palette.textSecondary)
+                // Перенос, как у `SettingsNote`, и по той же причине: внутри
+                // `HStack` вторая строка высоты ряду не добавляет и наезжает на
+                // следующий. Здесь это ждало длинного имени устройства — «в
+                // звонке: External Headphones (USB Audio CODEC)».
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

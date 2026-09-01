@@ -1,3 +1,4 @@
+import Compat
 import Foundation
 import Testing
 @testable import SIPCore
@@ -25,12 +26,16 @@ struct CallTests {
         }
     }
 
-    private func makeAgent(_ server: ScriptedSIPServer) async -> SIPUserAgent {
+    private func makeAgent(
+        _ server: ScriptedSIPServer,
+        ringingLimit: Interval = SIPUserAgent.defaultRingingLimit
+    ) async -> SIPUserAgent {
         let agent = SIPUserAgent(
             account: testAccount(),
             credentials: testCredentials,
             channel: server,
-            timers: fastTimers()
+            timers: fastTimers(),
+            ringingLimit: ringingLimit
         )
         await agent.start()
         _ = await waitUntil { await agent.registrationState.isRegistered }
@@ -127,6 +132,70 @@ struct CallTests {
         // «Сервер ответил 486» оператору не говорит ничего, «занято» — говорит всё.
         #expect(await collector.value == describeCallFailure(status: 486, reason: "Busy Here"))
         #expect(await agent.callState == nil, "после отказа звонок не должен считаться активным")
+
+        await agent.stop()
+    }
+
+    @Test("Гудки без финального ответа снимаются по пределу")
+    func ringingHasCeiling() async throws {
+        let server = makeServer()
+        let agent = await makeAgent(server, ringingLimit: .milliseconds(400))
+
+        let events = await agent.placeCall(to: "600", offer: sdpOffer()).events
+        let collector = Task { () -> (status: Int, reason: String)? in
+            for await event in events {
+                if case .failed(let status, let reason) = event { return (status, reason) }
+            }
+            return nil
+        }
+
+        #expect(await waitUntil { server.receivedRequests.filter { $0.method == .invite }.count >= 2 })
+        let invite = try #require(lastInvite(server))
+        server.inject(response: ScriptedSIPServer.response(to: invite, status: 180))
+        #expect(await waitUntil { await agent.callState == .ringing })
+
+        // Дальше сервер молчит — так выглядит потерянный финальный ответ. До
+        // этой правки линия оставалась в «Гудках» навсегда: на первом 1xx
+        // таймер B снят, а своего предела у звонка не было.
+        let result = try #require(await collector.value)
+        #expect(result.status == 408)
+        #expect(await agent.callState == nil, "линия обязана сняться, а не остаться в гудках")
+
+        // Молча забыть про INVITE нельзя: он продолжит звонить у вызываемого.
+        #expect(server.receivedRequests.contains { $0.method == .cancel })
+
+        await agent.stop()
+    }
+
+    @Test("200 OK на уже снятую линию подтверждается и закрывается BYE")
+    func strayAnswerIsAcknowledgedAndClosed() async throws {
+        let server = makeServer()
+        let agent = await makeAgent(server)
+
+        _ = await agent.placeCall(to: "600", offer: sdpOffer())
+        #expect(await waitUntil { server.receivedRequests.filter { $0.method == .invite }.count >= 2 })
+        let invite = try #require(lastInvite(server))
+        server.inject(response: ScriptedSIPServer.response(to: invite, status: 180))
+        #expect(await waitUntil { await agent.callState == .ringing })
+
+        await agent.hangUp()
+        #expect(await waitUntil { server.receivedRequests.contains { $0.method == .cancel } })
+
+        // Классическая ничья: 200 OK разошёлся с нашим CANCEL в сети. Для той
+        // стороны это состоявшийся разговор — у вызываемого снята трубка.
+        server.inject(response: answer(to: invite))
+
+        #expect(
+            await waitUntil { server.receivedRequests.contains { $0.method == .bye } },
+            "разговор, о котором мы не знаем, надо закрыть, а не бросить"
+        )
+        // Порядок обязателен: BYE без ACK сервер вправе не принять — диалог для
+        // него ещё не подтверждён.
+        let requests = server.receivedRequests
+        let ackIndex = try #require(requests.firstIndex { $0.method == .ack })
+        let byeIndex = try #require(requests.firstIndex { $0.method == .bye })
+        #expect(ackIndex < byeIndex)
+        #expect(await agent.callState == nil)
 
         await agent.stop()
     }

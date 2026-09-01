@@ -515,6 +515,25 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// устройство — иначе macOS не даёт развести стороны.
         var outputDeviceUID: String?
 
+        /// Как назывались выбранные устройства, когда их выбирали.
+        ///
+        /// Хранятся ТОЛЬКО чтобы назвать пропавшее устройство человеку. Ни на
+        /// один выбор тракта они не влияют — устройство ищется по `uid`, и
+        /// только по нему: имён «AirPods Pro» в доме бывает несколько.
+        ///
+        /// Нужны из-за состояния, которое до этого выглядело поломкой: вынули
+        /// гарнитуру — и в настройках пустое невыбранное поле. Пустым оно было
+        /// потому, что выбранный `uid` пропадал из списка живых устройств, а
+        /// назвать его строкой было нечем. Разговор при этом шёл: движок не
+        /// нашёл `uid` и честно взял системное умолчание, — то есть поле врало
+        /// молчанием.
+        ///
+        /// Пустая строка — файл, записанный до этой правки, или выбор
+        /// «системное по умолчанию». В обоих случаях звать пропавшее устройство
+        /// по имени нечем, и оно называется общим словом.
+        var inputDeviceName: String = ""
+        var outputDeviceName: String = ""
+
         /// Отпускать звуковое устройство между звонками.
         ///
         /// Ради Bluetooth-гарнитур: пока микрофон открыт, AirPods работают в
@@ -541,24 +560,56 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// блоки, так что цена решения нулевая, а вернуть его можно галочкой.
         var automaticGainControl: Bool = false
 
+        /// Усиление микрофона и громкость наушников — множителями, где 1 —
+        /// «как есть».
+        ///
+        /// Своя пара ручек, а не системная громкость, по двум причинам. Первая:
+        /// системную оператор крутит на всю машину, а тише надо сделать только
+        /// собеседника — уведомления и музыка в это не входят. Вторая: половина
+        /// гарнитур своего регулятора микрофона не имеет вовсе, и «меня плохо
+        /// слышно» до сих пор лечилось только сменой гарнитуры.
+        ///
+        /// Микрофон пускается до двойного, выход — только до единицы: разбор
+        /// границ у `VoiceAudioEngine.Configuration.microphoneGain`.
+        ///
+        /// Схема не выросла: старый файл читается терпимым декодером и получает
+        /// единицы — ровно прежнее поведение, когда ручек не было.
+        var microphoneGain: Double = 1
+        var playbackVolume: Double = 1
+
+        /// Границы ползунков. Здесь, а не во вью: правленный руками файл
+        /// проверяет тот же предел, что и ползунок, — иначе они разойдутся.
+        static let microphoneGainRange: ClosedRange<Double> = 0...2
+        static let playbackVolumeRange: ClosedRange<Double> = 0...1
+
         init(
             inputDeviceUID: String? = nil,
             outputDeviceUID: String? = nil,
+            inputDeviceName: String = "",
+            outputDeviceName: String = "",
             releasesDeviceWhenIdle: Bool = true,
             prefersWideband: Bool = true,
-            automaticGainControl: Bool = false
+            automaticGainControl: Bool = false,
+            microphoneGain: Double = 1,
+            playbackVolume: Double = 1
         ) {
             self.inputDeviceUID = inputDeviceUID
             self.outputDeviceUID = outputDeviceUID
+            self.inputDeviceName = inputDeviceName
+            self.outputDeviceName = outputDeviceName
             self.releasesDeviceWhenIdle = releasesDeviceWhenIdle
             self.prefersWideband = prefersWideband
             self.automaticGainControl = automaticGainControl
+            self.microphoneGain = microphoneGain.clamped(to: Self.microphoneGainRange)
+            self.playbackVolume = playbackVolume.clamped(to: Self.playbackVolumeRange)
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             inputDeviceUID = try container.decodeIfPresent(String.self, forKey: .inputDeviceUID)
             outputDeviceUID = try container.decodeIfPresent(String.self, forKey: .outputDeviceUID)
+            inputDeviceName = try container.decodeIfPresent(String.self, forKey: .inputDeviceName) ?? ""
+            outputDeviceName = try container.decodeIfPresent(String.self, forKey: .outputDeviceName) ?? ""
             releasesDeviceWhenIdle =
                 try container.decodeIfPresent(Bool.self, forKey: .releasesDeviceWhenIdle) ?? true
             prefersWideband = try container.decodeIfPresent(Bool.self, forKey: .prefersWideband) ?? true
@@ -568,6 +619,10 @@ struct AppSettings: Codable, Sendable, Equatable {
             // отказались; явно записанное значение пользователя уважается.
             automaticGainControl =
                 try container.decodeIfPresent(Bool.self, forKey: .automaticGainControl) ?? false
+            microphoneGain = (try container.decodeIfPresent(Double.self, forKey: .microphoneGain) ?? 1)
+                .clamped(to: Self.microphoneGainRange)
+            playbackVolume = (try container.decodeIfPresent(Double.self, forKey: .playbackVolume) ?? 1)
+                .clamped(to: Self.playbackVolumeRange)
         }
     }
 

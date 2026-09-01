@@ -213,6 +213,62 @@ struct InviteTransactionTests {
         await layer.stop()
     }
 
+    @Test("CANCEL до первого 1xx откладывается и уходит на нём")
+    func cancelWaitsForProvisional() async throws {
+        let (layer, server) = await makeLayer()
+        _ = await layer.sendInvite(makeInvite())
+        #expect(await waitUntil { !server.receivedRequests.isEmpty })
+
+        // Отбой в первые полсекунды после набора — то есть до всякого ответа
+        // сервера. RFC 3261 §9.1: такой CANCEL слать нельзя, сервер мог ещё не
+        // завести транзакцию и ответит 481, а INVITE продолжит звонить.
+        let cancelled = try await layer.cancelInvite(branch: "z9hG4bKinvite1")
+        #expect(cancelled, "наверх это всё равно «отменяем»: ждать нечего")
+
+        try await Task.sleep(.milliseconds(300))
+        #expect(
+            !server.receivedRequests.contains { $0.method == .cancel },
+            "до первого 1xx CANCEL уходить не должен"
+        )
+
+        server.inject(response: response(180, contact: nil))
+        #expect(
+            await waitUntil { server.receivedRequests.contains { $0.method == .cancel } },
+            "а на первом же 1xx — обязан"
+        )
+
+        let cancel = try #require(server.receivedRequests.last { $0.method == .cancel })
+        #expect(cancel.topVia?.branch == "z9hG4bKinvite1")
+
+        await layer.stop()
+    }
+
+    @Test("Отменённый INVITE без 487 закрывается по пределу, а не висит")
+    func cancelledInviteExpires() async throws {
+        let (layer, server) = await makeLayer()
+        let events = await layer.sendInvite(makeInvite())
+        #expect(await waitUntil { !server.receivedRequests.isEmpty })
+
+        server.inject(response: response(180, contact: nil))
+        #expect(await waitUntil { server.receivedRequests.count >= 1 })
+        _ = try await layer.cancelInvite(branch: "z9hG4bKinvite1")
+        #expect(await waitUntil { server.receivedRequests.contains { $0.method == .cancel } })
+
+        // 487 не присылаем: ровно это и происходит, когда финальный ответ
+        // теряется. На первом 1xx таймер B снят, и без своего предела запись
+        // жила бы в таблице до выхода из приложения — вместе с подвешенной на
+        // её поток задачей звонка.
+        let collector = Task { () -> Bool in
+            for await event in events {
+                if case .timeout = event { return true }
+            }
+            return false
+        }
+        #expect(await collector.value, "отменённый INVITE обязан закрыться сам")
+
+        await layer.stop()
+    }
+
     @Test("Отмена неизвестной транзакции ничего не ломает")
     func cancelUnknownIsHarmless() async throws {
         let (layer, _) = await makeLayer()

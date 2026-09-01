@@ -6,6 +6,19 @@ import os
 
 // не переводится: названия шагов и отказов звукового движка — журнал.
 
+extension Float {
+
+    /// Множитель громкости в допустимых границах.
+    ///
+    /// Снизу всегда ноль: отрицательное усиление — это переворот фазы, то есть
+    /// не «тише», а «то же самое наоборот». Из правленного руками файла
+    /// настроек прийти может и такое.
+    func clampedGain(to limit: Float) -> Float {
+        guard isFinite else { return 1 }
+        return Swift.min(Swift.max(self, 0), limit)
+    }
+}
+
 /// Аудиотракт разговора: микрофон → кодек → сеть и обратно.
 ///
 /// Ключевое решение — `setVoiceProcessingEnabled(true)`. Это включает системный
@@ -71,6 +84,22 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         /// хорошей гарнитуре — «дышит»: подтягивает шум в паузах и приседает на
         /// громком слоге. Эхоподавление и шумодав от неё не зависят.
         public var automaticGainControl: Bool
+
+        /// Усиление микрофона и громкость воспроизведения, множителями.
+        ///
+        /// Обе — настройка рабочего места, а не свойство линии: у оператора
+        /// одна пара ушей и один микрофон на все три линии. Поэтому они здесь,
+        /// а не у сессии, и переживают смену владельца тракта.
+        ///
+        /// Границы разные, и это не небрежность. Микрофон пускается до двойного
+        /// (`microphoneGainLimit`): жалоба «меня плохо слышно» — самая частая, а
+        /// тихая гарнитура лечится только усилением. Воспроизведение выше
+        /// единицы не пускается вовсе: микшер выше неё не умеет, а «громче
+        /// некуда» — честный ответ, в отличие от ползунка, который двигается и
+        /// ничего не меняет.
+        public var microphoneGain: Float
+        public var playbackVolume: Float
+
         /// Сколько терпеть, если тракт не пересобирается. См.
         /// `AudioRestartPolicy`: временная пропажа устройства при переходе
         /// Bluetooth-гарнитуры на другое устройство и обратно не должна
@@ -86,6 +115,8 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             outputDeviceUID: String? = nil,
             releasesDeviceWhenIdle: Bool = true,
             automaticGainControl: Bool = false,
+            microphoneGain: Float = 1,
+            playbackVolume: Float = 1,
             restartPolicy: AudioRestartPolicy = AudioRestartPolicy()
         ) {
             self.restartPolicy = restartPolicy
@@ -97,7 +128,17 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             self.outputDeviceUID = outputDeviceUID
             self.releasesDeviceWhenIdle = releasesDeviceWhenIdle
             self.automaticGainControl = automaticGainControl
+            self.microphoneGain = microphoneGain.clampedGain(to: Self.microphoneGainLimit)
+            self.playbackVolume = playbackVolume.clampedGain(to: 1)
         }
+
+        /// Потолок усиления микрофона — вдвое, то есть +6 дБ.
+        ///
+        /// Выше нельзя: усиление стоит ПОСЛЕ обработки голоса и после
+        /// пересчёта в кодек, то есть умножает уже готовые отсчёты вместе со
+        /// всем, что в них попало. Вдвое тихая гарнитура вытягивается, вчетверо
+        /// — вытягивается вместе с шумом комнаты и упирается в ограничение.
+        public static let microphoneGainLimit: Float = 2
 
         public var samplesPerFrame: Int {
             codec.sampleCount(forPacketTime: packetTimeMilliseconds)
@@ -376,6 +417,52 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         }
     }
 
+    /// Живые множители громкости. Отдельно от `configuration`, потому что
+    /// ползунок двигают во время разговора, а конфигурация задана на запуске.
+    private let gainLock = UnfairLock(initialState: (microphone: Float(1), playback: Float(1)))
+
+    /// Усиление микрофона. Правится на работающем тракте.
+    ///
+    /// Применяется в потоке кодирования, после пересчёта в кодек и до замера
+    /// уровня: индикатор обязан показывать то, что действительно уходит в
+    /// линию, — иначе им нельзя выставить сам ползунок.
+    public var microphoneGain: Float {
+        get { gainLock.withLock { $0.microphone } }
+        set {
+            let value = newValue.clampedGain(to: Configuration.microphoneGainLimit)
+            gainLock.withLock { $0.microphone = value }
+        }
+    }
+
+    /// Громкость воспроизведения. Правится на работающем тракте.
+    ///
+    /// Через `outputVolume` микшера, а не множителем в потоке рендера: это его
+    /// прямое назначение, считает его сам движок, и в реальном времени не
+    /// появляется ни одного лишнего действия. Значение запоминается ещё и у
+    /// себя, потому что тракт пересобирается на смене устройства — а
+    /// пересобранный микшер приходит с единицей.
+    public var playbackVolume: Float {
+        get { gainLock.withLock { $0.playback } }
+        set {
+            let value = newValue.clampedGain(to: 1)
+            gainLock.withLock { $0.playback = value }
+            applyPlaybackVolume()
+        }
+    }
+
+    /// Досылает громкость в микшер. Зовётся и на сборке графа: пересобранный
+    /// микшер о прежнем значении не знает.
+    private func applyPlaybackVolume() {
+        let value = gainLock.withLock { $0.playback }
+        // Под ловушкой: `mainMixerNode` создаётся лениво и при создании трогает
+        // железо — на машине без устройств это исключение Objective-C, а не
+        // ошибка Swift. Здесь оно ничего не значит: громкость доедет при
+        // следующей сборке графа.
+        try? AudioObjCException.trap(step: "громкость микшера") {
+            engine.mainMixerNode.outputVolume = value
+        }
+    }
+
     private var configurationObserver: NSObjectProtocol?
     private var routeObservation: AudioDeviceCatalog.Observation?
     private var usesVoiceProcessing = false
@@ -417,6 +504,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             ring: SampleRing(capacity: 48_000, targetFill: 0),
             scratch: [Float](repeating: 0, count: 16_384)
         ))
+        gainLock.withLock {
+            $0 = (configuration.microphoneGain, configuration.playbackVolume)
+        }
     }
 
     /// Переводит движок на настройки следующего разговора.
@@ -458,6 +548,13 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         self.configuration = configuration
         conversationFormat = format
         restartPolicy = configuration.restartPolicy
+        // Громкость приезжает вместе с настройкой звонка: перенастройка — это
+        // «вот условия следующего разговора», и они полные, а не частичные.
+        // Правку ползунком посреди разговора это не теряет — её хранит и
+        // досылает `MediaSession`, у которой тракт можно и отобрать.
+        gainLock.withLock {
+            $0 = (configuration.microphoneGain, configuration.playbackVolume)
+        }
         decoder = AudioFrameDecoder(codec: configuration.codec)
         encoder = AudioFrameEncoder(codec: configuration.codec)
         concealer = PacketLossConcealer(codec: configuration.codec)
@@ -695,6 +792,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
                 engine.connect(engine.mainMixerNode, to: output, format: outputFormat)
             }
         }
+
+        // Пересобранный микшер приходит с единицей: досылаем то, что выбрал
+        // человек, до запуска — иначе первые кадры после смены устройства
+        // прозвучат на полной громкости.
+        applyPlaybackVolume()
 
         try startPlayback()
         try startCapture()
@@ -1459,9 +1561,14 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         }
         guard !captured.isEmpty else { return }
 
-        guard let converted = Self.resample(
+        guard var converted = Self.resample(
             captured, using: converter, from: formats.source, to: formats.destination
         ) else { return }
+
+        // Усиление — здесь, а не в приёмнике: приёмник зовётся из потока
+        // реального времени, а этот поток обычный, и лишнее умножение в нём
+        // ничего не стоит. И обязательно ДО замера уровня — см. `microphoneGain`.
+        Self.amplify(&converted, by: gainLock.withLock { $0.microphone })
 
         // Индикатор микрофона на удержании обязан лежать на нуле: показывать
         // уровень голоса, который никуда не уходит, — это ровно тот случай,
@@ -1492,6 +1599,25 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // весь хвост заново при каждом вызове.
         if offset > 0 {
             captureRemainder.removeFirst(offset)
+        }
+    }
+
+    /// Умножает отсчёты на месте, с ограничением по границам Int16.
+    ///
+    /// `internal` ради теста: доказывать надо не только то, что тихое стало
+    /// громче, но и то, что громкое не перевернулось знаком. Без ограничения
+    /// именно это и происходит — переполнение Int16 в Swift ещё и роняет
+    /// процесс, а на релизной сборке даёт треск вместо голоса.
+    ///
+    /// Единица не бесплатна только на словах: проверка на неё убирает проход по
+    /// массиву у всех, кто ползунок не трогал, то есть почти у всех.
+    static func amplify(_ samples: inout [Int16], by gain: Float) {
+        guard gain != 1 else { return }
+        let low = Float(Int16.min)
+        let high = Float(Int16.max)
+        for index in samples.indices {
+            let value = Float(samples[index]) * gain
+            samples[index] = Int16(min(max(value, low), high))
         }
     }
 

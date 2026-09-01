@@ -137,6 +137,23 @@
         }
       }
     },
+    "%@ — отключено": {
+      "comment": "устройство выбрано, но сейчас недоступно",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — disconnected"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — отключено"
+          }
+        }
+      }
+    },
     "%@ — файл не найден": {
       "comment": "рингтона нет на диске",
       "localizations": {
@@ -1624,6 +1641,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вы звоните по сделке — примите звонок для начала вызова клиенту."
+          }
+        }
+      }
+    },
+    "Выбранное устройство": {
+      "comment": "имя пропавшего звукового устройства неизвестно",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected device"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбранное устройство"
           }
         }
       }
@@ -9452,6 +9486,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Управление ›"
+          }
+        }
+      }
+    },
+    "Уровень": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Level"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уровень"
+          }
+        }
+      }
+    },
+    "Уровни появятся здесь в разговоре и во время проверки ниже: по ним видно, что уходит в линию и что приходит из неё.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Levels will appear here during a call and during the test below: they show what goes into the line and what comes out of it."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уровни появятся здесь в разговоре и во время проверки ниже: по ним видно, что уходит в линию и что приходит из неё."
+          }
+        }
+      }
+    },
+    "Усиление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gain"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Усиление"
           }
         }
       }

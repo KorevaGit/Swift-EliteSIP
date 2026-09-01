@@ -44,6 +44,8 @@
 	<string>no route to %@</string>
 	<key>нет регистрации на сервере</key>
 	<string>not registered on the server</string>
+	<key>никто не ответил</key>
+	<string>no answer</string>
 	<key>номер перевода содержит недопустимые символы</key>
 	<string>the transfer number contains invalid characters</string>
 	<key>ответ без Contact</key>

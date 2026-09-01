@@ -358,6 +358,23 @@
         }
       }
     },
+    "никто не ответил": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no answer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "никто не ответил"
+          }
+        }
+      }
+    },
     "номер перевода содержит недопустимые символы": {
       "comment": "почему перевод не состоялся",
       "localizations": {
