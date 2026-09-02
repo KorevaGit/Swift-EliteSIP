@@ -2137,7 +2137,8 @@ final class AppModel: ObservableObject {
             callerNumber: call.displayNumber,
             callerName: call.callerName,
             requestsAutoAnswer: call.requestsAutoAnswer,
-            ownNumber: settings.account.username
+            ownNumber: settings.account.username,
+            queueTitle: settings.queues.title(forCallerNumber: call.displayNumber)
         )
     }
 
@@ -2183,8 +2184,8 @@ final class AppModel: ObservableObject {
         )
 
         if !settings.incomingCall.isEnabled {
-            // Выключить защиту можно, скрыть факт — нет. В M8 эта же запись
-            // уедет в EliteDash с отметкой времени.
+            // Выключить защиту можно, скрыть факт — нет. Та же запись уедет в
+            // панель отметкой машины, когда отчёты защиты доедут до неё.
             append(level: .warning, message: "защита от автокликеров выключена на этом вызове")
         }
 

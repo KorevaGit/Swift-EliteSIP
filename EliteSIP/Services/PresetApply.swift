@@ -40,6 +40,35 @@ extension AppSettings {
         incomingCall.isServerManaged = panel.isManaged
     }
 
+    /// Тронуто ли хоть одно поле, которым управляет панель.
+    ///
+    /// Список обязан совпадать с тем, что накладывает `apply(_:)`, и потому
+    /// стоит вплотную к нему: разъехавшись, эти два перечня дадут машину,
+    /// которая считает себя связанной с панелью, а на деле правится руками, —
+    /// или обратное. Оба хуже.
+    ///
+    /// `incomingCall.isServerManaged` из сравнения выброшен намеренно: его
+    /// ставит не человек, а само наложение полей, и попадание его в сравнение
+    /// означало бы, что связка рвётся от собственного признака связки.
+    ///
+    /// Словаря очередей здесь нет, и это не забывчивость: панель им не
+    /// управляет — в контракте `ManagedFields` таких полей нет вовсе. Названия
+    /// раздач заводит администратор на месте, и связки с панелью они не рвут.
+    func differsInPanelManagedFields(from other: AppSettings) -> Bool {
+        var mine = incomingCall
+        var theirs = other.incomingCall
+        mine.isServerManaged = false
+        theirs.isServerManaged = false
+
+        return dtmf != other.dtmf
+            || mine != theirs
+            || conference != other.conference
+            || portKnock != other.portKnock
+            || siteAddresses != other.siteAddresses
+            || acceptsAnyTLSCertificate != other.acceptsAnyTLSCertificate
+            || profiles.active.account.transport != other.profiles.active.account.transport
+    }
+
     // MARK: - Клавиши
 
     private mutating func applyDTMF(_ incoming: ManagedFields.DTMF?) {

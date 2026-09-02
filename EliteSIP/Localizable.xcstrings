@@ -990,6 +990,22 @@
         }
       }
     },
+    "В вызове есть «X-Autoanswer: TRUE»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The call carries “X-Autoanswer: TRUE”"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В вызове есть «X-Autoanswer: TRUE»"
+          }
+        }
+      }
+    },
     "В истории лежат номера лидов и SIP-логины — как пришли, без маскирования. В архив для поддержки она не попадает: там только журнал.": {
       "localizations": {
         "en": {
@@ -1909,18 +1925,18 @@
         }
       }
     },
-    "Выключение фиксируется в журнале, а в M8 уедет в EliteDash.": {
+    "Выключение фиксируется в журнале: каждый вызов помечается как принятый без защиты.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Turning it off is recorded in the log, and in M8 it will go to EliteDash."
+            "value": "Turning it off is recorded in the log: every call is marked as answered without the guard."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выключение фиксируется в журнале, а в M8 уедет в EliteDash."
+            "value": "Выключение фиксируется в журнале: каждый вызов помечается как принятый без защиты."
           }
         }
       }
@@ -2599,6 +2615,22 @@
         }
       }
     },
+    "Если тронуты настройки, которыми управляет EliteSupport, сохранение разорвёт связку с панелью: обновления конфигураций, клавиш и адресов АТС на эту машину больше не придут, а вернуть её можно будет только новым ключом. Это будет записано в журнал.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If settings controlled by EliteSupport were touched, saving will break the bond with the panel: configuration, macro and PBX address updates will no longer reach this machine, and only a new key can restore it. This will be recorded in the log."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если тронуты настройки, которыми управляет EliteSupport, сохранение разорвёт связку с панелью: обновления конфигураций, клавиш и адресов АТС на эту машину больше не придут, а вернуть её можно будет только новым ключом. Это будет записано в журнал."
+          }
+        }
+      }
+    },
     "Если это не вы — не продолжайте и сообщите в поддержку.": {
       "localizations": {
         "ru": {
@@ -2611,6 +2643,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "If this is not you, stop and tell support."
+          }
+        }
+      }
+    },
+    "Есть имя и номер длиннее шести цифр": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is a name and the number is longer than six digits"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Есть имя и номер длиннее шести цифр"
           }
         }
       }
@@ -3300,18 +3348,18 @@
         }
       }
     },
-    "Значением управляет EliteDash.": {
+    "Значение приезжает из панели предустановкой «%@». Правка здесь действует сразу и держится до следующей выкладки этой предустановки — потом вернётся то, что задано в панели. Чтобы правка осталась навсегда, снимите «Слушать панель» в разделе «Аккаунт» или поменяйте значение в самой панели.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The value is managed by EliteDash."
+            "value": "The value arrives from the panel with preset “%@”. An edit here takes effect at once and holds until that preset is published again — after which the panel's value returns. To make an edit permanent, turn off “Follow the panel” in the “Account” section, or change the value in the panel itself."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Значением управляет EliteDash."
+            "value": "Значение приезжает из панели предустановкой «%@». Правка здесь действует сразу и держится до следующей выкладки этой предустановки — потом вернётся то, что задано в панели. Чтобы правка осталась навсегда, снимите «Слушать панель» в разделе «Аккаунт» или поменяйте значение в самой панели."
           }
         }
       }
@@ -3425,6 +3473,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Изменить подпись"
+          }
+        }
+      }
+    },
+    "Имя звонящего": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caller name"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя звонящего"
           }
         }
       }
@@ -3574,6 +3638,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Исходящих в истории нет"
+          }
+        }
+      }
+    },
+    "Как опознаётся входящий": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How an incoming call is recognised"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как опознаётся входящий"
+          }
+        }
+      }
+    },
+    "Канал не отвечал больше суток. Пока связи нет, правки из панели не доезжают — включая смену адреса АТС. Звонить это не мешает: машина работает тем, что применила раньше.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The channel has been silent for over a day. While there is no contact, edits from the panel do not arrive — including a change of PBX address. Calling still works: the machine runs on what it applied earlier."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Канал не отвечал больше суток. Пока связи нет, правки из панели не доезжают — включая смену адреса АТС. Звонить это не мешает: машина работает тем, что применила раньше."
           }
         }
       }
@@ -4138,6 +4234,22 @@
         }
       }
     },
+    "Машина живёт своим умом: файл предустановок не применяется ни в чём — ни адреса АТС, ни клавиши, ни защита сюда больше не доезжают. Вернуть её под панель можно только новым ключом: выпустите его и введите в «Техподдержке».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The machine is on its own: the preset file is not applied at all — PBX addresses, macros and the guard no longer reach it. Only a new key can put it back under the panel: issue one and enter it in “Support”."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина живёт своим умом: файл предустановок не применяется ни в чём — ни адреса АТС, ни клавиши, ни защита сюда больше не доезжают. Вернуть её под панель можно только новым ключом: выпустите его и введите в «Техподдержке»."
+          }
+        }
+      }
+    },
     "Машина живёт своим умом: файл предустановок не применяется ни в чём. Это же состояние у машины, которую поднимали не ключом. Штатный способ починить разъехавшееся рабочее место — вернуть её под предустановку.": {
       "localizations": {
         "ru": {
@@ -4366,6 +4478,22 @@
         }
       }
     },
+    "Название из словаря": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name from the list"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название из словаря"
+          }
+        }
+      }
+    },
     "Название раздачи": {
       "localizations": {
         "en": {
@@ -4378,6 +4506,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Название раздачи"
+          }
+        }
+      }
+    },
+    "Названия раздач": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Distribution names"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Названия раздач"
           }
         }
       }
@@ -5204,6 +5348,22 @@
         }
       }
     },
+    "Ничего из перечисленного": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None of the above"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ничего из перечисленного"
+          }
+        }
+      }
+    },
     "Новый": {
       "comment": "подпись только что заведённого макроса",
       "localizations": {
@@ -5302,6 +5462,22 @@
         }
       }
     },
+    "Номер есть в словаре выше": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The number is in the list above"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер есть в словаре выше"
+          }
+        }
+      }
+    },
     "Номер комнаты": {
       "localizations": {
         "en": {
@@ -5330,6 +5506,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Номер перевода"
+          }
+        }
+      }
+    },
+    "Номер совпал с вашим добавочным": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The number matches your extension"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер совпал с вашим добавочным"
           }
         }
       }
@@ -5396,6 +5588,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Update to %@"
+          }
+        }
+      }
+    },
+    "Обновлена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновлена"
           }
         }
       }
@@ -7063,6 +7271,22 @@
         }
       }
     },
+    "Правка настроек, которыми управляет EliteSupport, полностью ломает синхронизацию с ключом. Чтобы вернуть её, ключ придётся выпускать и привязывать заново.\n\nПродолжая, вы осознанно рвёте связку с EliteSupport и соглашаетесь не получать обновления конфигураций, новые клавиши и новые адреса АТС — управление клиентом полностью переходит к вам.\n\nВсе настройки применяются после нажатия «Сохранить».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editing settings controlled by EliteSupport completely breaks key synchronisation. To restore it, a key will have to be issued and bound again.\n\nBy continuing you knowingly break the bond with EliteSupport and agree to stop receiving configuration updates, new keypad macros and new PBX addresses — control of the client passes entirely to you.\n\nAll settings take effect once you press “Save”."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка настроек, которыми управляет EliteSupport, полностью ломает синхронизацию с ключом. Чтобы вернуть её, ключ придётся выпускать и привязывать заново.\n\nПродолжая, вы осознанно рвёте связку с EliteSupport и соглашаетесь не получать обновления конфигураций, новые клавиши и новые адреса АТС — управление клиентом полностью переходит к вам.\n\nВсе настройки применяются после нажатия «Сохранить»."
+          }
+        }
+      }
+    },
     "Предлагать широкую полосу (G.722)": {
       "localizations": {
         "en": {
@@ -7844,6 +8068,22 @@
         }
       }
     },
+    "Пусто — и это рабочее состояние: раздачи подписываются общим заголовком. Записи нужны, только если ваш диалплан подставляет номер очереди в вызов.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty — and that is a working state: distributions are labelled with the shared heading. Entries are only needed if your dialplan puts the queue number into the call."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто — и это рабочее состояние: раздачи подписываются общим заголовком. Записи нужны, только если ваш диалплан подставляет номер очереди в вызов."
+          }
+        }
+      }
+    },
     "Пусто. Нажмите «Подключить».": {
       "localizations": {
         "en": {
@@ -8086,6 +8326,22 @@
         }
       }
     },
+    "Российский мобильный входящего показывается под маской «+7**********» — в окне, в шапке разговора и в истории. Исходящие маской не закрываются.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An incoming Russian mobile number is shown masked as “+7**********” — in the call window, in the call header and in history. Outgoing numbers are never masked."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Российский мобильный входящего показывается под маской «+7**********» — в окне, в шапке разговора и в истории. Исходящие маской не закрываются."
+          }
+        }
+      }
+    },
     "Сбой звука": {
       "comment": "состояние линии при отказе сокета или шифрования",
       "localizations": {
@@ -8229,6 +8485,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Светлая"
+          }
+        }
+      }
+    },
+    "Связь с каналом": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Channel contact"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связь с каналом"
           }
         }
       }
@@ -9441,6 +9713,22 @@
         }
       }
     },
+    "Управление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controlled by"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управление"
+          }
+        }
+      }
+    },
     "Управление EliteSIP": {
       "comment": "заголовок окна «Управление»",
       "localizations": {
@@ -10284,6 +10572,22 @@
         }
       }
     },
+    "вручную, связь разорвана": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by hand, bond broken"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вручную, связь разорвана"
+          }
+        }
+      }
+    },
     "вызова уже нет": {
       "comment": "состояние линии",
       "localizations": {
@@ -10401,6 +10705,38 @@
         }
       }
     },
+    "и добавочный отдавшего лид": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "and the extension of whoever passed the lead"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "и добавочный отдавшего лид"
+          }
+        }
+      }
+    },
+    "и номер под ним": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "with the number below it"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "и номер под ним"
+          }
+        }
+      }
+    },
     "идёт": {
       "comment": "звонок ещё не кончился",
       "localizations": {
@@ -10514,6 +10850,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "линия"
+          }
+        }
+      }
+    },
+    "мобильный под маской": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mobile number masked"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "мобильный под маской"
           }
         }
       }
@@ -10788,6 +11140,22 @@
         }
       }
     },
+    "номер не показывается": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the number is not shown"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "номер не показывается"
+          }
+        }
+      }
+    },
     "область пустая": {
       "comment": "отказ снимка истории",
       "localizations": {
@@ -10801,6 +11169,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "область пустая"
+          }
+        }
+      }
+    },
+    "панель": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the panel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "панель"
           }
         }
       }
@@ -10884,6 +11268,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "повтор в %@"
+          }
+        }
+      }
+    },
+    "под ним номер": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the number below it"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "под ним номер"
           }
         }
       }
@@ -11064,6 +11464,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "›"
+          }
+        }
+      }
+    },
+    "🔥Горячая раздача🔥": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🔥Hot lead🔥"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🔥Горячая раздача🔥"
           }
         }
       }

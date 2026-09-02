@@ -1635,8 +1635,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let alert = NSAlert()
         alert.messageText = NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»")
         alert.informativeText = NSLocalizedString("""
-            Сохранение объявит настройки этой машины локальными: их задаёт \
-            администратор, а не файл конфигурации. Это будет записано в журнал.
+            Если тронуты настройки, которыми управляет EliteSupport, сохранение \
+            разорвёт связку с панелью: обновления конфигураций, клавиш и адресов \
+            АТС на эту машину больше не придут, а вернуть её можно будет только \
+            новым ключом. Это будет записано в журнал.
             """, comment: "вопрос при закрытии «Управления»")
         alert.addButton(withTitle: NSLocalizedString("Сохранить", comment: "кнопка"))
         alert.addButton(withTitle: NSLocalizedString("Не сохранять", comment: "кнопка"))

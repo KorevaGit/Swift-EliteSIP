@@ -15,8 +15,6 @@ struct PanelStatusCard: View {
 
     @EnvironmentObject private var model: AppModel
 
-    @State private var isConfirmingManaged = false
-
     var body: some View {
         if model.settings.panel.isActivated {
             SettingsSection("Панель") {
@@ -37,22 +35,26 @@ struct PanelStatusCard: View {
                         )
                 }
 
-                SettingsToggleRow("Слушать панель", isOn: Binding(
-                    get: { model.settings.panel.mode == .managed },
-                    set: { managed in
-                        if managed {
-                            // Возврат под предустановку заменит локальные правки —
-                            // спрашиваем до, а не показываем сожаление после.
-                            isConfirmingManaged = true
-                        } else {
-                            model.settings.panel.mode = .manual
-                            // Признак «этим управляет сервер» снимается сразу:
-                            // иначе управляемые ползунки остались бы запертыми
-                            // на машине, которая панель уже не слушает.
-                            model.settings.incomingCall.isServerManaged = false
-                        }
-                    }
-                ))
+                // Тумблера «Слушать панель» здесь больше нет, и это не потеря
+                // возможности, а перенос решения туда, где оно принимается.
+                //
+                // Связь рвётся правкой управляемых настроек и «Сохранить» — так
+                // сказано в предупреждении при входе в это окно. Тумблер рядом
+                // означал бы второй способ сделать то же самое, а главное —
+                // способ вернуться одним кликом, то есть ровно то, чего
+                // предупреждение обещает не давать. Возврат под панель — новый
+                // ключ, и другого пути нет.
+                SettingsRow("Управление") {
+                    Text(model.settings.panel.mode == .managed
+                         ? "панель"
+                         : "вручную, связь разорвана")
+                        .compatForeground(
+                            model.settings.panel.mode == .managed
+                                ? Theme.Palette.textPrimary
+                                : Theme.Palette.failure
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 // При двухчасовом такте это не удобство, а необходимость:
                 // администратор, сменивший адрес АТС, не должен ждать два часа,
@@ -70,10 +72,11 @@ struct PanelStatusCard: View {
                         """)
                 } else {
                     SettingsNote("""
-                        Машина живёт своим умом: файл предустановок не применяется ни в чём. \
-                        Штатный способ починить разъехавшееся рабочее место — вернуть её \
-                        под предустановку.
-                        """)
+                        Машина живёт своим умом: файл предустановок не применяется ни в чём — \
+                        ни адреса АТС, ни клавиши, ни защита сюда больше не доезжают. \
+                        Вернуть её под панель можно только новым ключом: выпустите его \
+                        и введите в «Техподдержке».
+                        """, isAlarming: true)
                 }
 
                 if isOutOfTouch {
@@ -83,30 +86,6 @@ struct PanelStatusCard: View {
                         машина работает тем, что применила раньше.
                         """)
                 }
-            }
-            .alert(isPresented: $isConfirmingManaged) {
-                Alert(
-                    title: Text("Вернуть под предустановку?"),
-                    message: Text("""
-                        Локальные правки управляемых полей будут заменены тем, что \
-                        лежит на сервере, — при первом же ответе канала, а не в момент \
-                        нажатия. Номер, метка профиля и пароль SIP останутся.
-                        """),
-                    primaryButton: .default(Text("Вернуть")) {
-                        model.settings.panel.mode = .managed
-                        model.settings.incomingCall.isServerManaged = true
-                        // Без этой строки возврат был обещанием без исполнения.
-                        //
-                        // Линия предустановок применяет только то, что новее
-                        // применённого, а ревизия за время жизни своим умом не
-                        // менялась: машина возвращалась «под предустановку» и
-                        // оставалась со своими правками, а проверка отвечала
-                        // «настройки уже свежие». Признак отменяет это правило
-                        // ровно на один заход. Найдено аудитом 27 августа 2026.
-                        model.settings.panel.wantsResync = true
-                    },
-                    secondaryButton: .cancel(Text("Отмена"))
-                )
             }
         }
     }
