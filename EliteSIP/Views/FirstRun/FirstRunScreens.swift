@@ -357,6 +357,11 @@ struct FirstRunUserScreen: View {
         VStack(spacing: Theme.Metrics.tightSpacing) {
             Text(verbatim: package.employee)
                 .font(Theme.Text.firstRunTitle)
+                // Имя из пакета набрано тем же кеглем, что и заголовок экрана,
+                // и без отступа два крупных текста подряд читались как один
+                // заголовок в две строки. Отступ отделяет «что за экран» от
+                // «чей это ключ» — это два разных сообщения.
+                .padding(.top, Theme.Metrics.sectionSpacing)
 
             Text(verbatim: "\(package.number) · \(package.preset.name)")
                 .font(.footnote)
@@ -371,8 +376,13 @@ struct FirstRunUserScreen: View {
 
             Button("Ввести другой ключ") {
                 flow.openedPackage = nil
+                flow.openedAccess = nil
                 flow.keyFailure = nil
                 flow.key = ""
+                // Явный отказ от того, что приехало, — черновик уносится вместе
+                // с ним. Иначе следующее открытие мастера подняло бы ровно тот
+                // пакет, про который человек только что сказал «не мой».
+                ActivationDraftStore.clear()
             }
             .buttonStyle(.link)
         }

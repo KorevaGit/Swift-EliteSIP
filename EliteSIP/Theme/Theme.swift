@@ -834,7 +834,24 @@ enum Theme {
         ///
         /// Жёлтый, а не красный: пропуск не введён — это не отказ, а незаконченный
         /// ввод. Красным в приложении говорят только про сломанное.
-        static let caution = Color.yellow
+        ///
+        /// Своей парой, а не `Color.yellow`: системный жёлтый — это цвет
+        /// разметки, а не текста, и на белом фоне первоначальной настройки
+        /// строка «Если это не вы — не продолжайте» читалась только под углом.
+        /// В светлой теме поэтому взят тёмный янтарь (контраст к белому — 4.6:1
+        /// против 1.2:1 у `Color.yellow`), в тёмной остаётся прежний жёлтый: на
+        /// чёрном он читается, и менять узнаваемый цвет там незачем.
+        ///
+        /// `NSColor` с провайдером, а не `Color` с `@Environment`: цвет достают
+        /// из статического свойства без вью, а провайдер есть с Catalina.
+        static let caution = Color(cautionColor)
+
+        private static let cautionColor = NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return isDark
+                ? NSColor(calibratedRed: 1.00, green: 0.84, blue: 0.25, alpha: 1)
+                : NSColor(calibratedRed: 0.58, green: 0.40, blue: 0.00, alpha: 1)
+        }
 
         // `sidebarSelection` убрана: плашку выбранного раздела рисует `List`.
         //

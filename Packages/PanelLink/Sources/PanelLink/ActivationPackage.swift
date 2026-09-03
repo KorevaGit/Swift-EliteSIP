@@ -6,7 +6,11 @@ import Foundation
 /// Приложение скачивает его по адресу, выведенному из ключа, и распечатывает
 /// тем же ключом. Панель при этом ничего не знает о машине: она положила пакет
 /// и забыла, а забрал его тот, у кого ключ.
-public struct ActivationPackage: Sendable, Equatable {
+/// `Codable` — не для канала: по нему пакет ездит своим форматом, зашифрованным
+/// и с заголовком, а разбирают его `Wire` ниже. Это для черновика мастера:
+/// распечатанный пакет ложится на диск до конца настройки, потому что ключ
+/// сгорает в тот же миг, когда его проверили, — см. `ActivationDraftStore`.
+public struct ActivationPackage: Sendable, Equatable, Codable {
 
     /// Версия формата, которую понимает эта сборка.
     ///
@@ -55,7 +59,7 @@ public struct ActivationPackage: Sendable, Equatable {
     public var preset: Preset
 
     /// Предустановка, приехавшая с пакетом.
-    public struct Preset: Sendable, Equatable {
+    public struct Preset: Sendable, Equatable, Codable {
         public var id: String
         public var name: String
         public var revision: Int

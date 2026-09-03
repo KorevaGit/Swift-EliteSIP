@@ -20,6 +20,7 @@
     },
     "%1$@ · %2$@": {
       "comment": "сколько вызовов из очереди и когда последний",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -37,6 +38,7 @@
     },
     "%1$@ · %2$lld макр. · %3$lld очер.": {
       "comment": "что внутри предустановки",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -72,22 +74,23 @@
     "%1$@, ревизия %2$lld": {
       "comment": "предустановка и ревизия в разделе «Панель»",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@, ревизия %2$lld"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@, revision %2$lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, ревизия %2$lld"
           }
         }
       }
     },
     "%1$lld в ряду · %2$lld тчк": {
       "comment": "сетка клавиш в просмотре предустановки",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -189,6 +192,7 @@
     },
     "%lld вызовов": {
       "comment": "сколько вызовов пришло из очереди",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -302,6 +306,7 @@
       }
     },
     "%lld цифр. Код покажет действующий пароль этой машины — он не сбрасывается, потому что совпадает с паролем в конфигурации.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -362,6 +367,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Feature-code"
+          }
+        }
+      }
+    },
+    "K7M2-9XQP-4TFB": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K7M2-9XQP-4TFB"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K7M2-9XQP-4TFB"
           }
         }
       }
@@ -501,6 +522,7 @@
     },
     "«%@» — предустановка EliteSIP. Загрузить её можно в «Управлении», раздел «Предустановки».": {
       "comment": "файл открыт двойным щелчком, применять его некому",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -715,17 +737,35 @@
       }
     },
     "Административный пароль остаётся машинный: в конфигурации его нет, и заменять его нечем. Файл предустановки сюда приносить незачем — её применяют в своём разделе. Сырой `settings.json` тоже принимается: он остался для поддержки.": {
+      "extractionState": "stale",
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The administrator password stays the machine’s own: a configuration does not carry one, so there is nothing to replace it with. A preset file does not belong here — presets are applied in their own section. A raw `settings.json` is accepted too: it stays for support."
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Административный пароль остаётся машинный: в конфигурации его нет, и заменять его нечем. Файл предустановки сюда приносить незачем — её применяют в своём разделе. Сырой `settings.json` тоже принимается: он остался для поддержки."
           }
-        },
+        }
+      }
+    },
+    "Администратор этой машины": {
+      "comment": "кто управляет настройками",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The administrator password stays the machine’s own: a configuration does not carry one, so there is nothing to replace it with. A preset file does not belong here — presets are applied in their own section. A raw `settings.json` is accepted too: it stays for support."
+            "value": "This machine’s administrator"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Администратор этой машины"
           }
         }
       }
@@ -762,6 +802,38 @@
         }
       }
     },
+    "Адрес АТС из дома": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PBX address from home"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес АТС из дома"
+          }
+        }
+      }
+    },
+    "Адрес АТС из офиса": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PBX address from the office"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес АТС из офиса"
+          }
+        }
+      }
+    },
     "Адрес АТС не найден. Проверьте адрес.": {
       "comment": "исход живой проверки регистрации",
       "localizations": {
@@ -775,6 +847,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Адрес АТС не найден. Проверьте адрес."
+          }
+        }
+      }
+    },
+    "Адрес из дома": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From home"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес из дома"
+          }
+        }
+      }
+    },
+    "Адрес из офиса": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the office"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес из офиса"
           }
         }
       }
@@ -841,6 +945,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Аккаунты, макросы, защита от автокликеров и диагностика."
+          }
+        }
+      }
+    },
+    "Архив выгружен в %@.": {
+      "comment": "итог выгрузки архива",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archive exported to %@."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив выгружен в %@."
           }
         }
       }
@@ -1040,6 +1161,7 @@
     },
     "В файле нет пароля администратора: после сохранения закрытые настройки этой машины будут открыты всем.": {
       "comment": "предупреждение перед загрузкой настроек из файла",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1091,21 +1213,22 @@
     },
     "Ввести другой ключ": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ввести другой ключ"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Enter a different key"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ввести другой ключ"
+          }
         }
       }
     },
     "Ввести код восстановления": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1154,17 +1277,18 @@
       }
     },
     "Вернуть под предустановку?": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вернуть под предустановку?"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Return to the preset?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть под предустановку?"
           }
         }
       }
@@ -1197,6 +1321,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вернуть это нельзя ни «Отменой», ни из архива для поддержки: он собирается из журнала, а журнал стирается вместе со всем остальным."
+          }
+        }
+      }
+    },
+    "Вернуться к ключу активации": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to the activation key"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к ключу активации"
           }
         }
       }
@@ -1510,6 +1650,7 @@
     },
     "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера и пароль администратора. На диск это уйдёт только по «Сохранить».": {
       "comment": "предупреждение перед загрузкой настроек из файла",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1523,22 +1664,22 @@
             "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера и пароль администратора. На диск это уйдёт только по «Сохранить»."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера. На диск это уйдёт только по «Сохранить».": {
       "comment": "предупреждение перед загрузкой конфигурации из файла",
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера. На диск это уйдёт только по «Сохранить»."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Everything in this window will be replaced by the contents of the file, the extension password included. It reaches the disk only on “Save”."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера. На диск это уйдёт только по «Сохранить»."
           }
         }
       }
@@ -1696,6 +1837,7 @@
       }
     },
     "Выбрать другой файл…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1744,7 +1886,24 @@
         }
       }
     },
+    "Выгрузить архив для поддержки…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export an archive for support…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить архив для поддержки…"
+          }
+        }
+      }
+    },
     "Выгрузить журнал…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1761,6 +1920,7 @@
       }
     },
     "Выгрузить конфигурацию…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1777,6 +1937,7 @@
       }
     },
     "Выгрузить настройки…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1790,26 +1951,27 @@
             "value": "Выгрузить настройки…"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Выгрузить файл настроек…": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выгрузить файл настроек…"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Export the settings file…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить файл настроек…"
+          }
         }
       }
     },
     "Выгрузить…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1826,6 +1988,7 @@
       }
     },
     "Выгрузка": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1839,8 +2002,7 @@
             "value": "Выгрузка"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Вызов": {
       "comment": "группа разделов «Управления»",
@@ -2156,6 +2318,23 @@
         }
       }
     },
+    "Готово: настройки рабочего места обновлены.": {
+      "comment": "перепрошивка применена",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done: the workstation settings have been updated."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово: настройки рабочего места обновлены."
+          }
+        }
+      }
+    },
     "Готовый слепок машины — когда рабочее место переносят, а не заводят.": {
       "extractionState": "stale",
       "localizations": {
@@ -2255,6 +2434,7 @@
       }
     },
     "Действующий пароль": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2321,16 +2501,16 @@
     },
     "Для поддержки": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Для поддержки"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "For support"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для поддержки"
           }
         }
       }
@@ -2585,16 +2765,32 @@
     "Доступна версия %@": {
       "comment": "предложение обновиться",
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@ is available"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Доступна версия %@"
           }
-        },
+        }
+      }
+    },
+    "Если вам прислали ключ для смены настроек — введите его здесь.                     Номер и настройки сменятся сами; переустанавливать ничего не нужно.": {
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Version %@ is available"
+            "value": "If you have been sent a key to change your settings, enter it here. The extension and the settings will change on their own; nothing needs reinstalling."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если вам прислали ключ для смены настроек — введите его здесь.                     Номер и настройки сменятся сами; переустанавливать ничего не нужно."
           }
         }
       }
@@ -2633,16 +2829,16 @@
     },
     "Если это не вы — не продолжайте и сообщите в поддержку.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Если это не вы — не продолжайте и сообщите в поддержку."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "If this is not you, stop and tell support."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если это не вы — не продолжайте и сообщите в поддержку."
           }
         }
       }
@@ -2745,6 +2941,7 @@
     },
     "Журнал выгружен в %@.": {
       "comment": "итог выгрузки журнала",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2761,17 +2958,18 @@
       }
     },
     "Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The log goes out as the same archive as “Collect logs” on the manager page: build and system details inside, secrets masked."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы."
           }
         }
       }
@@ -2844,6 +3042,7 @@
       }
     },
     "Заводские": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2876,6 +3075,7 @@
       }
     },
     "Загрузить": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2892,6 +3092,7 @@
       }
     },
     "Загрузить из файла…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2908,22 +3109,24 @@
       }
     },
     "Загрузить конфигурацию из файла…": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Загрузить конфигурацию из файла…"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Load a configuration from a file…"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить конфигурацию из файла…"
+          }
         }
       }
     },
     "Загрузить конфигурацию…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2940,6 +3143,7 @@
       }
     },
     "Загрузить настройки из файла?": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2956,6 +3160,7 @@
       }
     },
     "Загрузить настройки из файла…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2969,26 +3174,27 @@
             "value": "Загрузить настройки из файла…"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Загрузка конфигурации": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Загрузка конфигурации"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Loading a configuration"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка конфигурации"
+          }
         }
       }
     },
     "Загрузка настроек": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3002,8 +3208,7 @@
             "value": "Загрузка настроек"
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Задать пароль": {
       "localizations": {
@@ -3284,6 +3489,7 @@
       }
     },
     "Здесь видно, по какому шаблону заведено это место. Правки, сделанные после применения, тут не отражаются: строка отвечает на «с чего начали», а не «что сейчас».": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3317,6 +3523,7 @@
       }
     },
     "Здесь правки не применяются на ходу: они копятся, пока вы не нажмёте «Сохранить». Закрыть окно без сохранения можно в любой момент.\n\nСохранение объявит настройки этой машины локальными — их задаёт администратор, а не файл конфигурации, — и запишет это в журнал.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3333,6 +3540,7 @@
       }
     },
     "Значение меняется само: любое сохранение в этом окне объявляет настройки локальными. Второе значение — «настройки из файла конфигурации» — заработает в M8, когда появится сама загрузка конфига. Вернуть машину под конфиг после локальной правки можно будет только повторной загрузкой файла.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3560,21 +3768,22 @@
     },
     "История звонков не выгружается ни тем, ни другим: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "История звонков не выгружается ни тем, ни другим: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Call history is not exported by either of them: it holds lead numbers and SIP logins unmasked. That was decided in stage 4 and still stands."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История звонков не выгружается ни тем, ни другим: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе."
+          }
         }
       }
     },
     "История звонков не выгружается: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3588,8 +3797,7 @@
             "value": "История звонков не выгружается: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "История звонков — %@": {
       "comment": "заголовок окна истории с профилем",
@@ -3677,16 +3885,16 @@
     "Канал обновлений не настроен": {
       "comment": "результат ручной проверки обновлений",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Канал обновлений не настроен"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Update channel not configured"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Канал обновлений не настроен"
           }
         }
       }
@@ -3724,18 +3932,34 @@
         }
       }
     },
-    "Ключ из сообщения": {
+    "Ключ": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ключ из сообщения"
+            "value": "Ключ"
           }
-        },
+        }
+      }
+    },
+    "Ключ из сообщения": {
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Key from the message"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключ из сообщения"
           }
         }
       }
@@ -3757,6 +3981,7 @@
       }
     },
     "Код восстановления": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3939,6 +4164,7 @@
     },
     "Конфигурация": {
       "comment": "имя файла конфигурации",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3956,6 +4182,7 @@
     },
     "Конфигурация выгружена в %@.": {
       "comment": "итог выгрузки конфигурации",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3973,33 +4200,35 @@
     },
     "Конфигурация загружена. Проверьте разделы и нажмите «Сохранить».": {
       "comment": "итог загрузки конфигурации",
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Конфигурация загружена. Проверьте разделы и нажмите «Сохранить»."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Configuration loaded. Check the sections and press “Save”."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация загружена. Проверьте разделы и нажмите «Сохранить»."
+          }
         }
       }
     },
     "Конфигурация — слепок этого рабочего места: номер и пароль SIP, клавиши, очереди, приём вызова, адрес АТС, стук, журнал. Ею переносят человека на другой компьютер целиком; файл принимает мастер первоначальной настройки.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Конфигурация — слепок этого рабочего места: номер и пароль SIP, клавиши, очереди, приём вызова, адрес АТС, стук, журнал. Ею переносят человека на другой компьютер целиком; файл принимает мастер первоначальной настройки."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A configuration is a snapshot of this workplace: number and SIP password, keys, queues, incoming-call rules, PBX address, port knock, logging. Use it to move a person to another computer whole; the file is read by the first-run wizard."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфигурация — слепок этого рабочего места: номер и пароль SIP, клавиши, очереди, приём вызова, адрес АТС, стук, журнал. Ею переносят человека на другой компьютер целиком; файл принимает мастер первоначальной настройки."
           }
         }
       }
@@ -4022,6 +4251,7 @@
       }
     },
     "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с номером и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4035,8 +4265,7 @@
             "value": "Конфигурация — это то же самое в формате EliteSIP: файл, который принимает мастер первоначальной настройки на новой машине. Им переносят рабочее место человека на другой компьютер целиком, вместе с номером и паролем; при чтении из него отбрасываются звуковые устройства, свой рингтон, тема со стеклом и административный пароль — всё, что принадлежит той машине, а не месту."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Кто будет работать за этой машиной.": {
       "localizations": {
@@ -4103,17 +4332,18 @@
       }
     },
     "Локальные правки управляемых полей будут заменены тем, что лежит на сервере. Номер, метка профиля и пароль SIP останутся.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Локальные правки управляемых полей будут заменены тем, что лежит на сервере. Номер, метка профиля и пароль SIP останутся."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Local changes to managed fields will be replaced with what is on the server. The number, profile label and SIP password will remain."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальные правки управляемых полей будут заменены тем, что лежит на сервере. Номер, метка профиля и пароль SIP останутся."
           }
         }
       }
@@ -4234,6 +4464,22 @@
         }
       }
     },
+    "Машина ещё не настроена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This machine is not set up yet"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина ещё не настроена"
+          }
+        }
+      }
+    },
     "Машина живёт своим умом: файл предустановок не применяется ни в чём — ни адреса АТС, ни клавиши, ни защита сюда больше не доезжают. Вернуть её под панель можно только новым ключом: выпустите его и введите в «Техподдержке».": {
       "localizations": {
         "en": {
@@ -4251,33 +4497,34 @@
       }
     },
     "Машина живёт своим умом: файл предустановок не применяется ни в чём. Это же состояние у машины, которую поднимали не ключом. Штатный способ починить разъехавшееся рабочее место — вернуть её под предустановку.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Машина живёт своим умом: файл предустановок не применяется ни в чём. Это же состояние у машины, которую поднимали не ключом. Штатный способ починить разъехавшееся рабочее место — вернуть её под предустановку."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The machine runs on its own: the preset file is not applied at all. This is also the state of a machine that was not set up with a key. The regular way to fix a workplace that has drifted is to put it back under the preset."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина живёт своим умом: файл предустановок не применяется ни в чём. Это же состояние у машины, которую поднимали не ключом. Штатный способ починить разъехавшееся рабочее место — вернуть её под предустановку."
           }
         }
       }
     },
     "Машина применяет файл предустановок с сервера. Управляемые поля показываются, но не правятся здесь: локально остаются номер, метка профиля и пароль SIP. Обновление обязательное — отложить его нельзя, оно ждёт только конца разговора.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Машина применяет файл предустановок с сервера. Управляемые поля показываются, но не правятся здесь: локально остаются номер, метка профиля и пароль SIP. Обновление обязательное — отложить его нельзя, оно ждёт только конца разговора."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The machine applies the preset file from the server. Managed fields are shown but not edited here: the number, profile label and SIP password stay local. The update is mandatory — it cannot be postponed, it only waits for the end of a call."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина применяет файл предустановок с сервера. Управляемые поля показываются, но не правятся здесь: локально остаются номер, метка профиля и пароль SIP. Обновление обязательное — отложить его нельзя, оно ждёт только конца разговора."
           }
         }
       }
@@ -4295,6 +4542,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Машина сброшена."
+          }
+        }
+      }
+    },
+    "Машину поднимали не ключом, и панель о ней не знает. Профили, макросы и политику защиты задаёт администратор этой машины. Чтобы передать их панели, нужен ключ из неё — поле «Новый ключ» у менеджера, в «Техподдержке».": {
+      "comment": "пояснение к режиму управления",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This machine was not set up with a key, so the panel knows nothing about it. Profiles, macros and the protection policy are set by this machine’s administrator. To hand them over to the panel you need a key from it — the “New key” field on the operator’s Support page."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машину поднимали не ключом, и панель о ней не знает. Профили, макросы и политику защиты задаёт администратор этой машины. Чтобы передать их панели, нужен ключ из неё — поле «Новый ключ» у менеджера, в «Техподдержке»."
           }
         }
       }
@@ -4447,6 +4711,7 @@
       }
     },
     "Название": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4463,6 +4728,7 @@
       }
     },
     "Название встаёт в окне входящего на главное место — по нему оператор решает, как здороваться. Номер сверяется с тем, что приходит в вызове; пробелы, скобки и дефисы значения не имеют.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4527,6 +4793,7 @@
       }
     },
     "Например: Менеджер": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4543,6 +4810,7 @@
       }
     },
     "Настроена": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4554,6 +4822,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Настроена"
+          }
+        }
+      }
+    },
+    "Настроить эту машину вручную…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up this machine manually…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настроить эту машину вручную…"
           }
         }
       }
@@ -4571,6 +4855,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Настройка EliteSIP"
+          }
+        }
+      }
+    },
+    "Настройками этой машины управляет панель EliteSIP.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This machine’s settings are managed by the EliteSIP panel."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройками этой машины управляет панель EliteSIP."
           }
         }
       }
@@ -4608,7 +4908,24 @@
         }
       }
     },
+    "Настройки в архиве — те, что видно в этом окне, включая несохранённое. Они для разбора жалобы, а не для переноса: другая машина их не примет.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings in the archive are the ones shown in this window, unsaved edits included. They are meant for looking into a complaint, not for moving a setup: another machine will not accept them."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки в архиве — те, что видно в этом окне, включая несохранённое. Они для разбора жалобы, а не для переноса: другая машина их не примет."
+          }
+        }
+      }
+    },
     "Настройки выгружаются такими, какими они видны в окне, — включая несохранённое. Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4622,11 +4939,11 @@
             "value": "Настройки выгружаются такими, какими они видны в окне, — включая несохранённое. Журнал уходит тем же архивом, что и «Собрать логи» у менеджера: сведения о сборке и системе внутри, секреты замаскированы."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Настройки выгружены в %@.": {
       "comment": "итог выгрузки настроек",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4644,6 +4961,7 @@
     },
     "Настройки загружены. Проверьте разделы и нажмите «Сохранить».": {
       "comment": "итог загрузки настроек",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4657,8 +4975,7 @@
             "value": "Настройки загружены. Проверьте разделы и нажмите «Сохранить»."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Настройки изменены": {
       "comment": "вопрос при закрытии «Управления»",
@@ -4678,6 +4995,7 @@
       }
     },
     "Настройки машин, заведённых по ней, останутся как есть.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4709,6 +5027,22 @@
         }
       }
     },
+    "Настройки этой машины задаёт её администратор.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This machine’s settings are set by its administrator."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки этой машины задаёт её администратор."
+          }
+        }
+      }
+    },
     "Настройки этой машины станут локальными: их задаёт администратор, а не файл конфигурации. Сохранение будет записано в журнал.": {
       "localizations": {
         "en": {
@@ -4726,6 +5060,7 @@
       }
     },
     "Настройки этой машины: %@.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4825,17 +5160,18 @@
       }
     },
     "Не входит то, что принадлежит машине, а не месту: звуковые устройства, свой рингтон, оформление и административный пароль. Выброшены они уже в самом файле, а не при чтении, — файл содержит ровно то, что здесь написано.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не входит то, что принадлежит машине, а не месту: звуковые устройства, свой рингтон, оформление и административный пароль. Выброшены они уже в самом файле, а не при чтении, — файл содержит ровно то, что здесь написано."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "What belongs to the machine rather than the workplace stays out: audio devices, a custom ringtone, the appearance and the administrator password. They are dropped in the file itself, not on reading — the file holds exactly what is described here."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не входит то, что принадлежит машине, а не месту: звуковые устройства, свой рингтон, оформление и административный пароль. Выброшены они уже в самом файле, а не при чтении, — файл содержит ровно то, что здесь написано."
           }
         }
       }
@@ -4891,6 +5227,7 @@
       }
     },
     "Не применять": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4924,6 +5261,7 @@
     },
     "Не удалось выгрузить журнал: %@": {
       "comment": "выгрузка журнала не удалась",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4941,6 +5279,7 @@
     },
     "Не удалось выгрузить конфигурацию: %@": {
       "comment": "выгрузка конфигурации не удалась",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4958,6 +5297,7 @@
     },
     "Не удалось выгрузить настройки: %@": {
       "comment": "выгрузка настроек не удалась",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4975,6 +5315,7 @@
     },
     "Не удалось выгрузить: %@": {
       "comment": "выгрузка предустановки не удалась",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4992,6 +5333,7 @@
     },
     "Не удалось прочитать файл: %@": {
       "comment": "файл настроек не прочитался",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5010,16 +5352,16 @@
     "Не удалось связаться с сервером: %@. Проверьте сеть и попробуйте снова.": {
       "comment": "отказ при получении пакета активации",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось связаться с сервером: %@. Проверьте сеть и попробуйте снова."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Could not reach the server: %@. Check the network and try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось связаться с сервером: %@. Проверьте сеть и попробуйте снова."
           }
         }
       }
@@ -5094,6 +5436,7 @@
       }
     },
     "Неназванных номеров нет. Либо словарь полон, либо на эту машину ещё не приходило вызовов с коротких номеров.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5381,6 +5724,22 @@
         }
       }
     },
+    "Новый ключ": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New key"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый ключ"
+          }
+        }
+      }
+    },
     "Новый пароль": {
       "localizations": {
         "en": {
@@ -5398,6 +5757,7 @@
       }
     },
     "Новый пароль — необязательно": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5447,6 +5807,7 @@
     },
     "Номер %@, АТС %@.": {
       "comment": "что приехало из файла конфигурации",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5562,32 +5923,32 @@
     "Обновить": {
       "comment": "кнопка в предложении обновиться",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновить"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Update"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить"
           }
         }
       }
     },
     "Обновить до %@": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновить до %@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Update to %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить до %@"
           }
         }
       }
@@ -5611,16 +5972,16 @@
     "Обновление готово: %@": {
       "comment": "результат ручной проверки обновлений",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновление готово: %@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Update ready: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление готово: %@"
           }
         }
       }
@@ -5628,16 +5989,16 @@
     "Обновление найдено, скачивается…": {
       "comment": "результат ручной проверки обновлений",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновление найдено, скачивается…"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Update found, downloading…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление найдено, скачивается…"
           }
         }
       }
@@ -5645,16 +6006,16 @@
     "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само.": {
       "comment": "предложение обновиться",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The update is downloaded and verified. Installing takes a few seconds, and the app restarts itself."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само."
           }
         }
       }
@@ -5662,32 +6023,33 @@
     "Обновлений нет": {
       "comment": "результат ручной проверки обновлений",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновлений нет"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No updates"
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновлений нет"
+          }
         }
       }
     },
     "Обратная сторона переноса: файл заполняет окно целиком — профили с номером и паролем SIP, клавиши, очереди, приём, АТС, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обратная сторона переноса: файл заполняет окно целиком — профили с номером и паролем SIP, клавиши, очереди, приём, АТС, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The other half of moving a workplace: the file fills this window whole — profiles with the number and SIP password, keys, queues, incoming-call rules, PBX, port knock. Nothing reaches the disk before “Save”, and “Cancel” puts it back."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обратная сторона переноса: файл заполняет окно целиком — профили с номером и паролем SIP, клавиши, очереди, приём, АТС, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
           }
         }
       }
@@ -5710,6 +6072,7 @@
       }
     },
     "Обычно он совпадает с паролем в конфигурации. Меняйте его здесь только если знаете, что делаете: до появления файла конфигурации (M8) смена разведёт эту машину с остальными.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5743,6 +6106,7 @@
       }
     },
     "Оставить": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5991,16 +6355,16 @@
     "Отложить": {
       "comment": "кнопка в предложении обновиться",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отложить"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Later"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложить"
           }
         }
       }
@@ -6038,6 +6402,7 @@
       }
     },
     "Отменить перенос": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6315,32 +6680,49 @@
     "Ошибка: %@": {
       "comment": "результат ручной проверки обновлений",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ошибка: %@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Error: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка: %@"
           }
         }
       }
     },
     "Панель": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panel"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Панель"
           }
-        },
+        }
+      }
+    },
+    "Панель EliteSIP": {
+      "comment": "кто управляет настройками",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Panel"
+            "value": "EliteSIP panel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панель EliteSIP"
           }
         }
       }
@@ -6357,6 +6739,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Панель висит поверх CRM весь день — важно, чтобы она не била по глазам."
+          }
+        }
+      }
+    },
+    "Панель отключена вручную: файл предустановок не применяется ни в чём. Вернуть машину под панель — в разделе «Аккаунт», переключателем «Слушать панель».": {
+      "comment": "пояснение к режиму управления",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The panel has been switched off by hand: nothing from the preset file is applied. To put the machine back under the panel, use “Listen to the panel” on the Account page."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Панель отключена вручную: файл предустановок не применяется ни в чём. Вернуть машину под панель — в разделе «Аккаунт», переключателем «Слушать панель»."
+          }
+        }
+      }
+    },
+    "Пара общая для всей машины — та же, что в разделе «АТС». По ней менеджер переключает себя между офисом и домом разделом «Работа»: домен АТС профиля меняется на парный. Профиль, у которого домен не из этой пары, переключение не трогает.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pair is shared by the whole machine — the same one as on the PBX page. The operator uses it to switch between office and home on the Work page: the profile’s PBX domain is swapped for its counterpart. A profile whose domain is not in this pair is left alone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пара общая для всей машины — та же, что в разделе «АТС». По ней менеджер переключает себя между офисом и домом разделом «Работа»: домен АТС профиля меняется на парный. Профиль, у которого домен не из этой пары, переключение не трогает."
           }
         }
       }
@@ -6505,6 +6920,22 @@
         }
       }
     },
+    "Первоначальная настройка не пройдена: у машины нет ни рабочего места, ни                 административного пароля. Пока это так, «Управление» не открывается — иначе                 настройки ненастроенной машины правил бы кто угодно.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Initial setup has not been completed: the machine has neither a workstation nor an administrator password. Until it has, Administration will not open — otherwise anyone could edit the settings of a machine that is not set up."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первоначальная настройка не пройдена: у машины нет ни рабочего места, ни                 административного пароля. Пока это так, «Управление» не открывается — иначе                 настройки ненастроенной машины правил бы кто угодно."
+          }
+        }
+      }
+    },
     "Первый пользователь": {
       "localizations": {
         "en": {
@@ -6606,6 +7037,7 @@
       }
     },
     "Перезапишет всё, что входит в предустановку, — и настройки машины, и выбранный профиль. Не тронет: номера и пароли остальных профилей, пароль выбранного профиля и административный пароль. Логин приравнивается к номеру.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6702,17 +7134,18 @@
       }
     },
     "Перенос рабочего места": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Перенос рабочего места"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Moving a workplace"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенос рабочего места"
           }
         }
       }
@@ -6931,6 +7364,7 @@
       }
     },
     "Пока ни одной. Настройте это рабочее место как образцовое и снимите с него предустановку — дальше её хватит, чтобы завести такое же место одним номером.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6964,6 +7398,7 @@
       }
     },
     "Показаны короткие номера — раздачи и внутренние: полным телефонным номером раздача не бывает, а список номеров клиентов в окне настроек не нужен. Длинный номер по-прежнему можно вписать руками.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7109,6 +7544,7 @@
       }
     },
     "Показать, что войдёт в машину при применении": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7355,6 +7791,7 @@
     },
     "Предустановка «%@» загружена. Она появится на машине после «Сохранить».": {
       "comment": "итог загрузки предустановки",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7372,6 +7809,7 @@
     },
     "Предустановка выгружена в %@.": {
       "comment": "итог выгрузки предустановки",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7388,38 +7826,41 @@
       }
     },
     "Предустановка — другая сущность и живёт в своём разделе. Она про отдел, а не про человека: те же клавиши, очереди и правила, но без номера и без паролей, чтобы заводить по ней новые места. Конфигурация — про одно конкретное место со всем его содержимым.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Предустановка — другая сущность и живёт в своём разделе. Она про отдел, а не про человека: те же клавиши, очереди и правила, но без номера и без паролей, чтобы заводить по ней новые места. Конфигурация — про одно конкретное место со всем его содержимым."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A preset is a different thing and lives in its own section. It is about a department, not a person: the same keys, queues and rules, but with no number and no passwords, so that new workplaces can be set up from it. A configuration is about one specific workplace with everything in it."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановка — другая сущность и живёт в своём разделе. Она про отдел, а не про человека: те же клавиши, очереди и правила, но без номера и без паролей, чтобы заводить по ней новые места. Конфигурация — про одно конкретное место со всем его содержимым."
+          }
         }
       }
     },
     "Предустановка — про отдел, конфигурация — про одно рабочее место. Первой заводят новые машины по образцу, второй переносят человека со всем его содержимым, включая номер и пароль. Конфигурация выгружается в «Обслуживании».": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Предустановка — про отдел, конфигурация — про одно рабочее место. Первой заводят новые машины по образцу, второй переносят человека со всем его содержимым, включая номер и пароль. Конфигурация выгружается в «Обслуживании»."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A preset is about a department, a configuration about one workplace. The first sets up new machines from a model, the second moves a person with everything they have, number and password included. Configurations are exported in “Maintenance”."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановка — про отдел, конфигурация — про одно рабочее место. Первой заводят новые машины по образцу, второй переносят человека со всем его содержимым, включая номер и пароль. Конфигурация выгружается в «Обслуживании»."
+          }
         }
       }
     },
     "Предустановки": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7468,6 +7909,7 @@
       }
     },
     "Приезжают вместе с приложением и правке не подлежат — их меняют пересборкой. Чтобы отступить от заводской на одной машине, настройте её как надо и снимите свою предустановку ниже.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7598,6 +8040,7 @@
       }
     },
     "Применить": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7613,7 +8056,24 @@
         }
       }
     },
+    "Применить ключ": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply the key"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применить ключ"
+          }
+        }
+      }
+    },
     "Применить…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7625,6 +8085,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Применить…"
+          }
+        }
+      }
+    },
+    "Применяем…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applying…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применяем…"
           }
         }
       }
@@ -7679,6 +8155,23 @@
         }
       }
     },
+    "Принято: настройки применятся, как только вы положите трубку. Разговор не прервётся.": {
+      "comment": "перепрошивка отложена до конца разговора",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepted: the settings will be applied as soon as you hang up. The call will not be interrupted."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принято: настройки применятся, как только вы положите трубку. Разговор не прервётся."
+          }
+        }
+      }
+    },
     "Приходили, но не названы": {
       "localizations": {
         "en": {
@@ -7728,6 +8221,7 @@
       }
     },
     "Проверить": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7745,32 +8239,48 @@
     },
     "Проверить ключ": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the key"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Проверить ключ"
           }
-        },
+        }
+      }
+    },
+    "Проверить настройки сейчас": {
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check the key"
+            "value": "Check for settings now"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить настройки сейчас"
           }
         }
       }
     },
     "Проверить обновления сейчас": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проверить обновления сейчас"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Check for Updates Now"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить обновления сейчас"
           }
         }
       }
@@ -7843,16 +8353,16 @@
     "Проверка уже идёт — подождите": {
       "comment": "результат ручной проверки обновлений",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проверка уже идёт — подождите"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Check already in progress — please wait"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка уже идёт — подождите"
           }
         }
       }
@@ -7876,16 +8386,32 @@
     },
     "Проверяем…": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Проверяем…"
           }
-        },
+        }
+      }
+    },
+    "Продолжить настройку": {
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Checking…"
+            "value": "Continue setup"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить настройку"
           }
         }
       }
@@ -7987,7 +8513,25 @@
         }
       }
     },
+    "Профили, макросы и политику защиты задаёт панель. Локально правятся номер, метка профиля и SIP-пароль.": {
+      "comment": "пояснение к режиму управления",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiles, macros and the protection policy are set by the panel. The extension, the profile label and the SIP password stay editable here."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили, макросы и политику защиты задаёт панель. Локально правятся номер, метка профиля и SIP-пароль."
+          }
+        }
+      }
+    },
     "Профиль": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8053,6 +8597,7 @@
       }
     },
     "Прочитать файл предустановки, снятой на другой машине": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8200,16 +8745,16 @@
     },
     "Разделители и регистр не важны — вставьте ключ как есть.": {
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Разделители и регистр не важны — вставьте ключ как есть."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Separators and letter case do not matter — paste the key as it is."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разделители и регистр не важны — вставьте ключ как есть."
           }
         }
       }
@@ -8589,6 +9134,7 @@
       }
     },
     "Сетка": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8818,6 +9364,7 @@
       }
     },
     "Словарь": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8834,6 +9381,7 @@
       }
     },
     "Словарь пуст: все вызовы выглядят обычными, и оператор не видит, из какой раздачи пришёл лид.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8882,17 +9430,18 @@
       }
     },
     "Слушать панель": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Слушать панель"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Follow the panel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слушать панель"
           }
         }
       }
@@ -8964,6 +9513,7 @@
       }
     },
     "Снимок берётся с того, что сейчас в окне, — включая несохранённое. В него входит всё, кроме номера, пароля SIP и административного пароля: предустановка ходит между машинами, а номер там у каждой свой, и пароль, размноженный из шаблона, паролем быть перестаёт.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9080,6 +9630,7 @@
       }
     },
     "Снять предустановку": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9096,6 +9647,7 @@
       }
     },
     "Снять с этой машины": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9178,6 +9730,7 @@
     },
     "Сохранение объявит настройки этой машины локальными: их задаёт администратор, а не файл конфигурации. Это будет записано в журнал.": {
       "comment": "вопрос при закрытии «Управления»",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9226,6 +9779,7 @@
       }
     },
     "Сохранить файл предустановки — перенести её на другую машину": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9454,6 +10008,22 @@
         }
       }
     },
+    "Тот же архив, что и «Собрать логи» у менеджера: журнал, сведения о сборке и системе, настройки этой машины. Секреты замаскированы, пароли профилей и административный доступ из настроек убраны.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The same archive as “Collect logs” on the operator’s page: the log, build and system details, and this machine’s settings. Secrets are masked; profile passwords and administrative access are stripped from the settings."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тот же архив, что и «Собрать логи» у менеджера: журнал, сведения о сборке и системе, настройки этой машины. Секреты замаскированы, пароли профилей и административный доступ из настроек убраны."
+          }
+        }
+      }
+    },
     "Транспорт": {
       "localizations": {
         "en": {
@@ -9601,6 +10171,7 @@
       }
     },
     "Удалить «%@»?": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9617,6 +10188,7 @@
       }
     },
     "Удалить предустановку": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9665,6 +10237,7 @@
       }
     },
     "Удалённо": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9826,6 +10399,22 @@
         }
       }
     },
+    "Усиление считает система: чтобы поставить его руками, выключите автоматическую регулировку ниже.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gain is set by the system: to set it by hand, turn off automatic gain control below."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Усиление считает система: чтобы поставить его руками, выключите автоматическую регулировку ниже."
+          }
+        }
+      }
+    },
     "Устройство разговора": {
       "localizations": {
         "en": {
@@ -9860,6 +10449,7 @@
       }
     },
     "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, клавиши, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9873,8 +10463,7 @@
             "value": "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, клавиши, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Файл заполняет окно целиком — профили, пароль SIP, пароль администратора, макросы, очереди, стук. На диск не уходит ничего до «Сохранить», и «Отменить» возвращает как было.": {
       "extractionState": "stale",
@@ -9894,22 +10483,24 @@
       }
     },
     "Файл настроек — сырой `settings.json` как он есть на диске, включая несохранённое из этого окна. Он для разбора жалобы, а не для переноса: другая машина его не примет, и всё машинное в нём остаётся как было.": {
+      "extractionState": "stale",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Файл настроек — сырой `settings.json` как он есть на диске, включая несохранённое из этого окна. Он для разбора жалобы, а не для переноса: другая машина его не примет, и всё машинное в нём остаётся как было."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The settings file is the raw `settings.json` as it sits on disk, including anything unsaved in this window. It is for working out a complaint, not for moving a workplace: another machine will not accept it, and everything machine-bound stays in it as it was."
           }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл настроек — сырой `settings.json` как он есть на диске, включая несохранённое из этого окна. Он для разбора жалобы, а не для переноса: другая машина его не примет, и всё машинное в нём остаётся как было."
+          }
         }
       }
     },
     "Файл не выбран.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9927,6 +10518,7 @@
     },
     "Файл не похож на настройки EliteSIP.": {
       "comment": "загрузка настроек из файла",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9944,6 +10536,7 @@
     },
     "Файл от более новой версии приложения (схема %1$lld, эта сборка знает %2$lld). Часть настроек в ней была бы потеряна.": {
       "comment": "загрузка настроек из файла",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9961,6 +10554,7 @@
     },
     "Файл повреждён и не читается.": {
       "comment": "битый файл выбран для загрузки",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9978,6 +10572,7 @@
     },
     "Файл сделан версией новее этой (формат %d). Обновите приложение.": {
       "comment": "файл новее, чем приложение",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9995,6 +10590,7 @@
     },
     "Файл сделан для другой установки EliteSIP и здесь не открывается.": {
       "comment": "файл запечатан чужим кодом восстановления",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10107,6 +10703,7 @@
       }
     },
     "Что внутри…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10171,6 +10768,7 @@
       }
     },
     "Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире каждая. Подпись переносится по пробелам до трёх строк, и если она всё равно ужимается, добавьте высоты. Высота панели считается по этим двум числам: каждый лишний ряд растит её вниз.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10184,8 +10782,7 @@
             "value": "Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире каждая. Подпись переносится по пробелам до трёх строк, и если она всё равно ужимается, добавьте высоты. Высота панели считается по этим двум числам: каждый лишний ряд растит её вниз."
           }
         }
-      },
-      "extractionState": "stale"
+      }
     },
     "Экран вызова": {
       "comment": "заголовок окна панели",
@@ -10205,6 +10802,7 @@
       }
     },
     "Эта машина": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10222,6 +10820,7 @@
     },
     "Это конфигурация рабочего места. Её принимает мастер первоначальной настройки — на машине, которую ещё не настраивали.": {
       "comment": "файл открыт двойным щелчком, применять его некому",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10257,6 +10856,7 @@
     },
     "Это конфигурация, а не предустановка: в ней есть номер и пароль. Такой файл принимает мастер первоначальной настройки.": {
       "comment": "выбран файл конфигурации вместо предустановки",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10274,6 +10874,7 @@
     },
     "Это не файл EliteSIP.": {
       "comment": "чужой файл выбран для загрузки",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10309,6 +10910,7 @@
     },
     "Это предустановка, а не конфигурация: в ней нет номера и пароля.": {
       "comment": "выбран файл предустановки вместо конфигурации",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10324,19 +10926,37 @@
         }
       }
     },
-    "Это файл предустановки, а не конфигурации. Предустановки применяются в разделе «Предустановки»: они заводят место по образцу отдела, без номера и паролей.": {
-      "comment": "в загрузку конфигурации принесли предустановку",
+    "Это рабочее место поднимали не ключом — сменить настройки ключом нельзя.": {
+      "comment": "перепрошивка на неактивированной машине",
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This workstation was not set up with a key, so its settings cannot be changed with one."
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Это файл предустановки, а не конфигурации. Предустановки применяются в разделе «Предустановки»: они заводят место по образцу отдела, без номера и паролей."
+            "value": "Это рабочее место поднимали не ключом — сменить настройки ключом нельзя."
           }
-        },
+        }
+      }
+    },
+    "Это файл предустановки, а не конфигурации. Предустановки применяются в разделе «Предустановки»: они заводят место по образцу отдела, без номера и паролей.": {
+      "comment": "в загрузку конфигурации принесли предустановку",
+      "extractionState": "stale",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This is a preset file, not a configuration. Presets are applied in the “Presets” section: they set a workplace up from a department model, with no number and no passwords."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это файл предустановки, а не конфигурации. Предустановки применяются в разделе «Предустановки»: они заводят место по образцу отдела, без номера и паролей."
           }
         }
       }
@@ -10491,16 +11111,16 @@
     "буфер обмена не принял снимок": {
       "comment": "отказ снимка истории",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "буфер обмена не принял снимок"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "the clipboard did not accept the snapshot"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "буфер обмена не принял снимок"
           }
         }
       }
@@ -10557,6 +11177,7 @@
     },
     "вручную, без предустановки": {
       "comment": "происхождение настроек машины",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10705,6 +11326,23 @@
         }
       }
     },
+    "ещё ни разу": {
+      "comment": "ревизия предустановки не применялась",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "never yet"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ещё ни разу"
+          }
+        }
+      }
+    },
     "и добавочный отдавшего лид": {
       "localizations": {
         "en": {
@@ -10786,19 +11424,70 @@
         }
       }
     },
-    "картинка не закодировалась": {
-      "comment": "отказ снимка истории",
+    "канал ещё не отвечал": {
+      "comment": "связи с каналом не было",
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the channel has not answered yet"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "картинка не закодировалась"
+            "value": "канал ещё не отвечал"
+          }
+        }
+      }
+    },
+    "канал недоступен": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "channel unreachable"
           }
         },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "канал недоступен"
+          }
+        }
+      }
+    },
+    "канал ответил %lld": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "channel answered %lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "канал ответил %lld"
+          }
+        }
+      }
+    },
+    "картинка не закодировалась": {
+      "comment": "отказ снимка истории",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "the image could not be encoded"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "картинка не закодировалась"
           }
         }
       }
@@ -10854,6 +11543,40 @@
         }
       }
     },
+    "линия выключена: нет ключа": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "line off: no key"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "линия выключена: нет ключа"
+          }
+        }
+      }
+    },
+    "машина в ручном режиме": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "machine is in manual mode"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "машина в ручном режиме"
+          }
+        }
+      }
+    },
     "мобильный под маской": {
       "localizations": {
         "en": {
@@ -10866,6 +11589,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "мобильный под маской"
+          }
+        }
+      }
+    },
+    "настройки уже свежие": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "settings are already up to date"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "настройки уже свежие"
           }
         }
       }
@@ -10973,6 +11713,7 @@
     },
     "нет": {
       "comment": "пусто в просмотре предустановки",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -11076,16 +11817,16 @@
     "новая": {
       "comment": "версия обновления неизвестна",
       "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "новая"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "new"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "новая"
           }
         }
       }
@@ -11224,6 +11965,7 @@
     },
     "по предустановке «%1$@», %2$@": {
       "comment": "происхождение настроек машины",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -11288,6 +12030,23 @@
         }
       }
     },
+    "применена ревизия %lld": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "revision %lld applied"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "применена ревизия %lld"
+          }
+        }
+      }
+    },
     "профиль": {
       "comment": "профиль, которого уже нет",
       "localizations": {
@@ -11333,6 +12092,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "рабочий"
+          }
+        }
+      }
+    },
+    "ревизия %lld ждёт конца разговора": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "revision %lld is waiting for the call to end"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ревизия %lld ждёт конца разговора"
+          }
+        }
+      }
+    },
+    "своей записи в файле нет": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no entry of its own in the file"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "своей записи в файле нет"
           }
         }
       }
@@ -11383,6 +12176,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "тчк"
+          }
+        }
+      }
+    },
+    "у машины нет ключа канала": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the machine has no channel key"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "у машины нет ключа канала"
+          }
+        }
+      }
+    },
+    "файл отброшен: подпись не сошлась": {
+      "comment": "проверка предустановок",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "file rejected: the signature did not match"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "файл отброшен: подпись не сошлась"
           }
         }
       }

@@ -174,6 +174,21 @@ final class FirstRunFlow: ObservableObject {
         // каждую неделю заводят именно им. «Вручную» остаётся дорогой для
         // машины, до которой сервер не достаёт.
         route = .activationKey
+
+        // Уже проверенный ключ поднимается с диска.
+        //
+        // Ключ сгорает на «Проверить ключ», а не на «Далее», — так устроен
+        // канал. Мастер, закрытый между этими двумя нажатиями, оставлял машину
+        // ненастроенной, а ключ негодным: второй раз тот же пакет не отдадут
+        // никогда. Разбор — в `ActivationDraftStore`.
+        //
+        // Только не в режиме показа: `--first-run` не должен подхватывать чужой
+        // черновик — ровно та беда, из-за которой у него и появился `isPreview`.
+        if !isPreview, let draft = ActivationDraftStore.load() {
+            key = draft.key
+            openedPackage = draft.package
+            openedAccess = draft.access
+        }
     }
 
     // `showsPresetPicker` убран 17 августа 2026 вместе с радиокнопками. Он
@@ -235,6 +250,22 @@ final class FirstRunFlow: ObservableObject {
         openedPackage = nil
         openedAccess = nil
 
+        // Тот же ключ, что уже открывали, второй раз на канал не идёт.
+        //
+        // Не оптимизация: он там сгорел, и повторный заход вернул бы 410 —
+        // «ключ не подошёл» на ключ, который подошёл минуту назад и лежит у нас
+        // распечатанным. Сверка по разобранному ключу, а не по набранному:
+        // разделители и регистр не важны, и «k7m2 9xqp» обязан узнать сам себя,
+        // записанный как «K7M2-9XQP».
+        if let draft = ActivationDraftStore.load(),
+           let saved = try? ActivationKey(input: draft.key),
+           let typed = try? ActivationKey(input: key),
+           saved == typed {
+            openedPackage = draft.package
+            openedAccess = draft.access
+            return
+        }
+
         let parsed: ActivationKey
         do {
             parsed = try ActivationKey(input: key)
@@ -260,6 +291,12 @@ final class FirstRunFlow: ObservableObject {
                 channelKey: package.channelKey
             )
             openedPackage = package
+
+            // На диск — сразу, а не в конце мастера. Ключ к этой строке уже
+            // сгорел, и всё, что дальше отделяет человека от настроенной
+            // машины, — три нажатия «Далее». Закрытое между ними окно не должно
+            // стоить рабочего места.
+            ActivationDraftStore.save(key: key, package: package, access: openedAccess)
         } catch {
             keyFailure = (error as? LocalizedError)?.errorDescription
                 ?? PanelLinkError.keyDidNotOpen.errorDescription

@@ -159,6 +159,11 @@ extension AppModel {
 
         try? FileManager.default.removeItem(at: AppSettings.CallHistorySettings.fileURL)
         try? FileManager.default.removeItem(at: SettingsStore.fileURL)
+        // Черновик активации — вместе с настройками, а не отдельным решением: в
+        // нём лежит пароль SIP, и пережить стирание настроек он не имеет права.
+        // Цена известна: машину, сброшенную ради передачи другому сотруднику,
+        // прежним ключом уже не поднять — но её и не должно быть можно.
+        ActivationDraftStore.clear()
 
         // Пароль администратора живёт в настройках, и умолчание его не
         // содержит: после сброса машина открыта всем, как свежеустановленная.

@@ -1376,7 +1376,14 @@ private struct CallHistoryRow: View {
         // оставляя строку пустой.
         //
         // Исходящие маски не получают: туда номер набрал сам оператор.
-        if !record.number.isEmpty, subject?.hidesNumber != true {
+        if case .selfCall? = subject {
+            // Единственный случай, где номера внизу нет вовсе, — и до
+            // 3 сентября 2026 строка тут была пустой. Заглушка ставится
+            // вместо номера, а не рядом с ним: номер здесь свой же
+            // добавочный, и показывать его нельзя по той же причине, по
+            // которой он не показан наверху.
+            parts.append(IncomingCallSubject.dealSource)
+        } else if !record.number.isEmpty, subject?.hidesNumber != true {
             parts.append(
                 record.direction == .incoming
                     ? IncomingCallSubject.shown(number: record.number)

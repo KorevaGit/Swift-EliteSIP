@@ -1561,12 +1561,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ) + "'"
         let pid = ProcessInfo.processInfo.processIdentifier
 
+        // `open -n`, а не голый `open`, и это правка 3 сентября 2026.
+        //
+        // Голый `open` просит LaunchServices «поднять это приложение», а тот
+        // сперва ищет уже запущенный экземпляр. Наш pid к этому моменту мёртв,
+        // но запись о нём живёт ещё какое-то время после выхода — и попав в это
+        // окно, `open` находит покойника, «активирует» его и завершается с
+        // успехом, не запустив ничего. Приложение при этом закрылось и не
+        // открылось заново; окно короткое, поэтому и ловилось не каждый раз.
+        // Ключ `-n` вопрос о существующем экземпляре снимает целиком: он всегда
+        // заводит новый процесс. Второго экземпляра из этого не выйдет — цикл
+        // выше уже дождался смерти нашего.
+        //
+        // Вторая попытка через секунду — на случай, когда LaunchServices всё же
+        // отказал: без неё «перезапуск» превращается в выход, а оператор
+        // остаётся без софтфона на линии, и сказать ему об этом уже некому —
+        // процесса нет.
+        let launch = "/usr/bin/open -n \(quotedBundlePath)"
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
         task.arguments = [
             "-c",
             "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.1; done; "
-                + "exec /usr/bin/open \(quotedBundlePath)",
+                + "\(launch) || { /bin/sleep 1; exec \(launch); }",
         ]
         do {
             try task.run()

@@ -168,6 +168,12 @@ extension AppModel {
         settings.firstRun = .passed
         firstRun = .passed
 
+        // Черновик отработал: пакет применён, и держать его копию с паролем SIP
+        // больше не за чем. Стирается на обеих ветках, а не только на ключевой:
+        // ручная настройка поверх лежащего черновика означает, что от него
+        // отказались.
+        ActivationDraftStore.clear()
+
         persistSettings()
         append(
             level: .info,
