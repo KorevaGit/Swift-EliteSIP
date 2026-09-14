@@ -29,6 +29,18 @@ final class StatusItemController: NSObject {
     private var cancellables: Set<AnyCancellable> = []
     private var appearanceObservation: NSKeyValueObservation?
 
+    /// Из чего собрано изображение, которое стоит на кнопке сейчас.
+    ///
+    /// Без этой сверки значок перерисовывал сам себя без конца. На macOS 26
+    /// установка `button.image` рисует кнопку заново, а отрисовка заново
+    /// выставляет ей вид — и KVO на `effectiveAppearance` срабатывает на каждом
+    /// кадре, хотя вид не менялся. Наблюдатель звал `redraw`, тот ставил новое
+    /// изображение, и круг замыкался: выпуск 0.1.36 на живой машине 14 сентября
+    /// 2026 держал 70–75 % процессора в простое, а в Пункт управления уходило
+    /// около сотни обновлений значка в секунду. Изображение ставится только
+    /// когда поменялось то, из чего оно состоит.
+    private var drawn: (isDark: Bool, dot: NSColor, toolTip: String)?
+
     init(model: AppModel, menu: NSMenu, onLeftClick: @escaping () -> Void) {
         self.model = model
         self.menu = menu
@@ -110,7 +122,12 @@ final class StatusItemController: NSObject {
             object: nil,
             queue: .main
         ) { _ in
-            Task { @MainActor [weak self] in self?.redraw() }
+            // Входы изображения при этом прежние, а нарисовать его надо
+            // заново: системные цвета под новым контрастом другие.
+            Task { @MainActor [weak self] in
+                self?.drawn = nil
+                self?.redraw()
+            }
         }
     }
 
@@ -127,11 +144,17 @@ final class StatusItemController: NSObject {
         // цвет заливки по версии системы не станем; чем это грозит на Catalina,
         // записано в плане строкой «что проверять живьём».
         let glyphColor: NSColor = isDark ? .white : .black
-
-        button.image = Self.makeImage(glyph: glyphColor, dot: dotColor)
-        button.toolTip = model.isOfflineByChoice
+        let dot = dotColor
+        let toolTip = model.isOfflineByChoice
             ? NSLocalizedString("Отключён", comment: "подсказка на значке в строке меню")
             : model.registrationTitle
+
+        // Сверка обязательна, а не экономия: см. `drawn`.
+        if let drawn, drawn.isDark == isDark, drawn.dot == dot, drawn.toolTip == toolTip { return }
+        drawn = (isDark, dot, toolTip)
+
+        button.image = Self.makeImage(glyph: glyphColor, dot: dot)
+        button.toolTip = toolTip
     }
 
     /// Цвет точки. Словарь тот же, что в капсуле панели, плюс разговор.

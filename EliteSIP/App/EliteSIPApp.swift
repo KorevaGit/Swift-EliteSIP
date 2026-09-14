@@ -653,7 +653,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 origin: .zero,
                 size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
             ),
-            // Без `.resizable`: это и есть `windowResizability(.contentSize)`.
+            // `.resizable` — с 14 сентября 2026: оператор растягивает панель
+            // сам, и растут у неё клавиши и кнопки, а не пустое место. Меньше
+            // содержимого окно не сделать: наименьшую высоту ставит вёрстка
+            // (`PanelHeight` → `minSize`), наименьшая ширина — `panelWidth`.
             //
             // `.fullSizeContentView` обязателен вместе с прозрачным окном:
             // без него содержимое начинается под полосой заголовка, а сама
@@ -667,10 +670,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // только опытом. Убрана жёлтая, а не красная: у панели остаётся
             // ровно один способ убраться с глаз, и он же сворачивает
             // приложение в строку меню.
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
+        window.minSize = NSSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
+        // Зелёная кнопка остаётся выключенной, как была до растягивания. С
+        // `.resizable` она ожила бы и развернула телефон на весь экран поверх
+        // CRM — жест, которого у панели быть не должно; нужный размер оператор
+        // задаёт краем окна.
+        window.standardWindowButton(.zoomButton)?.isEnabled = false
         // Название рисует окно. Своё, нарисованное вёрсткой, отсюда убрано:
         // системное никто не отключал, и два одинаковых заголовка лежали друг
         // на друге со сдвигом.
@@ -736,6 +745,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ),
             restoresHeight: false
         )
+        // Высоту — ту, что держит панель, а не ту, что вернуло восстановление:
+        // см. `PanelHeightView.settle`.
+        PanelHeightView.settle(window)
 
         phoneWindow = window
         window.makeKeyAndOrderFront(nil)

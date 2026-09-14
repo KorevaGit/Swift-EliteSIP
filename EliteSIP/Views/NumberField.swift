@@ -46,6 +46,11 @@ struct NumberField: NSViewRepresentable {
         field.usesSingleLineMode = true
         field.cell?.wraps = false
         field.cell?.isScrollable = true
+        // Номер не слово: подсказок продолжения ему взять неоткуда, а всплывать
+        // под полем, которое держит фокус весь день, им незачем. Подсказку
+        // одноразового кода macOS 26 выключает ключ в Info.plist — см.
+        // `NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac`.
+        field.isAutomaticTextCompletionEnabled = false
         field.placeholderString = placeholder
         field.font = Self.font(size: fontSize)
         field.stringValue = text

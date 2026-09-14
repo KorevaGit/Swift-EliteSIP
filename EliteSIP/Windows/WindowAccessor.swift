@@ -295,16 +295,74 @@ struct HeightReader: NSViewRepresentable {
     }
 }
 
-/// Задаёт окну высоту и переносит её при изменении, сохраняя верхний левый угол.
+/// Держит высоту панели: не ниже того, что нужно содержимому, и не ниже того,
+/// что выбрал оператор. Переносит её при изменении, сохраняя верхний левый угол.
 ///
 /// Отдельно от `WindowAccessor`, потому что тот настраивает окно однократно, а
 /// высота панели меняется: она зависит от числа макросов у сотрудника и от того,
-/// свёрнута ли панель. Растёт панель вниз — верхний край остаётся там, куда его
-/// поставил оператор, и окно не уползает по экрану при каждом переключении.
+/// открыто ли поле перевода. Растёт панель вниз — верхний край остаётся там,
+/// куда его поставил оператор, и окно не уползает по экрану при каждом
+/// переключении.
+///
+/// **Высот две** — с 14 сентября 2026, когда окно стало растягиваться.
+/// Наименьшая приходит от вёрстки и становится `minSize` окна. Своя —
+/// та, до которой оператор дотянул окно мышью; она запоминается и переживает
+/// перезапуск. Окно стоит на большей из двух: оператор не может сделать панель
+/// меньше содержимого, а содержимое не отнимает у оператора выбранную высоту.
+/// Если своей нет — окно следует за содержимым, как было всегда.
+///
+/// Своя высота хранится отдельно от кадра окна (`setFrameAutosaveName`), и это
+/// не дубль. В сохранённом кадре лежит высота, посчитанная прошлыми версиями,
+/// когда окно не растягивалось, — иногда устаревшая. Прочитать её как выбор
+/// оператора значило бы вернуть пустую полосу под кнопкой звонка, найденную
+/// 19 и 20 августа 2026, только теперь в виде растянутых кнопок.
 final class PanelHeightView: NSView {
+
+    /// Ключ своей высоты в `UserDefaults`.
+    static let userHeightKey = "EliteSIPPhonePanelUserHeight"
 
     private var applied: CGFloat?
     private var pending: CGFloat?
+
+    /// Высота, до которой оператор растянул окно. `nil` — по содержимому.
+    private var userHeight: CGFloat? {
+        get { Self.storedUserHeight }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(Double(newValue), forKey: Self.userHeightKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.userHeightKey)
+            }
+        }
+    }
+
+    private static var storedUserHeight: CGFloat? {
+        let stored = UserDefaults.standard.double(forKey: userHeightKey)
+        return stored > 0 ? CGFloat(stored) : nil
+    }
+
+    /// Возвращает окну высоту панели после восстановления кадра.
+    ///
+    /// Зовётся делегатом сразу за `restoreFrame`, и без неё окно открывалось
+    /// обрезанным. `setFrameUsingName` раскладывает содержимое, и эта вьюха
+    /// успевает поставить окну нужную высоту **внутри** восстановления; следом
+    /// `restoreFrame` возвращает высоту, которая была до него, — начальную.
+    /// Нового прохода, который бы это заметил, нет: наименьшая высота от
+    /// восстановления не меняется. Замер живого окна 14 сентября 2026: своя
+    /// высота 624, окно после перезапуска — 250, клавиши срезаны.
+    ///
+    /// Наименьшую высоту к этому моменту вьюха уже записала в `minSize`; если
+    /// раскладки внутри восстановления не было, `minSize` ещё начальный, и
+    /// высоту поставит первый же проход, как всегда.
+    static func settle(_ window: NSWindow) {
+        let height = max(window.minSize.height, storedUserHeight ?? 0)
+        guard abs(window.frame.height - height) > 0.5 else { return }
+        let frame = window.frame
+        window.setFrame(
+            CGRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height),
+            display: false
+        )
+    }
 
     /// Высота задаётся рамке окна.
     ///
@@ -312,9 +370,39 @@ final class PanelHeightView: NSView {
     /// разделять их не на чем. Высоту полосы заголовка вёрстка при этом всё
     /// равно знает: её сообщает `TitleBarInsetReader`, и она входит в
     /// присланное сюда число.
-    func apply(height: CGFloat) {
-        pending = height
+    func apply(minimumHeight: CGFloat) {
+        pending = minimumHeight
         guard let window else { return }
+
+        // Сравнение перед записью: `minSize` зовётся на каждом проходе
+        // раскладки, а окно на каждую запись пересчитывает ограничения.
+        let minimumSize = NSSize(width: Theme.Metrics.panelWidth, height: minimumHeight)
+        if window.minSize != minimumSize { window.minSize = minimumSize }
+
+        // Пока оператор тянет окно, размер задаёт он, а не мы: `minSize` уже
+        // не пустит его ниже содержимого, а свою высоту мы узнаем, когда он
+        // отпустит мышь (`viewDidEndLiveResize`).
+        guard !window.inLiveResize else { return }
+
+        // Высота окна не та, что мы ставили в прошлый раз, — значит её
+        // поменяли не мы, а человек: краем окна, раскладкой окон системы
+        // («Окно → Заполнить», перетаскивание к краю экрана) или сторонней
+        // программой. Это и есть его выбор. Без этой сверки любое изменение
+        // размера мимо живого перетаскивания отскакивало бы назад на
+        // следующем проходе раскладки.
+        //
+        // Только у видимого окна: невидимое двигает восстановление кадра
+        // при создании, и его высота — не выбор, а устаревшее число.
+        if let applied, window.isVisible, abs(window.frame.height - applied) > 0.5 {
+            let chosen = window.frame.height
+            // Дотянул до наименьшей высоты — своей у него больше нет, и окно
+            // снова следует за содержимым. Иначе, раз растянув окно, вернуть
+            // его к поведению по умолчанию было бы нельзя.
+            userHeight = chosen > minimumHeight + 0.5 ? chosen : nil
+        }
+
+        let height = max(minimumHeight, userHeight ?? minimumHeight)
+        let width = max(window.frame.width, Theme.Metrics.panelWidth)
         // Сверяемся с окном, а не с прошлым своим решением.
         //
         // Прежде выход был по `applied != height`, и этого мало: кадр окна
@@ -326,7 +414,10 @@ final class PanelHeightView: NSView {
         //
         // Полточки — округление раскладки, а не расхождение: без допуска
         // `setFrame` вызывался бы на каждом проходе.
-        guard abs(window.frame.height - height) > 0.5 || applied != height else { return }
+        guard abs(window.frame.height - height) > 0.5
+            || abs(window.frame.width - width) > 0.5
+            || applied != height
+        else { return }
         applied = height
 
         // Верхний левый угол держим на месте: окно растёт вниз. Иначе панель
@@ -336,7 +427,7 @@ final class PanelHeightView: NSView {
             CGRect(
                 x: topLeft.x,
                 y: topLeft.y - height,
-                width: Theme.Metrics.panelWidth,
+                width: width,
                 height: height
             ),
             display: true
@@ -352,26 +443,36 @@ final class PanelHeightView: NSView {
         window.invalidateShadow()
     }
 
+    /// Оператор отпустил край окна — запоминаем, что он выбрал, сразу, а не
+    /// на следующем проходе раскладки: его может и не быть до выхода из
+    /// приложения, а выбор обязан пережить перезапуск.
+    override func viewDidEndLiveResize() {
+        super.viewDidEndLiveResize()
+        guard let pending else { return }
+        apply(minimumHeight: pending)
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard let pending else { return }
         applied = nil
-        apply(height: pending)
+        apply(minimumHeight: pending)
     }
 }
 
 struct PanelHeight: NSViewRepresentable {
 
-    let height: CGFloat
+    /// Наименьшая высота: столько нужно содержимому без растяжения.
+    let minimumHeight: CGFloat
 
     func makeNSView(context: Context) -> PanelHeightView {
         let view = PanelHeightView()
-        view.apply(height: height)
+        view.apply(minimumHeight: minimumHeight)
         return view
     }
 
     func updateNSView(_ nsView: PanelHeightView, context: Context) {
-        nsView.apply(height: height)
+        nsView.apply(minimumHeight: minimumHeight)
     }
 }
 

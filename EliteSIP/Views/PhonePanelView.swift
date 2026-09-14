@@ -15,6 +15,16 @@ import SwiftUI
 /// Середина заперта в рамку, которая не может отдать свою высоту содержимому, —
 /// иначе стопка сообщала бы наверх идеальную высоту и утаскивала низ вниз.
 ///
+/// **Окно растягивается** — с 14 сентября 2026, по просьбе заказчика. По ширине
+/// тянется всё; по высоте — только то, во что целятся мышью: ряд управления,
+/// клавиши макросов и нижняя полоса. Строка состояния и шапка остаются своей
+/// высоты — крупнее они не станут читаться лучше, а место отнимут. Лишняя
+/// высота делится между растяжимыми рядами поровну, прибавкой к каждому
+/// (`rowExtra`), а не пропорцией: так соседние ряды остаются различимыми по
+/// классу, а кнопка звонка — самой крупной. Меньше, чем нужно содержимому,
+/// окно сделать нельзя: это его `minSize`, и считается он так же, как прежде
+/// считалась вся высота панели.
+///
 /// Дайлпада здесь нет. Почти все звонки входящие и приходят в отдельное окно, а
 /// номер для исходящего вводится с клавиатуры; освободившееся место занимает
 /// сетка DTMF-макросов, ради которых панель и открывают в разговоре.
@@ -39,7 +49,8 @@ struct PhonePanelView: View {
     /// ответ приходит в том же проходе раскладки.
     @State private var titleBarInset: CGFloat = 28
 
-    /// Высота всего содержимого панели, замеренная у него самого.
+    /// Высота верхней, нерастяжимой части панели, замеренная у неё самой:
+    /// полоса заголовка, строка состояния и шапка вместе с воздухом вокруг.
     ///
     /// **Почему замер, а не расчёт.** Высота панели складывалась из констант, и
     /// на macOS 26 сумма сходилась точно. На живой Big Sur — нет, и ни одна из
@@ -49,42 +60,56 @@ struct PhonePanelView: View {
     /// займут больше, если их содержимому меньше нельзя, а кегли и поля
     /// системных элементов по версиям разные.
     ///
-    /// Первый заход на это мерил ярусы порознь и складывал их здесь — и в
-    /// сумме нашлось лишнее слагаемое: под кнопкой звонка оставалась пустая
-    /// полоса. Складывать не нужно ничего: у содержимого есть своя высота, и
-    /// она и есть высота окна.
+    /// Меряется ровно та часть, где такие элементы есть. Всё, что ниже шапки,
+    /// — кнопки с высотой, пришпиленной снаружи (см. клавишу макроса), и их
+    /// высоту панель знает точно: она сама её задаёт, вместе с прибавкой от
+    /// растянутого окна. Мерить растяжимую часть и нельзя: в растянутом окне
+    /// её высота — это высота окна, и замер подтверждал бы сам себя.
     ///
     /// До первого замера в сумму идут прежние константы: окну нужна высота уже
-    /// на первом кадре, а ответы приходят в том же проходе раскладки.
-    @State private var measuredContentHeight: CGFloat?
+    /// на первом кадре, а ответ приходит в том же проходе раскладки.
+    @State private var measuredTopHeight: CGFloat?
+
+    /// Самая высокая подпись макроса — по ней клавиши считают свою высоту в
+    /// режиме «авто». Живёт здесь, а не в сетке: высота клавиши входит в
+    /// наименьшую высоту окна, а её считает панель.
+    @State private var tallestMacroLabel: CGFloat = 0
+
+    /// По чему считался прошлый замер подписей — см. `MacroGrid.measurementKey`.
+    @State private var macroLabelsMeasuredFor = ""
 
     var body: some View {
         VStack(spacing: 0) {
-            titleBar
+            // Верх — своей высоты, и она замеряется целиком одним числом.
+            VStack(spacing: 0) {
+                titleBar
 
-            statusBar
+                statusBar
 
-            // Середина занимает столько, сколько занимает её содержимое, и
-            // сообщает это число наверх. Прежде здесь стоял пустой
-            // прямоугольник во всю свободную высоту с накладкой поверх и
-            // обрезкой снизу: он держал нижнюю полосу на месте, но и срезал
-            // всё, что не поместилось в расчётную высоту, — молча.
-            middle
+                header
+                    .padding(.top, Theme.Gap.statusToHeader)
+                    .padding(.bottom, Theme.Gap.headerToControls)
+            }
+            .compatBackground { HeightReader { measuredTopHeight = $0 } }
 
-            bottomBar
-                .padding(.top, Theme.Gap.macrosToAction)
+            // Низ получает всё, что осталось от окна, и сам решает, сколько
+            // из этого отдать каждому растяжимому ряду. `GeometryReader`, а не
+            // гибкие рамки у кнопок: стопка SwiftUI делит свободное место между
+            // гибкими детьми так, что ряды выравниваются по высоте, а вложенные
+            // стопки (ряд управления, сетка) получают долю на всю стопку, а не
+            // на ряд.
+            GeometryReader { geometry in
+                lower(in: geometry.size)
+            }
         }
         .padding(.horizontal, Theme.Metrics.contentPadding)
         .padding(.bottom, Theme.Metrics.contentPadding)
-        // Один замер всего содержимого — и он же высота окна.
-        //
-        // Ярусы мерились порознь, а сумма складывалась здесь: полоса заголовка
-        // плюс строка состояния плюс середина плюс низ плюс поле. Живой прогон
-        // 20 августа 2026 показал под кнопкой звонка пустую полосу — значит в
-        // сумме было лишнее слагаемое, и искать его в пятый раз бессмысленно.
-        // Складывать нечего вовсе: содержимое само знает, сколько занимает.
-        .compatBackground { HeightReader { measuredContentHeight = $0 } }
-        .frame(width: Theme.Metrics.panelWidth)
+        .frame(
+            minWidth: Theme.Metrics.panelWidth,
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: .top
+        )
         // Окно прямоугольное, поэтому и подкраска без скругления: своего
         // скругления у содержимого быть не должно, иначе по углам проступят
         // углы окна.
@@ -109,7 +134,6 @@ struct PhonePanelView: View {
                 // удобнее: панель узкая, и целиться в 28 точек сверху ради
                 // передвижения — лишняя работа.
                 window.isMovableByWindowBackground = true
-                window.styleMask.remove(.resizable)
             }
         }
         .compatBackground {
@@ -118,9 +142,9 @@ struct PhonePanelView: View {
         // Поверх чужих окон — только в разговоре: там до «Завершить» тянутся не
         // глядя. В покое панель такое же окно, как остальные.
         .compatBackground { WindowLevel(level: model.isInCall ? .floating : .normal) }
-        // Высота — вместе с полосой заголовка: при `.fullSizeContentView`
-        // содержимое и рамка окна это одно и то же.
-        .compatBackground { PanelHeight(height: panelHeight) }
+        // Наименьшая высота — вместе с полосой заголовка: при
+        // `.fullSizeContentView` содержимое и рамка окна это одно и то же.
+        .compatBackground { PanelHeight(minimumHeight: minimumPanelHeight) }
         .onAppear {
             #if DEBUG
             // Позволяет проверить плавающую панель без ручного клика:
@@ -166,30 +190,105 @@ struct PhonePanelView: View {
         }
     }
 
-    /// Высота окна — сумма замеренных ярусов, а не расчёт по константам.
+    /// Наименьшая высота окна — та, при которой ничему не приходится
+    /// растягиваться.
     ///
-    /// Слагаемых четыре: полоса заголовка (её сообщает окно), строка
-    /// состояния, середина и нижняя полоса вместе с воздухом над ней (их
-    /// сообщают сами ярусы). Плюс поле снизу — единственное число, которое
-    /// панель задаёт сама и потому знает точно.
+    /// Верх замерен (`measuredTopHeight`), низ посчитан (`lowerHeight`), плюс
+    /// поле снизу. Пока верх не ответил, за него идёт прежний расчёт по
+    /// константам: окну нужна высота на первом кадре, и разойтись они могут
+    /// только на первом проходе.
     ///
-    /// Пока ярус не ответил, за него идёт прежняя константа: окну нужна высота
-    /// на первом кадре. Разойтись они могут только на первом проходе.
-    private var panelHeight: CGFloat {
-        measuredContentHeight ?? fallbackHeight
+    /// Поле перевода бывает выше сетки макросов, и тогда окно обязано
+    /// подрасти, чтобы «Перевести» не обрезалась. Ниже сетки оно окно не
+    /// опускает: высота при сетке остаётся наименьшей и под полем перевода, и
+    /// нижняя полоса не прыгает вверх в момент нажатия «Перевести» — под полем
+    /// остаётся воздух.
+    private var minimumPanelHeight: CGFloat {
+        var lower = lowerHeight(showingTransfer: false)
+        if model.isTransferEntryVisible {
+            lower = max(lower, lowerHeight(showingTransfer: true))
+        }
+        return (measuredTopHeight ?? fallbackTopHeight)
+            + lower
+            + Theme.Metrics.contentPadding
     }
 
-    /// Чем считается высота до первого замера — прежний расчёт по константам.
-    /// Он верен на той системе, на которой его выводили, и нужен ровно один
-    /// кадр: замер приходит в том же проходе раскладки.
-    private var fallbackHeight: CGFloat {
+    /// Чем считается верх до первого замера. Верен на той системе, на которой
+    /// его выводили, и нужен ровно один кадр.
+    private var fallbackTopHeight: CGFloat {
         titleBarInset
             + Theme.Gap.titleToStatus
             + Theme.Metrics.statusBarHeight
-            + fallbackMiddleHeight
+            + Theme.Gap.statusToHeader
+            + Theme.Metrics.headerHeight
+            + Theme.Gap.headerToControls
+    }
+
+    /// Сколько рядов сетки макросов на экране.
+    private var macroRowCount: Int {
+        let columns = model.settings.dtmf.macroColumns
+        return (model.usableMacros.count + columns - 1) / columns
+    }
+
+    /// Высота клавиши макроса без прибавки от растянутого окна.
+    private var macroKeyHeight: CGFloat {
+        MacroGrid.keyHeight(settings: model.settings.dtmf, tallestLabel: tallestMacroLabel)
+    }
+
+    /// Сколько рядов получают прибавку, когда окно выше нужного: два ряда
+    /// управления, ряды макросов и нижняя полоса.
+    ///
+    /// Ряды макросов считаются и тогда, когда их место занимает поле перевода:
+    /// прибавка обязана быть той же, что при сетке, — иначе ряд управления и
+    /// кнопка звонка меняли бы размер в момент нажатия «Перевести».
+    private var stretchedRowCount: Int { 3 + macroRowCount }
+
+    /// Высота нижней части без прибавок: ряд управления, сетка макросов или
+    /// поле перевода, нижняя полоса и воздух между ними.
+    ///
+    /// Всё здесь — высоты, которые панель задаёт сама, снаружи кнопок, поэтому
+    /// сумма точна. Именно поэтому нижнюю часть и можно считать, а не мерить.
+    private func lowerHeight(showingTransfer: Bool) -> CGFloat {
+        let slot: CGFloat
+        if showingTransfer {
+            slot = Theme.Gap.controlsToMacros + TransferEntry.height
+        } else if macroRowCount > 0 {
+            slot = Theme.Gap.controlsToMacros
+                + CGFloat(macroRowCount) * macroKeyHeight
+                + CGFloat(macroRowCount - 1) * Theme.Metrics.elementSpacing
+        } else {
+            slot = 0
+        }
+        return CallControls.height()
+            + slot
             + Theme.Gap.macrosToAction
             + Theme.Metrics.actionHeight
-            + Theme.Metrics.contentPadding
+    }
+
+    /// Прибавка к каждому растяжимому ряду при нынешней высоте нижней части.
+    ///
+    /// Целыми точками: дробная прибавка ставит кромки кнопок между пикселями,
+    /// и они размываются. Остаток — меньше точки на ряд — уходит в воздух над
+    /// нижней полосой.
+    private func rowExtra(forLowerHeight available: CGFloat) -> CGFloat {
+        let spare = available - lowerHeight(showingTransfer: false)
+        guard spare > 0 else { return 0 }
+        var extra = spare / CGFloat(stretchedRowCount)
+        if model.isTransferEntryVisible {
+            // Поле перевода бывает выше сетки. Тогда прибавка у рядов вокруг
+            // него уменьшается ровно настолько, чтобы оно поместилось, — а
+            // окно, если и этого мало, подрастает само (`minimumPanelHeight`).
+            let transferSpare = available - lowerHeight(showingTransfer: true)
+            extra = min(extra, max(transferSpare, 0) / 3)
+        }
+        return extra.rounded(.down)
+    }
+
+    /// Во сколько раз нижняя часть шире, чем в окне наименьшей ширины.
+    /// По нему растёт «История»: остальное в ряду тянется само.
+    private func widthRatio(forLowerWidth width: CGFloat) -> CGFloat {
+        let base = Theme.Metrics.panelWidth - Theme.Metrics.contentPadding * 2
+        return max(width / base, 1)
     }
 
     /// Чем обрезается панель снизу. Со стеклом — ничем: прямоугольник во всю
@@ -200,33 +299,7 @@ struct PhonePanelView: View {
         )
     }
 
-    /// По чему пересоздаётся сетка клавиш: число колонок, режим высоты и сами
-    /// подписи.
-    private var macroGridKey: String {
-        let dtmf = model.settings.dtmf
-        return "\(dtmf.macroColumns)|\(dtmf.macroHeightIsManual)|\(dtmf.macroHeight)|"
-            + model.usableMacros.map(\.title).joined(separator: "|")
-    }
-
-    /// Чем считается середина до первого замера. Ровно прежний расчёт: он
-    /// верен на той системе, на которой его выводили, и нужен один кадр.
-    private var fallbackMiddleHeight: CGFloat {
-        let head = Theme.Gap.statusToHeader
-            + Theme.Metrics.headerHeight
-            + Theme.Gap.headerToControls
-            + CallControls.height
-        if model.isTransferEntryVisible {
-            return head + Theme.Gap.controlsToMacros + TransferEntry.height
-        }
-        let columns = model.settings.dtmf.macroColumns
-        let rows = (model.usableMacros.count + columns - 1) / columns
-        guard rows > 0 else { return head }
-        return head + Theme.Gap.controlsToMacros
-            + CGFloat(rows) * CGFloat(model.settings.dtmf.macroHeight)
-            + CGFloat(rows - 1) * Theme.Metrics.elementSpacing
-    }
-
-    // MARK: - Ярус 1: голова    // MARK: - Ярус 1: голова
+    // MARK: - Ярус 1: голова
 
     /// Место под полосу заголовка.
     ///
@@ -499,18 +572,24 @@ struct PhonePanelView: View {
         .compatAccessibilityLabel(label)
     }
 
-    // MARK: - Ярус 2: изменчивая середина
+    // MARK: - Ярус 2: изменчивая середина и неподвижный низ
 
-    private var middle: some View {
+    /// Всё, что ниже шапки: ряд управления, сетка или поле перевода, нижняя
+    /// полоса. Получает остаток окна целиком.
+    ///
+    /// Нижняя полоса прижата к низу окна, а не к сетке: между ними стоит
+    /// распорка. Пока окно наименьшей высоты, распорка нулевая и всё как
+    /// прежде; когда растянуто — прибавки забирают почти всё, и распорке
+    /// остаются доли точки от округления.
+    private func lower(in size: CGSize) -> some View {
+        let extra = rowExtra(forLowerHeight: size.height)
+
         // Промежутки заданы поштучно, поэтому у стопки собственного шага нет.
-        VStack(spacing: 0) {
-            header
-                .padding(.bottom, Theme.Gap.headerToControls)
-
+        return VStack(spacing: 0) {
             // Ряд управления виден и в покое, только выключенным. Прятать его
             // целиком значит менять геометрию панели ровно в момент ответа на
             // вызов: макросы и всё под ними подскакивали бы на его высоту.
-            CallControls()
+            CallControls(rowExtra: extra)
 
             // Поле перевода занимает место сетки макросов, а не встаёт под ней:
             // пока оператор набирает номер перевода, макросы всё равно не
@@ -520,13 +599,23 @@ struct PhonePanelView: View {
                 // воздух. Когда снизу пусто, нет и его.
                 Color.clear.frame(height: Theme.Gap.controlsToMacros)
                 TransferEntry()
-                Spacer(minLength: 0)
             } else if !model.usableMacros.isEmpty {
                 Color.clear.frame(height: Theme.Gap.controlsToMacros)
-                MacroGrid()
+                MacroGrid(
+                    keyHeight: macroKeyHeight + extra,
+                    tallestLabel: $tallestMacroLabel,
+                    measuredFor: $macroLabelsMeasuredFor
+                )
             }
+
+            Spacer(minLength: 0)
+
+            bottomBar(rowExtra: extra, widthRatio: widthRatio(forLowerWidth: size.width))
+                .padding(.top, Theme.Gap.macrosToAction)
         }
-        .padding(.top, Theme.Gap.statusToHeader)
+        // Рамка — явная и с выравниванием по верху. `GeometryReader` на
+        // Catalina ставит содержимое по центру, а не в угол, как с Big Sur.
+        .frame(width: size.width, height: size.height, alignment: .top)
     }
 
     /// Шапка: поле набора в покое, собеседник с таймером в разговоре, два поля
@@ -555,10 +644,11 @@ struct PhonePanelView: View {
     ///
     /// «История» стоит здесь, а не в полосе заголовка, потому что нужна
     /// постоянно: перезвонить по пропущенному — основной способ исходящего
-    /// звонка. Её ширина задана жёстко, чтобы кнопка звонка не меняла размер.
-    private var bottomBar: some View {
+    /// звонка. Её ширина задана жёстко, чтобы кнопка звонка не меняла размер
+    /// от подписи; в растянутом окне она растёт вместе с окном, в той же доле.
+    private func bottomBar(rowExtra: CGFloat, widthRatio: CGFloat) -> some View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
-            callButton
+            callButton(height: Theme.Metrics.actionHeight + rowExtra)
 
             Button {
                 NSApp.sendAction(#selector(AppDelegate.showCallHistoryWindow(_:)), to: nil, from: nil)
@@ -572,7 +662,10 @@ struct PhonePanelView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .frame(width: Theme.Metrics.historyWidth, height: Theme.Metrics.actionHeight)
+            .frame(
+                width: (Theme.Metrics.historyWidth * widthRatio).rounded(),
+                height: Theme.Metrics.actionHeight + rowExtra
+            )
             .themedControlSurface()
             .hoverHighlight()
             .compatAccessibilityLabel("История звонков")
@@ -583,7 +676,7 @@ struct PhonePanelView: View {
         model.isInCall || (model.canPlaceCall && model.hasDialedNumber)
     }
 
-    private var callButton: some View {
+    private func callButton(height: CGFloat) -> some View {
         Button {
             Task {
                 if model.isInCall {
@@ -607,7 +700,7 @@ struct PhonePanelView: View {
             .contentShape(Rectangle())
         }
         // Высота — кнопке, а не подписи: см. клавишу макроса.
-        .frame(height: Theme.Metrics.actionHeight)
+        .frame(height: height)
         // Заливка задана явно, а не через .borderedProminent с tint: у того
         // радиус меньше макетного, а в неактивном окне акцент выцветает в
         // серый — панель висит поверх CRM и активной бывает редко.
@@ -901,10 +994,13 @@ struct CallControls: View {
 
     @EnvironmentObject private var model: AppModel
 
+    /// Прибавка к высоте каждого из двух рядов в растянутом окне.
+    var rowExtra: CGFloat = 0
+
     /// Высота блока. Нужна расчёту высоты окна, поэтому объявлена здесь, рядом с
     /// вёрсткой, а не повторена числом в панели.
-    static var height: CGFloat {
-        Theme.Metrics.controlHeight * 2 + Theme.Metrics.elementSpacing
+    static func height(rowExtra: CGFloat = 0) -> CGFloat {
+        (Theme.Metrics.controlHeight + rowExtra) * 2 + Theme.Metrics.elementSpacing
     }
 
     var body: some View {
@@ -953,7 +1049,7 @@ struct CallControls: View {
                 }
             }
         }
-        .frame(height: Self.height)
+        .frame(height: Self.height(rowExtra: rowExtra))
     }
 
     private func controlButton(
@@ -978,7 +1074,7 @@ struct CallControls: View {
         // Высота — кнопке, а не подписи: см. клавишу макроса. Ряд управления
         // заперт в `Self.height`, и кнопка, выросшая от поля стиля, растягивала
         // бы не себя, а всё, что под ней.
-        .frame(height: Theme.Metrics.controlHeight)
+        .frame(height: Theme.Metrics.controlHeight + rowExtra)
         .compatForeground(isOn ? Color.white : Color.primary)
         .compatBackground {
             if isOn {
@@ -1010,19 +1106,27 @@ struct MacroGrid: View {
     /// 19 августа 2026 показал, что три в ряд ужимают их до нечитаемого.
     private var columns: Int { model.settings.dtmf.macroColumns }
 
+    /// Высота клавиши вместе с прибавкой от растянутого окна. Считает панель:
+    /// ей эта высота нужна для наименьшей высоты окна (`keyHeight(settings:…)`).
+    let keyHeight: CGFloat
+
     /// Самая высокая подпись из всех — столько ей нужно при нынешней ширине
     /// клавиши. Меряется, а не считается по числу знаков: перенос по пробелам
-    /// зависит от кегля, языка и самих слов.
-    @State private var tallestLabel: CGFloat = 0
+    /// зависит от кегля, языка и самих слов. Хранит панель — см. `keyHeight`.
+    @Binding var tallestLabel: CGFloat
 
-    /// Высота клавиши: заданная человеком или посчитанная по подписям.
+    /// По чему считался прошлый замер подписей.
+    @Binding var measuredFor: String
+
+    /// Высота клавиши без прибавки: заданная человеком или посчитанная по
+    /// подписям.
     ///
     /// В «авто» берётся самая длинная подпись плюс поля, но не ниже нижней
     /// границы: клавиша в одно слово не должна становиться полоской, в неё
     /// целятся мышью. Верхняя граница та же, что у ползунка, — панель стоит
-    /// поверх CRM, и расти ей вниз не бесконечно.
-    private var keyHeight: CGFloat {
-        let settings = model.settings.dtmf
+    /// поверх CRM, и расти ей вниз не бесконечно. Растянутое окно эту границу
+    /// превышает намеренно: там высоту выбрал человек, а не подпись.
+    static func keyHeight(settings: AppSettings.DTMFSettings, tallestLabel: CGFloat) -> CGFloat {
         guard !settings.macroHeightIsManual else { return CGFloat(settings.macroHeight) }
         let needed = tallestLabel + Theme.Metrics.elementSpacing * 2
         let floor = AppSettings.DTMFSettings.defaultMacroHeight
@@ -1043,8 +1147,6 @@ struct MacroGrid: View {
     private var measurementKey: String {
         "\(columns)|" + model.usableMacros.map(\.title).joined(separator: "|")
     }
-
-    @State private var measuredFor = ""
 
     var body: some View {
         VStack(spacing: Theme.Metrics.elementSpacing) {
