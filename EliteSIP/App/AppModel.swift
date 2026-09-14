@@ -926,6 +926,28 @@ final class AppModel: ObservableObject {
     let incomingCallPanel = IncomingCallPanel()
     private let ringtone = Ringtone()
 
+    /// Тоны клавиш и сигнал отбоя.
+    private let callSounds = CallSounds()
+
+    /// Тон клавиши, набранной в поле номера.
+    ///
+    /// Только вне разговора: поле набора в разговоре не показывается, а тон
+    /// поверх голоса собеседника был бы помехой, а не подтверждением.
+    func playKeyTone(_ key: Character) {
+        guard settings.ringtone.callSoundsEnabled, !isInCall else { return }
+        callSounds.playKey(key, outputDeviceUID: settings.audio.outputDeviceUID)
+    }
+
+    /// Сигнал отбоя — когда кончился разговор, в котором оператор участвовал:
+    /// состоявшийся или набранный им самим. Пропущенный и отклонённый входящий
+    /// молчат: разговора не было, а рингтон и так замолк.
+    private func playEndToneIfNeeded(for ended: [CallLine]) {
+        guard settings.ringtone.callSoundsEnabled,
+              ended.contains(where: { $0.connectedAt != nil || $0.isOutgoing })
+        else { return }
+        callSounds.playEnd(outputDeviceUID: settings.audio.outputDeviceUID)
+    }
+
     /// Играет ли рингтон по кнопке «Прослушать» в настройках.
     ///
     /// Отдельно от `ringtone.isPlaying`: тот не публикуется, а кнопке нужно
@@ -2011,6 +2033,7 @@ final class AppModel: ObservableObject {
         finishHistory(lineID: lineID, reason: status, outcome: outcome)
 
         let wasActive = lineID == activeLineID
+        let removed = line(lineID)
         lines.removeAll { $0.id == lineID }
 
         // Консультация без исходной линии консультацией быть перестаёт.
@@ -2036,6 +2059,9 @@ final class AppModel: ObservableObject {
 
         if lines.isEmpty {
             ringtone.stop()
+            // Сигнал — только когда кончилась последняя линия: при двух линиях
+            // оператор остаётся в разговоре, и звук посреди него сбивал бы.
+            playEndToneIfNeeded(for: removed.map { [$0] } ?? [])
             incomingCallPanel.hide()
             logGuardReport()
             incomingCall = nil
@@ -2080,9 +2106,11 @@ final class AppModel: ObservableObject {
         }
         callTasks.values.forEach { $0.cancel() }
         callTasks.removeAll()
+        let ended = lines
         lines.removeAll()
         activeLineID = nil
         ringtone.stop()
+        playEndToneIfNeeded(for: ended)
         incomingCallPanel.hide()
         logGuardReport()
         incomingCall = nil

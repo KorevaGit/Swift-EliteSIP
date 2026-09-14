@@ -79,6 +79,17 @@ struct RingtoneTab: View {
             // и остановить его нечем.
             model.stopRingtonePreview()
         }
+
+        // Своим разделом, а не строкой выше: тот гаснет вместе с рингтоном, а
+        // тоны клавиш от рингтона не зависят.
+        SettingsSection("Звуки набора и отбоя") {
+            SettingsToggleRow("Тоны клавиш и сигнал отбоя", isOn: Binding(
+                get: { model.settings.ringtone.callSoundsEnabled },
+                set: { model.settings.ringtone.callSoundsEnabled = $0 }
+            ))
+
+            SettingsNote("Тихий тон на каждую цифру в поле номера и короткий мягкий сигнал, когда разговор закончился. Звучат в устройство разговора.")
+        }
     }
 
     private var soundName: String {

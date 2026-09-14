@@ -942,6 +942,12 @@ struct DialedNumberField: View {
                         // уже не «пункт списка», и следующая стрелка вверх
                         // обязана начать сначала.
                         if number != model.dialedNumber { model.resetDialHistoryPosition() }
+                        // Тон — одной набранной цифре, а не вставке и не
+                        // стиранию: вставленный из CRM номер, прозвеневший
+                        // одиннадцатью тонами разом, — это шум, а не отклик.
+                        if let key = Self.typedKey(old: model.dialedNumber, new: number) {
+                            model.playKeyTone(key)
+                        }
                         model.dialedNumber = number
                     }
                 ),
@@ -971,6 +977,16 @@ struct DialedNumberField: View {
                 .compatAccessibilityLabel("Очистить номер")
             }
         }
+    }
+
+    /// Какую клавишу набрали, если правка — ровно одна добавленная клавиша
+    /// набора. Место не важно: цифру вписывают и в середину номера.
+    static func typedKey(old: String, new: String) -> Character? {
+        guard new.count == old.count + 1 else { return nil }
+        let prefix = zip(old, new).prefix { $0 == $1 }.count
+        let key = new[new.index(new.startIndex, offsetBy: prefix)]
+        guard key.isASCII, key.isNumber || "*#+".contains(key) else { return nil }
+        return key
     }
 }
 

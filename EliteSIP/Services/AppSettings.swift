@@ -662,16 +662,25 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// к стандартному, потому что беззвучный входящий хуже неожиданного.
         var customSoundPath: String?
 
+        /// Тоны клавиш поля набора и сигнал отбоя (`CallSounds`).
+        ///
+        /// Живут в разделе рингтона, но от его выключателя не зависят: рингтон
+        /// выключают, когда входящий и так видно, а тоны клавиш — дело вкуса
+        /// самого оператора. Громкости у них нет — они тихие намеренно.
+        var callSoundsEnabled: Bool = true
+
         init(
             isEnabled: Bool = true,
             volume: Double = 0.5,
             usesSystemOutput: Bool = true,
-            customSoundPath: String? = nil
+            customSoundPath: String? = nil,
+            callSoundsEnabled: Bool = true
         ) {
             self.isEnabled = isEnabled
             self.volume = volume
             self.usesSystemOutput = usesSystemOutput
             self.customSoundPath = customSoundPath
+            self.callSoundsEnabled = callSoundsEnabled
         }
 
         init(from decoder: Decoder) throws {
@@ -680,6 +689,8 @@ struct AppSettings: Codable, Sendable, Equatable {
             volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? 0.5
             usesSystemOutput = try container.decodeIfPresent(Bool.self, forKey: .usesSystemOutput) ?? true
             customSoundPath = try container.decodeIfPresent(String.self, forKey: .customSoundPath)
+            // Файлы до 0.1.38 поля не знают — звуки у них включены, как у новых.
+            callSoundsEnabled = try container.decodeIfPresent(Bool.self, forKey: .callSoundsEnabled) ?? true
         }
 
         /// Файл рингтона, если он задан и на месте.
