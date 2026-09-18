@@ -36,18 +36,35 @@ struct ManagerContentView: View {
     /// у `SidebarInsetReader`.
     @State private var sidebarInset: (top: CGFloat, bottom: CGFloat) = (0, 0)
 
+    /// Сколько от верха этой половины до верхней кромки светофора. `nil` — ещё
+    /// не замерено, тогда идёт прежний расчёт по высоте полосы заголовка.
+    @State private var lightsTop: CGFloat?
+
+    /// Отступ содержимого: первая строка встаёт на одну линию со светофором,
+    /// как в системных окнах. Под стеклом это замер, в обычном оформлении
+    /// светофор остаётся выше половины (замер отрицательный) и остаётся прежнее
+    /// поле от края.
+    private var contentTopInset: CGFloat {
+        guard let lightsTop, lightsTop > 0 else {
+            return Theme.Metrics.contentTopInset(glass: usesGlass)
+        }
+        return lightsTop
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             content
             footer
         }
-        // Верх и низ — по вставке сайдбара, а не по краю окна: поля вставки
-        // достаются только сайдбару, и без этого правая половина начинается
-        // выше левой и кончается ниже её.
-        .padding(.top, sidebarInset.top)
+        // Низ — по вставке сайдбара: поля вставки достаются только ему, и без
+        // этого правая половина кончается ниже левой. Сверху половина
+        // равняется не на вставку, а на светофор (`contentTopInset`): вставки
+        // с macOS 27 нет вовсе, и поле от неё оставило содержимое выше кнопок
+        // окна, у самой кромки.
         .padding(.bottom, sidebarInset.bottom)
         .compatBackground {
             SidebarInsetReader { top, bottom in sidebarInset = (top, bottom) }
+            WindowButtonsInsetReader { top, _ in lightsTop = top }
         }
         // Колонка подписей — менеджерские 72: подписи здесь короткие
         // («Громкость», «Микрофон»), и колонка «Управления» в 132 точки
@@ -92,7 +109,7 @@ struct ManagerContentView: View {
         // что и на прежней странице: обычный `Picker` занимает 22 точки,
         // мелкий — 17, а таких строк в одном «Звуке» полдюжины.
         .controlSize(.small)
-        .compatOwnTopInset(Theme.Metrics.contentTopInset(glass: usesGlass))
+        .compatOwnTopInset(contentTopInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 

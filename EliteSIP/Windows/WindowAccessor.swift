@@ -504,3 +504,91 @@ struct TitlebarHairline: View {
         }
     }
 }
+
+/// Сообщает вёрстке, где в этом же окне стоит светофор.
+///
+/// Заведено 18 сентября 2026, после выхода macOS 27: обе половины окон с боковым
+/// списком считали отступ сверху от **высоты полосы заголовка**
+/// (`NSWindow.frameRect`), а на 27 эта высота осталась прежней (32), тогда как
+/// сама раскладка изменилась. Плавающей вставки у сайдбара больше нет — он идёт
+/// от самого верха окна, — и оба числа разъехались с тем, от чего их
+/// отсчитывали: первая строка списка встала в четырёх точках под кнопками окна,
+/// а содержимое правой половины уехало **выше** светофора, к самой кромке.
+///
+/// Считать это по версиям системы бессмысленно: число раз в год меняется, а
+/// ошибка каждый раз выглядит как неряшливая вёрстка. Спрашиваем у окна: где
+/// стоит кнопка закрытия, там и есть верх, от которого отступают обе половины.
+/// Меряется в координатах той вью, к которой приложен измеритель, поэтому и
+/// плавающая вставка (macOS 26), и её отсутствие (27) учитываются сами собой.
+///
+/// Оба числа — расстояния сверху вниз от верха этой вью: до верхней кромки
+/// светофора и до нижней. Отрицательные означают, что вью начинается ниже
+/// светофора, — так бывает в обычном оформлении, где содержимое под полосу
+/// заголовка не заходит вовсе, и тогда отступать не от чего.
+final class WindowButtonsInsetView: NSView {
+
+    var report: ((CGFloat, CGFloat) -> Void)?
+
+    private var reported: (top: CGFloat, bottom: CGFloat)?
+
+    /// Измеритель не участвует в нажатиях: он лежит поверх первой строки
+    /// списка, и без этого она перестала бы нажиматься.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        measure()
+    }
+
+    /// Замер и на смене размера, и на раскладке: у голой вью без подвидов
+    /// `layout()` система может не позвать вовсе (см. `HeightReaderView`), а
+    /// `setFrameSize` зовётся всегда.
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        measure()
+    }
+
+    override func layout() {
+        super.layout()
+        measure()
+    }
+
+    private func measure() {
+        guard
+            let window,
+            let root = window.contentView,
+            let button = window.standardWindowButton(.closeButton)
+        else { return }
+
+        let lights = button.convert(button.bounds, to: root)
+        let mine = convert(bounds, to: root)
+        // Ноль высоты у светофора означает, что окно ещё не разложено.
+        guard lights.height > 0 else { return }
+
+        let top = mine.maxY - lights.maxY
+        let bottom = mine.maxY - lights.minY
+        guard reported?.top != top || reported?.bottom != bottom else { return }
+        reported = (top, bottom)
+        // Через главную очередь: SwiftUI зовёт замер посреди своего прохода
+        // раскладки, а менять там состояние вида нельзя.
+        DispatchQueue.main.async { [weak self] in
+            self?.report?(top, bottom)
+        }
+    }
+}
+
+struct WindowButtonsInsetReader: NSViewRepresentable {
+
+    /// Расстояния от верха измеряемой вью до верхней и нижней кромки светофора.
+    let report: (CGFloat, CGFloat) -> Void
+
+    func makeNSView(context: Context) -> WindowButtonsInsetView {
+        let view = WindowButtonsInsetView()
+        view.report = report
+        return view
+    }
+
+    func updateNSView(_ nsView: WindowButtonsInsetView, context: Context) {
+        nsView.report = report
+    }
+}

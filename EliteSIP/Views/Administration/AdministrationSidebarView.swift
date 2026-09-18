@@ -39,6 +39,22 @@ struct AdministrationSidebarView: View {
     /// `windowUsesGlass`.
     @Environment(\.windowUsesGlass) private var usesGlass
 
+    /// Сколько от верха этой половины до нижней кромки светофора. `nil` —
+    /// ещё не замерено, тогда идёт прежний расчёт по высоте полосы заголовка.
+    @State private var lightsBottom: CGFloat?
+
+    /// Отступ первой строки: под светофором и с воздухом под ним.
+    ///
+    /// В обычном оформлении список начинается ниже полосы заголовка, светофор
+    /// оказывается над этой половиной, замер выходит отрицательным — и отступа
+    /// нет вовсе, как и было.
+    private var topInset: CGFloat {
+        guard let lightsBottom, lightsBottom > 0 else {
+            return Theme.Metrics.sidebarTopInset(glass: usesGlass)
+        }
+        return lightsBottom + Theme.Metrics.trafficLightsToList
+    }
+
     /// Под стеклом у списка нет **никакой** подложки, и это не то же самое, что
     /// прозрачная.
     ///
@@ -99,7 +115,11 @@ struct AdministrationSidebarView: View {
         // строка уезжала от светофора на 66 точек вместо тех четырёх, на которые
         // от него отступает строка состояния панели. В обычном оформлении это
         // просто поле от края, см. `Theme.Metrics.sidebarTopInset`.
-        .compatOwnTopInset(Theme.Metrics.sidebarTopInset(glass: usesGlass))
+        .compatOwnTopInset(topInset) {
+            // Измеритель живёт внутри самой вставки: её верх и есть верх
+            // половины, а фон списку давать нельзя — см. `compatOwnTopInset`.
+            WindowButtonsInsetReader { _, bottom in lightsBottom = bottom }
+        }
     }
 
     /// Выбранный раздел глазами списка.

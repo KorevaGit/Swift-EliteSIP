@@ -156,12 +156,31 @@ extension View {
     /// всё равно ничего не уезжает, и разница между зоной и полем пропадает.
     @ViewBuilder
     func compatOwnTopInset(_ height: CGFloat) -> some View {
+        compatOwnTopInset(height) { Color.clear }
+    }
+
+    /// То же, но в саму вставку кладётся вью — обычно измеритель.
+    ///
+    /// Нужно ровно там, где замерить верх половины иначе нечем: у бокового
+    /// списка нельзя трогать фон (`background` на `List` сбивает раскладку
+    /// плавающей вставки сайдбара — см. `AdministrationSidebarView`), а верх
+    /// вставки и есть верх половины. Измеритель внутри неё ничего не рисует и
+    /// не ловит нажатия.
+    @ViewBuilder
+    func compatOwnTopInset<Filler: View>(
+        _ height: CGFloat,
+        @ViewBuilder filler: () -> Filler
+    ) -> some View {
         if #available(macOS 12.0, *) {
             self.safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: height)
+                filler().frame(height: height)
             }
         } else {
-            self.padding(.top, height)
+            self
+                .padding(.top, height)
+                .compatOverlay(alignment: .top) {
+                    filler().frame(height: height).allowsHitTesting(false)
+                }
         }
     }
 

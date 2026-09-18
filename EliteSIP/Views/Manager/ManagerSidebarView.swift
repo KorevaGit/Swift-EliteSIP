@@ -24,6 +24,22 @@ struct ManagerSidebarView: View {
     /// `windowUsesGlass`.
     @Environment(\.windowUsesGlass) private var usesGlass
 
+    /// Сколько от верха этой половины до нижней кромки светофора. `nil` —
+    /// ещё не замерено, тогда идёт прежний расчёт по высоте полосы заголовка.
+    @State private var lightsBottom: CGFloat?
+
+    /// Отступ первой строки: под светофором и с воздухом под ним.
+    ///
+    /// В обычном оформлении список начинается ниже полосы заголовка, светофор
+    /// оказывается над этой половиной, замер выходит отрицательным — и отступа
+    /// нет вовсе, как и было.
+    private var topInset: CGFloat {
+        guard let lightsBottom, lightsBottom > 0 else {
+            return Theme.Metrics.sidebarTopInset(glass: usesGlass)
+        }
+        return lightsBottom + Theme.Metrics.trafficLightsToList
+    }
+
     /// Ветки две, и под стеклом модификатора фона нет вовсе — не `Color.clear`,
     /// а именно ничего: сам факт `background` на списке сбивает системную
     /// раскладку плавающей вставки. Замер и последствия — в
@@ -49,7 +65,11 @@ struct ManagerSidebarView: View {
             }
         }
         .listStyle(SidebarListStyle())
-        .compatOwnTopInset(Theme.Metrics.sidebarTopInset(glass: usesGlass))
+        .compatOwnTopInset(topInset) {
+            // Измеритель живёт внутри самой вставки: её верх и есть верх
+            // половины, а фон списку давать нельзя — см. `compatOwnTopInset`.
+            WindowButtonsInsetReader { _, bottom in lightsBottom = bottom }
+        }
     }
 
     /// Выбранный раздел глазами списка. `nil` от списка отбрасывается: щелчок

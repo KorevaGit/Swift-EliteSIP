@@ -29,6 +29,21 @@ struct AdministrationContentView: View {
     /// версиях полей нет вовсе, и там оба числа останутся нулями.
     @State private var sidebarInset: (top: CGFloat, bottom: CGFloat) = (0, 0)
 
+    /// Сколько от верха этой половины до верхней кромки светофора. `nil` — ещё
+    /// не замерено, тогда идёт прежний расчёт по высоте полосы заголовка.
+    @State private var lightsTop: CGFloat?
+
+    /// Отступ содержимого: первая строка встаёт на одну линию со светофором,
+    /// как в системных окнах. Под стеклом это замер, в обычном оформлении
+    /// светофор остаётся выше половины (замер отрицательный) и остаётся прежнее
+    /// поле от края.
+    private var contentTopInset: CGFloat {
+        guard let lightsTop, lightsTop > 0 else {
+            return Theme.Metrics.contentTopInset(glass: usesGlass)
+        }
+        return lightsTop
+    }
+
     var body: some View {
         // Ширина берётся у своей половины, а не у окна: контроллер содержимого
         // и так знает ровно ту ширину, которую списку отдали, — вычитать
@@ -39,13 +54,15 @@ struct AdministrationContentView: View {
                 footer
             }
             .environment(\.settingsListColumns, columns(forContentWidth: proxy.size.width))
-            // Верх и низ — по вставке сайдбара, а не по краю окна. Без этого
-            // правая половина и начинается выше левой, и кончается ниже её:
-            // поля вставки достаются только сайдбару.
-            .padding(.top, sidebarInset.top)
+            // Низ — по вставке сайдбара: поля вставки достаются только ему, и
+            // без этого правая половина кончается ниже левой. Сверху половина
+            // равняется не на вставку, а на светофор (`contentTopInset`):
+            // вставки с macOS 27 нет вовсе, и поле от неё оставило содержимое
+            // выше кнопок окна, у самой кромки.
             .padding(.bottom, sidebarInset.bottom)
             .compatBackground {
                 SidebarInsetReader { top, bottom in sidebarInset = (top, bottom) }
+                WindowButtonsInsetReader { top, _ in lightsTop = top }
             }
         }
         // Колонка подписей шире менеджерских 72: здесь «Отображаемое имя» и
@@ -118,7 +135,7 @@ struct AdministrationContentView: View {
         // здесь светофора нет, и содержимое встаёт с ним на одну линию.
         // Почему он вообще свой, а не системный, — см.
         // `Theme.Metrics.contentTopInset`.
-        .compatOwnTopInset(Theme.Metrics.contentTopInset(glass: usesGlass))
+        .compatOwnTopInset(contentTopInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
