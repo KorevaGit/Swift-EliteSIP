@@ -103,35 +103,15 @@ struct UpdateCheckRow: View {
 struct LevelMeters: View {
 
     @ObservedObject var levels: AudioLevels
+    var inputTitle: LocalizedStringKey = "Микрофон"
+    var outputTitle: LocalizedStringKey = "Приём"
 
     var body: some View {
         Group {
-            LevelMeter(title: "Микрофон", level: levels.input, peak: levels.inputPeak)
-            LevelMeter(title: "Приём", level: levels.output, peak: levels.outputPeak)
+            LevelMeter(title: inputTitle, level: levels.input, peak: levels.inputPeak)
+            LevelMeter(title: outputTitle, level: levels.output, peak: levels.outputPeak)
         }
     }
-}
-
-/// Один индикатор — микрофона или приёма — со своей подпиской.
-///
-/// Существуют затем же, зачем `LevelMeters`: подписываться на уровни должно
-/// только то, что их рисует. В разделе «Звук» полоски стоят порознь, каждая под
-/// своим ползунком, — пары там не получается, а читать `AudioLevels` прямо в
-/// разделе значило бы перерисовывать всю страницу двадцать раз в секунду.
-struct InputLevelMeter: View {
-
-    @ObservedObject var levels: AudioLevels
-    let title: LocalizedStringKey
-
-    var body: some View { LevelMeter(title: title, level: levels.input, peak: levels.inputPeak) }
-}
-
-struct OutputLevelMeter: View {
-
-    @ObservedObject var levels: AudioLevels
-    let title: LocalizedStringKey
-
-    var body: some View { LevelMeter(title: title, level: levels.output, peak: levels.outputPeak) }
 }
 
 /// Шкала уровня.

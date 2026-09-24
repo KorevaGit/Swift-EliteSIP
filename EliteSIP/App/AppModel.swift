@@ -62,14 +62,6 @@ final class AppModel: ObservableObject {
                 || settings.audio.playbackVolume != oldValue.audio.playbackVolume {
                 applyAudioGains()
             }
-            // Индикатор в разделе «Звук» обязан показывать выбранное прямо
-            // сейчас: сменил микрофон — полоска отвечает уже новому.
-            if settings.audio.inputDeviceUID != oldValue.audio.inputDeviceUID
-                || settings.audio.outputDeviceUID != oldValue.audio.outputDeviceUID
-                || settings.audio.automaticGainControl != oldValue.audio.automaticGainControl
-                || settings.audio.releasesDeviceWhenIdle != oldValue.audio.releasesDeviceWhenIdle {
-                restartLevelMonitorIfRunning()
-            }
             // Срок хранения меняет администратор, и уменьшение срока обязано
             // сработать сразу, а не при следующем запуске: это удаление
             // персональных данных, а не настройка отображения.
@@ -133,9 +125,7 @@ final class AppModel: ObservableObject {
     @Published var pendingAdminPasswordRemoval = false
 
     /// Этап самопроверки звука. Крутит менеджерскую страницу настроек.
-    @Published var selfTestPhase: VoiceSelfTest.Phase = .idle {
-        didSet { refreshLevelMonitor() }
-    }
+    @Published var selfTestPhase: VoiceSelfTest.Phase = .idle
 
     // MARK: - История звонков
 
@@ -229,15 +219,6 @@ final class AppModel: ObservableObject {
     /// Опрос уровней на время самопроверки. Живёт здесь, а работает в
     /// `AppModel+SelfTest`: расширение своих хранимых свойств не заводит.
     var selfTestLevelTask: Task<Void, Never>?
-
-    /// Живые уровни в разделе «Звук» — см. `AppModel+LevelMonitor`.
-    var levelMonitor: VoiceLevelMonitor?
-    var levelMonitorTask: Task<Void, Never>?
-    var isAudioSettingsVisible = false
-    var isLevelMonitorStarting = false
-    @Published var isLevelMonitorRunning = false
-    @Published var isTestSoundPlaying = false
-    @Published var levelMonitorProblem: String?
 
     /// Общий аудиотракт. Заводится при первом звонке или первой самопроверке —
     /// см. `voiceBus()`.
@@ -871,9 +852,10 @@ final class AppModel: ObservableObject {
     /// Линии в порядке появления. Первая — разговор, дальше консультация и
     /// третий участник конференции.
     @Published private(set) var lines: [CallLine] = [] {
-        // Индикатор в настройках отдаёт тракт звонку до того, как звонок его
-        // попросит, и забирает обратно, когда линий не осталось.
-        didSet { if lines.isEmpty != oldValue.isEmpty { refreshLevelMonitor() } }
+        // Самопроверка уступает звонку сразу, как только появилась линия, а не
+        // когда звонок заберёт тракт: иначе она продолжала бы считать секунды
+        // записи, которой уже нет, а входящий начинался бы с чужой обработкой.
+        didSet { if oldValue.isEmpty, !lines.isEmpty { cancelVoiceSelfTest() } }
     }
 
     /// Линия, которой принадлежит звук. Остальные стоят на удержании и
@@ -1825,8 +1807,7 @@ final class AppModel: ObservableObject {
             line.media?.microphoneGain = gain
             line.media?.playbackVolume = volume
         }
-        levelMonitor?.microphoneGain = gain
-        levelMonitor?.playbackVolume = volume
+        selfTest?.apply(microphoneGain: gain, playbackVolume: volume)
     }
 
     /// Собирает ответ на чужой повторный INVITE.

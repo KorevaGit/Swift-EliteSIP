@@ -71,6 +71,15 @@ public final class VoiceSelfTest: @unchecked Sendable {
     public var inputLevel: Float { bus.withEngine(token) { $0.inputLevel } ?? 0 }
     public var outputLevel: Float { bus.withEngine(token) { $0.outputLevel } ?? 0 }
 
+    /// Усиление и громкость меняются на ходу: ползунок двигают, глядя на шкалу
+    /// во время проверки, и ответ «со следующей проверки» здесь бесполезен.
+    public func apply(microphoneGain: Float, playbackVolume: Float) {
+        bus.withEngine(token) {
+            $0.microphoneGain = microphoneGain.clampedGain(to: VoiceAudioEngine.Configuration.microphoneGainLimit)
+            $0.playbackVolume = playbackVolume.clampedGain(to: 1)
+        }
+    }
+
     public init(bus: VoiceAudioBus, configuration: VoiceAudioEngine.Configuration) throws {
         self.bus = bus
         self.configuration = configuration
