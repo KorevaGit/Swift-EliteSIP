@@ -26,8 +26,12 @@ struct AudioTab: View {
     private var defaultInputName: String? { model.audioCatalog.defaultInputName }
     private var defaultOutputName: String? { model.audioCatalog.defaultOutputName }
 
-    /// Есть ли что показывать. Тракт открыт либо разговором, либо самопроверкой;
-    /// между ними уровни лежат на нуле, и полоска врала бы про микрофон.
+    /// Есть ли что показывать. Тракт открыт либо разговором, либо проверкой;
+    /// между ними уровни лежат на нуле, и шкала врала бы про микрофон.
+    ///
+    /// В 0.1.41 раздел держал тракт сам, пока был открыт, — и AirPods всё это
+    /// время сидели в режиме гарнитуры, с приглушённым звуком всей системы.
+    /// С 0.1.42 микрофон занимает только проверка, и только на её секунды.
     private var showsLevels: Bool { model.isInCall || model.isSelfTestRunning }
 
     var body: some View {
@@ -86,10 +90,6 @@ struct AudioTab: View {
                 SettingsNote("Усиление считает система: чтобы поставить его руками, выключите автоматическую регулировку ниже.")
             }
 
-            if showsLevels {
-                InputLevelMeter(levels: model.audioLevels, title: "Уровень")
-            }
-
             AudioDeviceRow(
                 title: "Наушники",
                 systemTitle: "Системные по умолчанию",
@@ -121,17 +121,6 @@ struct AudioTab: View {
                 )
             }
 
-            if showsLevels {
-                OutputLevelMeter(levels: model.audioLevels, title: "Уровень")
-            } else {
-                // Полоска, лежащая на нуле потому, что мерить нечего, читается
-                // как сломанный микрофон. Пока мерить нечего — слова вместо неё.
-                SettingsNote("""
-                    Уровни появятся здесь в разговоре и во время проверки ниже: \
-                    по ним видно, что уходит в линию и что приходит из неё.
-                    """)
-            }
-
             // Появляется только когда обе стороны заданы явно и разными: тогда
             // движок собирает агрегатное устройство, а `VoiceProcessingIO`
             // агрегаты не принимает. Если хоть одна сторона отдана системе,
@@ -161,15 +150,28 @@ struct AudioTab: View {
 
             SettingsDivider()
 
-            SettingsNote("Пять секунд записи и сразу воспроизведение — тем же трактом, что и разговор.")
+            // Проверка и шкалы — один блок. Шкалы нужны ровно затем, чтобы
+            // видеть, как звучишь и слышишь, а это видно, только пока тракт
+            // открыт: проверкой или разговором. Отдельно от проверки они либо
+            // лежали бы на нуле, либо держали бы микрофон сами — и второе
+            // оказалось хуже первого (см. `showsLevels`).
+            SettingsNote("""
+                Скажите фразу — шкала «Голос» покажет, как вас слышно. \
+                Через пять секунд запись прозвучит в наушниках, и отзовётся шкала «Звук». \
+                Микрофон занят только на время проверки.
+                """)
 
             SettingsButtonsRow {
                 if model.isSelfTestRunning {
                     Button("Остановить") { model.cancelVoiceSelfTest() }
                 } else {
-                    Button("Записать и прослушать") { model.startVoiceSelfTest() }
+                    Button("Проверить микрофон и звук") { model.startVoiceSelfTest() }
                         .disabled(!model.canStartSelfTest)
                 }
+            }
+
+            if showsLevels {
+                LevelMeters(levels: model.audioLevels, inputTitle: "Голос", outputTitle: "Звук")
             }
 
             if let status = selfTestStatus {

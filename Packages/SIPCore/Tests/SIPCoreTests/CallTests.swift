@@ -77,6 +77,7 @@ struct CallTests {
                 switch event {
                 case .state(let state): states.append("\(state)")
                 case .answered(let body, _): answerBody = body
+                case .earlyMedia: states.append("early")
                 case .failed(let status, let reason): states.append("failed \(status) \(reason)")
                 case .ended: return (states, answerBody)
                 }
@@ -108,6 +109,46 @@ struct CallTests {
         await agent.hangUp()
         let result = await collector.value
         #expect(result.body?.isEmpty == false, "тело ответа должно дойти до вызывающего")
+
+        await agent.stop()
+    }
+
+    @Test("SDP в 183 уходит наверх ранним медиа, повтор того же тела — нет")
+    func earlyMediaIsForwardedOnce() async throws {
+        let server = makeServer()
+        let agent = await makeAgent(server)
+
+        let events = await agent.placeCall(to: "600", offer: sdpOffer()).events
+        let collector = Task { () -> (early: Int, answered: Bool) in
+            var early = 0
+            var answered = false
+            for await event in events {
+                switch event {
+                case .earlyMedia(let body, _): if !body.isEmpty { early += 1 }
+                case .answered: answered = true
+                case .ended, .failed: return (early, answered)
+                case .state: break
+                }
+            }
+            return (early, answered)
+        }
+
+        #expect(await waitUntil { server.receivedRequests.filter { $0.method == .invite }.count >= 2 })
+        let invite = try #require(lastInvite(server))
+
+        // 180 без тела — гудки играет сам клиент, раннего медиа нет.
+        server.inject(response: ScriptedSIPServer.response(to: invite, status: 180))
+        #expect(await waitUntil { await agent.callState == .ringing })
+        // 183 с SDP — дважды одно и то же: станции повторяют предварительные ответы.
+        server.inject(response: answer(to: invite, status: 183))
+        server.inject(response: answer(to: invite, status: 183))
+        server.inject(response: answer(to: invite))
+
+        #expect(await waitUntil { await agent.callState == .answered })
+        await agent.hangUp()
+        let result = await collector.value
+        #expect(result.early == 1, "одно и то же тело 183 не должно перезапускать звук")
+        #expect(result.answered)
 
         await agent.stop()
     }

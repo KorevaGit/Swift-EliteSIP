@@ -465,6 +465,9 @@ struct SIPCheck {
                 await plan.run(agent: agent, live: live)
                 await agent.hangUp()
 
+            case .earlyMedia:
+                print("   раннее медиа в предварительном ответе")
+
             case .failed(_, let reason):
                 print("❌ звонок не состоялся: \(reason)")
                 return false
