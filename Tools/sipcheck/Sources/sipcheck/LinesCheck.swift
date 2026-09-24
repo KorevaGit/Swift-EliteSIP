@@ -149,6 +149,8 @@ enum LinesCheck {
                     } catch {
                         probe.fail("разбор ответа SDP не удался: \(error)")
                     }
+                case .earlyMedia:
+                    break
                 case .failed(_, let reason):
                     probe.fail(reason)
                 case .ended(let reason):

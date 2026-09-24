@@ -106,8 +106,8 @@ struct LevelMeters: View {
 
     var body: some View {
         Group {
-            LevelMeter(title: "Микрофон", level: levels.input)
-            LevelMeter(title: "Приём", level: levels.output)
+            LevelMeter(title: "Микрофон", level: levels.input, peak: levels.inputPeak)
+            LevelMeter(title: "Приём", level: levels.output, peak: levels.outputPeak)
         }
     }
 }
@@ -123,7 +123,7 @@ struct InputLevelMeter: View {
     @ObservedObject var levels: AudioLevels
     let title: LocalizedStringKey
 
-    var body: some View { LevelMeter(title: title, level: levels.input) }
+    var body: some View { LevelMeter(title: title, level: levels.input, peak: levels.inputPeak) }
 }
 
 struct OutputLevelMeter: View {
@@ -131,38 +131,67 @@ struct OutputLevelMeter: View {
     @ObservedObject var levels: AudioLevels
     let title: LocalizedStringKey
 
-    var body: some View { LevelMeter(title: title, level: levels.output) }
+    var body: some View { LevelMeter(title: title, level: levels.output, peak: levels.outputPeak) }
 }
 
-/// Полоска уровня.
+/// Шкала уровня.
 ///
 /// Нужна затем, чтобы оператор видел, что микрофон живой, до того как начнёт
 /// говорить, — а не узнавал об этом от собеседника.
+///
+/// С 0.1.41 — сегменты, а не тонкая полоска: в разделе «Звук» шкала отвечает
+/// на голос постоянно, и по полоске в шесть точек высотой не было видно, где
+/// речь, а где уже перегруз. Сегменты зелёные в рабочей зоне, жёлтые ближе к
+/// верху и красные там, где начинается ограничение. Пик держится полсекунды —
+/// короткий всплеск иначе проскакивает быстрее, чем глаз его заметит.
 struct LevelMeter: View {
 
     let title: LocalizedStringKey
     let level: Float
+    var peak: Float = 0
+
+    private static let segments = 24
 
     var body: some View {
         SettingsRow(title) {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.Palette.textTertiary.opacity(0.5))
-                    Capsule()
-                        .fill(color)
-                        // Корень вместо самого уровня: слух логарифмический, и
-                        // на линейной шкале обычная речь болтается у левого края.
-                        .frame(width: geometry.size.width * CGFloat(sqrt(max(level, 0))))
+            HStack(spacing: 2) {
+                ForEach(0..<Self.segments, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(fill(for: index))
                 }
             }
-            .frame(width: 160, height: 6)
+            .frame(width: 200, height: 10)
+            .compatAnimation(.linear(duration: 0.05), value: litSegments)
+            .compatAccessibilityLabel(verbatim: "\(Int(displayLevel * 100)) %")
         }
     }
 
-    private var color: Color {
+    /// Корень вместо самого уровня: слух логарифмический, и на линейной шкале
+    /// обычная речь болтается у левого края.
+    private var displayLevel: Float { sqrt(max(level, 0)) }
+
+    private var litSegments: Int {
+        Int((displayLevel * Float(Self.segments)).rounded())
+    }
+
+    private var peakSegment: Int {
+        Int((sqrt(max(peak, 0)) * Float(Self.segments)).rounded()) - 1
+    }
+
+    private func fill(for index: Int) -> Color {
+        let color = zoneColor(for: index)
+        if index < litSegments { return color }
+        if index == peakSegment, peakSegment >= litSegments { return color.opacity(0.7) }
+        return Theme.Palette.textTertiary.opacity(0.35)
+    }
+
+    private func zoneColor(for index: Int) -> Color {
+        let position = Double(index + 1) / Double(Self.segments)
         // Красный только у самой шкалы: там начинается ограничение, и голос
         // хрипит независимо от кодека и сети.
-        level > 0.95 ? Theme.Palette.failure : .accentColor
+        if position > 0.92 { return Theme.Palette.failure }
+        if position > 0.75 { return Theme.Palette.caution }
+        return Color.green
     }
 }
 

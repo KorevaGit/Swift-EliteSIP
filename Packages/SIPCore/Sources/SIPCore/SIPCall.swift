@@ -114,6 +114,14 @@ public enum SIPCallEvent: Sendable {
     case state(SIPCallState)
     /// Собеседник ответил. Тело — SDP-ответ, его нужно разобрать и запустить медиа.
     case answered(body: Data, contentType: String?)
+    /// Предварительный ответ (180/183) принёс SDP: станция сама играет гудки,
+    /// голосовое меню или «абонент недоступен» — ещё до ответа.
+    ///
+    /// Без этого события звук поднимался только на 200 OK, и всё, что станция
+    /// отдаёт в раннем медиа, в наушники не попадало: Asterisk, провайдер или
+    /// очередь, играющие гудки сами, давали оператору тишину вместо гудков.
+    /// Приходит заново, только если тело изменилось.
+    case earlyMedia(body: Data, contentType: String?)
     case failed(status: Int, reason: String)
     case ended(reason: String)
 }

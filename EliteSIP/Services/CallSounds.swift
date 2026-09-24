@@ -60,8 +60,51 @@ final class CallSounds {
         play(endSound, outputDeviceUID: outputDeviceUID)
     }
 
-    private func play(_ sound: NSSound?, outputDeviceUID: String?) {
-        guard let sound else { return }
+    // MARK: - Гудки
+
+    private lazy var ringbackSound: NSSound? = {
+        let sound = Self.makeSound(samples: Self.ringbackSamples())
+        sound?.loops = true
+        return sound
+    }()
+
+    /// Контроль посылки вызова, пока станция не дала своих гудков.
+    ///
+    /// Не выключается настройкой тонов: тоны клавиш — удобство, а гудок —
+    /// единственный признак того, что вызов вообще идёт. Повторный вызов при
+    /// уже звучащем гудке ничего не делает: цикл не должен начинаться заново
+    /// на каждом повторном 180.
+    func startRingback(outputDeviceUID: String?) {
+        guard let sound = ringbackSound, !sound.isPlaying else { return }
+        route(sound, outputDeviceUID: outputDeviceUID)
+        sound.volume = Self.ringbackVolume
+        sound.play()
+    }
+
+    func stopRingback() {
+        guard let sound = ringbackSound, sound.isPlaying else { return }
+        sound.stop()
+    }
+
+    /// Гудок громче тонов клавиш: его слушают, а не замечают краем уха, и
+    /// он должен быть на уровне гудков станции, которые приходят в разговорный
+    /// тракт.
+    private static let ringbackVolume: Float = 0.8
+
+    /// 425 Гц, секунда звука и четыре тишины — КПВ по ГОСТ, привычный
+    /// оператору по гудкам станции.
+    private static func ringbackSamples() -> [Float] {
+        let tone = Int(1.0 * sampleRate)
+        let fade = Int(0.01 * sampleRate)
+        var samples = (0..<tone).map { index in
+            let time = Double(index) / sampleRate
+            return Float(0.2 * sin(2 * .pi * 425 * time) * edge(index, count: tone, fade: fade))
+        }
+        samples += [Float](repeating: 0, count: Int(4.0 * sampleRate))
+        return samples
+    }
+
+    private func route(_ sound: NSSound, outputDeviceUID: String?) {
         // Выбранной гарнитуры может не быть: её вынули, а в настройках она
         // осталась. Тогда — системное устройство, как и у разговора.
         if let uid = outputDeviceUID, AudioDeviceCatalog.device(uid: uid) != nil {
@@ -69,6 +112,11 @@ final class CallSounds {
         } else {
             sound.playbackDeviceIdentifier = nil
         }
+    }
+
+    private func play(_ sound: NSSound?, outputDeviceUID: String?) {
+        guard let sound else { return }
+        route(sound, outputDeviceUID: outputDeviceUID)
         sound.volume = Self.volume
         // Та же клавиша подряд: `play()` у играющего звука ничего не делает,
         // и быстрый набор «00» звучал бы одним тоном.

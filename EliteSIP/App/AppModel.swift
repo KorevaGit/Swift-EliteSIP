@@ -62,6 +62,14 @@ final class AppModel: ObservableObject {
                 || settings.audio.playbackVolume != oldValue.audio.playbackVolume {
                 applyAudioGains()
             }
+            // Индикатор в разделе «Звук» обязан показывать выбранное прямо
+            // сейчас: сменил микрофон — полоска отвечает уже новому.
+            if settings.audio.inputDeviceUID != oldValue.audio.inputDeviceUID
+                || settings.audio.outputDeviceUID != oldValue.audio.outputDeviceUID
+                || settings.audio.automaticGainControl != oldValue.audio.automaticGainControl
+                || settings.audio.releasesDeviceWhenIdle != oldValue.audio.releasesDeviceWhenIdle {
+                restartLevelMonitorIfRunning()
+            }
             // Срок хранения меняет администратор, и уменьшение срока обязано
             // сработать сразу, а не при следующем запуске: это удаление
             // персональных данных, а не настройка отображения.
@@ -125,7 +133,9 @@ final class AppModel: ObservableObject {
     @Published var pendingAdminPasswordRemoval = false
 
     /// Этап самопроверки звука. Крутит менеджерскую страницу настроек.
-    @Published var selfTestPhase: VoiceSelfTest.Phase = .idle
+    @Published var selfTestPhase: VoiceSelfTest.Phase = .idle {
+        didSet { refreshLevelMonitor() }
+    }
 
     // MARK: - История звонков
 
@@ -219,6 +229,15 @@ final class AppModel: ObservableObject {
     /// Опрос уровней на время самопроверки. Живёт здесь, а работает в
     /// `AppModel+SelfTest`: расширение своих хранимых свойств не заводит.
     var selfTestLevelTask: Task<Void, Never>?
+
+    /// Живые уровни в разделе «Звук» — см. `AppModel+LevelMonitor`.
+    var levelMonitor: VoiceLevelMonitor?
+    var levelMonitorTask: Task<Void, Never>?
+    var isAudioSettingsVisible = false
+    var isLevelMonitorStarting = false
+    @Published var isLevelMonitorRunning = false
+    @Published var isTestSoundPlaying = false
+    @Published var levelMonitorProblem: String?
 
     /// Общий аудиотракт. Заводится при первом звонке или первой самопроверке —
     /// см. `voiceBus()`.
@@ -851,7 +870,11 @@ final class AppModel: ObservableObject {
 
     /// Линии в порядке появления. Первая — разговор, дальше консультация и
     /// третий участник конференции.
-    @Published private(set) var lines: [CallLine] = []
+    @Published private(set) var lines: [CallLine] = [] {
+        // Индикатор в настройках отдаёт тракт звонку до того, как звонок его
+        // попросит, и забирает обратно, когда линий не осталось.
+        didSet { if lines.isEmpty != oldValue.isEmpty { refreshLevelMonitor() } }
+    }
 
     /// Линия, которой принадлежит звук. Остальные стоят на удержании и
     /// аудиотракта не держат: микрофон, выход и обработка голоса у оператора
@@ -1198,6 +1221,7 @@ final class AppModel: ObservableObject {
         offer: SessionDescription,
         reservation: RTPPortReservation
     ) async {
+        defer { refreshRingback() }
         switch event {
         case .state(let state):
             switch state {
@@ -1216,6 +1240,9 @@ final class AppModel: ObservableObject {
             // другому потоку событий.
             case .incoming, .ended: break
             }
+
+        case .earlyMedia(let body, _):
+            await startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID, early: true)
 
         case .answered(let body, _):
             await startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID)
@@ -1236,19 +1263,52 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// `early` — SDP пришёл в 180/183, собеседник ещё не ответил.
+    ///
+    /// Раннее медиа поднимает ту же сессию, что и разговор, только с немым
+    /// микрофоном и без перехода в «Разговор». Ответ потом не заводит звук
+    /// заново, а продвигает уже звучащую сессию: гудки и первое «алло» идут
+    /// одним потоком, без провала на открытии устройства.
     private func startMedia(
         answerBody: Data,
         offer: SessionDescription,
         reservation: RTPPortReservation,
-        on lineID: String
+        on lineID: String,
+        early: Bool = false
     ) async {
         do {
             let answer = try SessionDescription(parsing: answerBody)
             let negotiated = try SDPNegotiator.resolveAnswer(
                 answer, toOffer: offer, supported: preferredCodecs
             )
-            await startMedia(negotiated: negotiated, reservation: reservation, on: lineID)
+            if let media = line(lineID)?.media {
+                // Звук уже поднят ранним медиа. Кодек в ответе обязан совпасть
+                // с ранним (RFC 3264 не даёт его менять без нового
+                // предложения), но станции бывают разные: при несовпадении —
+                // заново, иначе сессия проиграла бы чужой кодек шумом.
+                do {
+                    try media.renegotiate(to: negotiated)
+                    if !early { promoteEarlyMedia(on: lineID) }
+                    return
+                } catch {
+                    append(level: .warning, message: "ответ сменил параметры раннего медиа — звук поднимается заново")
+                    mutate(lineID) { $0.media = nil }
+                    // Остановка с ожиданием, а не `retire`: новая сессия встаёт
+                    // на тот же локальный порт, объявленный в SDP, и сокет
+                    // прежней обязан закрыться до неё. Случай редкий — станции
+                    // кодек между 183 и 200 не меняют, — и секунда ожидания
+                    // здесь дешевле звонка без звука.
+                    media.stop()
+                }
+            }
+            await startMedia(negotiated: negotiated, reservation: reservation, on: lineID, early: early)
         } catch {
+            if early {
+                // Раннее медиа — не разговор: разобрать его не вышло — значит,
+                // гудки сыграет сам клиент, а звонок пусть идёт своим чередом.
+                append(level: .warning, message: "раннее медиа не поднялось: \(error.localizedDescription)")
+                return
+            }
             append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
             setStatus(NSLocalizedString("Ошибка звука", comment: "состояние линии"), on: lineID)
             Task { await hangUp(lineID: lineID) }
@@ -1262,12 +1322,16 @@ final class AppModel: ObservableObject {
     private func startMedia(
         negotiated: NegotiatedMedia,
         reservation: RTPPortReservation,
-        on lineID: String
+        on lineID: String,
+        early: Bool = false
     ) async {
+        // Звук открывает устройство — локальный гудок должен замолчать до
+        // того, а не после: иначе он наложится на гудки станции.
+        if early { callSounds.stopRingback() }
         do {
             append(
                 level: .info,
-                message: "медиа: \(negotiated.security.isEncrypted ? "SRTP" : "RTP") \(negotiated.codec.sdpName) на \(negotiated.remoteAddress):\(negotiated.remotePort)"
+                message: "медиа\(early ? " (раннее)" : ""): \(negotiated.security.isEncrypted ? "SRTP" : "RTP") \(negotiated.codec.sdpName) на \(negotiated.remoteAddress):\(negotiated.remotePort)"
             )
 
             let session = try MediaSession(
@@ -1336,23 +1400,56 @@ final class AppModel: ObservableObject {
                 retire(previous)
             }
 
+            // Ответ мог прийти, пока поднималось раннее медиа: тогда линия
+            // уже в разговоре, и эту сессию надо сразу считать разговорной.
+            let isEarly = early && line(lineID)?.phase != .active
             mutate(lineID) {
                 $0.media = session
                 $0.audioRoute = session.route
                 $0.echoCancellationActive = session.usesEchoCancellation
                 $0.negotiatedCodec = negotiated.codec
-                $0.phase = .active
+                if !isEarly { $0.phase = .active }
             }
             if !session.usesEchoCancellation {
                 append(level: .warning, message: "звук без эхоподавления — через колонки собеседник услышит себя")
             }
             applyAudioOwnership()
             startLevelPolling()
-            setStatus(NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
+            refreshRingback()
+            if !isEarly {
+                setStatus(NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
+            }
         } catch {
+            if early {
+                append(level: .warning, message: "раннее медиа не поднялось: \(error.localizedDescription)")
+                refreshRingback()
+                return
+            }
             append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
             setStatus(NSLocalizedString("Ошибка звука", comment: "состояние линии"), on: lineID)
             Task { await hangUp(lineID: lineID) }
+        }
+    }
+
+    /// Ответ пришёл на линию, где уже звучит раннее медиа.
+    private func promoteEarlyMedia(on lineID: String) {
+        mutate(lineID) { $0.phase = .active }
+        applyAudioState(on: lineID)
+        refreshRingback()
+        setStatus(NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
+    }
+
+    /// Локальный гудок: активная линия звонит, а станция своих гудков не дала.
+    ///
+    /// Гудки при исходящем звонке станции не обязаны: 180 Ringing без SDP
+    /// означает «играй сам», и до 0.1.41 клиент не играл ничего — оператор
+    /// слышал тишину и не понимал, идёт ли вызов. Когда станция отдаёт гудки
+    /// сама (раннее медиа в 183), играют её гудки, а свой молчит.
+    private func refreshRingback() {
+        if let line = activeLine, line.phase == .ringing, line.media == nil {
+            callSounds.startRingback(outputDeviceUID: settings.audio.outputDeviceUID)
+        } else {
+            callSounds.stopRingback()
         }
     }
 
@@ -1701,7 +1798,11 @@ final class AppModel: ObservableObject {
     private func applyAudioState(on lineID: String) {
         guard let line = line(lineID), let media = line.media else { return }
         let isBackground = line.id != activeLineID
+        // Раннее медиа: собеседник ещё не ответил, и слышать оператора ему
+        // незачем — на той стороне может быть автоответчик или чужая очередь.
+        let isBeforeAnswer = line.phase != .active
         media.isMicrophoneMuted = isBackground
+            || isBeforeAnswer
             || line.isOnHold
             || line.isRemotelyHeld
             || line.isMicrophoneMuted
@@ -1724,6 +1825,8 @@ final class AppModel: ObservableObject {
             line.media?.microphoneGain = gain
             line.media?.playbackVolume = volume
         }
+        levelMonitor?.microphoneGain = gain
+        levelMonitor?.playbackVolume = volume
     }
 
     /// Собирает ответ на чужой повторный INVITE.
@@ -2021,6 +2124,7 @@ final class AppModel: ObservableObject {
     ) {
         callTasks.removeValue(forKey: lineID)?.cancel()
         retire(line(lineID)?.media)
+        defer { refreshRingback() }
 
         // История закрывается здесь, потому что здесь снимается линия, — и
         // ровно той причиной, которую увидит оператор. Расхождение между
@@ -2263,9 +2367,10 @@ final class AppModel: ObservableObject {
             case .dialing, .ringing, .ended: break
             }
 
-        case .answered:
+        case .answered, .earlyMedia:
             // Для входящего звонка ответ — это наш собственный 200 OK, и медиа
-            // поднимается там же, где он отправляется.
+            // поднимается там же, где он отправляется. Раннего медиа у
+            // входящего не бывает: предварительные ответы шлём мы.
             break
 
         case .failed(let status, let reason):

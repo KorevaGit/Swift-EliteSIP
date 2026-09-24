@@ -26,9 +26,10 @@ struct AudioTab: View {
     private var defaultInputName: String? { model.audioCatalog.defaultInputName }
     private var defaultOutputName: String? { model.audioCatalog.defaultOutputName }
 
-    /// Есть ли что показывать. Тракт открыт либо разговором, либо самопроверкой;
-    /// между ними уровни лежат на нуле, и полоска врала бы про микрофон.
-    private var showsLevels: Bool { model.isInCall || model.isSelfTestRunning }
+    /// Есть ли что показывать. С 0.1.41 тракт держит и сам раздел — пока он
+    /// открыт, шкала микрофона отвечает на голос (`AppModel+LevelMonitor`).
+    /// Не держит он его, только если доступа к микрофону нет.
+    private var showsLevels: Bool { model.showsAudioLevels }
 
     var body: some View {
         SettingsSection("Звук") {
@@ -87,7 +88,7 @@ struct AudioTab: View {
             }
 
             if showsLevels {
-                InputLevelMeter(levels: model.audioLevels, title: "Уровень")
+                InputLevelMeter(levels: model.audioLevels, title: "Голос")
             }
 
             AudioDeviceRow(
@@ -122,12 +123,26 @@ struct AudioTab: View {
             }
 
             if showsLevels {
-                OutputLevelMeter(levels: model.audioLevels, title: "Уровень")
-            } else {
+                OutputLevelMeter(levels: model.audioLevels, title: "Звук")
+            }
+
+            // Проверка наушников одним нажатием: короткий аккорд тем же путём,
+            // что и голос собеседника, — и шкала «Звук» на него отвечает.
+            // Только вне разговора и самопроверки: тракт в это время чужой.
+            if model.isLevelMonitorRunning {
+                SettingsButtonsRow {
+                    Button("Проверить звук") { model.playTestSound() }
+                        .disabled(model.isTestSoundPlaying)
+                }
+            }
+
+            if let problem = model.levelMonitorProblem, !showsLevels {
+                SettingsNote(verbatim: problem)
+            } else if !showsLevels {
                 // Полоска, лежащая на нуле потому, что мерить нечего, читается
                 // как сломанный микрофон. Пока мерить нечего — слова вместо неё.
                 SettingsNote("""
-                    Уровни появятся здесь в разговоре и во время проверки ниже: \
+                    Шкалы появятся, как только откроется микрофон: \
                     по ним видно, что уходит в линию и что приходит из неё.
                     """)
             }
@@ -176,11 +191,14 @@ struct AudioTab: View {
                 SettingsNote(verbatim: status)
             }
         }
+        .onAppear { model.setAudioSettingsVisible(true) }
         .onDisappear {
             // Уход с экрана обязан закрыть микрофон: иначе он остаётся открытым
             // до конца пяти секунд уже после того, как настройки закрыли. С
             // разбором на разделы это стало срабатывать и при переключении
             // раздела — и это правильно: ушёл с «Звука» — отпусти микрофон.
+            // Индикатор уровня отпускает его тем же движением.
+            model.setAudioSettingsVisible(false)
             model.cancelVoiceSelfTest()
         }
     }

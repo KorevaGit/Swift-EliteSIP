@@ -147,6 +147,9 @@ public actor SIPUserAgent {
         /// Предел гудков. Заводится на первом 1xx, снимается вместе с линией.
         /// Разбор — у `SIPUserAgent.ringingLimit`.
         var ringingTimeoutTask: Task<Void, Never>?
+
+        /// Последний SDP раннего медиа, отданный наверх. См. `emitEarlyMedia`.
+        var earlyMediaBody: Data?
     }
 
     // MARK: - Линии
@@ -920,6 +923,7 @@ public actor SIPUserAgent {
                         if response.statusCode >= 180 {
                             emitCallState(.ringing, of: callID)
                             armRingingLimit(callID: callID)
+                            emitEarlyMedia(from: response, of: callID)
                         }
 
                     case .success(let response):
@@ -1836,6 +1840,21 @@ public actor SIPUserAgent {
             ),
             continuation: call.continuation
         )
+    }
+
+    /// Раннее медиа из предварительного ответа, если в нём есть SDP.
+    ///
+    /// Повтор того же тела не пересылается: 180 и 183 станция шлёт по
+    /// нескольку раз, и каждый повтор перезапускал бы звук посреди гудка.
+    private func emitEarlyMedia(from response: SIPResponse, of callID: String) {
+        guard !response.body.isEmpty,
+              response.contentType.map({ $0.lowercased().hasPrefix("application/sdp") }) ?? true,
+              var call = calls[callID],
+              call.earlyMediaBody != response.body
+        else { return }
+        call.earlyMediaBody = response.body
+        calls[callID] = call
+        call.continuation.yield(.earlyMedia(body: response.body, contentType: response.contentType))
     }
 
     private func emitCallState(_ newState: SIPCallState, of callID: String) {
