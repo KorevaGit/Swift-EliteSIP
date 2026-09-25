@@ -159,6 +159,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         #endif
 
+        // Только в 0.1.43: разовый сброс машин, поднятых ключом EliteSupport.
+        // До выбора между мастером и панелью — сброшенная машина уходит в
+        // мастер тем же путём, что и свежая. См. AppModel+SparkMigrationReset.
+        model.performSparkMigrationResetIfNeeded()
+
         if model.firstRun != .passed {
             // Регистрация во время мастера не поднимается: до экрана «Первый
             // пользователь» подключаться нечем — добавочного нет, — а после него
