@@ -41,31 +41,37 @@ public enum PanelLinkError: Error, Equatable, LocalizedError {
         case .malformedKey:
             return NSLocalizedString(
                 "Это не похоже на ключ: в нём должно быть двенадцать знаков.",
+                bundle: .module,
                 comment: "отказ при вводе ключа активации"
             )
         case .keyDidNotOpen:
             return NSLocalizedString(
                 "Ключ не подошёл или уже использован. Попросите новый.",
+                bundle: .module,
                 comment: "отказ при распечатывании пакета активации"
             )
         case .packageTooNew:
             return NSLocalizedString(
                 "Пакет собран более новой версией программы — обновитесь.",
+                bundle: .module,
                 comment: "отказ при распечатывании пакета активации"
             )
         case .signatureDidNotMatch:
             return NSLocalizedString(
                 "Подпись файла настроек не сошлась — файл отброшен.",
+                bundle: .module,
                 comment: "отказ при проверке файла предустановок"
             )
         case .bundleTooNew:
             return NSLocalizedString(
                 "Файл настроек собран более новой версией программы.",
+                bundle: .module,
                 comment: "отказ при проверке файла предустановок"
             )
         case .malformedBundle:
             return NSLocalizedString(
                 "Файл настроек не разобрался.",
+                bundle: .module,
                 comment: "отказ при проверке файла предустановок"
             )
         }
