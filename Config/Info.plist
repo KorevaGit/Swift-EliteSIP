@@ -94,7 +94,7 @@
 	     Адреса канала здесь нет: файл предустановок один на оба среза, и берётся
 	     он с того же канала, что и обновления, — из провижининга. -->
 	<key>ESPresetsPublicKey</key>
-	<string>dDlMajgtHYhZpZgdEPPfat1ny/ZnaaE8hH2l2AAbOxs=</string>
+	<string>P8XaNYhYwDSSS+805amNpc84GGrnnWV+mgbvyPiWBIs=</string>
 
 	<!-- Без подсказки одноразового кода под полем набора (macOS 26).
 
