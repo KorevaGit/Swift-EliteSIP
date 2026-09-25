@@ -2268,6 +2268,22 @@
         }
       }
     },
+    "Голос": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Голос"
+          }
+        }
+      }
+    },
     "Готово": {
       "localizations": {
         "en": {
@@ -8269,6 +8285,22 @@
         }
       }
     },
+    "Проверить микрофон и звук": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test microphone and sound"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить микрофон и звук"
+          }
+        }
+      }
+    },
     "Проверить настройки сейчас": {
       "localizations": {
         "en": {
@@ -9244,6 +9276,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Системный по умолчанию"
+          }
+        }
+      }
+    },
+    "Скажите фразу — шкала «Голос» покажет, как вас слышно. Через пять секунд запись прозвучит в наушниках, и отзовётся шкала «Звук». Микрофон занят только на время проверки.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Say a phrase — the “Voice” meter shows how well you are heard. After five seconds the recording plays back in your headphones and the “Audio” meter responds. The microphone is used only during the test."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скажите фразу — шкала «Голос» покажет, как вас слышно. Через пять секунд запись прозвучит в наушниках, и отзовётся шкала «Звук». Микрофон занят только на время проверки."
           }
         }
       }
