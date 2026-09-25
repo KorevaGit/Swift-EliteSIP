@@ -76,8 +76,9 @@ struct SupportTab: View {
             // же вопросом: «у меня точно свежее?». Показывается только у
             // машины, которой управляет панель: на ручной проверять нечего, и
             // кнопка, отвечающая «ничего не происходит», хуже её отсутствия.
-            if model.settings.panel.isManaged {
-                PresetCheckRow(isChecking: model.isCheckingPresets, result: model.presetCheckResult)
+            // Машине в оффлайне вместо проверки — «Вернуться в онлайн».
+            if model.settings.panel.isManaged || model.isPanelOffline {
+                PanelSyncRow()
             }
 
             // Поле ключа стоит здесь, а не в «Управлении», и это решение.

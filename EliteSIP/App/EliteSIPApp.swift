@@ -371,6 +371,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         machineService?.checkAccess()
     }
 
+    /// «Вернуться в онлайн» — на месте «Проверить настройки сейчас» у машины
+    /// в оффлайне. Сразу же спрашивает канал: иначе возврат доехал бы только
+    /// через два часа.
+    @objc func returnPanelOnline(_ sender: Any?) {
+        model.returnPanelOnline()
+        checkPresetsNow(sender)
+    }
+
     /// Снять регистрацию перед подменой бандла и позвать продолжение.
     ///
     /// То же, что делает `tearDownAndExit`, минус сам выход: завершать процесс
@@ -1669,10 +1677,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let alert = NSAlert()
         alert.messageText = NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»")
         alert.informativeText = NSLocalizedString("""
-            Если тронуты настройки, которыми управляет EliteSupport, сохранение \
-            разорвёт связку с панелью: обновления конфигураций, клавиш и адресов \
-            АТС на эту машину больше не придут, а вернуть её можно будет только \
-            новым ключом. Это будет записано в журнал.
+            Если тронуты настройки, которыми управляет EliteSupport, машина \
+            после сохранения уйдёт в оффлайн: обновления конфигураций, клавиш и \
+            адресов АТС приходить перестанут, пока не нажать «Вернуться в онлайн» \
+            — тогда местные правки заменит панель. Это будет записано в журнал.
             """, comment: "вопрос при закрытии «Управления»")
         alert.addButton(withTitle: NSLocalizedString("Сохранить", comment: "кнопка"))
         alert.addButton(withTitle: NSLocalizedString("Не сохранять", comment: "кнопка"))

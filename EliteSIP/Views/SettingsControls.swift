@@ -62,6 +62,51 @@ struct PresetCheckRow: View {
     }
 }
 
+/// «Вернуться в онлайн» — встаёт на место `PresetCheckRow` у машины в
+/// оффлайне. Проверять настройки такой машине нечего: канал она не слушает.
+struct PanelOnlineRow: View {
+
+    let isChecking: Bool
+    let result: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
+            SettingsButtonsRow {
+                Button("Вернуться в онлайн") {
+                    NSApp.sendAction(#selector(AppDelegate.returnPanelOnline(_:)), to: nil, from: nil)
+                }
+                .disabled(isChecking)
+
+                if isChecking {
+                    CompatSpinner()
+                }
+            }
+            SettingsNote("""
+                Машина в оффлайне: настройки из панели не приходят. Возврат \
+                заменит местные правки управляемых настроек настройками панели.
+                """)
+            if !isChecking, let result {
+                SettingsNote(verbatim: result)
+            }
+        }
+    }
+}
+
+/// Кнопка панели для машины с ключом: проверить настройки — или, в оффлайне,
+/// вернуться в онлайн.
+struct PanelSyncRow: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        if model.isPanelOffline {
+            PanelOnlineRow(isChecking: model.isCheckingPresets, result: model.presetCheckResult)
+        } else {
+            PresetCheckRow(isChecking: model.isCheckingPresets, result: model.presetCheckResult)
+        }
+    }
+}
+
 struct UpdateCheckRow: View {
 
     let isChecking: Bool
