@@ -168,6 +168,18 @@ final class FirstRunFlow: ObservableObject {
     /// живой проверки. Живёт до следующего действия.
     @Published var notice: String?
 
+    /// QR для EliteGuard над полем ключа: установщик привязывает ключ с
+    /// телефона, и он приезжает сюда сам.
+    let pairing = PairingController()
+
+    /// Ключ пришёл через QR — дальше ровно тот же путь, что у набранного.
+    @MainActor
+    func receivePairedKey(_ paired: ActivationKey) async {
+        key = paired.canonical
+        keyFailure = nil
+        await openKey()
+    }
+
     init(isPreview: Bool = false) {
         self.isPreview = isPreview
         // Ветка по умолчанию — ключ из панели: это основной путь, и стажёров

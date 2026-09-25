@@ -3996,6 +3996,23 @@
         }
       }
     },
+    "Ключ получен из EliteGuard": {
+      "comment": "QR для EliteGuard на экране ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key received from EliteGuard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключ получен из EliteGuard"
+          }
+        }
+      }
+    },
     "Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. Подтвердить результат клиент не может: сервер о входе в комнату не сообщает.": {
       "localizations": {
         "en": {
@@ -4059,6 +4076,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. На боевом сервере такой фичи нет: «core show features» от 18 августа 2026 знает перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмену перевода *77 — и ничего про конференцию. Прежнее умолчание *3 было догадкой и снято."
+          }
+        }
+      }
+    },
+    "Код для EliteGuard недоступен — введите ключ.": {
+      "comment": "QR для EliteGuard на экране ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The EliteGuard code is unavailable — enter the key."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код для EliteGuard недоступен — введите ключ."
           }
         }
       }
@@ -6511,6 +6545,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отпускать наушники между звонками"
+          }
+        }
+      }
+    },
+    "Отсканируйте в EliteGuard — ключ придёт сам": {
+      "comment": "QR для EliteGuard на экране ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan it in EliteGuard — the key arrives by itself"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсканируйте в EliteGuard — ключ придёт сам"
           }
         }
       }
@@ -11484,6 +11535,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "идёт"
+          }
+        }
+      }
+    },
+    "или введите ключ": {
+      "comment": "QR для EliteGuard на экране ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or enter the key"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "или введите ключ"
           }
         }
       }

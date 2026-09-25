@@ -287,6 +287,18 @@ struct FirstRunUserScreen: View {
             openedSummary(package)
         } else {
             VStack(spacing: Theme.Metrics.elementSpacing) {
+                // Сверху — QR для EliteGuard, под ним — ключ руками, ещё ниже
+                // (внизу окна) — настройка вручную. Порядок согласован
+                // 25 сентября 2026: от самого лёгкого пути к самому трудному.
+                FirstRunPairQR(pairing: flow.pairing) { paired in
+                    // Режим показа ничего не применяет — и ключ не жжёт.
+                    guard !flow.isPreview else { return }
+                    await flow.receivePairedKey(paired)
+                    // Не подошёл — снова код: ключ уже сгорел или истёк, и
+                    // установщику нужен новый QR под новый ключ.
+                    if flow.openedPackage == nil { restartPairing() }
+                }
+
                 // Моноширинный: ключ читают по знакам и сверяют с сообщением,
                 // а пропорциональный шрифт делает «0» и «O» похожими ровно там,
                 // где их и путают.
@@ -333,6 +345,13 @@ struct FirstRunUserScreen: View {
         }
     }
 
+    private func restartPairing() {
+        flow.pairing.restart { paired in
+            guard !flow.isPreview else { return }
+            await flow.receivePairedKey(paired)
+        }
+    }
+
     /// Правка ключа гасит отказ: красная рамка над полем, которое человек уже
     /// перенабирает, обвиняет его в том, что он в это мгновение и исправляет.
     ///
@@ -375,6 +394,7 @@ struct FirstRunUserScreen: View {
                 .padding(.top, Theme.Metrics.tightSpacing)
 
             Button("Ввести другой ключ") {
+                restartPairing()
                 flow.openedPackage = nil
                 flow.openedAccess = nil
                 flow.keyFailure = nil
@@ -574,5 +594,62 @@ struct FirstRunFinaleScreen: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Theme.Metrics.tightSpacing)
         }
+    }
+}
+
+// MARK: - QR для EliteGuard
+
+/// Код, который установщик сканирует в EliteGuard: ключ приезжает сам.
+///
+/// Сессия открывается при появлении экрана и гасится, когда он уходит, —
+/// сервер не должен держать сессии за окном, которое никто не видит. Spark
+/// недоступен — блок сворачивается в одну строку, и остаётся поле ключа.
+struct FirstRunPairQR: View {
+
+    @ObservedObject var pairing: PairingController
+    let onKey: @MainActor (ActivationKey) async -> Void
+
+    private let side: CGFloat = 132
+
+    var body: some View {
+        VStack(spacing: Theme.Metrics.tightSpacing) {
+            switch pairing.phase {
+            case .unavailable:
+                Text("Код для EliteGuard недоступен — введите ключ.")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+            case .received:
+                Text("Ключ получен из EliteGuard")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+            case .starting, .showing:
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white)
+                    if let qr = pairing.qr, pairing.phase == .showing {
+                        Image(nsImage: qr)
+                            .interpolation(.none)
+                            .resizable()
+                            .frame(width: side - 16, height: side - 16)
+                    } else {
+                        Text("…").compatForeground(Color.gray)
+                    }
+                }
+                .frame(width: side, height: side)
+
+                Text("Отсканируйте в EliteGuard — ключ придёт сам")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+
+                Text("или введите ключ")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+                    .padding(.top, Theme.Metrics.sectionSpacing)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear { pairing.start(onKey: onKey) }
+        .onDisappear { pairing.stop() }
     }
 }
