@@ -250,6 +250,16 @@ extension AppModel {
             settings.profiles.active.label = package.employee
         }
 
+        // Формат работы выбирают в Spark при выпуске ключа. До 0.1.45 поле в
+        // пакете было, а клиент его не читал: «Удалёнка» из Spark вставала
+        // офисом. Ставится до `alignProfileAddress` — адрес АТС выбирается по
+        // площадке профиля.
+        switch package.workFormat {
+        case "remote": settings.profiles.active.site = .remote
+        case "office": settings.profiles.active.site = .office
+        default: break
+        }
+
         // Панель машина слушает с первой же минуты: ключ и означает «этим
         // рабочим местом управляют отсюда».
         settings.panel.installationID = package.installationID

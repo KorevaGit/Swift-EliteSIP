@@ -50,6 +50,10 @@ public struct ActivationPackage: Sendable, Equatable, Codable {
     public var number: String
     public var sipPassword: String
 
+    /// Формат работы места из панели: `office` или `remote`. `nil` — пакет
+    /// старой панели без этого поля; тогда формат не трогается.
+    public var workFormat: String?
+
     /// Административного пароля здесь нет.
     ///
     /// Он стал полем предустановки и приезжает отдельным помашинным объектом —
@@ -136,6 +140,7 @@ public struct ActivationPackage: Sendable, Equatable, Codable {
             var employee: String
             var number: String
             var sip_password: String
+            var work_format: String?
             var preset: WirePreset
         }
         struct WirePreset: Decodable {
@@ -176,6 +181,7 @@ public struct ActivationPackage: Sendable, Equatable, Codable {
             employee: wire.employee,
             number: wire.number,
             sipPassword: wire.sip_password,
+            workFormat: wire.work_format,
             preset: Preset(
                 id: wire.preset.id,
                 name: wire.preset.name,
