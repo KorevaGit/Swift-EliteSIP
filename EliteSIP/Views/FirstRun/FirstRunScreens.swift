@@ -81,7 +81,7 @@ private struct FirstRunHeader: View {
         case .firstUser:
             CompatSymbol(name: "person.badge.plus", size: Theme.Metrics.firstRunGlyphSize)
         case .keyAccepted:
-            CompatSymbol(name: "person.crop.circle.badge.checkmark", size: Theme.Metrics.firstRunGlyphSize)
+            CompatSymbol(name: "checkmark.circle", size: Theme.Metrics.firstRunGlyphSize)
         case .appearance:
             AppearanceGlyph(size: Theme.Metrics.firstRunGlyphSize)
         }
