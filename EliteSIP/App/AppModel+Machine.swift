@@ -54,7 +54,9 @@ extension AppModel {
         if access.adminPassword.isEmpty {
             guard settings.panel.mode == .managed, adminAccess.isProtected else { return }
             do {
-                try removeAdminPassword()
+                try adminAccess.applyPanelPassword(nil)
+                settings.admin.credential = nil
+                persistSettings()
                 append(level: .info, message: "административный пароль снят: у предустановки его нет")
             } catch {
                 append(level: .warning,
@@ -65,7 +67,9 @@ extension AppModel {
         guard adminAccess.credential?.matches(password: access.adminPassword) != true else { return }
 
         do {
-            try setAdminPassword(access.adminPassword)
+            try adminAccess.applyPanelPassword(access.adminPassword)
+            settings.admin.credential = adminAccess.credential
+            persistSettings()
             append(level: .info, message: "административный пароль приехал с панели")
         } catch {
             // Пароль не лёг — машина всё равно поднята и звонит. Ронять из-за

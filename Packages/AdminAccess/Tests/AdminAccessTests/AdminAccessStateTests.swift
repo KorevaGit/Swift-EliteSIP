@@ -17,6 +17,25 @@ struct AdminAccessStateTests {
         return state
     }
 
+    @Test("Панель снимает пароль на закрытой машине")
+    func panelRemovesPasswordWhileLocked() throws {
+        var state = try self.state(password: "Старый")
+        #expect(!state.allowsAdministration)
+        #expect(throws: AdminAccessError.self) { try state.removePassword() }
+        try state.applyPanelPassword(nil)
+        #expect(!state.isProtected)
+        #expect(state.allowsAdministration)
+    }
+
+    @Test("Панель меняет пароль на закрытой машине и режим не открывает")
+    func panelChangesPasswordWhileLocked() throws {
+        var state = try self.state(password: "Старый")
+        try state.applyPanelPassword("Новый")
+        #expect(state.isProtected)
+        #expect(!state.allowsAdministration)
+        #expect(state.credential?.matches(password: "Новый") == true)
+    }
+
     @Test("Без пароля закрытая часть открыта")
     func unprotectedIsOpen() {
         let state = AdminAccessState()
