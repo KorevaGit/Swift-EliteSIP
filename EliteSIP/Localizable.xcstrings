@@ -2645,6 +2645,23 @@
         }
       }
     },
+    "Добавочный %@ · предустановка «%@»": {
+      "comment": "шапка мастера после принятого ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extension %1$@ · preset “%2$@”"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавочный %1$@ · предустановка «%2$@»"
+          }
+        }
+      }
+    },
     "Добавочный %@, АТС %@.": {
       "comment": "что приехало из файла конфигурации",
       "extractionState": "stale",

@@ -32,6 +32,10 @@ private struct FirstRunHeader: View {
 
     let title: LocalizedStringKey
     let subtitle: LocalizedStringKey
+    /// Заголовок и пояснение данными, а не строками каталога: имя сотрудника
+    /// из пакета переводить нельзя. Если заданы — стоят вместо `title`/`subtitle`.
+    var verbatimTitle: String?
+    var verbatimSubtitle: String?
     /// Плакатные экраны центрируют текст, формы — нет.
     var isCentered = false
 
@@ -47,6 +51,8 @@ private struct FirstRunHeader: View {
     /// подходящего в комплекте нет, а `eye.slash` читался бы как «скрыто».
     enum Glyph {
         case firstUser
+        /// Ключ принят: на экране уже не «кто будет работать», а кто это.
+        case keyAccepted
         case appearance
     }
 
@@ -58,9 +64,9 @@ private struct FirstRunHeader: View {
                     .padding(.bottom, Theme.Metrics.tightSpacing)
                     .compatAccessibilityHidden(true)
             }
-            Text(title)
+            (verbatimTitle.map { Text(verbatim: $0) } ?? Text(title))
                 .font(isCentered ? Theme.Text.firstRunPoster : Theme.Text.firstRunTitle)
-            Text(subtitle)
+            (verbatimSubtitle.map { Text(verbatim: $0) } ?? Text(subtitle))
                 .font(.callout)
                 .compatForeground(Theme.Palette.textSecondary)
                 .multilineTextAlignment(isCentered ? .center : .leading)
@@ -74,6 +80,8 @@ private struct FirstRunHeader: View {
         switch glyph {
         case .firstUser:
             CompatSymbol(name: "person.badge.plus", size: Theme.Metrics.firstRunGlyphSize)
+        case .keyAccepted:
+            CompatSymbol(name: "person.crop.circle.badge.checkmark", size: Theme.Metrics.firstRunGlyphSize)
         case .appearance:
             AppearanceGlyph(size: Theme.Metrics.firstRunGlyphSize)
         }
@@ -210,12 +218,28 @@ struct FirstRunUserScreen: View {
             // быть по центру — именно это и было видно 17 августа 2026.
             Spacer(minLength: 0)
 
-            FirstRunHeader(
-                title: "Первый пользователь",
-                subtitle: "Кто будет работать за этой машиной.",
-                isCentered: true,
-                glyph: .firstUser
-            )
+            // Ключ принят — шапка отвечает уже не «кто будет работать», а «это
+            // вы»: имя из пакета крупно, под ним добавочный и предустановка.
+            if case .activationKey = flow.route, let package = flow.openedPackage {
+                FirstRunHeader(
+                    title: "Первый пользователь",
+                    subtitle: "Кто будет работать за этой машиной.",
+                    verbatimTitle: package.employee.isEmpty ? package.number : package.employee,
+                    verbatimSubtitle: String(
+                        format: NSLocalizedString("Добавочный %@ · предустановка «%@»",
+                                                  comment: "шапка мастера после принятого ключа"),
+                        package.number, package.preset.name),
+                    isCentered: true,
+                    glyph: .keyAccepted
+                )
+            } else {
+                FirstRunHeader(
+                    title: "Первый пользователь",
+                    subtitle: "Кто будет работать за этой машиной.",
+                    isCentered: true,
+                    glyph: .firstUser
+                )
+            }
 
             FirstRunColumn {
                 if case .activationKey = flow.route {
@@ -373,19 +397,9 @@ struct FirstRunUserScreen: View {
     /// зарегистрируется на АТС под чужим номером. Дешёвая защита от
     /// перепутанного ключа, и единственная, какая тут возможна.
     private func openedSummary(_ package: ActivationPackage) -> some View {
+        // Имя, добавочный и предустановка — в шапке экрана; здесь только
+        // предупреждение и выход.
         VStack(spacing: Theme.Metrics.tightSpacing) {
-            Text(verbatim: package.employee)
-                .font(Theme.Text.firstRunTitle)
-                // Имя из пакета набрано тем же кеглем, что и заголовок экрана,
-                // и без отступа два крупных текста подряд читались как один
-                // заголовок в две строки. Отступ отделяет «что за экран» от
-                // «чей это ключ» — это два разных сообщения.
-                .padding(.top, Theme.Metrics.sectionSpacing)
-
-            Text(verbatim: "\(package.number) · \(package.preset.name)")
-                .font(.footnote)
-                .compatForeground(Theme.Palette.textSecondary)
-
             Text("Если это не вы — не продолжайте и сообщите в поддержку.")
                 .font(.footnote)
                 .compatForeground(Theme.Palette.caution)
