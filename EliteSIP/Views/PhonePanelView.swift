@@ -488,7 +488,7 @@ struct PhonePanelView: View {
         } else if let notice = model.panelNotice {
             // Самое тихое: беда и обновление важнее. Гаснет само.
             HStack(spacing: Theme.Metrics.tightSpacing) {
-                CompatSymbol(name: "info.circle", size: Theme.Icon.small)
+                CompatSymbol(name: "bell", size: Theme.Icon.small)
                 Text(verbatim: notice)
                     .font(Theme.Text.statusDetail)
                     .lineLimit(1)
