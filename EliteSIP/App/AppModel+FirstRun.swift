@@ -245,6 +245,11 @@ extension AppModel {
             settings.profiles.active.site = site
         }
 
+        // Несколько номеров у сотрудника — каждый своим профилем.
+        if !config.lines.isEmpty {
+            settings.profiles = plannedProfiles(for: config, site: settings.profiles.active.site)
+        }
+
         // Панель машина слушает с первой же минуты: привязка и означает «этим
         // рабочим местом управляют отсюда».
         settings.panel.installationID = setup.installationID

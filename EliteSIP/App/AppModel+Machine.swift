@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Foundation
 import PanelLink
 import SIPCore
@@ -34,11 +35,15 @@ extension AppModel {
               config.revision > settings.panel.appliedConfigRevision
         else { return .unchanged }
 
-        let profile = settings.profiles.active
-        let site = siteFor(workFormat: config.workFormat) ?? profile.site
-        let accountChanged = profile.account.username != config.number
-            || profile.password != config.sipPassword
-            || profile.site != site
+        let site = siteFor(workFormat: config.workFormat) ?? settings.profiles.active.site
+        let before = settings.profiles
+        let planned = plannedProfiles(for: config, site: site)
+        let oldActive = before.active
+        let newActive = planned.active
+        let accountChanged = oldActive.id != newActive.id
+            || oldActive.account.username != newActive.account.username
+            || oldActive.password != newActive.password
+            || oldActive.site != newActive.site
         if accountChanged, isInCall {
             pendingConfig = config
             append(level: .info,
@@ -47,14 +52,12 @@ extension AppModel {
         }
         pendingConfig = nil
 
-        let numberBefore = profile.account.username
-        var updated = profile
-        updated.account.username = config.number
-        updated.account.authUsername = nil
-        updated.password = config.sipPassword
-        updated.site = site
-        if !config.employee.isEmpty { updated.label = config.employee }
-        settings.profiles.active = updated
+        let numberBefore = oldActive.account.username
+        settings.profiles = planned
+        if oldActive.id != newActive.id { historyDidChangeProfile() }
+        if planned.profiles.count != before.profiles.count {
+            append(level: .info, message: "профилей из Spark: \(planned.profiles.count)")
+        }
         // Площадка выбирает адрес АТС из пары: смена формата работы обязана
         // увести профиль на другой адрес, а не остаться строкой в настройках.
         alignProfileAddress(previous: settings.siteAddresses)
@@ -74,12 +77,69 @@ extension AppModel {
 
         append(level: .info,
                message: "настройки из Spark применены: номер \(config.number), ревизия \(config.revision)")
-        if accountChanged, numberBefore != config.number, !numberBefore.isEmpty {
+        let numberNow = settings.profiles.active.account.username
+        if accountChanged, numberBefore != numberNow, !numberBefore.isEmpty {
             showPanelNotice(String(
                 format: NSLocalizedString("Администратор сменил номер: %@", comment: "уведомление в панели"),
-                config.number))
+                numberNow))
+        }
+        // Регистрация держит прежний номер, пока её не пересоберут: без этого
+        // новый номер начинал работать только после перезапуска (0.1.50).
+        if accountChanged, isAgentRunning, !isOfflineByChoice {
+            append(level: .info, message: "номер или пароль сменились — перерегистрация")
+            Task { [weak self] in await self?.reconnect() }
         }
         return .applied(presetChanged: presetChanged)
+    }
+
+    /// Профили машины по номерам из Spark.
+    ///
+    /// Каждый номер — свой профиль. Основной номер живёт в профиле, который у
+    /// машины был всегда (история звонков остаётся при нём), остальные —
+    /// в профилях с идентификатором, выведенным из номера в Spark: тот же
+    /// номер после любой правки попадает в тот же профиль. Профилей, которых
+    /// в Spark нет, на управляемой машине не остаётся. Активный профиль
+    /// сохраняется, если его номер ещё есть, иначе активным становится
+    /// основной.
+    func plannedProfiles(for config: MachineConfig, site: SIPProfileSite) -> SIPProfileList {
+        let current = settings.profiles
+        let lines = config.effectiveLines
+        let derived = Set(lines.filter { $0.id != "main" }.map {
+            Self.profileID(installationID: config.installationID, lineID: $0.id)
+        })
+        let mainID = current.profiles.first(where: { !derived.contains($0.id) })?.id ?? UUID()
+        let template = current.active.account
+
+        var profiles: [SIPProfile] = []
+        for line in lines {
+            let id = line.id == "main"
+                ? mainID
+                : Self.profileID(installationID: config.installationID, lineID: line.id)
+            var profile = current[id] ?? {
+                var blank = SIPProfile.blank(basedOn: template, site: site)
+                blank.id = id
+                return blank
+            }()
+            profile.account.username = line.number
+            profile.account.authUsername = nil
+            profile.password = line.sipPassword
+            if !line.label.isEmpty { profile.label = line.label }
+            profile.site = site
+            profiles.append(profile)
+        }
+        let activeID = profiles.contains(where: { $0.id == current.activeID }) ? current.activeID : mainID
+        return SIPProfileList(profiles: profiles, activeID: activeID)
+    }
+
+    /// Идентификатор профиля номера из Spark: один и тот же на каждом
+    /// применении конфигурации.
+    static func profileID(installationID: String, lineID: String) -> UUID {
+        let digest = Array(SHA256.hash(data: Data("elitesip.line:\(installationID):\(lineID)".utf8)))
+        var b = Array(digest[0..<16])
+        b[6] = (b[6] & 0x0F) | 0x50
+        b[8] = (b[8] & 0x3F) | 0x80
+        return UUID(uuid: (b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+                           b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]))
     }
 
     /// Разговор кончился — применить отложенную конфигурацию.
