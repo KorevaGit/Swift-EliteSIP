@@ -279,7 +279,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let machines = MachineService(
             publicKey: PresetService.channelPublicKey,
             settings: { [weak self] in self?.model.settings ?? AppSettings.default },
-            applyAccess: { [weak self] access in self?.model.applyMachineAccess(access) },
+            applyAccess: { [weak self] access in
+                // Панель перевела машину на другую предустановку — её запись
+                // забираем сразу, а не через два часа.
+                if self?.model.applyMachineAccess(access) == true { self?.presetService?.check() }
+            },
             reset: { [weak self] revocation in self?.model.resetByRevocation(revocation) },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )

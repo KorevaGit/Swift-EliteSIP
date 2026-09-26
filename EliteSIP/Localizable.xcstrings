@@ -2795,18 +2795,18 @@
         }
       }
     },
-    "Если вам прислали ключ для смены настроек — введите его здесь.                     Номер и настройки сменятся сами; переустанавливать ничего не нужно.": {
+    "Если вам прислали новый ключ — введите его здесь. Машина перейдёт на него: номер и настройки сменятся сами, переустанавливать ничего не нужно.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "If you have been sent a key to change your settings, enter it here. The extension and the settings will change on their own; nothing needs reinstalling."
+            "value": "If you have been sent a new key, enter it here. The Mac will switch to it: the extension and settings change on their own; nothing needs reinstalling."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Если вам прислали ключ для смены настроек — введите его здесь.                     Номер и настройки сменятся сами; переустанавливать ничего не нужно."
+            "value": "Если вам прислали новый ключ — введите его здесь. Машина перейдёт на него: номер и настройки сменятся сами, переустанавливать ничего не нужно."
           }
         }
       }

@@ -94,7 +94,7 @@ struct SupportTab: View {
             // проверке внутри пакета.
             SettingsSection("Новый ключ") {
                 SettingsNote("""
-                    Если вам прислали ключ для смены настроек — введите его здесь.                     Номер и настройки сменятся сами; переустанавливать ничего не нужно.
+                    Если вам прислали новый ключ — введите его здесь. Машина перейдёт на него: номер и настройки сменятся сами, переустанавливать ничего не нужно.
                     """)
 
                 SettingsRow("Ключ") {
@@ -159,7 +159,19 @@ struct SupportTab: View {
         defer { isApplyingKey = false }
 
         do {
-            let package = try await ActivationService.fetch(key: parsed, installationID: machine)
+            // Обычный ключ активации — главный путь: машина встаёт заново на
+            // новый ключ (свой installation_id и ключ канала), номер и
+            // предустановку. Ключ перепрошивки старого образца привязан к
+            // машине и лежит по другому адресу — его пробуем, только если по
+            // обычному пакета нет. Промах по адресу ключ не сжигает.
+            let package: ActivationPackage
+            do {
+                let panel = model.settings.panel
+                package = try await ActivationService.fetch(
+                    key: parsed, replacing: (panel.installationID, panel.channelKey))
+            } catch PanelLinkError.keyDidNotOpen {
+                package = try await ActivationService.fetch(key: parsed, installationID: machine)
+            }
             // Ключ к этому моменту уже сгорел — канал столбит пакет в момент
             // скачивания, — поэтому «применю позже» не бывает: либо сейчас,
             // либо по концу разговора.

@@ -20,7 +20,13 @@ enum ActivationService {
     ///
     /// Ошибки не различают неверный ключ и испорченный файл — так решено в
     /// `PanelLink`: подбирающему незачем знать, где он ошибся.
-    static func fetch(key: ActivationKey, installationID: String? = nil) async throws -> ActivationPackage {
+    ///
+    /// - Parameter replacing: прежняя личность машины (installation_id и ключ
+    ///   канала), если новый ключ вводят поверх работающего. Сервер сверяет её
+    ///   и записывает в отметку о заборе, а Spark гасит по ней старую строку —
+    ///   иначе «Отозвать» на ней не сбросил бы машину.
+    static func fetch(key: ActivationKey, installationID: String? = nil,
+                      replacing: (installationID: String, channelKey: String)? = nil) async throws -> ActivationPackage {
         // Одна прогонка PBKDF2 на адрес и на ключ шифрования разом. Считается
         // до запроса: сто пятьдесят тысяч итераций — это около секунды на
         // Catalina, и делать её дважды незачем.
@@ -45,6 +51,10 @@ enum ActivationService {
         let pair = "\(channel.user):\(channel.password)"
         if let encoded = pair.data(using: .utf8)?.base64EncodedString() {
             request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
+        }
+        if let replacing, !replacing.installationID.isEmpty, !replacing.channelKey.isEmpty {
+            request.setValue("\(replacing.installationID):\(replacing.channelKey)",
+                             forHTTPHeaderField: "X-EliteSIP-Replaces")
         }
 
         let data: Data
