@@ -153,8 +153,8 @@ final class PresetService {
         // отрезать его было бы нечем — сменить пару значит пересобрать
         // приложение на всех тридцати машинах.
         //
-        // Имя пользователя — идентификатор машины, пароль — ключ канала из
-        // пакета активации. Заголовком, а не через хранилище учётных данных:
+        // Имя пользователя — идентификатор машины, пароль — ключ канала,
+        // созданный самой машиной при привязке. Заголовком, а не через хранилище учётных данных:
         // там пара лежит под realm обновлений, и полагаться на совпадение realm
         // ради второй линии значило бы завязать её на чужую настройку.
         let pair = "\(now.panel.installationID):\(now.panel.channelKey)"
@@ -171,6 +171,7 @@ final class PresetService {
         request.setValue(Self.appVersion, forHTTPHeaderField: "X-EliteSIP-App")
         request.setValue(String(AppSettings.currentSchemaVersion), forHTTPHeaderField: "X-EliteSIP-Schema")
         request.setValue(String(now.panel.appliedRevision), forHTTPHeaderField: "X-EliteSIP-Revision")
+        request.setValue(String(now.panel.appliedConfigRevision), forHTTPHeaderField: "X-EliteSIP-Config")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             Task { @MainActor in

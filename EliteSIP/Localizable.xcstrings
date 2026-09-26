@@ -106,6 +106,40 @@
         }
       }
     },
+    "%@ · настройки: ревизия %lld": {
+      "comment": "строка машины в «Техподдержке»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · settings: revision %2$lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · настройки: ревизия %2$lld"
+          }
+        }
+      }
+    },
+    "%@ · переходит на настройки из Spark": {
+      "comment": "строка машины в «Техподдержке»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · switching to settings from Spark"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · переходит на настройки из Spark"
+          }
+        }
+      }
+    },
     "%@ · разговор": {
       "comment": "линия в разговоре",
       "localizations": {
@@ -753,6 +787,23 @@
         }
       }
     },
+    "Администратор сменил номер: %@": {
+      "comment": "уведомление в панели",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The administrator changed your extension: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Администратор сменил номер: %@"
+          }
+        }
+      }
+    },
     "Администратор этой машины": {
       "comment": "кто управляет настройками",
       "localizations": {
@@ -1337,6 +1388,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вернуться к ключу активации"
+          }
+        }
+      }
+    },
+    "Вернуться к коду машины": {
+      "comment": "кнопка мастера",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to the machine code"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к коду машины"
           }
         }
       }
@@ -4646,6 +4714,23 @@
         }
       }
     },
+    "Машину привязали — забираем настройки…": {
+      "comment": "экран кода машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac has been bound — fetching settings…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машину привязали — забираем настройки…"
+          }
+        }
+      }
+    },
     "Микрофон": {
       "localizations": {
         "en": {
@@ -4871,6 +4956,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Названия раздач"
+          }
+        }
+      }
+    },
+    "Назовите этот код администратору — машина настроится сама.": {
+      "comment": "экран кода машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tell this code to your administrator — the Mac will set itself up."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назовите этот код администратору — машина настроится сама."
           }
         }
       }
@@ -5686,6 +5788,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нет потока от собеседника"
+          }
+        }
+      }
+    },
+    "Нет связи со Spark — код появится, как только связь вернётся.": {
+      "comment": "экран кода машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No connection to Spark — the code will appear as soon as it's back."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет связи со Spark — код появится, как только связь вернётся."
           }
         }
       }
@@ -11054,6 +11173,23 @@
         }
       }
     },
+    "Это не я — показать новый код": {
+      "comment": "кнопка на экране привязки",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That's not me — show a new code"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не я — показать новый код"
+          }
+        }
+      }
+    },
     "Это предустановка, а не конфигурация: в ней нет добавочного и пароля.": {
       "comment": "выбран файл предустановки вместо конфигурации",
       "extractionState": "stale",
@@ -11569,6 +11705,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "или введите ключ"
+          }
+        }
+      }
+    },
+    "или отсканируйте в EliteGuard": {
+      "comment": "экран кода машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or scan it in EliteGuard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "или отсканируйте в EliteGuard"
           }
         }
       }

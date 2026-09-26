@@ -485,6 +485,16 @@ struct PhonePanelView: View {
                 // Подробности живут в журнале.
                 troubleContent(trouble)
             }
+        } else if let notice = model.panelNotice {
+            // Самое тихое: беда и обновление важнее. Гаснет само.
+            HStack(spacing: Theme.Metrics.tightSpacing) {
+                CompatSymbol(name: "info.circle", size: Theme.Icon.small)
+                Text(verbatim: notice)
+                    .font(Theme.Text.statusDetail)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .truncationMode(.tail)
+            }
         }
     }
 

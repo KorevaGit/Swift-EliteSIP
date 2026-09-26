@@ -3,7 +3,7 @@ import Foundation
 
 /// Конверт, в котором панель выкладывает всё подписанное.
 ///
-/// Один и тот же у файла предустановок, у помашинного доступа и у отзыва — и
+/// Один и тот же у файла предустановок, у конфигурации машины и у отзыва — и
 /// это решение, а не совпадение. Второй конверт означал бы вторую проверку
 /// подписи в приложении, то есть второе место, где её можно однажды не сделать.
 ///
@@ -30,58 +30,6 @@ enum SignedEnvelope {
             throw PanelLinkError.signatureDidNotMatch
         }
         return payload
-    }
-}
-
-/// Помашинный доступ: то, что принадлежит одной машине и не может лежать в
-/// общем файле предустановок.
-///
-/// Административный пароль — поле предустановки, а у техподдержки предустановка
-/// своя. Положи пароль в общий файл — и любой оператор прочитает пароль
-/// поддержки в собственном скачанном файле, а разделение станет мнимым.
-/// `Codable` — по той же причине, что и у `ActivationPackage`: подписанный
-/// объект забирается тем же заходом, что и пакет, и обязан пережить закрытый
-/// мастер вместе с ним. Подпись при этом на диск не едет: черновик лежит в
-/// нашем же каталоге под 0600, а проверена она была при получении.
-public struct MachineAccess: Sendable, Equatable, Codable {
-
-    public static let supportedFormat = 1
-
-    public var installationID: String
-    public var presetID: String
-    public var adminPassword: String
-    public var issuedAt: Date
-
-    /// Проверяет подпись и разбирает.
-    ///
-    /// - Parameter installationID: чей доступ мы ожидали получить. Совпадение
-    ///   проверяется здесь, а не только на стороне Worker'а: подписанный объект
-    ///   чужой машины — это чужой административный пароль, и принимать его
-    ///   молча нельзя, даже если канал его почему-то отдал.
-    public static func verified(_ data: Data,
-                                publicKey: Curve25519.Signing.PublicKey,
-                                installationID: String) throws -> MachineAccess {
-        let payload = try SignedEnvelope.open(data, publicKey: publicKey)
-
-        struct Wire: Decodable {
-            var format: Int
-            var installation_id: String
-            var preset_id: String
-            var admin_password: String
-            var issued_at: String
-        }
-        guard let wire = try? JSONDecoder().decode(Wire.self, from: payload) else {
-            throw PanelLinkError.malformedBundle
-        }
-        guard wire.format <= supportedFormat else { throw PanelLinkError.bundleTooNew }
-        guard wire.installation_id == installationID else { throw PanelLinkError.malformedBundle }
-
-        return MachineAccess(
-            installationID: wire.installation_id,
-            presetID: wire.preset_id,
-            adminPassword: wire.admin_password,
-            issuedAt: ISO8601DateFormatter().date(from: wire.issued_at) ?? Date()
-        )
     }
 }
 

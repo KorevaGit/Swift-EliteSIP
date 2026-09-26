@@ -220,15 +220,15 @@ struct FirstRunUserScreen: View {
 
             // Ключ принят — шапка отвечает уже не «кто будет работать», а «это
             // вы»: имя из пакета крупно, под ним добавочный и предустановка.
-            if case .activationKey = flow.route, let package = flow.openedPackage {
+            if case .machineCode = flow.route, let setup = flow.setup {
                 FirstRunHeader(
                     title: "Первый пользователь",
                     subtitle: "Кто будет работать за этой машиной.",
-                    verbatimTitle: package.employee.isEmpty ? package.number : package.employee,
+                    verbatimTitle: setup.config.employee.isEmpty ? setup.config.number : setup.config.employee,
                     verbatimSubtitle: String(
                         format: NSLocalizedString("Добавочный %@ · предустановка «%@»",
                                                   comment: "шапка мастера после принятого ключа"),
-                        package.number, package.preset.name),
+                        setup.config.number, setup.config.presetName),
                     isCentered: true,
                     glyph: .keyAccepted
                 )
@@ -242,8 +242,8 @@ struct FirstRunUserScreen: View {
             }
 
             FirstRunColumn {
-                if case .activationKey = flow.route {
-                    keyEntry
+                if case .machineCode = flow.route {
+                    machineCode
                 } else {
                     // Два ряда вместо четырёх строк: сверху — кто (добавочный и
                     // его пароль), под ним — где (рабочее место и площадка либо
@@ -258,11 +258,11 @@ struct FirstRunUserScreen: View {
                 }
 
                 // Пропуск — только для путей, где номер вписывают руками.
-                // Ключевой путь его не требует: административный пароль
-                // приезжает в самом пакете, и требовать его у сотрудника,
-                // который этого пароля не знает, значило бы закрыть основной
-                // путь тем же замком, который он и открывает.
-                if flow.route != .activationKey {
+                // Путь кода его не требует: административный пароль приезжает
+                // из Spark, и требовать его у сотрудника, который этого пароля
+                // не знает, значило бы закрыть основной путь тем же замком,
+                // который он и открывает.
+                if flow.route != .machineCode {
                     cautionAboutPass
                     pass
                 }
@@ -284,7 +284,7 @@ struct FirstRunUserScreen: View {
     private var configRow: some View {
         VStack(spacing: Theme.Metrics.hairSpacing) {
             switch flow.route {
-            case .activationKey:
+            case .machineCode:
                 // Ручной путь стоит внизу и без рамки не по невнимательности:
                 // это не равноценный первому способ, а обходной — для машины,
                 // до которой сервер не достаёт, — и обещать ему равный вид
@@ -295,110 +295,35 @@ struct FirstRunUserScreen: View {
             case .manual:
                 // Обратная дорога: свернувший в ручную ветку по ошибке не
                 // должен перезапускать мастер ради возврата к ключу.
-                Button("Вернуться к ключу активации") { flow.route = .activationKey }
+                Button("Вернуться к коду машины") { flow.route = .machineCode }
                     .buttonStyle(.link)
             }
         }
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: Ключ активации
+    // MARK: Код машины
 
-    /// Основной путь с M9: сотрудник вводит ключ, остальное приезжает пакетом.
+    /// Основной путь: машина показывает код, администратор привязывает её к
+    /// сотруднику в Spark, настройки приезжают сами.
     @ViewBuilder
-    private var keyEntry: some View {
-        if let package = flow.openedPackage {
-            openedSummary(package)
+    private var machineCode: some View {
+        if flow.setup != nil {
+            boundSummary
         } else {
-            VStack(spacing: Theme.Metrics.elementSpacing) {
-                // Сверху — QR для EliteGuard, под ним — ключ руками, ещё ниже
-                // (внизу окна) — настройка вручную. Порядок согласован
-                // 25 сентября 2026: от самого лёгкого пути к самому трудному.
-                FirstRunPairQR(pairing: flow.pairing) { paired in
-                    // Режим показа ничего не применяет — и ключ не жжёт.
-                    guard !flow.isPreview else { return }
-                    await flow.receivePairedKey(paired)
-                    // Не подошёл — снова код: ключ уже сгорел или истёк, и
-                    // установщику нужен новый QR под новый ключ.
-                    if flow.openedPackage == nil { restartPairing() }
-                }
-
-                // Моноширинный: ключ читают по знакам и сверяют с сообщением,
-                // а пропорциональный шрифт делает «0» и «O» похожими ровно там,
-                // где их и путают.
-                TextField("Ключ из сообщения", text: keyBinding)
-                    .font(.system(.body, design: .monospaced))
-                    .disabled(flow.isOpeningKey)
-                    // Отказ виден на самом поле, а не только словами.
-                    //
-                    // Рамка отвечает на «где ошибка», надпись под ней — на
-                    // «какая». Порознь ни то ни другое не работает: голая
-                    // надпись внизу окна не показывала, что перевводить, а
-                    // голая рамка не говорила, ключ ли не тот или канал не
-                    // ответил.
-                    .compatOverlay {
-                        RoundedRectangle(cornerRadius: Theme.Radius.control)
-                            .stroke(
-                                flow.keyFailure == nil ? Color.clear : Theme.Palette.failure,
-                                lineWidth: 1.5
-                            )
-                    }
-
-                Button(flow.isOpeningKey ? "Проверяем…" : "Проверить ключ") {
-                    Task { await flow.openKey() }
-                }
-                .disabled(flow.key.isEmpty || flow.isOpeningKey)
-
-                // Отказ вытесняет подсказку, а не встаёт под ней: подсказка
-                // «разделители не важны» уже прочитана к этому мгновению, а два
-                // пояснения подряд под одним полем читаются как одно длинное.
-                if let failure = flow.keyFailure {
-                    Text(verbatim: failure)
-                        .font(.footnote)
-                        .compatForeground(Theme.Palette.failure)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("Разделители и регистр не важны — вставьте ключ как есть.")
-                        .font(.footnote)
-                        .compatForeground(Theme.Palette.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            FirstRunPairCode(pairing: flow.pairing) { setup in
+                // Режим показа ничего не применяет.
+                guard !flow.isPreview else { return }
+                flow.setup = setup
             }
         }
     }
 
-    private func restartPairing() {
-        flow.pairing.restart { paired in
-            guard !flow.isPreview else { return }
-            await flow.receivePairedKey(paired)
-        }
-    }
-
-    /// Правка ключа гасит отказ: красная рамка над полем, которое человек уже
-    /// перенабирает, обвиняет его в том, что он в это мгновение и исправляет.
+    /// Машину привязали — **до** того, как что-либо применится.
     ///
-    /// Побочное действие в сеттере, а не в `onChange`: тот появился в macOS 11,
-    /// а срез x86_64 живёт с Catalina, — тем же способом здесь применяется тема.
-    private var keyBinding: Binding<String> {
-        Binding(
-            get: { flow.key },
-            set: { value in
-                flow.key = value
-                flow.keyFailure = nil
-            }
-        )
-    }
-
-    /// Что приехало в пакете — **до** того, как что-либо применится.
-    ///
-    /// Человек должен увидеть, чьё рабочее место поднимает, прежде чем машина
-    /// зарегистрируется на АТС под чужим номером. Дешёвая защита от
-    /// перепутанного ключа, и единственная, какая тут возможна.
-    private func openedSummary(_ package: ActivationPackage) -> some View {
-        // Имя, добавочный и предустановка — в шапке экрана; здесь только
-        // предупреждение и выход.
+    /// Кто за ней будет работать, стоит в шапке экрана; здесь — предупреждение
+    /// и выход на случай, если привязали не ту машину.
+    private var boundSummary: some View {
         VStack(spacing: Theme.Metrics.tightSpacing) {
             Text("Если это не вы — не продолжайте и сообщите в поддержку.")
                 .font(.footnote)
@@ -407,16 +332,15 @@ struct FirstRunUserScreen: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Theme.Metrics.tightSpacing)
 
-            Button("Ввести другой ключ") {
-                restartPairing()
-                flow.openedPackage = nil
-                flow.openedAccess = nil
-                flow.keyFailure = nil
-                flow.key = ""
-                // Явный отказ от того, что приехало, — черновик уносится вместе
-                // с ним. Иначе следующее открытие мастера подняло бы ровно тот
-                // пакет, про который человек только что сказал «не мой».
-                ActivationDraftStore.clear()
+            // Привязку отменяют в Spark; машина же начинает заново — с новым
+            // ключом и новым кодом, чтобы прежнюю привязку нельзя было
+            // применить по ошибке.
+            Button("Это не я — показать новый код") {
+                flow.setup = nil
+                flow.pairing.startOver { setup in
+                    guard !flow.isPreview else { return }
+                    flow.setup = setup
+                }
             }
             .buttonStyle(.link)
         }
@@ -611,32 +535,51 @@ struct FirstRunFinaleScreen: View {
     }
 }
 
-// MARK: - QR для EliteGuard
+// MARK: - Код машины
 
-/// Код, который установщик сканирует в EliteGuard: ключ приезжает сам.
+/// Код, который сотрудник называет администратору, и QR для EliteGuard.
 ///
-/// Сессия открывается при появлении экрана и гасится, когда он уходит, —
-/// сервер не должен держать сессии за окном, которое никто не видит. Spark
-/// недоступен — блок сворачивается в одну строку, и остаётся поле ключа.
-struct FirstRunPairQR: View {
+/// Сессия открывается при появлении экрана и продолжается, пока машина ждёт:
+/// код тот же и после перезапуска. Spark недоступен — вместо кода строка о
+/// том, что связи нет, и мастер пробует снова сам.
+struct FirstRunPairCode: View {
 
     @ObservedObject var pairing: PairingController
-    let onKey: @MainActor (ActivationKey) async -> Void
+    let onSetup: @MainActor (MachineSetup) async -> Void
 
-    private let side: CGFloat = 132
+    private let side: CGFloat = 120
 
     var body: some View {
-        VStack(spacing: Theme.Metrics.tightSpacing) {
+        VStack(spacing: Theme.Metrics.elementSpacing) {
             switch pairing.phase {
             case .unavailable:
-                Text("Код для EliteGuard недоступен — введите ключ.")
+                Text("Нет связи со Spark — код появится, как только связь вернётся.")
                     .font(.footnote)
                     .compatForeground(Theme.Palette.textSecondary)
-            case .received:
-                Text("Ключ получен из EliteGuard")
+                    .multilineTextAlignment(.center)
+            case .fetching, .received:
+                Text("Машину привязали — забираем настройки…")
                     .font(.footnote)
                     .compatForeground(Theme.Palette.textSecondary)
+                if let failure = pairing.failure {
+                    Text(verbatim: failure)
+                        .font(.footnote)
+                        .compatForeground(Theme.Palette.failure)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             case .starting, .showing:
+                // Моноширинный и крупный: код читают вслух по цифрам.
+                Text(verbatim: pairing.code ?? "···-···")
+                    .font(.system(size: 34, weight: .semibold, design: .monospaced))
+                    .compatForeground(pairing.code == nil ? Theme.Palette.textSecondary : Theme.Palette.textPrimary)
+
+                Text("Назовите этот код администратору — машина настроится сама.")
+                    .font(.footnote)
+                    .compatForeground(Theme.Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.white)
@@ -651,19 +594,13 @@ struct FirstRunPairQR: View {
                 }
                 .frame(width: side, height: side)
 
-                Text("Отсканируйте в EliteGuard — ключ придёт сам")
+                Text("или отсканируйте в EliteGuard")
                     .font(.footnote)
                     .compatForeground(Theme.Palette.textSecondary)
-                    .multilineTextAlignment(.center)
-
-                Text("или введите ключ")
-                    .font(.footnote)
-                    .compatForeground(Theme.Palette.textSecondary)
-                    .padding(.top, Theme.Metrics.sectionSpacing)
             }
         }
         .frame(maxWidth: .infinity)
-        .onAppear { pairing.start(onKey: onKey) }
+        .onAppear { pairing.start(onSetup: onSetup) }
         .onDisappear { pairing.stop() }
     }
 }

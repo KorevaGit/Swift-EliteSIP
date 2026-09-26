@@ -55,14 +55,14 @@ final class FirstRunFlow: ObservableObject {
     /// `Hashable` ради `Picker`: выбор ветки — системная группа радиокнопок, и
     /// теги в ней сравниваются по хэшу.
     enum Route: Hashable {
-        /// Ключ из панели EliteSIP — основной путь с M9.
+        /// Код машины — основной путь.
         ///
-        /// Номер, пароль SIP, административный пароль и предустановка приезжают
-        /// одним пакетом; сотрудник вводит только ключ. **Административного
-        /// пропуска этот путь не требует** — он и есть в пакете, — и это
-        /// осознанная отмена решения этапа 9 «мастер проходит техподдержка».
-        /// Разбор и цена отмены — в elitesupport/docs/DECISIONS.md.
-        case activationKey
+        /// Машина показывает код, администратор привязывает её к сотруднику в
+        /// Spark, и номер, SIP-пароль, пароль настроек и предустановка
+        /// приезжают сами. **Административного пропуска этот путь не
+        /// требует** — пароль приезжает из Spark. Ключей активации больше нет:
+        /// передавать сотруднику нечего.
+        case machineCode
 
         /// Всё руками — для машины, до которой сервер не достаёт. Тумблера
         /// площадки нет: стук решает сам адрес.
@@ -132,74 +132,34 @@ final class FirstRunFlow: ObservableObject {
         return office.isEmpty ? remoteHost.trimmingCharacters(in: .whitespacesAndNewlines) : office
     }
 
-    /// Помашинный доступ, забранный тем же заходом, что и пакет.
-    ///
-    /// Административный пароль лежит здесь, а не в пакете: он поле
-    /// предустановки, и панель везёт его отдельным подписанным объектом. Без
-    /// него мастер не закончится — иначе машина встала бы с «Управлением»,
-    /// открытым всякому.
-    @Published var openedAccess: MachineAccess?
-
-    // MARK: - Ключ активации
-
-    /// То, что ввёл сотрудник. Терпимо к разделителям и регистру — разбирает
-    /// его `ActivationKey`, а не это поле.
-    @Published var key = ""
-
-    /// Распечатанный пакет. Пока он `nil`, применять нечего.
+    /// Настройки привязанной машины: её конфигурация из Spark и
+    /// предустановка. Пока `nil`, применять нечего.
     ///
     /// **Показывается человеку до того, как что-либо применится.** Он должен
-    /// увидеть, чьё рабочее место поднимает, прежде чем машина зарегистрируется
-    /// на АТС под чужим номером. Дешёвая защита от перепутанного ключа.
-    @Published var openedPackage: ActivationPackage?
-
-    /// Идёт ли обращение к каналу. Пока идёт, кнопку жать второй раз незачем.
-    @Published var isOpeningKey = false
-
-    /// Чем кончилась последняя проверка ключа — отдельно от общего `notice`.
-    ///
-    /// Общая строка живёт внизу окна, под чертой, а ключ вводят посреди экрана:
-    /// отказ появлялся в добрых двухстах точках от поля, которое его вызвало, и
-    /// человек, глядящий на ключ, его попросту не видел. Своё поле — своя
-    /// надпись под ним, и она же красит рамку поля.
-    @Published var keyFailure: String?
+    /// увидеть, чьё рабочее место поднимает, прежде чем машина
+    /// зарегистрируется на АТС. Дешёвая защита от перепутанного кода.
+    @Published var setup: MachineSetup?
 
     /// Что сказать про последнюю попытку — отказ пропуска, отказ файла, исход
     /// живой проверки. Живёт до следующего действия.
     @Published var notice: String?
 
-    /// QR для EliteGuard над полем ключа: установщик привязывает ключ с
-    /// телефона, и он приезжает сюда сам.
+    /// Код машины и QR: открывает сессию в Spark и забирает настройки, как
+    /// только машину привяжут.
     let pairing = PairingController()
-
-    /// Ключ пришёл через QR — дальше ровно тот же путь, что у набранного.
-    @MainActor
-    func receivePairedKey(_ paired: ActivationKey) async {
-        key = paired.canonical
-        keyFailure = nil
-        await openKey()
-    }
 
     init(isPreview: Bool = false) {
         self.isPreview = isPreview
-        // Ветка по умолчанию — ключ из панели: это основной путь, и стажёров
+        // Ветка по умолчанию — код машины: это основной путь, и стажёров
         // каждую неделю заводят именно им. «Вручную» остаётся дорогой для
         // машины, до которой сервер не достаёт.
-        route = .activationKey
+        route = .machineCode
 
-        // Уже проверенный ключ поднимается с диска.
-        //
-        // Ключ сгорает на «Проверить ключ», а не на «Далее», — так устроен
-        // канал. Мастер, закрытый между этими двумя нажатиями, оставлял машину
-        // ненастроенной, а ключ негодным: второй раз тот же пакет не отдадут
-        // никогда. Разбор — в `ActivationDraftStore`.
-        //
-        // Только не в режиме показа: `--first-run` не должен подхватывать чужой
-        // черновик — ровно та беда, из-за которой у него и появился `isPreview`.
-        if !isPreview, let draft = ActivationDraftStore.load() {
-            key = draft.key
-            openedPackage = draft.package
-            openedAccess = draft.access
+        // Уже привязанная машина поднимается с диска: закрытый мастер не
+        // должен стоить повторной привязки. Не в режиме показа: `--first-run`
+        // не должен подхватывать чужую привязку.
+        if !isPreview, let saved = PairingStore.load()?.setup {
+            setup = saved
         }
     }
 
@@ -228,17 +188,17 @@ final class FirstRunFlow: ObservableObject {
         case .welcome, .appearance, .finale:
             return true
         case .firstUser:
-            // Ключевой путь пропуска не требует: административный пароль
-            // приезжает в самом пакете. Проверка стоит до общей, а не внутри
+            // Путь кода пропуска не требует: административный пароль
+            // приезжает из Spark. Проверка стоит до общей, а не внутри
             // switch ниже, потому что снимает условие целиком, а не уточняет.
-            if case .activationKey = route {
-                return openedPackage != nil
+            if case .machineCode = route {
+                return setup != nil
             }
             guard !adminPassword.isEmpty else { return false }
             switch route {
-            case .activationKey:
+            case .machineCode:
                 // Разобран выше; сюда не доходит.
-                return openedPackage != nil
+                return setup != nil
             case .manual:
                 // Хотя бы одна половина пары: место бывает и чисто офисным,
                 // и чисто удалённым, а без обеих регистрироваться некуда.
@@ -249,76 +209,9 @@ final class FirstRunFlow: ObservableObject {
 
     var trimmedNumber: String { number.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// Забирает пакет по введённому ключу и показывает, что в нём.
-    ///
-    /// Ничего не применяет: применение — дело последнего экрана. Здесь только
-    /// «чей это ключ», и человек это видит до того, как машина зарегистрируется
-    /// на АТС под чужим номером.
-    @MainActor
-    func openKey() async {
-        guard !isOpeningKey else { return }
-        notice = nil
-        keyFailure = nil
-        openedPackage = nil
-        openedAccess = nil
-
-        // Тот же ключ, что уже открывали, второй раз на канал не идёт.
-        //
-        // Не оптимизация: он там сгорел, и повторный заход вернул бы 410 —
-        // «ключ не подошёл» на ключ, который подошёл минуту назад и лежит у нас
-        // распечатанным. Сверка по разобранному ключу, а не по набранному:
-        // разделители и регистр не важны, и «k7m2 9xqp» обязан узнать сам себя,
-        // записанный как «K7M2-9XQP».
-        if let draft = ActivationDraftStore.load(),
-           let saved = try? ActivationKey(input: draft.key),
-           let typed = try? ActivationKey(input: key),
-           saved == typed {
-            openedPackage = draft.package
-            openedAccess = draft.access
-            return
-        }
-
-        let parsed: ActivationKey
-        do {
-            parsed = try ActivationKey(input: key)
-        } catch {
-            keyFailure = (error as? LocalizedError)?.errorDescription
-                ?? PanelLinkError.malformedKey.errorDescription
-            return
-        }
-
-        isOpeningKey = true
-        defer { isOpeningKey = false }
-
-        do {
-            let package = try await ActivationService.fetch(key: parsed)
-
-            // Свой административный пароль забирается тем же заходом, а не
-            // потом по таймеру: между концом мастера и первым опросом канала
-            // «Управление» стояло бы открытым для всякого, а машина выглядела
-            // бы настроенной. Ключ к этому моменту уже сгорел, поэтому отказ
-            // здесь — это отказ всей активации, и сказать о нём надо сразу.
-            openedAccess = try await MachineService.fetchAccess(
-                installationID: package.installationID,
-                channelKey: package.channelKey
-            )
-            openedPackage = package
-
-            // На диск — сразу, а не в конце мастера. Ключ к этой строке уже
-            // сгорел, и всё, что дальше отделяет человека от настроенной
-            // машины, — три нажатия «Далее». Закрытое между ними окно не должно
-            // стоить рабочего места.
-            ActivationDraftStore.save(key: key, package: package, access: openedAccess)
-        } catch {
-            keyFailure = (error as? LocalizedError)?.errorDescription
-                ?? PanelLinkError.keyDidNotOpen.errorDescription
-        }
-    }
-
     func goBack() {
         guard canGoBack, let index = steps.firstIndex(of: step), index > 0 else { return }
         notice = nil
-        keyFailure = nil
         step = steps[index - 1]
     }
 
@@ -327,7 +220,6 @@ final class FirstRunFlow: ObservableObject {
     func advance() {
         guard let index = steps.firstIndex(of: step), index + 1 < steps.count else { return }
         notice = nil
-        keyFailure = nil
         step = steps[index + 1]
     }
 

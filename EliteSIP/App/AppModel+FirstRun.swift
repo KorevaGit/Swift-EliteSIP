@@ -78,7 +78,7 @@ extension AppModel {
         flow: FirstRunFlow
     ) -> (account: SIPAccount, password: String, site: SIPProfileSite)? {
         switch flow.route {
-        case .activationKey:
+        case .machineCode:
             // Живой проверки регистрации у ключевого пути нет намеренно: адрес
             // АТС приезжает в предустановке пакета, и собрать учётную запись до
             // применения значило бы разобрать предустановку дважды — здесь и в
@@ -135,7 +135,7 @@ extension AppModel {
         // ещё нужен: до панели такая машина не достаёт, и взять пароль ей
         // больше неоткуда.
         let password: String? = {
-            if case .activationKey = flow.route { return flow.openedAccess?.adminPassword }
+            if case .machineCode = flow.route { return flow.setup?.config.adminPassword }
             return Provisioning.secrets?.adminPassword
         }()
 
@@ -168,11 +168,11 @@ extension AppModel {
         settings.firstRun = .passed
         firstRun = .passed
 
-        // Черновик отработал: пакет применён, и держать его копию с паролем SIP
-        // больше не за чем. Стирается на обеих ветках, а не только на ключевой:
-        // ручная настройка поверх лежащего черновика означает, что от него
-        // отказались.
-        ActivationDraftStore.clear()
+        // Привязка отработала: её ключи переехали в настройки, и держать копию
+        // с паролем SIP больше незачем. Стирается на обеих ветках: ручная
+        // настройка поверх ждущей привязки означает, что от неё отказались.
+        flow.pairing.stop()
+        PairingStore.clear()
 
         persistSettings()
         append(
@@ -187,9 +187,9 @@ extension AppModel {
     /// Рабочее место: две ветки экрана 2 — ключ и «Вручную».
     private func applyFirstRunWorkplace(flow: FirstRunFlow) {
         switch flow.route {
-        case .activationKey:
-            guard let package = flow.openedPackage else { return }
-            applyActivation(package)
+        case .machineCode:
+            guard let setup = flow.setup else { return }
+            applyMachineSetup(setup)
 
         case .manual:
             let host = flow.host
@@ -219,77 +219,59 @@ extension AppModel {
         }
     }
 
-    /// Применяет пакет активации (M9, работа 3).
+    /// Применяет настройки привязанной машины.
     ///
     /// Порядок здесь важен: сперва учётная запись, потом управляемые поля,
     /// потом память о панели. Обратный порядок оставил бы `isServerManaged`
     /// посчитанным по старому режиму — наложение читает его из `panel`, а тот
     /// должен быть уже новым.
-    func applyActivation(_ package: ActivationPackage) {
-        // Номер и пароль ложатся **в существующий профиль**, а не рядом с ним.
-        // `SIPProfileList` на свежей машине уже держит один пустой профиль —
-        // ровно тот, из-за которого этап 9 и понадобился, — и заведение второго
-        // оставляло бы в списке «без номера» плюс настроенный. Тот же урок, что
-        // и у предустановочной ветки, найденный живым прогоном 17 августа 2026.
-        settings.profiles.active.account.username = package.number
+    func applyMachineSetup(_ setup: MachineSetup) {
+        let config = setup.config
+        // Номер и пароль ложатся **в существующий профиль**, а не рядом с ним:
+        // на свежей машине список профилей уже держит один пустой.
+        settings.profiles.active.account.username = config.number
         settings.profiles.active.account.authUsername = nil
-        settings.profiles.active.password = package.sipPassword
+        settings.profiles.active.password = config.sipPassword
 
-        // Подпись профиля приезжает из панели тем же пакетом и ставится здесь.
-        //
-        // До 28 августа 2026 поле в пакете было, а этой строки не было: панель
-        // подписывала номера, а на машине профиль оставался безымянным и
-        // подписывался номером. На месте с двумя добавочными это означало
-        // список из двух чисел, по которым не отличить, где чей, — а выбирают
-        // профиль как раз по подписи.
-        //
-        // Пустая подпись не затирает вписанную руками: `title` в этом случае
-        // всё равно вернулся бы к номеру, а вот «Лаба», названная на месте,
-        // пропала бы при первой же перепрошивке.
-        if !package.employee.isEmpty {
-            settings.profiles.active.label = package.employee
+        // Подпись профиля приезжает из Spark. Пустая не затирает вписанную
+        // руками.
+        if !config.employee.isEmpty {
+            settings.profiles.active.label = config.employee
         }
 
-        // Формат работы выбирают в Spark при выпуске ключа. До 0.1.45 поле в
-        // пакете было, а клиент его не читал: «Удалёнка» из Spark вставала
-        // офисом. Ставится до `alignProfileAddress` — адрес АТС выбирается по
+        // Формат работы — до `alignProfileAddress`: адрес АТС выбирается по
         // площадке профиля.
-        switch package.workFormat {
-        case "remote": settings.profiles.active.site = .remote
-        case "office": settings.profiles.active.site = .office
-        default: break
+        if let site = siteFor(workFormat: config.workFormat) {
+            settings.profiles.active.site = site
         }
 
-        // Панель машина слушает с первой же минуты: ключ и означает «этим
+        // Панель машина слушает с первой же минуты: привязка и означает «этим
         // рабочим местом управляют отсюда».
-        settings.panel.installationID = package.installationID
-        settings.panel.channelKey = package.channelKey
-        settings.panel.presetID = package.preset.id
-        settings.panel.presetName = package.preset.name
-        settings.panel.appliedRevision = package.preset.revision
-        settings.panel.appliedAt = Date()
+        settings.panel.installationID = setup.installationID
+        settings.panel.channelKey = setup.channelKey
+        settings.panel.machineKey = setup.machineKey
+        settings.panel.appliedConfigRevision = config.revision
+        settings.panel.presetID = config.presetID
+        settings.panel.presetName = config.presetName
+        settings.panel.appliedRevision = setup.preset?.revision ?? 0
+        settings.panel.appliedAt = setup.preset == nil ? nil : Date()
         settings.panel.mode = .managed
 
-        // Управляемые поля — той же дорогой, что и файл предустановок: правило
-        // «отсутствующее поле означает «панель им не управляет»» должно быть
-        // одно на оба пути, а не два похожих.
+        // Управляемые поля — той же дорогой, что и файл предустановок.
+        // Предустановки не оказалось в файле — применится первым же опросом.
         let addressesBefore = settings.siteAddresses
-        settings.apply(ManagedFields.parse(package.preset.settings))
+        if let preset = setup.preset {
+            settings.apply(ManagedFields.parse(preset.fields))
+        }
 
         // Адрес АТС профиля от пары адресов сам не следует — см.
-        // `alignProfileAddress`. Без этой строки машина встаёт с номером и
-        // паролем, но с пустым доменом: регистрироваться некуда.
+        // `alignProfileAddress`.
         alignProfileAddress(previous: addressesBefore)
 
-        // Административного пароля в пакете больше нет. Он стал полем
-        // предустановки и приезжает отдельным помашинным объектом — первым же
-        // заходом на канал, сразу после активации. Держать его ещё и в пакете
-        // значило бы завести второй источник одного факта: пакет выдаётся один
-        // раз, а пароль меняют когда угодно после.
-
-        append(level: .info, message: "рабочее место поднято ключом: "
-            + "\(package.employee), номер \(package.number), "
-            + "предустановка «\(package.preset.name)» ревизия \(package.preset.revision)")
+        append(level: .info, message: "рабочее место поднято привязкой: "
+            + "\(config.employee), номер \(config.number), "
+            + "предустановка «\(config.presetName)» ревизия \(setup.preset?.revision ?? 0), "
+            + "настройки ревизия \(config.revision)")
     }
 
     /// Перезапуск ради корпуса — после того, как всё уже записано.

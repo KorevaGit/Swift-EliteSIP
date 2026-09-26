@@ -229,9 +229,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         revocationTimer = Timer.scheduledTimer(
             withTimeInterval: MachineService.revocationInterval, repeats: true
         ) { _ in
-            Task { @MainActor in machines.checkRevocation() }
+            Task { @MainActor in
+                machines.checkRevocation()
+                machines.checkConfig()
+            }
         }
-        Task { @MainActor in machines.checkRevocation() }
+        Task { @MainActor in
+            machines.checkRevocation()
+            machines.checkConfig()
+        }
     }
 
     /// Поднять автообновление и связать его с состоянием линий.
@@ -271,7 +277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         presetService = presets
 
-        // Помашинные объекты: свой административный пароль и свой отзыв.
+        // Помашинные объекты: своя конфигурация из Spark и свой отзыв.
         //
         // Ключ линии тот же, что у файла предустановок, — панель подписывает
         // всё одним. Второй открытый ключ в Info.plist означал бы второй способ
@@ -279,10 +285,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let machines = MachineService(
             publicKey: PresetService.channelPublicKey,
             settings: { [weak self] in self?.model.settings ?? AppSettings.default },
-            applyAccess: { [weak self] access in
-                // Панель перевела машину на другую предустановку — её запись
+            applyConfig: { [weak self] config in
+                // Spark перевёл машину на другую предустановку — её запись
                 // забираем сразу, а не через два часа.
-                if self?.model.applyMachineAccess(access) == true { self?.presetService?.check() }
+                if self?.model.applyMachineConfig(config) == .applied(presetChanged: true) {
+                    self?.presetService?.check()
+                }
+            },
+            storeMachineKey: { [weak self] key in
+                guard let self else { return }
+                self.model.settings.panel.machineKey = key
+                self.model.persistSettings()
             },
             reset: { [weak self] revocation in self?.model.resetByRevocation(revocation) },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
@@ -301,12 +314,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             reportCheckState: { [weak self] checking, result in
                 self?.model.noteUpdateCheckState(checking: checking, result: result)
             },
-            alsoCheckPresets: { [weak presets, weak machines] in
+            alsoCheckPresets: { [weak presets] in
+                // Конфигурация и отзыв — свой такт, раз в пятнадцать минут.
                 presets?.check()
-                // Доступ спрашивается тем же тактом, что и предустановки:
-                // административный пароль меняют вместе с предустановкой, а не
-                // отдельно от неё. Отзыв — свой такт, вчетверо чаще.
-                machines?.checkAccess()
             },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
@@ -331,8 +341,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     service.hostBecameIdle()
                     // Отложенная предустановка ждёт того же конца разговора.
                     presets.hostBecameIdle()
-                    // Перепрошивка ждёт того же: разговор кончился — применяем.
-                    self?.model.applyPendingReflashIfIdle()
+                    // Отложенная конфигурация из Spark ждёт того же.
+                    if self?.model.applyPendingConfigIfIdle() == .applied(presetChanged: true) {
+                        presets.check()
+                    }
                 }
             }
 
@@ -372,7 +384,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// правка доехала. Раньше, на получасовом такте, это было удобством.
     @objc func checkPresetsNow(_ sender: Any?) {
         presetService?.check()
-        machineService?.checkAccess()
+        machineService?.checkConfig()
     }
 
     /// «Вернуться в онлайн» — на месте «Проверить настройки сейчас» у машины

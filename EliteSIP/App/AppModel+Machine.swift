@@ -5,78 +5,131 @@ import SIPCore
 
 extension AppModel {
 
-    /// Применяет помашинный доступ, приехавший с канала.
+    /// Чем кончилось применение конфигурации из Spark.
+    enum ConfigOutcome: Equatable {
+        /// Ревизия не новее применённой — делать нечего.
+        case unchanged
+        /// Применено. `presetChanged` — машину перевели на другую
+        /// предустановку, и файл предустановок надо спросить заново.
+        case applied(presetChanged: Bool)
+        /// Меняется номер или SIP-пароль, а идёт разговор: ждём его конца.
+        case deferred
+    }
+
+    /// Применяет конфигурацию машины, приехавшую из Spark.
     ///
-    /// Административный пароль стал полем предустановки: у техподдержки своя
-    /// предустановка со своим паролем. В общий файл предустановок он не едет —
-    /// файл один на контору, и любой оператор прочитал бы там чужой пароль, —
-    /// поэтому приезжает вот так, отдельным подписанным объектом.
+    /// Номер, SIP-пароль, подпись, формат работы, предустановка и пароль
+    /// настроек — всё, что администратор поправил у сотрудника в Spark.
+    /// Машина применяет это сама, без участия человека: так стажёр становится
+    /// менеджером, а сменивший добавочный — звонит с нового.
     ///
-    /// **Пароль ставится только если он изменился.** Иначе каждый заход на
-    /// канал писал бы строку в журнал и перевыводил ключ из пароля: PBKDF2 со
-    /// ста пятьюдесятью тысячами итераций раз в два часа — это заметно на
-    /// Catalina и не нужно ни для чего.
-    ///
-    /// - Returns: сменилась ли предустановка машины — тогда файл предустановок
-    ///   надо спросить заново, уже со своей новой записью.
+    /// **Перерегистрация ждёт конца разговора.** Смена номера или пароля
+    /// снимает регистрацию и поднимает её заново — посреди звонка это кладёт
+    /// трубку за оператора. Отложенное живёт в памяти: выйди приложение, та же
+    /// ревизия приедет снова следующим опросом, потому что применённой она не
+    /// записана.
     @discardableResult
-    func applyMachineAccess(_ access: MachineAccess) -> Bool {
-        applyAccessPassword(access)
-        return adoptAssignedPreset(access)
-    }
+    func applyMachineConfig(_ config: MachineConfig) -> ConfigOutcome {
+        guard config.installationID == settings.panel.installationID,
+              config.revision > settings.panel.appliedConfigRevision
+        else { return .unchanged }
 
-    /// Перепрошивка без ключа: панель переписала доступ машины на другую
-    /// предустановку (учебная учётка стала менеджерской). Ключ, номер и ключ
-    /// канала прежние — меняется только то, чью запись машина ищет в файле
-    /// предустановок. Ревизия обнуляется: у новой предустановки свой счёт, и
-    /// её первая ревизия может быть меньше применённой у старой.
-    private func adoptAssignedPreset(_ access: MachineAccess) -> Bool {
-        let assigned = access.presetID
-        guard !assigned.isEmpty, settings.panel.isActivated, assigned != settings.panel.presetID else {
-            return false
+        let profile = settings.profiles.active
+        let site = siteFor(workFormat: config.workFormat) ?? profile.site
+        let accountChanged = profile.account.username != config.number
+            || profile.password != config.sipPassword
+            || profile.site != site
+        if accountChanged, isInCall {
+            pendingConfig = config
+            append(level: .info,
+                   message: "настройки из Spark (ревизия \(config.revision)) ждут конца разговора")
+            return .deferred
         }
-        let was = settings.panel.presetName.isEmpty ? settings.panel.presetID : settings.panel.presetName
-        settings.panel.presetID = assigned
-        settings.panel.presetName = ""
-        settings.panel.appliedRevision = 0
+        pendingConfig = nil
+
+        let numberBefore = profile.account.username
+        var updated = profile
+        updated.account.username = config.number
+        updated.account.authUsername = nil
+        updated.password = config.sipPassword
+        updated.site = site
+        if !config.employee.isEmpty { updated.label = config.employee }
+        settings.profiles.active = updated
+        // Площадка выбирает адрес АТС из пары: смена формата работы обязана
+        // увести профиль на другой адрес, а не остаться строкой в настройках.
+        alignProfileAddress(previous: settings.siteAddresses)
+
+        let presetChanged = !config.presetID.isEmpty && config.presetID != settings.panel.presetID
+        if presetChanged {
+            let was = settings.panel.presetName.isEmpty ? settings.panel.presetID : settings.panel.presetName
+            settings.panel.presetID = config.presetID
+            settings.panel.appliedRevision = 0
+            append(level: .info, message: "Spark сменил предустановку машины: «\(was)» → «\(config.presetName)»")
+        }
+        if !config.presetName.isEmpty { settings.panel.presetName = config.presetName }
+        settings.panel.mode = .managed
+        settings.panel.appliedConfigRevision = config.revision
+        applyPanelPassword(config.adminPassword)
         persistSettings()
-        // не переводится: строка журнала
-        append(level: .info, message: "панель сменила предустановку машины: «\(was)» → \(assigned)")
-        return true
+
+        append(level: .info,
+               message: "настройки из Spark применены: номер \(config.number), ревизия \(config.revision)")
+        if accountChanged, numberBefore != config.number, !numberBefore.isEmpty {
+            showPanelNotice(String(
+                format: NSLocalizedString("Администратор сменил номер: %@", comment: "уведомление в панели"),
+                config.number))
+        }
+        return .applied(presetChanged: presetChanged)
     }
 
-    private func applyAccessPassword(_ access: MachineAccess) {
-        // Пустой пароль с панели — «у этой предустановки пароля нет» (у
-        // техподдержки его нет). Машина под панелью снимает прежний, иначе
-        // после перевода с предустановки с паролем «Управление» так и
-        // открывалось бы старым. Машину на своём уме (manual) не трогаем:
-        // там пароль мог задать человек на месте.
-        if access.adminPassword.isEmpty {
-            guard settings.panel.mode == .managed, adminAccess.isProtected else { return }
+    /// Разговор кончился — применить отложенную конфигурацию.
+    func applyPendingConfigIfIdle() -> ConfigOutcome {
+        guard let config = pendingConfig, !isInCall else { return .unchanged }
+        return applyMachineConfig(config)
+    }
+
+    /// Формат работы из Spark — площадка профиля. Неизвестное значение не
+    /// трогает площадку.
+    func siteFor(workFormat: String) -> SIPProfileSite? {
+        switch workFormat {
+        case "remote": return .remote
+        case "office": return .office
+        default: return nil
+        }
+    }
+
+    /// Пароль «Управления» из Spark.
+    ///
+    /// Ставится и снимается без открытого «Управления»: у сотрудника за
+    /// закрытой машиной прежнего пароля нет, а Spark подписанной конфигурацией
+    /// говорит, какой пароль у машины. Пустой — «у предустановки пароля нет»,
+    /// и прежний снимается.
+    ///
+    /// **Ставится только если изменился.** Иначе каждый заход писал бы строку
+    /// в журнал и перевыводил ключ из пароля: PBKDF2 со ста пятьюдесятью
+    /// тысячами итераций — это заметно на Catalina и не нужно ни для чего.
+    func applyPanelPassword(_ password: String) {
+        if password.isEmpty {
+            guard adminAccess.isProtected else { return }
             do {
                 try adminAccess.applyPanelPassword(nil)
                 settings.admin.credential = nil
-                persistSettings()
                 append(level: .info, message: "административный пароль снят: у предустановки его нет")
             } catch {
-                append(level: .warning,
-                       message: "административный пароль не снят: \(error.localizedDescription)")
+                append(level: .warning, message: "административный пароль не снят: \(error.localizedDescription)")
             }
             return
         }
-        guard adminAccess.credential?.matches(password: access.adminPassword) != true else { return }
-
+        guard adminAccess.credential?.matches(password: password) != true else { return }
         do {
-            try adminAccess.applyPanelPassword(access.adminPassword)
+            try adminAccess.applyPanelPassword(password)
             settings.admin.credential = adminAccess.credential
-            persistSettings()
-            append(level: .info, message: "административный пароль приехал с панели")
+            append(level: .info, message: "административный пароль приехал из Spark")
         } catch {
             // Пароль не лёг — машина всё равно поднята и звонит. Ронять из-за
-            // этого рабочее место незачем, но и молчать нельзя: «Управление»
-            // на ней откроется прежним паролем, и знать об этом надо.
+            // этого рабочее место незачем, но и молчать нельзя.
             append(level: .warning,
-                   message: "административный пароль с панели не применён: \(error.localizedDescription)")
+                   message: "административный пароль из Spark не применён: \(error.localizedDescription)")
         }
     }
 
@@ -124,91 +177,6 @@ extension AppModel {
         resetMachine()
     }
 
-}
-
-// MARK: - Перепрошивка
-
-extension AppModel {
-
-    /// Чем кончился ввод ключа перепрошивки.
-    enum ReflashOutcome {
-        /// Применено прямо сейчас.
-        case applied
-        /// Ждёт конца разговора.
-        case deferred
-    }
-
-    /// Применяет пакет перепрошивки — или откладывает до конца разговора.
-    ///
-    /// Разговор не прерывается: перепрошивка снимает регистрацию и поднимает её
-    /// заново, и делать это посреди звонка нельзя. Человеку при этом говорится
-    /// «применится, когда положите трубку», а не «завершите вызов и повторите»:
-    /// он стоит у экрана и ждёт ответа сейчас, а не готов повторять.
-    ///
-    /// Ключ к этому моменту уже сгорел — Worker столбит пакет в момент
-    /// скачивания, — поэтому отказаться и попросить ввести позже нельзя: второй
-    /// раз тот же ключ не сработает.
-    @discardableResult
-    func applyReflash(_ package: ActivationPackage) -> ReflashOutcome {
-        guard !isInCall else {
-            pendingReflash = package
-            // Личность машины (installation_id и ключ канала) переводится
-            // сразу, разговору она не мешает. Отложенный пакет живёт только в
-            // памяти, а старую личность Spark гасит, как только увидит забор:
-            // выйди приложение до конца разговора — машина осталась бы без
-            // ключа канала, и отзыв до неё бы не дошёл.
-            if package.installationID != settings.panel.installationID {
-                previousReflashMachine = settings.panel.installationID
-                settings.panel.installationID = package.installationID
-                settings.panel.channelKey = package.channelKey
-                persistSettings()
-                append(level: .info,
-                       message: "машина переведена на новый ключ до конца разговора: \(package.installationID)")
-            }
-            append(level: .info,
-                   message: "перепрошивка ждёт конца разговора: "
-                       + "предустановка «\(package.preset.name)»")
-            return .deferred
-        }
-
-        pendingReflash = nil
-
-        // Пакет применяется той же дорогой, что и при активации: правило
-        // «номер, потом управляемые поля, потом память о панели» должно быть
-        // одно на оба пути, а не два похожих.
-        //
-        // У ключа перепрошивки старого образца installation_id тот же самый.
-        // У обычного ключа активации — новый: машина встаёт на новый ключ
-        // целиком, а прежнюю строку Spark гасит по отметке о заборе.
-        let switchedMachine = previousReflashMachine ?? settings.panel.installationID
-        previousReflashMachine = nil
-        applyActivation(package)
-        persistSettings()
-
-        append(level: .info,
-               message: "рабочее место перепрошито: номер \(package.number), "
-                   + "предустановка «\(package.preset.name)» ревизия \(package.preset.revision)")
-
-        // Новый ключ активации — новая машина для панели: другой
-        // installation_id и ключ канала. С этой минуты отзыв, доступ и
-        // предустановки спрашиваются уже по новым; административный пароль
-        // новой предустановки забираем сразу, а не через два часа.
-        if switchedMachine != package.installationID {
-            append(level: .info,
-                   message: "машина переведена на новый ключ: \(switchedMachine) → \(package.installationID)")
-            NSApp.sendAction(#selector(AppDelegate.checkPresetsNow(_:)), to: nil, from: nil)
-        }
-        return .applied
-    }
-
-    /// Разговор кончился — доложить отложенное.
-    ///
-    /// Зовётся тем же наблюдателем за линиями, что докладывает отложенную
-    /// предустановку и возвращает предложение обновиться.
-    func applyPendingReflashIfIdle() {
-        guard let package = pendingReflash, !isInCall else { return }
-        applyReflash(package)
-    }
 }
 
 // MARK: - Адрес АТС из предустановки
