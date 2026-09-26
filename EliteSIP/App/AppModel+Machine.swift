@@ -46,7 +46,22 @@ extension AppModel {
     }
 
     private func applyAccessPassword(_ access: MachineAccess) {
-        guard !access.adminPassword.isEmpty else { return }
+        // Пустой пароль с панели — «у этой предустановки пароля нет» (у
+        // техподдержки его нет). Машина под панелью снимает прежний, иначе
+        // после перевода с предустановки с паролем «Управление» так и
+        // открывалось бы старым. Машину на своём уме (manual) не трогаем:
+        // там пароль мог задать человек на месте.
+        if access.adminPassword.isEmpty {
+            guard settings.panel.mode == .managed, adminAccess.isProtected else { return }
+            do {
+                try removeAdminPassword()
+                append(level: .info, message: "административный пароль снят: у предустановки его нет")
+            } catch {
+                append(level: .warning,
+                       message: "административный пароль не снят: \(error.localizedDescription)")
+            }
+            return
+        }
         guard adminAccess.credential?.matches(password: access.adminPassword) != true else { return }
 
         do {

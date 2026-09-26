@@ -57,12 +57,26 @@ enum ActivationService {
                              forHTTPHeaderField: "X-EliteSIP-Replaces")
         }
 
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await URLSession.shared.data(for: request)
-        } catch {
-            throw ActivationFailure.noChannel(error.localizedDescription)
+        // Обещание подтвердить получение: пока подтверждения нет, канал
+        // отдаёт пакет повторно, и оборвавшаяся закачка больше не сжигает
+        // ключ. Обрыв повторяем сами — человек видит одну попытку.
+        request.setValue("1", forHTTPHeaderField: "X-EliteSIP-Confirm")
+
+        var data = Data()
+        var response: URLResponse?
+        var lastError: Error?
+        for attempt in 0..<3 {
+            if attempt > 0 { try? await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000) }
+            do {
+                (data, response) = try await URLSession.shared.data(for: request)
+                lastError = nil
+                break
+            } catch {
+                lastError = error
+            }
+        }
+        if let lastError {
+            throw ActivationFailure.noChannel(lastError.localizedDescription)
         }
 
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
@@ -73,7 +87,34 @@ enum ActivationService {
             throw PanelLinkError.keyDidNotOpen
         }
 
-        return try ActivationPackage.open(sealed: data, with: bound)
+        let package = try ActivationPackage.open(sealed: data, with: bound)
+        await confirm(base: base, objectName: bound.objectName, channel: channel)
+        return package
+    }
+
+    /// Подтверждает получение: канал закрывает повторную выдачу, Spark
+    /// засчитывает ключ. Не дошло — не беда: Spark засчитает ключ и по первому
+    /// выходу машины на связь, а до того пакет отдаётся только тому, у кого
+    /// есть сам ключ.
+    private static func confirm(base: URL, objectName: String, channel: Provisioning.UpdateChannel) async {
+        let url = base
+            .appendingPathComponent("activations")
+            .appendingPathComponent(objectName)
+            .appendingPathComponent("confirm")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        let pair = "\(channel.user):\(channel.password)"
+        if let encoded = pair.data(using: .utf8)?.base64EncodedString() {
+            request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
+        }
+        for attempt in 0..<3 {
+            if attempt > 0 { try? await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000) }
+            if let (_, response) = try? await URLSession.shared.data(for: request),
+               let http = response as? HTTPURLResponse, http.statusCode == 204 || http.statusCode == 404 {
+                return
+            }
+        }
     }
 
     /// Отказ, который не про ключ, а про связь.

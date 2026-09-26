@@ -65,6 +65,11 @@ final class PresetService {
 
     private var isFetching = false
 
+    /// Проверку попросили, пока шла прежняя, — например, доступ только что
+    /// перевёл машину на другую предустановку. Спросим ещё раз по окончании,
+    /// а не через два часа.
+    private var checkAgain = false
+
     init(settings: @escaping () -> AppSettings,
          apply: @escaping (AppSettings, String) -> Void,
          isBlocked: @escaping () -> Bool,
@@ -127,7 +132,7 @@ final class PresetService {
             log("предустановки: у машины нет ключа канала")
             return
         }
-        guard !isFetching else { return }
+        guard !isFetching else { checkAgain = true; return }
         isFetching = true
         report?(true, nil)
 
@@ -171,6 +176,10 @@ final class PresetService {
             Task { @MainActor in
                 self?.isFetching = false
                 self?.receive(data: data, response: response, error: error, publicKey: publicKey)
+                if self?.checkAgain == true {
+                    self?.checkAgain = false
+                    self?.check()
+                }
             }
         }.resume()
     }
