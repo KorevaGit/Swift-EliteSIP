@@ -32,6 +32,17 @@ extension AppSettings {
         /// был только записью в базе панели.
         var channelKey: String = ""
 
+        /// Закрытый ключ X25519 машины, base64. Под его открытую часть Spark
+        /// шифрует конфигурацию машины (`config/<id>`).
+        ///
+        /// Создаётся самой машиной — в мастере, когда она показывает код, или
+        /// при первом запуске 0.1.50 на машине, поднятой ещё ключом. Уходит
+        /// только сбросом машины.
+        var machineKey: String = ""
+
+        /// Применённая ревизия конфигурации машины. Ноль — ещё ни одной.
+        var appliedConfigRevision: Int = 0
+
         /// Предустановка, под которой машина живёт.
         ///
         /// Ищет она себя в файле по `id`, а **не по имени**: имя переименовывают,
@@ -109,5 +120,30 @@ extension AppSettings {
         /// панель знает, а ключа канала у неё нет — и ходить ей нечем, пока не
         /// перепрошьют.
         var hasChannelKey: Bool { !installationID.isEmpty && !channelKey.isEmpty }
+
+        /// Живёт ли машина по конфигурации из Spark (привязана по коду или
+        /// уже зарегистрировала свой ключ).
+        var hasMachineKey: Bool { hasChannelKey && !machineKey.isEmpty }
+
+        init() {}
+
+        /// Разбор по полю: отсутствующее поле — умолчание, а не отказ всего
+        /// блока. Иначе поле, добавленное новой сборкой, стирало бы на старом
+        /// файле installation_id и ключ канала — и машина молча отваливалась от
+        /// панели.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            installationID = try c.decodeIfPresent(String.self, forKey: .installationID) ?? ""
+            channelKey = try c.decodeIfPresent(String.self, forKey: .channelKey) ?? ""
+            machineKey = try c.decodeIfPresent(String.self, forKey: .machineKey) ?? ""
+            appliedConfigRevision = try c.decodeIfPresent(Int.self, forKey: .appliedConfigRevision) ?? 0
+            presetID = try c.decodeIfPresent(String.self, forKey: .presetID) ?? ""
+            presetName = try c.decodeIfPresent(String.self, forKey: .presetName) ?? ""
+            appliedRevision = try c.decodeIfPresent(Int.self, forKey: .appliedRevision) ?? 0
+            appliedAt = try c.decodeIfPresent(Date.self, forKey: .appliedAt)
+            lastContactAt = try c.decodeIfPresent(Date.self, forKey: .lastContactAt)
+            mode = (try? c.decodeIfPresent(Mode.self, forKey: .mode)) ?? .manual
+            wantsResync = try c.decodeIfPresent(Bool.self, forKey: .wantsResync) ?? false
+        }
     }
 }

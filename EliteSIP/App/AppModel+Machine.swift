@@ -1,33 +1,195 @@
+import AppKit
+import CryptoKit
 import Foundation
 import PanelLink
 import SIPCore
 
 extension AppModel {
 
-    /// Применяет помашинный доступ, приехавший с канала.
-    ///
-    /// Административный пароль стал полем предустановки: у техподдержки своя
-    /// предустановка со своим паролем. В общий файл предустановок он не едет —
-    /// файл один на контору, и любой оператор прочитал бы там чужой пароль, —
-    /// поэтому приезжает вот так, отдельным подписанным объектом.
-    ///
-    /// **Пароль ставится только если он изменился.** Иначе каждый заход на
-    /// канал писал бы строку в журнал и перевыводил ключ из пароля: PBKDF2 со
-    /// ста пятьюдесятью тысячами итераций раз в два часа — это заметно на
-    /// Catalina и не нужно ни для чего.
-    func applyMachineAccess(_ access: MachineAccess) {
-        guard !access.adminPassword.isEmpty else { return }
-        guard adminAccess.credential?.matches(password: access.adminPassword) != true else { return }
+    /// Чем кончилось применение конфигурации из Spark.
+    enum ConfigOutcome: Equatable {
+        /// Ревизия не новее применённой — делать нечего.
+        case unchanged
+        /// Применено. `presetChanged` — машину перевели на другую
+        /// предустановку, и файл предустановок надо спросить заново.
+        case applied(presetChanged: Bool)
+        /// Меняется номер или SIP-пароль, а идёт разговор: ждём его конца.
+        case deferred
+    }
 
+    /// Применяет конфигурацию машины, приехавшую из Spark.
+    ///
+    /// Номер, SIP-пароль, подпись, формат работы, предустановка и пароль
+    /// настроек — всё, что администратор поправил у сотрудника в Spark.
+    /// Машина применяет это сама, без участия человека: так стажёр становится
+    /// менеджером, а сменивший добавочный — звонит с нового.
+    ///
+    /// **Перерегистрация ждёт конца разговора.** Смена номера или пароля
+    /// снимает регистрацию и поднимает её заново — посреди звонка это кладёт
+    /// трубку за оператора. Отложенное живёт в памяти: выйди приложение, та же
+    /// ревизия приедет снова следующим опросом, потому что применённой она не
+    /// записана.
+    @discardableResult
+    func applyMachineConfig(_ config: MachineConfig) -> ConfigOutcome {
+        guard config.installationID == settings.panel.installationID,
+              config.revision > settings.panel.appliedConfigRevision
+        else { return .unchanged }
+
+        let site = siteFor(workFormat: config.workFormat) ?? settings.profiles.active.site
+        let before = settings.profiles
+        let planned = plannedProfiles(for: config, site: site)
+        let oldActive = before.active
+        let newActive = planned.active
+        let accountChanged = oldActive.id != newActive.id
+            || oldActive.account.username != newActive.account.username
+            || oldActive.password != newActive.password
+            || oldActive.site != newActive.site
+        if accountChanged, isInCall {
+            pendingConfig = config
+            append(level: .info,
+                   message: "настройки из Spark (ревизия \(config.revision)) ждут конца разговора")
+            return .deferred
+        }
+        pendingConfig = nil
+
+        let numberBefore = oldActive.account.username
+        settings.profiles = planned
+        if oldActive.id != newActive.id { historyDidChangeProfile() }
+        if planned.profiles.count != before.profiles.count {
+            append(level: .info, message: "профилей из Spark: \(planned.profiles.count)")
+        }
+        // Площадка выбирает адрес АТС из пары: смена формата работы обязана
+        // увести профиль на другой адрес, а не остаться строкой в настройках.
+        alignProfileAddress(previous: settings.siteAddresses)
+
+        let presetChanged = !config.presetID.isEmpty && config.presetID != settings.panel.presetID
+        if presetChanged {
+            let was = settings.panel.presetName.isEmpty ? settings.panel.presetID : settings.panel.presetName
+            settings.panel.presetID = config.presetID
+            settings.panel.appliedRevision = 0
+            append(level: .info, message: "Spark сменил предустановку машины: «\(was)» → «\(config.presetName)»")
+        }
+        if !config.presetName.isEmpty { settings.panel.presetName = config.presetName }
+        settings.panel.mode = .managed
+        settings.panel.appliedConfigRevision = config.revision
+        applyPanelPassword(config.adminPassword)
+        persistSettings()
+
+        append(level: .info,
+               message: "настройки из Spark применены: номер \(config.number), ревизия \(config.revision)")
+        let numberNow = settings.profiles.active.account.username
+        if accountChanged, numberBefore != numberNow, !numberBefore.isEmpty {
+            showPanelNotice(String(
+                format: NSLocalizedString("Администратор сменил номер: %@", comment: "уведомление в панели"),
+                numberNow))
+        }
+        // Регистрация держит прежний номер, пока её не пересоберут: без этого
+        // новый номер начинал работать только после перезапуска (0.1.50).
+        if accountChanged, isAgentRunning, !isOfflineByChoice {
+            append(level: .info, message: "номер или пароль сменились — перерегистрация")
+            Task { [weak self] in await self?.reconnect() }
+        }
+        return .applied(presetChanged: presetChanged)
+    }
+
+    /// Профили машины по номерам из Spark.
+    ///
+    /// Каждый номер — свой профиль. Основной номер живёт в профиле, который у
+    /// машины был всегда (история звонков остаётся при нём), остальные —
+    /// в профилях с идентификатором, выведенным из номера в Spark: тот же
+    /// номер после любой правки попадает в тот же профиль. Профилей, которых
+    /// в Spark нет, на управляемой машине не остаётся. Активный профиль
+    /// сохраняется, если его номер ещё есть, иначе активным становится
+    /// основной.
+    func plannedProfiles(for config: MachineConfig, site: SIPProfileSite) -> SIPProfileList {
+        let current = settings.profiles
+        let lines = config.effectiveLines
+        let derived = Set(lines.filter { $0.id != "main" }.map {
+            Self.profileID(installationID: config.installationID, lineID: $0.id)
+        })
+        let mainID = current.profiles.first(where: { !derived.contains($0.id) })?.id ?? UUID()
+        let template = current.active.account
+
+        var profiles: [SIPProfile] = []
+        for line in lines {
+            let id = line.id == "main"
+                ? mainID
+                : Self.profileID(installationID: config.installationID, lineID: line.id)
+            var profile = current[id] ?? {
+                var blank = SIPProfile.blank(basedOn: template, site: site)
+                blank.id = id
+                return blank
+            }()
+            profile.account.username = line.number
+            profile.account.authUsername = nil
+            profile.password = line.sipPassword
+            if !line.label.isEmpty { profile.label = line.label }
+            profile.site = site
+            profiles.append(profile)
+        }
+        let activeID = profiles.contains(where: { $0.id == current.activeID }) ? current.activeID : mainID
+        return SIPProfileList(profiles: profiles, activeID: activeID)
+    }
+
+    /// Идентификатор профиля номера из Spark: один и тот же на каждом
+    /// применении конфигурации.
+    static func profileID(installationID: String, lineID: String) -> UUID {
+        let digest = Array(SHA256.hash(data: Data("elitesip.line:\(installationID):\(lineID)".utf8)))
+        var b = Array(digest[0..<16])
+        b[6] = (b[6] & 0x0F) | 0x50
+        b[8] = (b[8] & 0x3F) | 0x80
+        return UUID(uuid: (b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+                           b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]))
+    }
+
+    /// Разговор кончился — применить отложенную конфигурацию.
+    func applyPendingConfigIfIdle() -> ConfigOutcome {
+        guard let config = pendingConfig, !isInCall else { return .unchanged }
+        return applyMachineConfig(config)
+    }
+
+    /// Формат работы из Spark — площадка профиля. Неизвестное значение не
+    /// трогает площадку.
+    func siteFor(workFormat: String) -> SIPProfileSite? {
+        switch workFormat {
+        case "remote": return .remote
+        case "office": return .office
+        default: return nil
+        }
+    }
+
+    /// Пароль «Управления» из Spark.
+    ///
+    /// Ставится и снимается без открытого «Управления»: у сотрудника за
+    /// закрытой машиной прежнего пароля нет, а Spark подписанной конфигурацией
+    /// говорит, какой пароль у машины. Пустой — «у предустановки пароля нет»,
+    /// и прежний снимается.
+    ///
+    /// **Ставится только если изменился.** Иначе каждый заход писал бы строку
+    /// в журнал и перевыводил ключ из пароля: PBKDF2 со ста пятьюдесятью
+    /// тысячами итераций — это заметно на Catalina и не нужно ни для чего.
+    func applyPanelPassword(_ password: String) {
+        if password.isEmpty {
+            guard adminAccess.isProtected else { return }
+            do {
+                try adminAccess.applyPanelPassword(nil)
+                settings.admin.credential = nil
+                append(level: .info, message: "административный пароль снят: у предустановки его нет")
+            } catch {
+                append(level: .warning, message: "административный пароль не снят: \(error.localizedDescription)")
+            }
+            return
+        }
+        guard adminAccess.credential?.matches(password: password) != true else { return }
         do {
-            try setAdminPassword(access.adminPassword)
-            append(level: .info, message: "административный пароль приехал с панели")
+            try adminAccess.applyPanelPassword(password)
+            settings.admin.credential = adminAccess.credential
+            append(level: .info, message: "административный пароль приехал из Spark")
         } catch {
             // Пароль не лёг — машина всё равно поднята и звонит. Ронять из-за
-            // этого рабочее место незачем, но и молчать нельзя: «Управление»
-            // на ней откроется прежним паролем, и знать об этом надо.
+            // этого рабочее место незачем, но и молчать нельзя.
             append(level: .warning,
-                   message: "административный пароль с панели не применён: \(error.localizedDescription)")
+                   message: "административный пароль из Spark не применён: \(error.localizedDescription)")
         }
     }
 
@@ -75,67 +237,6 @@ extension AppModel {
         resetMachine()
     }
 
-}
-
-// MARK: - Перепрошивка
-
-extension AppModel {
-
-    /// Чем кончился ввод ключа перепрошивки.
-    enum ReflashOutcome {
-        /// Применено прямо сейчас.
-        case applied
-        /// Ждёт конца разговора.
-        case deferred
-    }
-
-    /// Применяет пакет перепрошивки — или откладывает до конца разговора.
-    ///
-    /// Разговор не прерывается: перепрошивка снимает регистрацию и поднимает её
-    /// заново, и делать это посреди звонка нельзя. Человеку при этом говорится
-    /// «применится, когда положите трубку», а не «завершите вызов и повторите»:
-    /// он стоит у экрана и ждёт ответа сейчас, а не готов повторять.
-    ///
-    /// Ключ к этому моменту уже сгорел — Worker столбит пакет в момент
-    /// скачивания, — поэтому отказаться и попросить ввести позже нельзя: второй
-    /// раз тот же ключ не сработает.
-    @discardableResult
-    func applyReflash(_ package: ActivationPackage) -> ReflashOutcome {
-        guard !isInCall else {
-            pendingReflash = package
-            append(level: .info,
-                   message: "перепрошивка ждёт конца разговора: "
-                       + "предустановка «\(package.preset.name)»")
-            return .deferred
-        }
-
-        pendingReflash = nil
-
-        // Пакет применяется той же дорогой, что и при активации: правило
-        // «номер, потом управляемые поля, потом память о панели» должно быть
-        // одно на оба пути, а не два похожих.
-        //
-        // installation_id в пакете перепрошивки — тот же самый: панель выпускает
-        // ключ на выбранную машину, и он же входит в вывод адреса пакета.
-        // Значит присваивание ничего не меняет, и это правильно: смена
-        // идентификатора разорвала бы историю отметок надвое.
-        applyActivation(package)
-        persistSettings()
-
-        append(level: .info,
-               message: "рабочее место перепрошито: номер \(package.number), "
-                   + "предустановка «\(package.preset.name)» ревизия \(package.preset.revision)")
-        return .applied
-    }
-
-    /// Разговор кончился — доложить отложенное.
-    ///
-    /// Зовётся тем же наблюдателем за линиями, что докладывает отложенную
-    /// предустановку и возвращает предложение обновиться.
-    func applyPendingReflashIfIdle() {
-        guard let package = pendingReflash, !isInCall else { return }
-        applyReflash(package)
-    }
 }
 
 // MARK: - Адрес АТС из предустановки

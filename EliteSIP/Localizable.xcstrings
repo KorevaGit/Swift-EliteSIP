@@ -106,6 +106,40 @@
         }
       }
     },
+    "%@ · настройки: ревизия %lld": {
+      "comment": "строка машины в «Техподдержке»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · settings: revision %2$lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · настройки: ревизия %2$lld"
+          }
+        }
+      }
+    },
+    "%@ · переходит на настройки из Spark": {
+      "comment": "строка машины в «Техподдержке»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · switching to settings from Spark"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · переходит на настройки из Spark"
+          }
+        }
+      }
+    },
     "%@ · разговор": {
       "comment": "линия в разговоре",
       "localizations": {
@@ -753,6 +787,23 @@
         }
       }
     },
+    "Администратор сменил номер: %@": {
+      "comment": "уведомление в панели",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The administrator changed your extension: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Администратор сменил номер: %@"
+          }
+        }
+      }
+    },
     "Администратор этой машины": {
       "comment": "кто управляет настройками",
       "localizations": {
@@ -1337,6 +1388,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вернуться к ключу активации"
+          }
+        }
+      }
+    },
+    "Вернуться к коду машины": {
+      "comment": "кнопка мастера",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to the machine code"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к коду машины"
           }
         }
       }
@@ -2645,6 +2713,23 @@
         }
       }
     },
+    "Добавочный %@ · предустановка «%@»": {
+      "comment": "шапка мастера после принятого ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extension %1$@ · preset “%2$@”"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавочный %1$@ · предустановка «%2$@»"
+          }
+        }
+      }
+    },
     "Добавочный %@, АТС %@.": {
       "comment": "что приехало из файла конфигурации",
       "extractionState": "stale",
@@ -2795,18 +2880,18 @@
         }
       }
     },
-    "Если вам прислали ключ для смены настроек — введите его здесь.                     Номер и настройки сменятся сами; переустанавливать ничего не нужно.": {
+    "Если вам прислали новый ключ — введите его здесь. Машина перейдёт на него: номер и настройки сменятся сами, переустанавливать ничего не нужно.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "If you have been sent a key to change your settings, enter it here. The extension and the settings will change on their own; nothing needs reinstalling."
+            "value": "If you have been sent a new key, enter it here. The Mac will switch to it: the extension and settings change on their own; nothing needs reinstalling."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Если вам прислали ключ для смены настроек — введите его здесь.                     Номер и настройки сменятся сами; переустанавливать ничего не нужно."
+            "value": "Если вам прислали новый ключ — введите его здесь. Машина перейдёт на него: номер и настройки сменятся сами, переустанавливать ничего не нужно."
           }
         }
       }
@@ -3996,6 +4081,23 @@
         }
       }
     },
+    "Ключ получен из EliteGuard": {
+      "comment": "QR для EliteGuard на экране ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key received from EliteGuard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключ получен из EliteGuard"
+          }
+        }
+      }
+    },
     "Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. Подтвердить результат клиент не может: сервер о входе в комнату не сообщает.": {
       "localizations": {
         "en": {
@@ -4059,6 +4161,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Код выполняет dynamic feature Asterisk и переводит оба плеча текущего разговора в ConfBridge. На боевом сервере такой фичи нет: «core show features» от 18 августа 2026 знает перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмену перевода *77 — и ничего про конференцию. Прежнее умолчание *3 было догадкой и снято."
+          }
+        }
+      }
+    },
+    "Код для EliteGuard недоступен — введите ключ.": {
+      "comment": "QR для EliteGuard на экране ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The EliteGuard code is unavailable — enter the key."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код для EliteGuard недоступен — введите ключ."
           }
         }
       }
@@ -4595,6 +4714,23 @@
         }
       }
     },
+    "Машину привязали — забираем настройки…": {
+      "comment": "экран кода машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac has been bound — fetching settings…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машину привязали — забираем настройки…"
+          }
+        }
+      }
+    },
     "Микрофон": {
       "localizations": {
         "en": {
@@ -4820,6 +4956,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Названия раздач"
+          }
+        }
+      }
+    },
+    "Назовите этот код администратору — машина настроится сама.": {
+      "comment": "экран кода машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tell this code to your administrator — the Mac will set itself up."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назовите этот код администратору — машина настроится сама."
           }
         }
       }
@@ -5635,6 +5788,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нет потока от собеседника"
+          }
+        }
+      }
+    },
+    "Нет связи со Spark — код появится, как только связь вернётся.": {
+      "comment": "экран кода машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No connection to Spark — the code will appear as soon as it's back."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет связи со Spark — код появится, как только связь вернётся."
           }
         }
       }
@@ -6511,6 +6681,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отпускать наушники между звонками"
+          }
+        }
+      }
+    },
+    "Отсканируйте в EliteGuard — ключ придёт сам": {
+      "comment": "QR для EliteGuard на экране ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan it in EliteGuard — the key arrives by itself"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсканируйте в EliteGuard — ключ придёт сам"
           }
         }
       }
@@ -10986,6 +11173,23 @@
         }
       }
     },
+    "Это не я — показать новый код": {
+      "comment": "кнопка на экране привязки",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That's not me — show a new code"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не я — показать новый код"
+          }
+        }
+      }
+    },
     "Это предустановка, а не конфигурация: в ней нет добавочного и пароля.": {
       "comment": "выбран файл предустановки вместо конфигурации",
       "extractionState": "stale",
@@ -11484,6 +11688,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "идёт"
+          }
+        }
+      }
+    },
+    "или введите ключ": {
+      "comment": "QR для EliteGuard на экране ключа",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or enter the key"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "или введите ключ"
+          }
+        }
+      }
+    },
+    "или отсканируйте в EliteGuard": {
+      "comment": "экран кода машины",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or scan it in EliteGuard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "или отсканируйте в EliteGuard"
           }
         }
       }

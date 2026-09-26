@@ -93,6 +93,23 @@ public struct AdminAccessState: Sendable, Equatable {
         isUnlocked = true
     }
 
+    /// Пароль с панели: задать, сменить или снять (`nil`).
+    ///
+    /// Без открытого режима — в этом и смысл: панель подписанным объектом
+    /// говорит, какой пароль у машины, а у сотрудника за закрытой машиной
+    /// прежнего пароля нет. `setPassword`/`removePassword` для этого не
+    /// годились: на закрытой машине они отказывали, и пароль с панели не
+    /// ложился вовсе. Режим при этом не открывается — сменённый пароль
+    /// закрывает его, снятый открывает сам по себе.
+    public mutating func applyPanelPassword(_ password: String?) throws {
+        if let password {
+            credential = try AdminCredential(password: password)
+            isUnlocked = false
+        } else {
+            credential = nil
+        }
+    }
+
     /// Учётные данные из файла настроек.
     ///
     /// Отдельно от инициализатора: при загрузке режим всегда закрыт, чем бы ни

@@ -102,17 +102,29 @@ final class AppModel: ObservableObject {
     /// Придержка записи на диск, пока открыт черновик.
     @Published var isHoldingSettingsWrites = false
 
-    /// Перепрошивка, которая ждёт конца разговора.
+    /// Конфигурация из Spark, которая ждёт конца разговора: в ней сменились
+    /// номер или SIP-пароль, а перерегистрация посреди звонка кладёт трубку.
     ///
-    /// **Живёт в памяти и только в памяти.** На диске это был бы номер,
-    /// SIP-пароль и настройки открытым текстом, лежащие в ожидании, — ровно то,
-    /// от чего вся линия ключей и уходит. Выход из приложения посреди разговора
-    /// теряет её, и нужен новый ключ: редкий случай ценой одного нажатия в
-    /// панели.
-    /// Ставится и снимается только через `applyReflash`, поэтому не
-    /// `private(set)`: расширение живёт в другом файле, а заводить ради одного
-    /// присваивания метод-обёртку значило бы прятать простое за сложным.
-    @Published var pendingReflash: PanelLink.ActivationPackage?
+    /// **Живёт в памяти и только в памяти.** Выйди приложение до конца
+    /// разговора — ничего не теряется: применённой ревизия не записана, и
+    /// следующий опрос привезёт её снова.
+    var pendingConfig: PanelLink.MachineConfig?
+
+    /// Короткое сообщение в строке панели — например, «Администратор сменил
+    /// номер». Гаснет само через минуту; беда и обновление важнее его.
+    @Published private(set) var panelNotice: String?
+    private var panelNoticeTask: Task<Void, Never>?
+
+    func showPanelNotice(_ text: String) {
+        panelNotice = text
+        panelNoticeTask?.cancel()
+        panelNoticeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 60_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.panelNotice = nil
+        }
+    }
+
 
     // Отдельного черновика для пароля SIP здесь нет: он обычное поле настроек,
     // а придержку записи на диск делает `isHoldingSettingsWrites` — та же, что

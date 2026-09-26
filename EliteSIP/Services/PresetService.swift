@@ -65,6 +65,11 @@ final class PresetService {
 
     private var isFetching = false
 
+    /// Проверку попросили, пока шла прежняя, — например, доступ только что
+    /// перевёл машину на другую предустановку. Спросим ещё раз по окончании,
+    /// а не через два часа.
+    private var checkAgain = false
+
     init(settings: @escaping () -> AppSettings,
          apply: @escaping (AppSettings, String) -> Void,
          isBlocked: @escaping () -> Bool,
@@ -127,7 +132,7 @@ final class PresetService {
             log("предустановки: у машины нет ключа канала")
             return
         }
-        guard !isFetching else { return }
+        guard !isFetching else { checkAgain = true; return }
         isFetching = true
         report?(true, nil)
 
@@ -148,8 +153,8 @@ final class PresetService {
         // отрезать его было бы нечем — сменить пару значит пересобрать
         // приложение на всех тридцати машинах.
         //
-        // Имя пользователя — идентификатор машины, пароль — ключ канала из
-        // пакета активации. Заголовком, а не через хранилище учётных данных:
+        // Имя пользователя — идентификатор машины, пароль — ключ канала,
+        // созданный самой машиной при привязке. Заголовком, а не через хранилище учётных данных:
         // там пара лежит под realm обновлений, и полагаться на совпадение realm
         // ради второй линии значило бы завязать её на чужую настройку.
         let pair = "\(now.panel.installationID):\(now.panel.channelKey)"
@@ -166,11 +171,16 @@ final class PresetService {
         request.setValue(Self.appVersion, forHTTPHeaderField: "X-EliteSIP-App")
         request.setValue(String(AppSettings.currentSchemaVersion), forHTTPHeaderField: "X-EliteSIP-Schema")
         request.setValue(String(now.panel.appliedRevision), forHTTPHeaderField: "X-EliteSIP-Revision")
+        request.setValue(String(now.panel.appliedConfigRevision), forHTTPHeaderField: "X-EliteSIP-Config")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             Task { @MainActor in
                 self?.isFetching = false
                 self?.receive(data: data, response: response, error: error, publicKey: publicKey)
+                if self?.checkAgain == true {
+                    self?.checkAgain = false
+                    self?.check()
+                }
             }
         }.resume()
     }
