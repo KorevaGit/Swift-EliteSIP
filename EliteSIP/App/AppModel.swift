@@ -2329,7 +2329,7 @@ final class AppModel: ObservableObject {
 
         // Автоподъём: без звонка и без окна, сразу ответ. При разговоре сюда
         // не доходит вовсе — занятому агент отвечает 486, см. guard выше.
-        if settings.autoAnswer.answers(call) {
+        if settings.autoAnswer.answers(call, numbers: settings.autoAnswerNumbers) {
             // не переводится: строка журнала
             append(level: .info, message: "автоподъём (\(settings.autoAnswer.rawValue)): вызов принят без оператора")
             Task { await self.answerIncomingCall() }

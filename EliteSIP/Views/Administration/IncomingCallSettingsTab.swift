@@ -73,25 +73,30 @@ struct IncomingCallSettingsTab: View {
                     set: { model.settings.autoAnswer = $0 }
                 )) {
                     ForEach(AutoAnswerMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
+                        Text(verbatim: mode.title).tag(mode)
                     }
                 }
-                .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: 320)
+                .frame(width: 220)
             }
-            switch model.settings.autoAnswer {
-            case .off:
-                SettingsNote("Вызов принимает оператор.")
-            case .always:
-                SettingsNote(
-                    "Любой входящий принимается сразу, без окна и без защиты от автокликеров. Во время разговора не срабатывает.",
-                    isAlarming: true
-                )
-            case .header:
-                SettingsNote("""
-                    Вызов принимается сразу, если АТС просит об этом заголовком:                     X-Autoanswer, Call-Info с answer-after, Alert-Info с auto answer                     или Answer-Mode: Auto. Во время разговора не срабатывает.
-                    """)
+            SettingsNote(verbatim: model.settings.autoAnswer.note)
+        }
+
+        if model.settings.autoAnswer == .list {
+            SettingsSection("Номера для автоподъёма") {
+                SettingsOrderedList(
+                    items: Binding(
+                        get: { model.settings.autoAnswerNumbers },
+                        set: { model.settings.autoAnswerNumbers = $0 }
+                    ),
+                    emptyNote: "Список пуст — автоподъём не сработает ни на один звонок.",
+                    addTitle: "Добавить номер",
+                    makeElement: { AutoAnswerNumber() }
+                ) { entry in
+                    TextField("Номер", text: entry.number)
+                        .labelsHidden()
+                        .font(.system(.body, design: .monospaced))
+                }
             }
         }
 

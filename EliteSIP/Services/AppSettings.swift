@@ -56,6 +56,10 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// панелью полем `autoAnswer`. Во время разговора не срабатывает ни в
     /// каком режиме: второй вызов занятому агент отклоняет сам.
     var autoAnswer: AutoAnswerMode = .off
+
+    /// Номера для режима автоподъёма «По списку». Сравниваются с номером
+    /// звонящего по цифрам. В других режимах хранится, но не действует.
+    var autoAnswerNumbers: [AutoAnswerNumber] = []
     var ringtone: RingtoneSettings = RingtoneSettings()
     var dtmf: DTMFSettings = DTMFSettings()
     var conference: ConferenceSettings = ConferenceSettings()
@@ -278,6 +282,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         ) ?? CallGuardPolicy()
         // Незнакомое значение — выключенный автоподъём, а не сломанный файл.
         autoAnswer = (try? container.decodeIfPresent(AutoAnswerMode.self, forKey: .autoAnswer)).flatMap { $0 } ?? .off
+        autoAnswerNumbers =
+            (try? container.decodeIfPresent([AutoAnswerNumber].self, forKey: .autoAnswerNumbers)).flatMap { $0 } ?? []
         queues = try container.decodeIfPresent(QueueDirectory.self, forKey: .queues) ?? QueueDirectory()
         ringtone = try container.decodeIfPresent(RingtoneSettings.self, forKey: .ringtone) ?? RingtoneSettings()
         dtmf = try container.decodeIfPresent(DTMFSettings.self, forKey: .dtmf) ?? DTMFSettings()
@@ -1173,6 +1179,8 @@ enum AutoAnswerMode: String, Codable, Sendable, CaseIterable, Identifiable {
     /// Только если АТС просит заголовком — как в MicroSIP, см.
     /// `SIPUserAgent.asksForAutoAnswer`.
     case header
+    /// Только звонки с номеров из `AppSettings.autoAnswerNumbers`.
+    case list
 
     var id: String { rawValue }
 
@@ -1181,16 +1189,62 @@ enum AutoAnswerMode: String, Codable, Sendable, CaseIterable, Identifiable {
         case .off: return NSLocalizedString("Выключен", comment: "автоподъём")
         case .always: return NSLocalizedString("Всегда", comment: "автоподъём")
         case .header: return NSLocalizedString("По SIP-заголовку", comment: "автоподъём")
+        case .list: return NSLocalizedString("По списку номеров", comment: "автоподъём")
+        }
+    }
+
+    /// Короткое пояснение под выбором.
+    var note: String {
+        switch self {
+        case .off: return NSLocalizedString("Вызов принимает оператор.", comment: "автоподъём")
+        case .always: return NSLocalizedString("Любой входящий принимается сразу.", comment: "автоподъём")
+        case .header: return NSLocalizedString("Если АТС просит автоответ заголовком, как в MicroSIP.", comment: "автоподъём")
+        case .list: return NSLocalizedString("Звонки с номеров из списка принимаются сразу.", comment: "автоподъём")
         }
     }
 
     /// Принять ли этот вызов без оператора.
-    func answers(_ call: SIPIncomingCall) -> Bool {
+    func answers(_ call: SIPIncomingCall, numbers: [AutoAnswerNumber]) -> Bool {
         switch self {
         case .off: return false
         case .always: return true
         case .header: return call.asksForAutoAnswer
+        case .list: return numbers.contains { $0.matches(call.callerNumber) }
         }
+    }
+}
+
+/// Номер из списка автоподъёма.
+struct AutoAnswerNumber: Codable, Sendable, Equatable, Identifiable, Hashable {
+    var id: UUID = UUID()
+    var number: String = ""
+
+    init(id: UUID = UUID(), number: String = "") {
+        self.id = id
+        self.number = number
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        number = try container.decodeIfPresent(String.self, forKey: .number) ?? ""
+    }
+
+    /// Совпадает ли с номером звонящего.
+    ///
+    /// По цифрам, а у длинных номеров — по последним десяти: один и тот же
+    /// городской приходит и как `+7…`, и как `8…`.
+    func matches(_ caller: String) -> Bool {
+        let mine = Self.digits(number)
+        let theirs = Self.digits(caller)
+        guard !mine.isEmpty, !theirs.isEmpty else { return false }
+        if mine == theirs { return true }
+        guard mine.count >= 10, theirs.count >= 10 else { return false }
+        return mine.suffix(10) == theirs.suffix(10)
+    }
+
+    static func digits(_ number: String) -> String {
+        number.filter { $0.isNumber || $0 == "*" || $0 == "#" }
     }
 }
 

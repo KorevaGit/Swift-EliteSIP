@@ -54,6 +54,10 @@ public struct ManagedFields: Sendable, Equatable {
     /// накладывает поля, и незнакомое значение там не применяется.
     public var autoAnswer: String?
 
+    /// Номера для режима автоподъёма `list`. Пустой список — «ни одного»,
+    /// отсутствие ключа — «панель этим не управляет».
+    public var autoAnswerNumbers: [String]?
+
     // MARK: - Блоки
 
     public struct DTMF: Sendable, Equatable, Decodable {
@@ -156,6 +160,7 @@ public struct ManagedFields: Sendable, Equatable {
         fields.acceptsAnyTLSCertificate = root["acceptsAnyTLSCertificate"] as? Bool
         fields.transport = root["transport"] as? String
         fields.autoAnswer = root["autoAnswer"] as? String
+        fields.autoAnswerNumbers = root["autoAnswerNumbers"] as? [String]
 
         return fields
     }

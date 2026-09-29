@@ -34,6 +34,11 @@ extension AppSettings {
             // Незнакомая строка не применяется — правило то же, что у транспорта.
             autoAnswer = mode
         }
+        if let numbers = fields.autoAnswerNumbers {
+            // Список заменяется целиком, как макросы: удалённый в панели номер
+            // обязан исчезнуть и на машине.
+            autoAnswerNumbers = numbers.map { AutoAnswerNumber(id: Self.identity($0), number: $0) }
+        }
 
         // Признак «этим управляет сервер» выводится из режима машины, а не из
         // файла, и ставится здесь — в одном месте на все управляемые поля.
@@ -72,6 +77,7 @@ extension AppSettings {
             || acceptsAnyTLSCertificate != other.acceptsAnyTLSCertificate
             || profiles.active.account.transport != other.profiles.active.account.transport
             || autoAnswer != other.autoAnswer
+            || autoAnswerNumbers.map(\.number) != other.autoAnswerNumbers.map(\.number)
     }
 
     // MARK: - Клавиши
