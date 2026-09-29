@@ -29,7 +29,8 @@ usage() {
                    [--from build/release] [--dry-run]
 
   --channel   куда выкладывать. stage — updates-stage.elitesip.vip (Caddy на
-              VPS), prod — get.elitesip.vip (бакет R2 за Worker'ом).
+              VPS), prod — СТАРЫЙ get.elitesip.vip (R2), выкладка
+              туда запрещена: канал сменён, см. docs/channel-transition.md.
   --version   какую версию выкладывать. По умолчанию — та, что стоит в
               Config/Version.xcconfig, то есть последняя выпущенная.
   --from      каталог с артефактами выпуска (по умолчанию build/release).
@@ -56,6 +57,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$channel" == "stage" || "$channel" == "prod" ]] || { usage; die "нужен --channel stage или prod"; }
+# Канал сменён с 0.1.40: боевые выпуски уходят на update.elitesip.vip:8081
+# через elitesip-publish из репозитория elitesip_update (docs/channel-transition.md).
+# prod здесь — старый R2, который установленные копии больше не читают.
+[[ "$channel" != "prod" ]] || die "боевой канал сменён на https://update.elitesip.vip:8081 — выкладывайте через elitesip-publish из elitesip_update (docs/channel-transition.md)"
 [[ -d "$from_dir" ]] || die "нет каталога с артефактами: $from_dir"
 
 config="Config/publish.local.json"
