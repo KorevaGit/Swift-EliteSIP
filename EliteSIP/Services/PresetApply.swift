@@ -30,6 +30,10 @@ extension AppSettings {
         applySiteAddresses(fields.siteAddresses)
         applyTLSTrust(fields.acceptsAnyTLSCertificate)
         applyTransport(fields.transport)
+        if let raw = fields.autoAnswer, let mode = AutoAnswerMode(rawValue: raw) {
+            // Незнакомая строка не применяется — правило то же, что у транспорта.
+            autoAnswer = mode
+        }
 
         // Признак «этим управляет сервер» выводится из режима машины, а не из
         // файла, и ставится здесь — в одном месте на все управляемые поля.
@@ -67,6 +71,7 @@ extension AppSettings {
             || siteAddresses != other.siteAddresses
             || acceptsAnyTLSCertificate != other.acceptsAnyTLSCertificate
             || profiles.active.account.transport != other.profiles.active.account.transport
+            || autoAnswer != other.autoAnswer
     }
 
     // MARK: - Клавиши

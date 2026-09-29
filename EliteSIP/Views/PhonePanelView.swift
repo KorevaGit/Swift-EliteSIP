@@ -16,8 +16,8 @@ import SwiftUI
 /// иначе стопка сообщала бы наверх идеальную высоту и утаскивала низ вниз.
 ///
 /// **Окно растягивается** — с 14 сентября 2026, по просьбе заказчика. По ширине
-/// тянется всё; по высоте — только то, во что целятся мышью: ряд управления,
-/// клавиши макросов и нижняя полоса. Строка состояния и шапка остаются своей
+/// тянется всё; по высоте — только клавиши макросов (с 29 сентября 2026: ряд
+/// управления и нижняя полоса больше не растут, окно тянут ради клавиш). Строка состояния и шапка остаются своей
 /// высоты — крупнее они не станут читаться лучше, а место отнимут. Лишняя
 /// высота делится между растяжимыми рядами поровну, прибавкой к каждому
 /// (`rowExtra`), а не пропорцией: так соседние ряды остаются различимыми по
@@ -241,7 +241,7 @@ struct PhonePanelView: View {
     /// Ряды макросов считаются и тогда, когда их место занимает поле перевода:
     /// прибавка обязана быть той же, что при сетке, — иначе ряд управления и
     /// кнопка звонка меняли бы размер в момент нажатия «Перевести».
-    private var stretchedRowCount: Int { 3 + macroRowCount }
+    private var stretchedRowCount: Int { macroRowCount }
 
     /// Высота нижней части без прибавок: ряд управления, сетка макросов или
     /// поле перевода, нижняя полоса и воздух между ними.
@@ -271,24 +271,11 @@ struct PhonePanelView: View {
     /// и они размываются. Остаток — меньше точки на ряд — уходит в воздух над
     /// нижней полосой.
     private func rowExtra(forLowerHeight available: CGFloat) -> CGFloat {
+        // Растут только ряды макросов; без них лишняя высота уходит в воздух
+        // над нижней полосой.
         let spare = available - lowerHeight(showingTransfer: false)
-        guard spare > 0 else { return 0 }
-        var extra = spare / CGFloat(stretchedRowCount)
-        if model.isTransferEntryVisible {
-            // Поле перевода бывает выше сетки. Тогда прибавка у рядов вокруг
-            // него уменьшается ровно настолько, чтобы оно поместилось, — а
-            // окно, если и этого мало, подрастает само (`minimumPanelHeight`).
-            let transferSpare = available - lowerHeight(showingTransfer: true)
-            extra = min(extra, max(transferSpare, 0) / 3)
-        }
-        return extra.rounded(.down)
-    }
-
-    /// Во сколько раз нижняя часть шире, чем в окне наименьшей ширины.
-    /// По нему растёт «История»: остальное в ряду тянется само.
-    private func widthRatio(forLowerWidth width: CGFloat) -> CGFloat {
-        let base = Theme.Metrics.panelWidth - Theme.Metrics.contentPadding * 2
-        return max(width / base, 1)
+        guard spare > 0, stretchedRowCount > 0 else { return 0 }
+        return (spare / CGFloat(stretchedRowCount)).rounded(.down)
     }
 
     /// Чем обрезается панель снизу. Со стеклом — ничем: прямоугольник во всю
@@ -599,7 +586,7 @@ struct PhonePanelView: View {
             // Ряд управления виден и в покое, только выключенным. Прятать его
             // целиком значит менять геометрию панели ровно в момент ответа на
             // вызов: макросы и всё под ними подскакивали бы на его высоту.
-            CallControls(rowExtra: extra)
+            CallControls()
 
             // Поле перевода занимает место сетки макросов, а не встаёт под ней:
             // пока оператор набирает номер перевода, макросы всё равно не
@@ -620,7 +607,7 @@ struct PhonePanelView: View {
 
             Spacer(minLength: 0)
 
-            bottomBar(rowExtra: extra, widthRatio: widthRatio(forLowerWidth: size.width))
+            bottomBar()
                 .padding(.top, Theme.Gap.macrosToAction)
         }
         // Рамка — явная и с выравниванием по верху. `GeometryReader` на
@@ -656,9 +643,9 @@ struct PhonePanelView: View {
     /// постоянно: перезвонить по пропущенному — основной способ исходящего
     /// звонка. Её ширина задана жёстко, чтобы кнопка звонка не меняла размер
     /// от подписи; в растянутом окне она растёт вместе с окном, в той же доле.
-    private func bottomBar(rowExtra: CGFloat, widthRatio: CGFloat) -> some View {
+    private func bottomBar() -> some View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
-            callButton(height: Theme.Metrics.actionHeight + rowExtra)
+            callButton(height: Theme.Metrics.actionHeight)
 
             Button {
                 NSApp.sendAction(#selector(AppDelegate.showCallHistoryWindow(_:)), to: nil, from: nil)
@@ -673,8 +660,8 @@ struct PhonePanelView: View {
             }
             .buttonStyle(.plain)
             .frame(
-                width: (Theme.Metrics.historyWidth * widthRatio).rounded(),
-                height: Theme.Metrics.actionHeight + rowExtra
+                width: Theme.Metrics.historyWidth,
+                height: Theme.Metrics.actionHeight
             )
             .themedControlSurface()
             .hoverHighlight()

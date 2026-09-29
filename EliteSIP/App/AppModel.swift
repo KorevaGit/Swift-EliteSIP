@@ -2321,6 +2321,21 @@ final class AppModel: ObservableObject {
         // Самопроверка держит микрофон и наушники; входящий важнее.
         cancelVoiceSelfTest()
 
+        callTasks[call.callID] = Task { [weak self] in
+            for await event in call.events {
+                self?.handle(incomingEvent: event, on: call.callID)
+            }
+        }
+
+        // Автоподъём: без звонка и без окна, сразу ответ. При разговоре сюда
+        // не доходит вовсе — занятому агент отвечает 486, см. guard выше.
+        if settings.autoAnswer.answers(call) {
+            // не переводится: строка журнала
+            append(level: .info, message: "автоподъём (\(settings.autoAnswer.rawValue)): вызов принят без оператора")
+            Task { await self.answerIncomingCall() }
+            return
+        }
+
         ringtone.start(
             settings: settings.ringtone,
             outputDeviceUID: settings.audio.outputDeviceUID
@@ -2337,12 +2352,6 @@ final class AppModel: ObservableObject {
                 Task { await self?.declineIncomingCall() }
             }
         )
-
-        callTasks[call.callID] = Task { [weak self] in
-            for await event in call.events {
-                self?.handle(incomingEvent: event, on: call.callID)
-            }
-        }
     }
 
     private func handle(incomingEvent event: SIPCallEvent, on lineID: String) {

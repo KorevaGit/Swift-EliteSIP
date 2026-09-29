@@ -1988,6 +1988,7 @@ public actor SIPUserAgent {
             callerNumber: from?.uri.user ?? "",
             callerName: from?.displayName,
             requestsAutoAnswer: Self.requestsAutoAnswer(request),
+            asksForAutoAnswer: Self.asksForAutoAnswer(request.headers),
             calledNumber: request.to?.uri.user ?? account.username,
             offer: request.body,
             offerContentType: request.contentType,
@@ -2013,6 +2014,37 @@ public actor SIPUserAgent {
         guard let value = request.headers.first("X-Autoanswer") else { return false }
         let normalized = value.trimmingCharacters(in: .whitespaces).lowercased()
         return normalized == "true" || normalized == "yes" || normalized == "1"
+    }
+
+    /// Просит ли вызов автоподъём любым из известных способов.
+    ///
+    /// Разные АТС и телефоны пишут это по-разному; MicroSIP понимает
+    /// `Call-Info: …;answer-after=N` и `Alert-Info` с `Auto Answer`, мы —
+    /// это и вдобавок `X-Autoanswer`/`X-Auto-Answer`, `intercom` в
+    /// `Alert-Info`/`Call-Info` и `Answer-Mode`/`Priv-Answer-Mode: Auto`
+    /// из RFC 5373. Задержка из `answer-after` не учитывается: автоподъём у
+    /// нас без задержки.
+    public static func asksForAutoAnswer(_ headers: SIPHeaders) -> Bool {
+        func truthy(_ value: String) -> Bool {
+            let normalized = value.trimmingCharacters(in: .whitespaces).lowercased()
+            return normalized == "true" || normalized == "yes" || normalized == "1"
+        }
+        for name in ["X-Autoanswer", "X-Auto-Answer"] {
+            if headers.values(name).contains(where: truthy) { return true }
+        }
+        for name in ["Answer-Mode", "Priv-Answer-Mode"] {
+            if headers.values(name).contains(where: {
+                $0.split(separator: ";").first?.trimmingCharacters(in: .whitespaces).lowercased() == "auto"
+            }) { return true }
+        }
+        let markers = ["answer-after", "auto answer", "auto-answer", "autoanswer", "intercom"]
+        for name in ["Call-Info", "Alert-Info"] {
+            for value in headers.values(name) {
+                let lowered = value.lowercased()
+                if markers.contains(where: lowered.contains) { return true }
+            }
+        }
+        return false
     }
 
     /// Отвечает на чужой повторный INVITE.

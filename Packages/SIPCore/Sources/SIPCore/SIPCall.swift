@@ -41,14 +41,26 @@ public struct SIPIncomingCall: Sendable {
     /// на раздачу лида — снято с боевых вызовов 28 августа 2026, три раздачи
     /// подряд с ним и семнадцать прочих входящих без него.
     ///
-    /// Для `SIPCore` это только факт из заголовка, а не команда. **Мы ему не
-    /// подчиняемся, и это не упущение.** Приложение написано затем, чтобы
+    /// Для `SIPCore` это только факт из заголовка, а не команда. Подчиняется
+    /// ему приложение только в режиме автоподъёма «по SIP-заголовку» (с 29
+    /// сентября 2026, по просьбе заказчика) — через `asksForAutoAnswer`. По
+    /// умолчанию автоподъём выключен, и тогда верно исходное рассуждение: Приложение написано затем, чтобы
     /// принятие вызова требовало живого человека (docs/anti-autoclicker.md);
     /// автоответ по просьбе сервера отдал бы лид пустому месту — ровно то, от
     /// чего защищаемся. Наверх факт уходит потому, что в нём есть другой смысл:
     /// он единственный отличает раздачу от обычного звонка коллеги, у которого
     /// такой же внутренний номер и такое же имя.
     public let requestsAutoAnswer: Bool
+
+    /// Вызов просит автоподъём хоть каким-то из известных заголовков.
+    ///
+    /// Шире `requestsAutoAnswer`: кроме `X-Autoanswer` сюда входят `Call-Info`
+    /// с `answer-after`, `Alert-Info` с `auto answer`/`intercom` и
+    /// `Answer-Mode: Auto` (RFC 5373) — то же, что понимает MicroSIP, и чуть
+    /// больше. Отдельным полем, а не расширением прежнего: прежнее отличает
+    /// раздачу, и чужой заголовок не должен делать звонок коллеги раздачей.
+    /// Подчиняться ли просьбе, решает настройка автоподъёма в приложении.
+    public let asksForAutoAnswer: Bool
 
     /// Номер, на который звонили. Отличается от нашего, когда вызов пришёл
     /// через очередь или переадресацию.
@@ -66,6 +78,7 @@ public struct SIPIncomingCall: Sendable {
         callerNumber: String,
         callerName: String?,
         requestsAutoAnswer: Bool = false,
+        asksForAutoAnswer: Bool? = nil,
         calledNumber: String,
         offer: Data,
         offerContentType: String?,
@@ -75,6 +88,7 @@ public struct SIPIncomingCall: Sendable {
         self.callerNumber = callerNumber
         self.callerName = callerName
         self.requestsAutoAnswer = requestsAutoAnswer
+        self.asksForAutoAnswer = asksForAutoAnswer ?? requestsAutoAnswer
         self.calledNumber = calledNumber
         self.offer = offer
         self.offerContentType = offerContentType

@@ -66,6 +66,35 @@ struct IncomingCallSettingsTab: View {
     }
 
     var body: some View {
+        SettingsSection("Автоподъём") {
+            SettingsRow("Режим") {
+                Picker("", selection: Binding(
+                    get: { model.settings.autoAnswer },
+                    set: { model.settings.autoAnswer = $0 }
+                )) {
+                    ForEach(AutoAnswerMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 320)
+            }
+            switch model.settings.autoAnswer {
+            case .off:
+                SettingsNote("Вызов принимает оператор.")
+            case .always:
+                SettingsNote(
+                    "Любой входящий принимается сразу, без окна и без защиты от автокликеров. Во время разговора не срабатывает.",
+                    isAlarming: true
+                )
+            case .header:
+                SettingsNote("""
+                    Вызов принимается сразу, если АТС просит об этом заголовком:                     X-Autoanswer, Call-Info с answer-after, Alert-Info с auto answer                     или Answer-Mode: Auto. Во время разговора не срабатывает.
+                    """)
+            }
+        }
+
         SettingsSection("Защита") {
             // Выключатель не запирается, даже когда значение приезжает из
             // панели, — и это отмена решения M9.

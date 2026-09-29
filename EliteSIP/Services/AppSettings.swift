@@ -49,6 +49,13 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// три поля, что были у настроек окна, а остальные её декодер добирает
     /// значениями по умолчанию. Файл настроек от обновления не пострадает.
     var incomingCall: CallGuardPolicy
+
+    /// Автоподъём входящего: выключен, всегда или по SIP-заголовку.
+    ///
+    /// Общий на все профили, как и прочие настройки приёма. Управляется
+    /// панелью полем `autoAnswer`. Во время разговора не срабатывает ни в
+    /// каком режиме: второй вызов занятому агент отклоняет сам.
+    var autoAnswer: AutoAnswerMode = .off
     var ringtone: RingtoneSettings = RingtoneSettings()
     var dtmf: DTMFSettings = DTMFSettings()
     var conference: ConferenceSettings = ConferenceSettings()
@@ -269,6 +276,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         incomingCall = try container.decodeIfPresent(
             CallGuardPolicy.self, forKey: .incomingCall
         ) ?? CallGuardPolicy()
+        // Незнакомое значение — выключенный автоподъём, а не сломанный файл.
+        autoAnswer = (try? container.decodeIfPresent(AutoAnswerMode.self, forKey: .autoAnswer)).flatMap { $0 } ?? .off
         queues = try container.decodeIfPresent(QueueDirectory.self, forKey: .queues) ?? QueueDirectory()
         ringtone = try container.decodeIfPresent(RingtoneSettings.self, forKey: .ringtone) ?? RingtoneSettings()
         dtmf = try container.decodeIfPresent(DTMFSettings.self, forKey: .dtmf) ?? DTMFSettings()
@@ -1156,6 +1165,35 @@ enum SettingsStore {
 /// живёт не по его вкусу: панель висит поверх CRM весь день, и если CRM светлая,
 /// а система тёмная, то тёмная панель на светлом фоне бьёт по глазам сильнее,
 /// чем несовпадение с остальной системой.
+/// Режим автоподъёма входящего вызова. Строки совпадают с полем `autoAnswer`
+/// предустановки в панели.
+enum AutoAnswerMode: String, Codable, Sendable, CaseIterable, Identifiable {
+    case off
+    case always
+    /// Только если АТС просит заголовком — как в MicroSIP, см.
+    /// `SIPUserAgent.asksForAutoAnswer`.
+    case header
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .off: return NSLocalizedString("Выключен", comment: "автоподъём")
+        case .always: return NSLocalizedString("Всегда", comment: "автоподъём")
+        case .header: return NSLocalizedString("По SIP-заголовку", comment: "автоподъём")
+        }
+    }
+
+    /// Принять ли этот вызов без оператора.
+    func answers(_ call: SIPIncomingCall) -> Bool {
+        switch self {
+        case .off: return false
+        case .always: return true
+        case .header: return call.asksForAutoAnswer
+        }
+    }
+}
+
 enum AppearanceSetting: String, Codable, Sendable, CaseIterable, Identifiable {
 
     case system

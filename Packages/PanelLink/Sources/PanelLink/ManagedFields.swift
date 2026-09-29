@@ -48,6 +48,12 @@ public struct ManagedFields: Sendable, Equatable {
     /// протоколом не приезжает: умолчания RFC 3261 приложение знает само.
     public var transport: String?
 
+    /// Автоподъём входящего: `off`, `always` или `header`.
+    ///
+    /// Строкой по той же причине, что и `transport`: опознаёт её тот, кто
+    /// накладывает поля, и незнакомое значение там не применяется.
+    public var autoAnswer: String?
+
     // MARK: - Блоки
 
     public struct DTMF: Sendable, Equatable, Decodable {
@@ -149,6 +155,7 @@ public struct ManagedFields: Sendable, Equatable {
         fields.siteAddresses = decode(SiteAddresses.self, from: root["siteAddresses"])
         fields.acceptsAnyTLSCertificate = root["acceptsAnyTLSCertificate"] as? Bool
         fields.transport = root["transport"] as? String
+        fields.autoAnswer = root["autoAnswer"] as? String
 
         return fields
     }
