@@ -215,7 +215,7 @@ struct PhonePanelView: View {
     /// его выводили, и нужен ровно один кадр.
     private var fallbackTopHeight: CGFloat {
         titleBarInset
-            + Theme.Gap.titleToPanelContent
+            + Theme.Gap.titleToStatus
             + Theme.Metrics.statusBarHeight
             + Theme.Gap.statusToHeader
             + Theme.Metrics.headerHeight
@@ -374,7 +374,7 @@ struct PhonePanelView: View {
         .frame(height: Theme.Metrics.statusBarHeight)
         // Место под полосу заголовка занимает `titleBar` сверху, здесь остаётся
         // только воздух до неё.
-        .padding(.top, Theme.Gap.titleToPanelContent)
+        .padding(.top, Theme.Gap.titleToStatus)
     }
 
     /// Кнопка выбора профиля: точка состояния, номер, шеврон.
