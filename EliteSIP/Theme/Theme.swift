@@ -73,14 +73,21 @@ enum Theme {
         /// вопрос «что это за окно», только с ответом «и под каким номером».
         /// Воздуха ровно столько, чтобы точки светофора её не касались.
         static let titleToStatus: CGFloat = 4
+        /// Полоса заголовка → первая строка панели звонка.
+        ///
+        /// Равна боковому полю и нижнему (`Metrics.contentPadding`): от рамки
+        /// окна до содержимого со всех четырёх сторон одно и то же. 30 сентября
+        /// 2026: сверху было 4 против 12 по бокам, и панель читалась сдвинутой
+        /// к заголовку.
+        static let titleToPanelContent: CGFloat = 10
         /// Строка состояния → поле ввода.
-        static let statusToHeader: CGFloat = 5
+        static let statusToHeader: CGFloat = 4
         /// Поле ввода → ряд управления.
-        static let headerToControls: CGFloat = 5
+        static let headerToControls: CGFloat = 4
         /// Ряд управления → макросы.
-        static let controlsToMacros: CGFloat = 15
+        static let controlsToMacros: CGFloat = 10
         /// Макросы → кнопка завершения.
-        static let macrosToAction: CGFloat = 15
+        static let macrosToAction: CGFloat = 10
 
         // Ярусы окна входящего. Тоже поимённо и тоже неравные: шапка и карточка
         // отвечают на «что это за вызов» и стоят близко, а кнопки от них
@@ -569,9 +576,9 @@ enum Theme {
         // неравные по смыслу и живут поимённо в `Theme.Gap` (принцип 6).
         static let hairSpacing: CGFloat = 2
         static let tightSpacing: CGFloat = 4
-        static let contentPadding: CGFloat = 12
+        static let contentPadding: CGFloat = 10
         static let sectionSpacing: CGFloat = 8
-        static let elementSpacing: CGFloat = 6
+        static let elementSpacing: CGFloat = 5
 
         /// Окно первоначальной настройки (этап 9). Размер один на все пять
         /// экранов, посчитан по самому высокому — «Первый пользователь» с
