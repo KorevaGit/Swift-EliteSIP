@@ -85,7 +85,7 @@ enum EmojiSegments {
         return name.contains("AppleColorEmoji")
     }
 
-    private static var cache: [String: NSImage] = [:]
+    nonisolated(unsafe) private static var cache: [String: NSImage] = [:]
 
     private static func bundledImage(for cluster: String) -> NSImage? {
         let full = cluster.unicodeScalars.map { String($0.value, radix: 16) }.joined(separator: "_")
