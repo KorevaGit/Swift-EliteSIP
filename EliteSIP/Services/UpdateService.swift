@@ -69,7 +69,13 @@ final class UpdateService: NSObject, ObservableObject {
     ///
     /// С `reminderInterval` это разные сроки и разные решения: тот говорит,
     /// когда напомнить про уже скачанное, этот — когда идти в сеть.
-    private static let checkInterval: TimeInterval = 2 * 60 * 60
+    ///
+    /// **30 сентября 2026 такт сокращён до получаса, и добавлена проверка при
+    /// пробуждении.** Два часа оказались не двумя: `Timer` считает только время
+    /// бодрствования, и на ноутбуке, который засыпает с крышкой, удалённая в
+    /// панели кнопка провисела на машине с полудня до утра. Файлы на канале
+    /// крошечные, полчаса ему не в тягость.
+    private static let checkInterval: TimeInterval = 30 * 60
 
     /// Разброс вокруг такта.
     ///
@@ -77,7 +83,7 @@ final class UpdateService: NSObject, ObservableObject {
     /// просыпаются в одну секунду. Всплеск дешевле размазать здесь, чем
     /// пережить лимитом на стороне канала: тариф зоны бесплатный, и правило
     /// ограничения частоты там всего одно — оно ушло на пакеты активации.
-    private static let checkJitter: TimeInterval = 10 * 60
+    private static let checkJitter: TimeInterval = 5 * 60
 
     /// Версия, которая скачана, проверена и ждёт решения. Пока она не `nil`,
     /// в панели видна кнопка «Обновить» — иначе состояние «готово к установке»
@@ -127,6 +133,11 @@ final class UpdateService: NSObject, ObservableObject {
     /// регистрацию, звук и окна, и отправлять его при этом ещё и в сеть значит
     /// соревноваться с самим собой за первые секунды, которые человек видит.
     private static let firstCheckDelay: TimeInterval = 5
+
+    /// Пауза перед проверкой после пробуждения, и она же — верх разброса.
+    private static let wakeCheckDelay: TimeInterval = 30
+
+    private var wakeObserver: NSObjectProtocol?
 
     /// Идёт ли разговор. Замыкание, а не ссылка на модель: сервису не нужно
     /// ничего о ней знать, кроме одного этого факта.
@@ -260,6 +271,32 @@ final class UpdateService: NSObject, ObservableObject {
                           selector: #selector(firstCheckFired), userInfo: nil, repeats: false)
         RunLoop.main.add(first, forMode: .common)
         firstCheck = first
+
+        // Сон останавливает такт, а просыпаться машина может хоть через сутки.
+        // Проверка — через полминуты с разбросом: сеть поднимается не сразу,
+        // а контора открывает крышки в одну и ту же минуту.
+        if wakeObserver == nil {
+            wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.scheduleWakeCheck() }
+            }
+        }
+    }
+
+    /// Проверка после пробуждения; такт после неё заводится заново.
+    private func scheduleWakeCheck() {
+        cycle?.invalidate()
+        let delay = Self.wakeCheckDelay + TimeInterval.random(in: 0...Self.wakeCheckDelay)
+        let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                // не переводится: строка журнала
+                self?.runCycle(reason: "после сна")
+                self?.scheduleNextCycle()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        cycle = timer
     }
 
     /// Заводит следующий такт со случайным разбросом.
