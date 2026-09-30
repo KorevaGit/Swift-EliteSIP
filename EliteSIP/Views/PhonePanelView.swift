@@ -404,8 +404,7 @@ struct PhonePanelView: View {
                     .lineLimit(1)
 
                 if let label = model.panelStatusLabel {
-                    Text(label)
-                        .font(Theme.Text.statusDetail)
+                    EmojiText(text: label, font: Theme.Text.statusDetail, size: 11)
                         .compatForeground(Theme.Palette.textTertiary)
                         .lineLimit(1)
                         .truncationMode(.tail)
