@@ -86,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// срабатывает ровно с задержкой опроса, и на двухчасовом такте уволенный
     /// сотрудник работал бы ещё два часа после нажатия «отозвать».
     private var revocationTimer: Timer?
+    private var wakeObserver: NSObjectProtocol?
 
     /// Наблюдение за списком линий: предложение обновиться не показывается в
     /// разговоре, а начавшийся звонок закрывает уже открытое.
@@ -219,12 +220,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         startUpdateService()
     }
 
-    /// Завести проверку отзыва: раз в пятнадцать минут и сразу при запуске.
+    /// Завести проверку отзыва, конфигурации и предустановок: раз в пятнадцать
+    /// минут, сразу при запуске и после пробуждения.
     ///
     /// При запуске — не оптимизация, а требование: машину увозят выключенной, и
     /// отзыв, выложенный вечером, должен сработать при первом же включении, а
     /// не через четверть часа после начала рабочего дня.
-    private func startRevocationWatch(_ machines: MachineService) {
+    ///
+    /// Предустановки ходят тем же тактом, а не двухчасовым тактом обновлений
+    /// программы (тот остался как был): номер, пароль и кнопки, правленные в
+    /// панели, должны доезжать за четверть часа. После сна — отдельная проверка:
+    /// `Timer` не считает время сна, и кнопка, удалённая в панели днём, висела
+    /// на закрытом ноутбуке до утра (30 сентября 2026).
+    private func startRevocationWatch(_ machines: MachineService, presets: PresetService) {
         revocationTimer?.invalidate()
         revocationTimer = Timer.scheduledTimer(
             withTimeInterval: MachineService.revocationInterval, repeats: true
@@ -232,11 +240,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             Task { @MainActor in
                 machines.checkRevocation()
                 machines.checkConfig()
+                presets.check()
             }
         }
         Task { @MainActor in
             machines.checkRevocation()
             machines.checkConfig()
+        }
+
+        // Через полминуты с разбросом: сеть поднимается не сразу, а контора
+        // открывает крышки в одну и ту же минуту.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 30...60) * 1_000_000_000))
+                machines.checkRevocation()
+                machines.checkConfig()
+                presets.check()
+            }
         }
     }
 
@@ -301,7 +323,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
         machineService = machines
-        startRevocationWatch(machines)
+        startRevocationWatch(machines, presets: presets)
 
         let service = UpdateService(
             isBusy: { [weak self] in self?.model.isInCall ?? true },
