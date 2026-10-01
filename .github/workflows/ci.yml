@@ -26,18 +26,30 @@ concurrency:
 jobs:
   compat:
     name: Совместимость и тесты
-    runs-on: macos-latest
+    # Образ и Xcode закреплены оба (1 октября 2026). Xcode 27 держит нижнюю
+    # планку 12.0 и срез x86_64 под Catalina не собирает вовсе — см.
+    # docs/release.md, «Xcode 27 не собирает под Catalina». `macos-latest`
+    # однажды приедет с Xcode 27 по умолчанию, и CI покраснеет не из-за кода.
+    # Выпуск собирается тем же 26.6 (DEVELOPER_DIR на машине выпуска), так что
+    # CI проверяет ровно тот компилятор, которым выходит сборка. Поднимать
+    # версию — только вместе с машиной выпуска.
+    runs-on: macos-26
     timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Версия инструментов
-        # Не для красоты: сборка требует Swift 6 и формата проекта Xcode 16+, и
-        # когда раннер однажды приедет с другим Xcode, разбирать падение надо
-        # начиная с этой строки. Пин версии появится здесь же, когда станет
-        # известно, какой образ раннера мы принимаем.
+        # Не для красоты: если образ однажды уберёт Xcode 26.6, падать надо
+        # здесь и с понятной строкой, а не на сборке пакетов.
         run: |
+          if [[ ! -d "$DEVELOPER_DIR" ]]; then
+            echo "::error::нет $DEVELOPER_DIR — на образе раннера больше нет Xcode 26.6"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
           xcodebuild -version
           swift --version
 
