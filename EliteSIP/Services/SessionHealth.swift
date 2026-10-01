@@ -27,7 +27,7 @@ enum SessionHealth {
     private static var markerURL: URL {
         SettingsStore.fileURL
             .deletingLastPathComponent()
-            .appendingPathComponent("session.running")
+            .appendingPathComponent("session-running.done")
     }
 
     /// Прошлый сеанс не дошёл до штатного выхода.
