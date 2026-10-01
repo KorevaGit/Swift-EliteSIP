@@ -1121,12 +1121,20 @@ enum SettingsStore {
     }
 
     static func load() -> AppSettings {
+        let data: Data
         do {
-            let data = try Data(contentsOf: fileURL)
+            data = try Data(contentsOf: fileURL)
+        } catch {
+            // Отсутствие файла — норма при первом запуске.
+            return .default
+        }
+        do {
             return try JSONDecoder().decode(AppSettings.self, from: data)
         } catch {
-            // Отсутствие файла — норма при первом запуске. Испорченный файл тоже
-            // не повод падать: пользователь просто увидит пустые настройки.
+            // Испорченный файл тоже не повод падать: пользователь увидит пустые
+            // настройки. Но прежде — копия рядом: умолчания уйдут на диск
+            // первой же записью и затрут единственный след того, что было.
+            preserveUnreadable(data)
             return .default
         }
     }
@@ -1143,6 +1151,17 @@ enum SettingsStore {
             let header = try? JSONDecoder().decode(Header.self, from: data)
         else { return nil }
         return header.schemaVersion ?? 1
+    }
+
+    /// Копия нечитаемого файла настроек — `settings.unreadable-<время>.json`,
+    /// права те же `0600`: в нём пароли профилей.
+    private static func preserveUnreadable(_ data: Data) {
+        let stamp = ISO8601DateFormatter().string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+        let copy = fileURL.deletingLastPathComponent()
+            .appendingPathComponent("settings.unreadable-\(stamp).json")
+        FileManager.default.createFile(
+            atPath: copy.path, contents: data, attributes: [.posixPermissions: 0o600])
     }
 
     static func save(_ settings: AppSettings) throws {

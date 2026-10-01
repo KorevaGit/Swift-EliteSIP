@@ -2,12 +2,12 @@ import Foundation
 
 // MARK: - Разовый сброс при переходе на Spark
 
-/// **Появился в 0.1.43, оставлен в 0.1.44 и удаляется в следующем выпуске
-/// вместе с вызовом из `applicationDidFinishLaunching`.** В 0.1.44 сменился
-/// ключ предустановок, а Sparkle отдаёт только последнюю сборку: машина,
-/// пропустившая 0.1.43, сразу встанет на 0.1.44 и без этого сброса осталась
-/// бы на ключе EliteSupport. Сброшенные в 0.1.43 машины несут отметку и второй
-/// раз не сбрасываются.
+/// **Появился в 0.1.43 и живёт, пока на парке могут остаться машины на
+/// 0.1.42 и раньше.** Sparkle отдаёт только последнюю сборку: машина,
+/// пропустившая 0.1.43 (ноутбук пролежал выключенным), встанет сразу на
+/// текущую и без этого сброса осталась бы на ключе EliteSupport. Сброшенные
+/// машины несут отметку и второй раз не сбрасываются. Убирать — когда в
+/// журнале канала (`X-EliteSIP-App`) не останется версий ниже 0.1.43.
 ///
 /// С 25 сентября 2026 ключи рабочих мест выпускает не панель EliteSupport, а
 /// Spark: ключ выписывается на пользователя Битрикса, а файл предустановок
@@ -37,11 +37,24 @@ extension AppModel {
             .appendingPathComponent("spark-migration-reset.done")
     }
 
+    /// Вторая отметка, в `UserDefaults`, — на случай, если файл не записался.
+    ///
+    /// Одной файловой отметки мало: не ляжет она (права, полный диск) — и
+    /// машину, поднятую заново ключом Spark, этот сброс стирал бы на каждом
+    /// запуске, вместе с журналом, по которому причину и искали бы. Хранилище
+    /// другое, поэтому отказ одного не отменяет другое.
+    private static let sparkMigrationDefaultsKey = "SparkMigrationResetDone"
+
+    private static var isSparkMigrationDone: Bool {
+        FileManager.default.fileExists(atPath: sparkMigrationMarkerURL.path)
+            || UserDefaults.standard.bool(forKey: sparkMigrationDefaultsKey)
+    }
+
     /// Сбрасывает машину, если это первый запуск сборки на уже настроенной
     /// машине. Зовётся при запуске до выбора между мастером и панелью.
     func performSparkMigrationResetIfNeeded() {
         let marker = Self.sparkMigrationMarkerURL
-        guard !FileManager.default.fileExists(atPath: marker.path) else { return }
+        guard !Self.isSparkMigrationDone else { return }
 
         let wasConfigured = firstRun == .passed
         if wasConfigured {
@@ -52,6 +65,7 @@ extension AppModel {
 
         // Отметка — после сброса: упади он посередине, следующий запуск
         // повторит его, а не оставит машину наполовину стёртой без попытки.
+        UserDefaults.standard.set(true, forKey: Self.sparkMigrationDefaultsKey)
         do {
             try FileManager.default.createDirectory(
                 at: marker.deletingLastPathComponent(), withIntermediateDirectories: true)

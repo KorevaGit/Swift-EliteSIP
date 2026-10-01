@@ -212,6 +212,9 @@ final class MachineService {
         request.setValue(String(AppSettings.currentSchemaVersion), forHTTPHeaderField: "X-EliteSIP-Schema")
         request.setValue(String(panel.appliedRevision), forHTTPHeaderField: "X-EliteSIP-Revision")
         request.setValue(String(panel.appliedConfigRevision), forHTTPHeaderField: "X-EliteSIP-Config")
+        for (name, value) in SessionHealth.headers {
+            request.setValue(value, forHTTPHeaderField: name)
+        }
         return request
     }
 }

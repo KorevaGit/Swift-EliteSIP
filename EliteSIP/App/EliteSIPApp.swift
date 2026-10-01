@@ -96,6 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsHoldWatch: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Первым делом: отметка сеанса для `X-EliteSIP-Unclean-Exit`.
+        SessionHealth.noteLaunch()
         // Тема — до первого окна: иначе панель успевает нарисоваться в
         // системном оформлении и перекрашивается уже на глазах.
         NSApp.appearance = model.settings.appearance.appKitAppearance
@@ -160,7 +162,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         #endif
 
-        // Только в 0.1.43: разовый сброс машин, поднятых ключом EliteSupport.
+        // Разовый сброс машин, поднятых ключом EliteSupport (с 0.1.43).
         // До выбора между мастером и панелью — сброшенная машина уходит в
         // мастер тем же путём, что и свежая. См. AppModel+SparkMigrationReset.
         model.performSparkMigrationResetIfNeeded()
@@ -434,6 +436,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             limit.cancel()
             self.model.append(level: .info, message: "обновление: регистрация снята, ставим")
             UserDefaults.standard.synchronize()
+            SessionHealth.noteCleanExit()
             done()
         }
     }
@@ -534,6 +537,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         model.append(level: .info, message: "выход")
         UserDefaults.standard.synchronize()
+        SessionHealth.noteCleanExit()
         exit(0)
     }
 

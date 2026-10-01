@@ -698,6 +698,32 @@ final class AppModel: ObservableObject {
         append(level: .info, message: "отключено")
     }
 
+    /// Снимает регистрацию при сбросе машины — сразу, не дожидаясь ответа АТС.
+    ///
+    /// Сброс стирает настройки, а агент держит свою копию учётной записи в
+    /// памяти: до 0.1.58 он переживал сброс и продолжал обновлять REGISTER и
+    /// принимать INVITE. Отозванный ноутбук получал лиды из очереди под старым
+    /// номером до выхода из приложения, а перепривязанный к новому номеру
+    /// оставался зарегистрирован старым — `connect()` молчит, пока агент жив.
+    ///
+    /// Агент и насос событий отцепляются здесь же, синхронно: мастер после
+    /// сброса может поднять новую регистрацию раньше, чем старая снимется, и
+    /// события уходящего агента не должны перекрыть её состояние. Само снятие
+    /// (REGISTER с `Expires: 0`) идёт следом, по учётке, которую агент держит
+    /// в памяти. Линий здесь нет — сброс разрешён только без них.
+    func dropRegistrationForReset() {
+        isOfflineByChoice = false
+        isReconnectPending = false
+        guard let agent else { return }
+        self.agent = nil
+        eventPump?.cancel()
+        eventPump = nil
+        teardownAllLines()
+        registration = .idle
+        append(level: .info, message: "сброс: регистрация на АТС снимается")
+        Task { await agent.stop() }
+    }
+
     func reconnect() async {
         guard canDisconnect else {
             append(level: .warning, message: "переподключение недоступно: идёт разговор")
@@ -717,6 +743,8 @@ final class AppModel: ObservableObject {
     private func noteRegistrationChanged() {
         registrationSlowTask?.cancel()
         registrationSlowTask = nil
+
+        SessionHealth.noteRegistration(registration)
 
         switch registration {
         case .registered: consecutiveRegistrationFailures = 0

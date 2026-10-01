@@ -23,7 +23,14 @@ extension AppModel {
 
     /// Запускается один раз при старте приложения.
     func startAutoConnect() {
-        guard networkMonitor == nil else { return }
+        // Наблюдатели уже стоят — значит, приложение живёт с прошлого прохода
+        // мастера: машину сбросили и подняли заново без перезапуска. Тогда
+        // заводить нечего, но подключиться надо: до 0.1.58 здесь был голый
+        // `return`, и перепривязанная машина молчала до перезапуска.
+        guard networkMonitor == nil else {
+            Task { await connectIfPossible() }
+            return
+        }
 
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] path in
@@ -158,7 +165,12 @@ extension AppModel {
     /// либо уже устоится, либо следующее событие пути придёт снова.
     private func reconnectIfIdle() async {
         guard canDisconnect else {
-            append(level: .info, message: "переподключение отложено: идёт разговор")
+            // Отложено — значит, выполнится по концу разговора. До 0.1.58
+            // признак здесь не взводился, и после звонка агент оставался на
+            // сокете прежней сети: «зарегистрирован» на панели, а входящие не
+            // доходят, пока не накопятся пять отказов регистрации.
+            isReconnectPending = true
+            append(level: .info, message: "переподключение отложено до конца разговора")
             return
         }
         await reconnect()

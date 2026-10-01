@@ -113,7 +113,7 @@ lipo -archs "$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configur
 (cd Packages/Compat && swift test) && (cd Packages/Diagnostics && swift test) \
   && (cd Packages/SIPCore && swift test) && (cd Packages/MediaCore && swift test) \
   && (cd Packages/CallGuard && swift test) && (cd Packages/AdminAccess && swift test) \
-  && (cd Packages/CallHistory && swift test)
+  && (cd Packages/CallHistory && swift test) && (cd Packages/PanelLink && swift test)
 ```
 
 Подписи проверяются отдельно от кода: каталог собирается из того, что извлёк
