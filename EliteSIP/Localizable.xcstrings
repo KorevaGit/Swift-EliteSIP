@@ -11261,19 +11261,19 @@
         }
       }
     },
-    "Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3.": {
+    "Этот файл не читается как звук. Подойдут MP3, WAV и OGG, а также M4A, AIFF и CAF.": {
       "comment": "выбранный файл не годится в рингтоны",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This file cannot be read as audio. WAV, AIFF, CAF, M4A and MP3 will do."
+            "value": "This file cannot be read as audio. MP3, WAV and OGG will do, as well as M4A, AIFF and CAF."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3."
+            "value": "Этот файл не читается как звук. Подойдут MP3, WAV и OGG, а также M4A, AIFF и CAF."
           }
         }
       }

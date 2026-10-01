@@ -3,11 +3,11 @@ import MediaCore
 
 /// Звонок входящего вызова.
 ///
-/// Синтезируется, а не проигрывается из файла, и на то две причины. Первая —
-/// файл пришлось бы либо рисовать самим, либо тащить чужой с его лицензией.
-/// Вторая важнее: рингтон обязан звучать до того, как поднимется тракт
-/// разговора, и обязан замолчать раньше него. Со своим генератором это
-/// два вызова, а не переговоры с системным проигрывателем.
+/// Стандартный звонок — классический телефонный, файлом в бандле
+/// (`Sounds/classic-phone-ring.wav`). Файл целиком читается в буфер и
+/// зацикливается, так что рингтон по-прежнему два вызова: звучит до того, как
+/// поднимется тракт разговора, и замолкает раньше него. Синтезированный цикл
+/// остался запасным — на случай, если файла в бандле не окажется.
 ///
 /// Свой `AVAudioEngine`, отдельный от разговорного: у того включён
 /// `VoiceProcessingIO`, и любой звук через него уводит AirPods в режим
@@ -52,12 +52,15 @@ final class Ringtone {
             try? engine.outputNode.auAudioUnit.setDeviceID(device.id)
         }
 
-        // Свой файл, если он задан и на месте; иначе синтезированный цикл.
+        // Свой файл, если он задан и на месте; иначе стандартный из бандла;
+        // иначе синтезированный цикл.
         // Порядок именно такой: замена рингтона — настройка рабочего места, и
         // молчаливый откат к стандартному звонку лучше, чем тишина из-за
         // переименованного файла.
         let buffer: AVAudioPCMBuffer
         if let url = settings.customSoundURL, let fileBuffer = Ringtone.makeFileBuffer(url: url) {
+            buffer = fileBuffer
+        } else if let url = Ringtone.defaultSoundURL, let fileBuffer = Ringtone.makeFileBuffer(url: url) {
             buffer = fileBuffer
         } else {
             let format = engine.outputNode.outputFormat(forBus: 0)
@@ -88,6 +91,14 @@ final class Ringtone {
         player = nil
         engine = nil
     }
+
+    /// Стандартный звонок из бандла.
+    static let defaultSoundURL = Bundle.main.url(forResource: "classic-phone-ring", withExtension: "wav")
+
+    /// Расширения, которые принимает выбор своего файла. OGG (Vorbis и Opus)
+    /// читает сам Core Audio — свой декодер не нужен; на старой системе, где
+    /// не прочтёт, файл отсеет `isPlayable`.
+    static let supportedFileExtensions = ["mp3", "wav", "ogg", "oga", "opus", "m4a", "aiff", "aif", "caf"]
 
     /// Файл рингтона целиком в буфер.
     ///

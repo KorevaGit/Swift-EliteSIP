@@ -115,11 +115,11 @@ struct RingtoneTab: View {
         panel.title = NSLocalizedString("Звук входящего вызова", comment: "заголовок окна выбора файла")
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedFileTypes = ["wav", "aiff", "aif", "caf", "m4a", "mp3"]
+        panel.allowedFileTypes = Ringtone.supportedFileExtensions
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard Ringtone.isPlayable(url: url) else {
-            soundProblem = NSLocalizedString("Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3.", comment: "выбранный файл не годится в рингтоны")
+            soundProblem = NSLocalizedString("Этот файл не читается как звук. Подойдут MP3, WAV и OGG.", comment: "выбранный файл не годится в рингтоны")
             return
         }
         soundProblem = nil
