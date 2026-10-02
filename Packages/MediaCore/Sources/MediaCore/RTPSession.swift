@@ -123,6 +123,11 @@ public final class RTPSession: @unchecked Sendable {
 
         let parameters = NWParameters.udp
         parameters.prohibitedInterfaceTypes = []
+        // Класс трафика «голос»: система метит пакеты (DSCP EF, на Wi-Fi —
+        // очередь WMM Voice), и в офисной сети голос не стоит в очереди
+        // наравне с загрузками. Через Network.framework, а не `setsockopt`:
+        // прав не требует, а отказ сети класс просто не применяет.
+        parameters.serviceClass = .interactiveVoice
         // Привязка к конкретному локальному порту — то, что делает RTP
         // симметричным: ответный поток придёт на этот же сокет.
         parameters.requiredLocalEndpoint = .hostPort(

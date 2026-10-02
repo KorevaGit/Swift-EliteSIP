@@ -52,7 +52,12 @@ enum IncomingCallSubject: Equatable {
     /// как есть, мобильный — под маской. Мобильный здесь означает, что очередь
     /// настроена не так, как боевые, и в вызов просочился номер клиента; маска
     /// закрывает этот случай, не мешая обычному.
-    case queue(title: String, number: String)
+    ///
+    /// `masksMobile` — флаг маски, разобранный вместе с вызовом
+    /// (`AppSettings.masksMobileNumbers`). Свойство вызова, а не глобальная
+    /// настройка, которую каждый вид читает сам: так окно входящего, шапка
+    /// панели и история не могут разойтись между собой.
+    case queue(title: String, number: String, masksMobile: Bool)
 
     /// Звонок по сделке из CRM: менеджер нажал «Позвонить» в Битриксе, АТС
     /// сперва поднимает его самого и только потом набирает клиента.
@@ -67,7 +72,7 @@ enum IncomingCallSubject: Equatable {
     case selfCall
 
     /// Обычный звонок: имя главным, номер под ним. Имени нет — номер главным.
-    case caller(number: String, name: String?)
+    case caller(number: String, name: String?, masksMobile: Bool)
 
     /// Заголовок случая «звонок по сделке».
     ///
@@ -122,7 +127,8 @@ enum IncomingCallSubject: Equatable {
         callerName: String?,
         requestsAutoAnswer: Bool = false,
         ownNumber: String,
-        queueTitle: String? = nil
+        queueTitle: String? = nil,
+        masksMobileNumbers: Bool = true
     ) {
         let own = Self.digits(ownNumber)
         let caller = Self.digits(callerNumber)
@@ -145,7 +151,7 @@ enum IncomingCallSubject: Equatable {
         if !own.isEmpty, own == caller {
             self = .selfCall
         } else if let named, !named.isEmpty {
-            self = .queue(title: named, number: callerNumber)
+            self = .queue(title: named, number: callerNumber, masksMobile: masksMobileNumbers)
         } else if requestsAutoAnswer {
             // Просьба снять трубку самостоятельно — и есть признак раздачи.
             //
@@ -159,11 +165,11 @@ enum IncomingCallSubject: Equatable {
             // раздача:  "GORACHAYA RAZDACHACall Center"  <710>  X-Autoanswer: TRUE
             // коллега:  "Semenov_Artyom"                 <132>  — заголовка нет
             // ```
-            self = .queue(title: Self.distributionTitle, number: callerNumber)
+            self = .queue(title: Self.distributionTitle, number: callerNumber, masksMobile: masksMobileNumbers)
         } else if Self.campaign(number: caller, name: callerName) {
-            self = .queue(title: Self.distributionTitle, number: callerNumber)
+            self = .queue(title: Self.distributionTitle, number: callerNumber, masksMobile: masksMobileNumbers)
         } else {
-            self = .caller(number: callerNumber, name: callerName)
+            self = .caller(number: callerNumber, name: callerName, masksMobile: masksMobileNumbers)
         }
     }
 
@@ -236,8 +242,23 @@ enum IncomingCallSubject: Equatable {
     /// шапка панели в разговоре и история. Три отдельных правила разошлись бы —
     /// это уже случилось однажды, когда окно номер прятало, а панель через
     /// секунду показывала его крупно.
-    static func shown(number: String) -> String {
-        masked(number) ?? number
+    ///
+    /// `masks: false` — отдел, которому номер клиента нужен открытым: номер
+    /// показывается как пришёл.
+    static func shown(number: String, masks: Bool) -> String {
+        guard masks else { return number }
+        return masked(number) ?? number
+    }
+
+    /// Номер этого вызова в том виде, в каком его видит менеджер, — с тем
+    /// флагом маски, с которым вызов разобран.
+    func shown(number: String) -> String {
+        switch self {
+        case .queue(_, _, let masks), .caller(_, _, let masks):
+            return Self.shown(number: number, masks: masks)
+        case .selfCall:
+            return Self.shown(number: number, masks: true)
+        }
     }
 
     /// Что стоит на главном месте — в окне входящего и в шапке панели.
@@ -246,10 +267,10 @@ enum IncomingCallSubject: Equatable {
     /// вида одного вызова, и разойтись они не имеют права.
     var headline: String {
         switch self {
-        case .queue(let title, _): return title
+        case .queue(let title, _, _): return title
         case .selfCall: return IncomingCallSubject.dealTitle
-        case .caller(let number, let name):
-            guard let name, !name.isEmpty else { return Self.shown(number: number) }
+        case .caller(let number, let name, _):
+            guard let name, !name.isEmpty else { return shown(number: number) }
             return name
         }
     }
@@ -277,12 +298,12 @@ enum IncomingCallSubject: Equatable {
     var secondaryNumber: String? {
         switch self {
         case .selfCall: return nil
-        case .queue(_, let number):
+        case .queue(_, let number, _):
             guard !number.isEmpty else { return nil }
-            return Self.shown(number: number)
-        case .caller(let number, let name):
+            return shown(number: number)
+        case .caller(let number, let name, _):
             guard let name, !name.isEmpty, !number.isEmpty else { return nil }
-            return Self.shown(number: number)
+            return shown(number: number)
         }
     }
 }

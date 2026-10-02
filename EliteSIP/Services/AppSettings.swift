@@ -60,6 +60,15 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// Номера для режима автоподъёма «По списку». Сравниваются с номером
     /// звонящего по цифрам. В других режимах хранится, но не действует.
     var autoAnswerNumbers: [AutoAnswerNumber] = []
+
+    /// Прятать ли мобильный номер звонящего под маской `+7**********` — в окне
+    /// входящего, в шапке панели и в истории.
+    ///
+    /// Умолчание — прятать. Отделам, которые перезванивают клиенту сами, номер
+    /// нужен открытым; решает панель полем `masksMobileNumbers` или
+    /// администратор в «Управление → Входящие». Городские и внутренние номера
+    /// видны всегда, исходящие не маскируются никогда.
+    var masksMobileNumbers: Bool = true
     var ringtone: RingtoneSettings = RingtoneSettings()
     var dtmf: DTMFSettings = DTMFSettings()
     var conference: ConferenceSettings = ConferenceSettings()
@@ -284,6 +293,9 @@ struct AppSettings: Codable, Sendable, Equatable {
         autoAnswer = (try? container.decodeIfPresent(AutoAnswerMode.self, forKey: .autoAnswer)).flatMap { $0 } ?? .off
         autoAnswerNumbers =
             (try? container.decodeIfPresent([AutoAnswerNumber].self, forKey: .autoAnswerNumbers)).flatMap { $0 } ?? []
+        // Старый файл поля не знает — и номера от обновления открыться не должны.
+        masksMobileNumbers =
+            (try? container.decodeIfPresent(Bool.self, forKey: .masksMobileNumbers)).flatMap { $0 } ?? true
         queues = try container.decodeIfPresent(QueueDirectory.self, forKey: .queues) ?? QueueDirectory()
         ringtone = try container.decodeIfPresent(RingtoneSettings.self, forKey: .ringtone) ?? RingtoneSettings()
         dtmf = try container.decodeIfPresent(DTMFSettings.self, forKey: .dtmf) ?? DTMFSettings()
@@ -598,8 +610,10 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// гарнитур своего регулятора микрофона не имеет вовсе, и «меня плохо
         /// слышно» до сих пор лечилось только сменой гарнитуры.
         ///
-        /// Микрофон пускается до двойного, выход — только до единицы: разбор
-        /// границ у `VoiceAudioEngine.Configuration.microphoneGain`.
+        /// Оба пускаются до двойного. Выход выше единицы умножается в самих
+        /// отсчётах, а за умножением стоит мягкий ограничитель: уровень
+        /// городских линий гуляет на 10–15 дБ, и единицы не хватало. Больше
+        /// двух не даётся — на громкой линии ограничитель работал бы всё время.
         ///
         /// Схема не выросла: старый файл читается терпимым декодером и получает
         /// единицы — ровно прежнее поведение, когда ручек не было.
@@ -609,7 +623,16 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// Границы ползунков. Здесь, а не во вью: правленный руками файл
         /// проверяет тот же предел, что и ползунок, — иначе они разойдутся.
         static let microphoneGainRange: ClosedRange<Double> = 0...2
-        static let playbackVolumeRange: ClosedRange<Double> = 0...1
+        static let playbackVolumeRange: ClosedRange<Double> = 0...2
+
+        /// Приглушать голоса вокруг — всё, что заметно тише голоса оператора,
+        /// в его паузах (`BackgroundVoiceGate`). Шумодав Voice Processing
+        /// вычитает только ровный фон, чужую речь он пропускает.
+        var backgroundVoiceSuppression: Bool = true
+
+        /// Выравнивать громкость собеседника. Выключено по решению заказчика:
+        /// автоматику на приёме включает оператор сам.
+        var receiveLeveling: Bool = false
 
         init(
             inputDeviceUID: String? = nil,
@@ -620,7 +643,9 @@ struct AppSettings: Codable, Sendable, Equatable {
             prefersWideband: Bool = true,
             automaticGainControl: Bool = false,
             microphoneGain: Double = 1,
-            playbackVolume: Double = 1
+            playbackVolume: Double = 1,
+            backgroundVoiceSuppression: Bool = true,
+            receiveLeveling: Bool = false
         ) {
             self.inputDeviceUID = inputDeviceUID
             self.outputDeviceUID = outputDeviceUID
@@ -631,6 +656,8 @@ struct AppSettings: Codable, Sendable, Equatable {
             self.automaticGainControl = automaticGainControl
             self.microphoneGain = microphoneGain.clamped(to: Self.microphoneGainRange)
             self.playbackVolume = playbackVolume.clamped(to: Self.playbackVolumeRange)
+            self.backgroundVoiceSuppression = backgroundVoiceSuppression
+            self.receiveLeveling = receiveLeveling
         }
 
         init(from decoder: Decoder) throws {
@@ -652,6 +679,9 @@ struct AppSettings: Codable, Sendable, Equatable {
                 .clamped(to: Self.microphoneGainRange)
             playbackVolume = (try container.decodeIfPresent(Double.self, forKey: .playbackVolume) ?? 1)
                 .clamped(to: Self.playbackVolumeRange)
+            backgroundVoiceSuppression =
+                try container.decodeIfPresent(Bool.self, forKey: .backgroundVoiceSuppression) ?? true
+            receiveLeveling = try container.decodeIfPresent(Bool.self, forKey: .receiveLeveling) ?? false
         }
     }
 

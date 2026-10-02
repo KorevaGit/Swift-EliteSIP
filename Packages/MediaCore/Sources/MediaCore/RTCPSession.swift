@@ -102,6 +102,8 @@ public final class RTCPSession: @unchecked Sendable {
         self.clockRate = clockRate
 
         let parameters = NWParameters.udp
+        // Тот же класс, что у RTP: отчёты о качестве идут рядом с голосом.
+        parameters.serviceClass = .interactiveVoice
         parameters.requiredLocalEndpoint = .hostPort(
             host: .ipv4(.any),
             port: NWEndpoint.Port(rawValue: localPort) ?? .any

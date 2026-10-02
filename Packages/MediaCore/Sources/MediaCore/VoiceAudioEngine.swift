@@ -93,12 +93,19 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         ///
         /// Границы разные, и это не небрежность. Микрофон пускается до двойного
         /// (`microphoneGainLimit`): жалоба «меня плохо слышно» — самая частая, а
-        /// тихая гарнитура лечится только усилением. Воспроизведение выше
-        /// единицы не пускается вовсе: микшер выше неё не умеет, а «громче
-        /// некуда» — честный ответ, в отличие от ползунка, который двигается и
-        /// ничего не меняет.
+        /// тихая гарнитура лечится только усилением. Воспроизведение — тоже до
+        /// двойного (`playbackVolumeLimit`): уровень городских линий гуляет на
+        /// 10–15 дБ. Микшер выше единицы не умеет, поэтому громкость
+        /// умножается в отсчётах на потоке подачи, а за ней стоит мягкий
+        /// ограничитель (`SoftLimiter`).
         public var microphoneGain: Float
         public var playbackVolume: Float
+
+        /// Приглушать голоса вокруг (`BackgroundVoiceGate`). Правится и на
+        /// работающем тракте — см. `suppressesBackgroundVoices`.
+        public var suppressesBackgroundVoices: Bool
+        /// Выравнивать громкость собеседника (`SpeechGainControl`).
+        public var levelsReceive: Bool
 
         /// Сколько терпеть, если тракт не пересобирается. См.
         /// `AudioRestartPolicy`: временная пропажа устройства при переходе
@@ -117,6 +124,8 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             automaticGainControl: Bool = false,
             microphoneGain: Float = 1,
             playbackVolume: Float = 1,
+            suppressesBackgroundVoices: Bool = false,
+            levelsReceive: Bool = false,
             restartPolicy: AudioRestartPolicy = AudioRestartPolicy()
         ) {
             self.restartPolicy = restartPolicy
@@ -129,7 +138,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             self.releasesDeviceWhenIdle = releasesDeviceWhenIdle
             self.automaticGainControl = automaticGainControl
             self.microphoneGain = microphoneGain.clampedGain(to: Self.microphoneGainLimit)
-            self.playbackVolume = playbackVolume.clampedGain(to: 1)
+            self.playbackVolume = playbackVolume.clampedGain(to: Self.playbackVolumeLimit)
+            self.suppressesBackgroundVoices = suppressesBackgroundVoices
+            self.levelsReceive = levelsReceive
         }
 
         /// Потолок усиления микрофона — вдвое, то есть +6 дБ.
@@ -139,6 +150,10 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         /// всем, что в них попало. Вдвое тихая гарнитура вытягивается, вчетверо
         /// — вытягивается вместе с шумом комнаты и упирается в ограничение.
         public static let microphoneGainLimit: Float = 2
+
+        /// Потолок громкости собеседника — тоже вдвое. Больше нельзя: на
+        /// громкой линии ограничитель работал бы постоянно и сплющивал звук.
+        public static let playbackVolumeLimit: Float = 2
 
         public var samplesPerFrame: Int {
             codec.sampleCount(forPacketTime: packetTimeMilliseconds)
@@ -441,19 +456,52 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// появляется ни одного лишнего действия. Значение запоминается ещё и у
     /// себя, потому что тракт пересобирается на смене устройства — а
     /// пересобранный микшер приходит с единицей.
+    ///
+    /// Умножается в отсчётах на потоке подачи, а не микшером: микшер выше
+    /// единицы не умеет. Задержка правки — запас кольца, десятки миллисекунд.
     public var playbackVolume: Float {
         get { gainLock.withLock { $0.playback } }
         set {
-            let value = newValue.clampedGain(to: 1)
+            let value = newValue.clampedGain(to: Configuration.playbackVolumeLimit)
             gainLock.withLock { $0.playback = value }
-            applyPlaybackVolume()
         }
     }
 
-    /// Досылает громкость в микшер. Зовётся и на сборке графа: пересобранный
-    /// микшер о прежнем значении не знает.
+    /// Переключатели обработки — живые, как ползунки громкости.
+    private let processingFlags = UnfairLock(
+        initialState: (suppressesBackgroundVoices: false, levelsReceive: false)
+    )
+
+    /// Приглушать голоса вокруг. Меняется посреди разговора.
+    public var suppressesBackgroundVoices: Bool {
+        get { processingFlags.withLock { $0.suppressesBackgroundVoices } }
+        set { processingFlags.withLock { $0.suppressesBackgroundVoices = newValue } }
+    }
+
+    /// Выравнивать громкость собеседника. Меняется посреди разговора.
+    public var levelsReceive: Bool {
+        get { processingFlags.withLock { $0.levelsReceive } }
+        set { processingFlags.withLock { $0.levelsReceive = newValue } }
+    }
+
+    /// Блок приглушения — только поток кодирования; регулятор приёма и
+    /// плавная громкость — только поток подачи. Замки им не нужны.
+    private var voiceGate = BackgroundVoiceGate()
+    private var receiveLeveler = SpeechGainControl()
+    private var appliedPlaybackVolume: Float = 1
+
+    /// Итог обработки. Пишут потоки кодирования и подачи, читает сводка.
+    private let processingLock = UnfairLock(initialState: VoiceProcessingStatistics())
+
+    /// Что обработка сделала с этим разговором с запуска тракта.
+    public var processingStatistics: VoiceProcessingStatistics {
+        processingLock.withLock { $0 }
+    }
+
+    /// Держит микшер на единице. Громкость собеседника умножается в отсчётах
+    /// (`fillRing`), а пересобранный микшер мог бы прийти с чужим значением.
     private func applyPlaybackVolume() {
-        let value = gainLock.withLock { $0.playback }
+        let value: Float = 1
         // Под ловушкой: `mainMixerNode` создаётся лениво и при создании трогает
         // железо — на машине без устройств это исключение Objective-C, а не
         // ошибка Swift. Здесь оно ничего не значит: громкость доедет при
@@ -507,6 +555,10 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         gainLock.withLock {
             $0 = (configuration.microphoneGain, configuration.playbackVolume)
         }
+        processingFlags.withLock {
+            $0 = (configuration.suppressesBackgroundVoices, configuration.levelsReceive)
+        }
+        appliedPlaybackVolume = configuration.playbackVolume
     }
 
     /// Переводит движок на настройки следующего разговора.
@@ -555,6 +607,14 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         gainLock.withLock {
             $0 = (configuration.microphoneGain, configuration.playbackVolume)
         }
+        processingFlags.withLock {
+            $0 = (configuration.suppressesBackgroundVoices, configuration.levelsReceive)
+        }
+        // Новый разговор — новые оценки: голос оператора и уровень линии
+        // прошлого звонка к этому отношения не имеют.
+        voiceGate = BackgroundVoiceGate()
+        receiveLeveler = SpeechGainControl()
+        appliedPlaybackVolume = configuration.playbackVolume
         decoder = AudioFrameDecoder(codec: configuration.codec)
         encoder = AudioFrameEncoder(codec: configuration.codec)
         concealer = PacketLossConcealer(codec: configuration.codec)
@@ -1000,6 +1060,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             state.starvedRenders = 0
             state.renderedSamples = 0
         }
+        processingLock.withLock { $0 = VoiceProcessingStatistics() }
         lastRoute = nil
     }
 
@@ -1359,7 +1420,8 @@ public final class VoiceAudioEngine: @unchecked Sendable {
 
             onDecodedSamples?(samples)
 
-            let ready = samples.map { Float($0) / 32768.0 }
+            var ready = samples.map { Float($0) / 32768.0 }
+            processReceived(&ready)
             let peak = ready.reduce(Float(0)) { max($0, abs($1)) }
             levelLock.withLock { $0.outputPeak = max($0.outputPeak, peak) }
 
@@ -1561,21 +1623,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         }
         guard !captured.isEmpty else { return }
 
-        guard var converted = Self.resample(
+        guard let converted = Self.resample(
             captured, using: converter, from: formats.source, to: formats.destination
         ) else { return }
-
-        // Усиление — здесь, а не в приёмнике: приёмник зовётся из потока
-        // реального времени, а этот поток обычный, и лишнее умножение в нём
-        // ничего не стоит. И обязательно ДО замера уровня — см. `microphoneGain`.
-        Self.amplify(&converted, by: gainLock.withLock { $0.microphone })
-
-        // Индикатор микрофона на удержании обязан лежать на нуле: показывать
-        // уровень голоса, который никуда не уходит, — это ровно тот случай,
-        // когда оператор говорит в пустоту и уверен, что его слышат.
-        let isMuted = mutedFlag.withLock { $0 }
-        let peak = isMuted ? 0 : converted.reduce(Float(0)) { max($0, abs(Float($1) / 32768)) }
-        levelLock.withLock { $0.inputPeak = max($0.inputPeak, peak) }
 
         // В кольце уже лежат нули для всего, что было записано во время mute.
         // Повторная проверка ниже нужна для переключения посреди этой пачки:
@@ -1587,8 +1637,36 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         let samplesPerFrame = configuration.samplesPerFrame
         var offset = 0
         while captureRemainder.count - offset >= samplesPerFrame {
-            let capturedFrame = Array(captureRemainder[offset..<(offset + samplesPerFrame)])
+            var capturedFrame = Array(captureRemainder[offset..<(offset + samplesPerFrame)])
             offset += samplesPerFrame
+            let isMuted = mutedFlag.withLock { $0 }
+
+            // Приглушение голосов вокруг — после Voice Processing и до своего
+            // усиления: порог тишины у блока абсолютный, и ползунок микрофона
+            // не должен его сдвигать. Здесь, на кадрах RTP, а не на пачке:
+            // кадр кратен 10 мс, и необработанных хвостов не остаётся. На mute
+            // не трогается: кадр всё равно уйдёт нулями, а оценку голоса
+            // оператора тишина только испортила бы.
+            if !isMuted {
+                processCaptured(&capturedFrame)
+            }
+
+            // Усиление — здесь, а не в приёмнике: приёмник зовётся из потока
+            // реального времени, а этот поток обычный, и лишнее умножение в нём
+            // ничего не стоит. И обязательно ДО замера уровня — см.
+            // `microphoneGain`.
+            Self.amplify(&capturedFrame, by: gainLock.withLock { $0.microphone })
+
+            // Индикатор микрофона на удержании обязан лежать на нуле:
+            // показывать уровень голоса, который никуда не уходит, — это ровно
+            // тот случай, когда оператор говорит в пустоту и уверен, что его
+            // слышат.
+            if !isMuted {
+                observeLine(capturedFrame)
+                let peak = capturedFrame.reduce(Float(0)) { max($0, abs(Float($1) / 32768)) }
+                levelLock.withLock { $0.inputPeak = max($0.inputPeak, peak) }
+            }
+
             let frame = Self.gateMicrophoneFrame(
                 capturedFrame,
                 isMuted: mutedFlag.withLock { $0 }
@@ -1599,6 +1677,107 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // весь хвост заново при каждом вызове.
         if offset > 0 {
             captureRemainder.removeFirst(offset)
+        }
+    }
+
+    // MARK: - Обработка голоса
+
+    /// Отсчётов в кадре обработки — всегда 10 мс, от какого бы пакетного
+    /// времени ни шли кадры RTP: числа блоков подобраны под этот шаг.
+    private var processingFrameSamples: Int {
+        max(1, Int(configuration.codec.sampleRate) / 100)
+    }
+
+    /// Приглушает голоса вокруг в кадре RTP и копит итог обработки.
+    ///
+    /// Блок работает кадрами по 10 мс; кадр, не кратный им (экзотическое
+    /// пакетное время), дорабатывается коротким последним куском.
+    private func processCaptured(_ samples: inout [Int16]) {
+        let frameSize = processingFrameSamples
+        let suppresses = suppressesBackgroundVoices
+        var floats = samples.map { Float($0) / 32768 }
+
+        var frames = 0
+        var suppressed = 0
+        var floorIn = NoiseFloorMeter()
+        var offset = 0
+        while offset < floats.count {
+            let end = min(offset + frameSize, floats.count)
+            var frame = floats[offset..<end]
+            floorIn.observe(levelDb: rmsDecibels(frame))
+            if suppresses {
+                voiceGate.process(&frame)
+                if voiceGate.gainDb <= -6 { suppressed += 1 }
+            }
+            floats.replaceSubrange(offset..<end, with: frame)
+            offset = end
+            frames += 1
+        }
+
+        if suppresses {
+            for index in samples.indices {
+                samples[index] = Int16(max(-32768, min(32767, (floats[index] * 32768).rounded())))
+            }
+        }
+
+        let voice = voiceGate.voiceDb
+        processingLock.withLock { stats in
+            stats.frames += frames
+            stats.suppressedFrames += suppressed
+            stats.floorIn.merge(floorIn)
+            if suppresses {
+                stats.usedSuppression = true
+                stats.voiceDb = voice
+            }
+        }
+    }
+
+    /// Фон «в линию» — после приглушения и усиления, то есть ровно то, что
+    /// уходит собеседнику.
+    private func observeLine(_ samples: [Int16]) {
+        let frameSize = processingFrameSamples
+        let floats = samples.map { Float($0) / 32768 }
+        var floorOut = NoiseFloorMeter()
+        var offset = 0
+        while offset < floats.count {
+            let end = min(offset + frameSize, floats.count)
+            floorOut.observe(levelDb: rmsDecibels(floats[offset..<end]))
+            offset = end
+        }
+        processingLock.withLock { $0.floorOut.merge(floorOut) }
+    }
+
+    /// Принятый кадр: выравнивание (если включено), громкость, ограничитель.
+    ///
+    /// Выравнивание стоит на декодированном сигнале кодека, до громкости:
+    /// регулятор смотрит на уровень линии, а не на положение ползунка.
+    /// Громкость меняется плавно внутри кадра — движение ползунка иначе
+    /// слышно ступеньками. Ограничитель — после всего: громкость выше единицы
+    /// без него дала бы срез.
+    private func processReceived(_ samples: inout [Float]) {
+        if levelsReceive {
+            let frameSize = processingFrameSamples
+            var offset = 0
+            while offset < samples.count {
+                let end = min(offset + frameSize, samples.count)
+                var frame = samples[offset..<end]
+                receiveLeveler.process(&frame)
+                samples.replaceSubrange(offset..<end, with: frame)
+                offset = end
+            }
+            let gain = receiveLeveler.gainDb
+            processingLock.withLock { $0.receiveLevelingDb = gain }
+        }
+
+        let target = gainLock.withLock { $0.playback }
+        let start = appliedPlaybackVolume
+        appliedPlaybackVolume = target
+        guard !samples.isEmpty, start != 1 || target != 1 || levelsReceive else { return }
+
+        let step = (target - start) / Float(samples.count)
+        for index in samples.indices {
+            let volume = start + step * Float(index + 1)
+            samples[index] = SoftLimiter.limit(samples[index] * volume)
         }
     }
 

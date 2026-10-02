@@ -59,7 +59,9 @@ final class AppModel: ObservableObject {
             // ровно потому, что собеседника плохо слышно ПРЯМО СЕЙЧАС, — и
             // ответ «со следующего звонка» на это не годится.
             if settings.audio.microphoneGain != oldValue.audio.microphoneGain
-                || settings.audio.playbackVolume != oldValue.audio.playbackVolume {
+                || settings.audio.playbackVolume != oldValue.audio.playbackVolume
+                || settings.audio.backgroundVoiceSuppression != oldValue.audio.backgroundVoiceSuppression
+                || settings.audio.receiveLeveling != oldValue.audio.receiveLeveling {
                 applyAudioGains()
             }
             // Срок хранения меняет администратор, и уменьшение срока обязано
@@ -1280,6 +1282,7 @@ final class AppModel: ObservableObject {
             append(level: .info, message: "звонок завершён: \(reason)")
             if let media = line(lineID)?.media {
                 append(level: .debug, message: "медиа: \(media.summary)")
+                append(level: .info, message: "звук: \(media.processingSummary)")
             }
             teardown(lineID: lineID, status: line(lineID)?.transferOutcome ?? reason)
         }
@@ -1365,7 +1368,14 @@ final class AppModel: ObservableObject {
                 releasesDeviceWhenIdle: settings.audio.releasesDeviceWhenIdle,
                 automaticGainControl: settings.audio.automaticGainControl,
                 microphoneGain: Float(settings.audio.microphoneGain),
-                playbackVolume: Float(settings.audio.playbackVolume)
+                playbackVolume: Float(settings.audio.playbackVolume),
+                suppressesBackgroundVoices: settings.audio.backgroundVoiceSuppression,
+                levelsReceive: settings.audio.receiveLeveling
+            )
+            append(
+                level: .info,
+                message: "звук: голоса вокруг \(settings.audio.backgroundVoiceSuppression ? "приглушаются" : "не приглушаются")"
+                    + (settings.audio.receiveLeveling ? ", громкость собеседника выравнивается" : "")
             )
             session.onDiagnostic = { [weak self] text in
                 Task { @MainActor in self?.append(level: .debug, message: "звук: \(text)") }
@@ -1843,9 +1853,13 @@ final class AppModel: ObservableObject {
     private func applyAudioGains() {
         let gain = Float(settings.audio.microphoneGain)
         let volume = Float(settings.audio.playbackVolume)
+        let suppresses = settings.audio.backgroundVoiceSuppression
+        let levels = settings.audio.receiveLeveling
         for line in lines {
             line.media?.microphoneGain = gain
             line.media?.playbackVolume = volume
+            line.media?.suppressesBackgroundVoices = suppresses
+            line.media?.levelsReceive = levels
         }
         selfTest?.apply(microphoneGain: gain, playbackVolume: volume)
     }
@@ -2291,7 +2305,8 @@ final class AppModel: ObservableObject {
             callerName: call.callerName,
             requestsAutoAnswer: call.requestsAutoAnswer,
             ownNumber: settings.account.username,
-            queueTitle: settings.queues.title(forCallerNumber: call.displayNumber)
+            queueTitle: settings.queues.title(forCallerNumber: call.displayNumber),
+            masksMobileNumbers: settings.masksMobileNumbers
         )
     }
 
@@ -2415,6 +2430,7 @@ final class AppModel: ObservableObject {
             append(level: .info, message: "входящий завершён: \(reason)")
             if let media = line(lineID)?.media {
                 append(level: .debug, message: "медиа: \(media.summary)")
+                append(level: .info, message: "звук: \(media.processingSummary)")
             }
             teardown(lineID: lineID, status: line(lineID)?.transferOutcome ?? reason)
         }

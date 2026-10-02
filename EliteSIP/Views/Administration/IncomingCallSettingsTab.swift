@@ -100,6 +100,22 @@ struct IncomingCallSettingsTab: View {
             }
         }
 
+        SettingsSection("Номера звонящих") {
+            SettingsToggleRow("Скрывать мобильные номера", isOn: Binding(
+                get: { model.settings.masksMobileNumbers },
+                set: { model.settings.masksMobileNumbers = $0 }
+            ))
+            if model.settings.panel.isManaged {
+                SettingsNote("Значение приезжает из панели.")
+            }
+            SettingsNote("""
+                Мобильный номер показывается как +7 и звёздочки — в окне \
+                входящего, в панели во время разговора и в истории. Городские и \
+                внутренние номера видны всегда. Выключайте для отделов, которым \
+                номер клиента нужен открытым.
+                """)
+        }
+
         SettingsSection("Защита") {
             // Выключатель не запирается, даже когда значение приезжает из
             // панели, — и это отмена решения M9.

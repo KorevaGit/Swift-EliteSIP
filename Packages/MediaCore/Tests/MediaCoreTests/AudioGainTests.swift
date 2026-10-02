@@ -63,6 +63,6 @@ struct AudioGainTests {
             playbackVolume: 99
         )
         #expect(configuration.microphoneGain == VoiceAudioEngine.Configuration.microphoneGainLimit)
-        #expect(configuration.playbackVolume == 1)
+        #expect(configuration.playbackVolume == VoiceAudioEngine.Configuration.playbackVolumeLimit)
     }
 }

@@ -133,6 +133,11 @@ public final class MediaSession: @unchecked Sendable {
         /// линии, и значение обязано дожить до возврата.
         var microphoneGain: Float = 1
         var playbackVolume: Float = 1
+        /// Переключатели обработки — по той же причине, что громкость.
+        var suppressesBackgroundVoices = false
+        var levelsReceive = false
+        /// Итог обработки за прошлые владения трактом.
+        var processing = VoiceProcessingStatistics()
         /// Что успел намерить движок, пока звук был наш. Для сводки после
         /// звонка: счётчики общего тракта обнуляются на смене владельца, и
         /// спросить их у уже отпущенного движка нельзя.
@@ -193,7 +198,9 @@ public final class MediaSession: @unchecked Sendable {
         releasesDeviceWhenIdle: Bool = true,
         automaticGainControl: Bool = false,
         microphoneGain: Float = 1,
-        playbackVolume: Float = 1
+        playbackVolume: Float = 1,
+        suppressesBackgroundVoices: Bool = false,
+        levelsReceive: Bool = false
     ) throws {
         localPort = reservation.rtpPort
         portReservation = reservation
@@ -210,7 +217,9 @@ public final class MediaSession: @unchecked Sendable {
             releasesDeviceWhenIdle: releasesDeviceWhenIdle,
             automaticGainControl: automaticGainControl,
             microphoneGain: microphoneGain,
-            playbackVolume: playbackVolume
+            playbackVolume: playbackVolume,
+            suppressesBackgroundVoices: suppressesBackgroundVoices,
+            levelsReceive: levelsReceive
         )
         self.bus = try bus ?? VoiceAudioBus(configuration: audioConfiguration)
         transport = UnfairLock(
@@ -235,6 +244,8 @@ public final class MediaSession: @unchecked Sendable {
         audio.withLock { state in
             state.microphoneGain = audioConfiguration.microphoneGain
             state.playbackVolume = audioConfiguration.playbackVolume
+            state.suppressesBackgroundVoices = audioConfiguration.suppressesBackgroundVoices
+            state.levelsReceive = audioConfiguration.levelsReceive
         }
     }
 
@@ -354,13 +365,16 @@ public final class MediaSession: @unchecked Sendable {
         try bus.claim(token, configuration: audioConfiguration, handlers: makeHandlers())
         // Всё, что накопилось на линии, пока звука у неё не было, досылается
         // сразу: mute, поставленный на фоновой линии, обязан пережить возврат.
-        let (muted, gain, volume) = audio.withLock {
-            ($0.isMuted, $0.microphoneGain, $0.playbackVolume)
+        let (muted, gain, volume, suppresses, levels) = audio.withLock {
+            ($0.isMuted, $0.microphoneGain, $0.playbackVolume,
+             $0.suppressesBackgroundVoices, $0.levelsReceive)
         }
         bus.withEngine(token) { engine in
             engine.isMuted = muted
             engine.microphoneGain = gain
             engine.playbackVolume = volume
+            engine.suppressesBackgroundVoices = suppresses
+            engine.levelsReceive = levels
             audio.withLock { state in
                 state.route = engine.route
                 state.usesEchoCancellation = engine.usesEchoCancellation
@@ -375,6 +389,7 @@ public final class MediaSession: @unchecked Sendable {
             audio.withLock { state in
                 state.renderedSamples += engine.renderedSampleCount
                 state.starvedRenders += engine.starvedRenderCount
+                state.processing.merge(engine.processingStatistics)
                 state.route = engine.route
                 state.usesEchoCancellation = engine.usesEchoCancellation
             }
@@ -689,10 +704,37 @@ public final class MediaSession: @unchecked Sendable {
     public var playbackVolume: Float {
         get { audio.withLock { $0.playbackVolume } }
         set {
-            let value = newValue.clampedGain(to: 1)
+            let value = newValue.clampedGain(to: VoiceAudioEngine.Configuration.playbackVolumeLimit)
             audio.withLock { $0.playbackVolume = value }
             bus.withEngine(token) { $0.playbackVolume = value }
         }
+    }
+
+    /// Приглушать голоса вокруг. Меняется посреди разговора.
+    public var suppressesBackgroundVoices: Bool {
+        get { audio.withLock { $0.suppressesBackgroundVoices } }
+        set {
+            audio.withLock { $0.suppressesBackgroundVoices = newValue }
+            bus.withEngine(token) { $0.suppressesBackgroundVoices = newValue }
+        }
+    }
+
+    /// Выравнивать громкость собеседника. Меняется посреди разговора.
+    public var levelsReceive: Bool {
+        get { audio.withLock { $0.levelsReceive } }
+        set {
+            audio.withLock { $0.levelsReceive = newValue }
+            bus.withEngine(token) { $0.levelsReceive = newValue }
+        }
+    }
+
+    /// Итог обработки голоса за весь разговор — для итоговой строки звонка.
+    public var processingSummary: String {
+        var total = audio.withLock { $0.processing }
+        if let live = bus.withEngine(token, { $0.processingStatistics }) {
+            total.merge(live)
+        }
+        return total.summary
     }
 
     /// Отдавать принятое в звук.
