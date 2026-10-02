@@ -114,7 +114,13 @@ else
     fail "universal-сборка не удалась"
 fi
 
-app=$(ls -d "$HOME"/Library/Developer/Xcode/DerivedData/EliteSIP-*/Build/Products/Release/EliteSIP.app 2>/dev/null | head -1)
+# Каталог сборки спрашиваем у самого xcodebuild: DerivedData бывает перенесена
+# настройкой Xcode (на машине выпуска — на внешний диск), и маска по ~/Library
+# её не находит.
+products=$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Release \
+    -destination 'generic/platform=macOS' -showBuildSettings 2>/dev/null |
+    awk -F' = ' '/ BUILT_PRODUCTS_DIR = / { print $2; exit }')
+app="$products/EliteSIP.app"
 binary="$app/Contents/MacOS/EliteSIP"
 
 if [[ ! -x "$binary" ]]; then
