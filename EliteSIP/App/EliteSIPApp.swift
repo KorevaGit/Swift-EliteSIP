@@ -95,9 +95,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Слежение за открытым «Управлением» — ради отложенной предустановки.
     private var settingsHoldWatch: AnyCancellable?
 
+    /// Отказ от App Nap на всё время работы.
+    ///
+    /// Софтфон большую часть дня невидим — только значок в строке меню, — и
+    /// macOS усыпляет такое приложение: таймеры склеиваются, приоритет падает,
+    /// обработка пришедшего из сети откладывается на секунды. Для звонилки это
+    /// значит окно входящего, которое появляется с опозданием и не исчезает,
+    /// когда вызов уже забрал другой агент очереди. Сон дисплея и системы
+    /// при этом не запрещается.
+    private var appNapOptOut: NSObjectProtocol?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Первым делом: отметка сеанса для `X-EliteSIP-Unclean-Exit`.
         SessionHealth.noteLaunch()
+        appNapOptOut = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
+            reason: "SIP-регистрация и входящие вызовы"
+        )
         // Тема — до первого окна: иначе панель успевает нарисоваться в
         // системном оформлении и перекрашивается уже на глазах.
         NSApp.appearance = model.settings.appearance.appKitAppearance

@@ -24,7 +24,9 @@ import SwiftUI
 @MainActor
 final class IncomingCallPanel: ObservableObject {
 
-    @Published private var panel: NSPanel?
+    // Не `@Published`: ни одна вью окно не читает, а публикация перерисовывала
+    // бы всех наблюдателей — панель телефона и «Управление» — на каждом вызове.
+    private var panel: NSPanel?
 
     /// Где окно было в прошлый раз — чтобы следующая позиция гарантированно
     /// отличалась и оператор не привыкал жать в одну точку.
@@ -39,13 +41,33 @@ final class IncomingCallPanel: ObservableObject {
     private var resizeObserver: Any?
 
     /// Защита текущего вызова. Живёт ровно столько, сколько висит окно.
-    @Published private var guardSession: CallGuardSession?
+    ///
+    /// Не `@Published`, и это не экономия на спичках: сессия меняется на
+    /// каждом движении мыши, и публикация перерисовывала все окна, которые
+    /// наблюдают за панелью, — сотни раз в секунду, пока оператор ведёт руку к
+    /// кнопке. Главный поток в это время не успевал разбирать события звонка,
+    /// и окно, вызов которого уже забрал другой агент, висело с задержкой.
+    private var guardSession: CallGuardSession?
 
     /// Слежение за курсором. Локальный монитор ловит движения над нашим окном,
     /// глобальный — подход к нему из чужого приложения; без второго честный
     /// оператор, работающий в CRM, выглядел бы как телепортирующийся кликер.
     private var localCursorMonitor: Any?
     private var globalCursorMonitor: Any?
+
+    /// Опрос позиции курсора — страховка к мониторам, а не замена им.
+    ///
+    /// Мониторы видят движение не всегда. Когда активно само EliteSIP (оператор
+    /// только что работал в панели телефона), `mouseMoved` уходит ключевому
+    /// окну приложения, а окно входящего ключевым не становится никогда: оно
+    /// без рамки. Глобальный монитор чужие события в этот момент не получает,
+    /// локальный — не получает свои. Путь курсора оставался нулевым, и честное
+    /// нажатие отклонялось. Опрос `NSEvent.mouseLocation` от активности
+    /// приложения не зависит вовсе.
+    ///
+    /// Телепорт курсора опрос не прячет: прыжок в точку — одно перемещение, а
+    /// защита требует нескольких.
+    private var cursorPollTimer: Timer?
 
     /// Что показать оператору, если нажатие не принято.
     @Published private(set) var refusal: String?
@@ -54,7 +76,7 @@ final class IncomingCallPanel: ObservableObject {
 
     /// Отчёт защиты по текущему вызову. После `hide` остаётся последним, чтобы
     /// его успел прочитать тот, кто разбирает завершение звонка.
-    @Published private(set) var lastReport: CallGuardReport?
+    private(set) var lastReport: CallGuardReport?
 
     func show(
         subject: IncomingCallSubject,
@@ -93,6 +115,9 @@ final class IncomingCallPanel: ObservableObject {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.animationBehavior = .utilityWindow
+        // Без этого движения над самим окном до локального монитора не доходят,
+        // когда активно EliteSIP. См. `cursorPollTimer`.
+        panel.acceptsMouseMovedEvents = true
 
         // contentViewController, а не contentView: так окно само подгоняется
         // под размер содержимого SwiftUI, и высоту не приходится держать
@@ -201,6 +226,9 @@ final class IncomingCallPanel: ObservableObject {
         }
         guardSession = nil
         refusal = nil
+        // Без анимации: вызов, который забрал другой агент, должен исчезнуть
+        // сразу, а не растворяться под рукой оператора, уже тянущейся к кнопке.
+        panel?.animationBehavior = .none
         panel?.orderOut(nil)
         panel = nil
     }
@@ -246,10 +274,28 @@ final class IncomingCallPanel: ObservableObject {
     /// сеанса; `CGEvent.post` по умолчанию оставляет частный источник. Признак
     /// подделывается парой строк, поэтому он идёт в телеметрию, а барьером
     /// становится только по явной настройке.
+    ///
+    /// Два условия, без которых честные нажатия на макбуках периодически
+    /// получали «Нажатие не принято»:
+    ///
+    /// * судится только само нажатие кнопки мыши. Действие кнопки SwiftUI на
+    ///   неактивирующей панели не всегда исполняется внутри обработки щелчка, и
+    ///   `currentEvent` в этот момент бывал служебным событием AppKit — со
+    ///   своим, частным источником;
+    /// * настоящим считается и состояние HID-системы, а не только
+    ///   комбинированное: щелчок трекпада (особенно касанием) приходит именно
+    ///   оттуда.
     private static func isCurrentEventSynthetic() -> Bool {
-        guard let event = NSApp.currentEvent?.cgEvent else { return false }
+        guard let current = NSApp.currentEvent else { return false }
+        let mouseButtonEvents: Set<NSEvent.EventType> = [.leftMouseDown, .leftMouseUp]
+        guard mouseButtonEvents.contains(current.type), let event = current.cgEvent else { return false }
+
         let stateID = event.getIntegerValueField(.eventSourceStateID)
-        return stateID != Int64(CGEventSourceStateID.combinedSessionState.rawValue)
+        let genuine: Set<Int64> = [
+            Int64(CGEventSourceStateID.combinedSessionState.rawValue),
+            Int64(CGEventSourceStateID.hidSystemState.rawValue),
+        ]
+        return !genuine.contains(stateID)
     }
 
     // MARK: - Курсор
@@ -264,6 +310,16 @@ final class IncomingCallPanel: ObservableObject {
         globalCursorMonitor = NSEvent.addGlobalMonitorForEvents(matching: events) { [weak self] _ in
             self?.noteCursor(at: NSEvent.mouseLocation)
         }
+
+        // Режим `.common`: в `.default` таймер замирает, пока AppKit ведёт
+        // нажатие, — ровно в тот момент, когда рука уже у кнопки.
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            // Через `Task`, а не `MainActor.assumeIsolated`: тот появился в
+            // macOS 13, а срез x86_64 обязан работать на Catalina.
+            Task { @MainActor in self?.noteCursor(at: NSEvent.mouseLocation) }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        cursorPollTimer = timer
     }
 
     private func stopWatchingCursor() {
@@ -272,6 +328,8 @@ final class IncomingCallPanel: ObservableObject {
         }
         localCursorMonitor = nil
         globalCursorMonitor = nil
+        cursorPollTimer?.invalidate()
+        cursorPollTimer = nil
     }
 
     /// Считает только те перемещения, что случились рядом с окном.

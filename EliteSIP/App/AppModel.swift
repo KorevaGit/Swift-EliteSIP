@@ -779,7 +779,11 @@ final class AppModel: ObservableObject {
             append(level: level, message: message)
 
         case .incomingCall(let call):
-            handle(incoming: call)
+            if lines.isEmpty {
+                handle(incoming: call)
+            } else {
+                Task { [weak self] in await self?.admitAfterStaleLines(call) }
+            }
 
         case .unsupportedRequest(let method):
             append(level: .info, message: "запрос \(method.rawValue) отклонён: ещё не поддерживается")
@@ -2310,11 +2314,39 @@ final class AppModel: ObservableObject {
         )
     }
 
+    /// Пропускает входящий, когда прошлая линия у нас ещё не снята.
+    ///
+    /// Гонка раздачи «звонить всем»: другой агент забрал вызов, пришёл CANCEL,
+    /// и следом очередь шлёт новый INVITE. `SIPCore` прошлую линию к этому
+    /// моменту уже закрыл — иначе новый INVITE получил бы 486, — но её `.ended`
+    /// и событие нового вызова идут разными потоками, и порядок между ними не
+    /// гарантирован. Новый вызов приходил раньше, `handle(incoming:)` видел
+    /// непустые линии и молча его бросал: у АТС он звонил, окна не было.
+    ///
+    /// Линии, которых `SIPCore` уже не знает, — это именно такие хвосты.
+    /// Их события не выдумываются, а дочитываются: поток закрыт, и задача
+    /// линии доходит до `teardown` с настоящей причиной окончания — история
+    /// записывает её же, что и без гонки.
+    private func admitAfterStaleLines(_ call: SIPIncomingCall) async {
+        guard let agent else { return }
+        for lineID in lines.map(\.id) {
+            guard await agent.callState(of: lineID) == nil else { continue }
+            await callTasks[lineID]?.value
+        }
+        handle(incoming: call)
+    }
+
     private func handle(incoming call: SIPIncomingCall) {
         // Занятому оператору агент отвечает 486 ещё до события: раздача лидов
         // должна отдать вызов следующему агенту. Проверка здесь — на случай
-        // рассогласования, а не на нормальный ход.
-        guard lines.isEmpty else { return }
+        // рассогласования, а не на нормальный ход. Отказ обязателен: без него
+        // `SIPCore` держал бы вызов на 180, и очередь ждала бы ответа от
+        // оператора, который об этом вызове не знает.
+        guard lines.isEmpty else {
+            append(level: .warning, message: "входящий \(call.displayNumber) при занятой линии — отклонён 486")
+            Task { [weak self] in await self?.agent?.rejectIncomingCall(callID: call.callID, status: 486) }
+            return
+        }
 
         incomingCall = call
         lines.append(CallLine(
