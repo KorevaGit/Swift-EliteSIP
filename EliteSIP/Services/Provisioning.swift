@@ -111,6 +111,11 @@ enum Provisioning {
             URL(string: root + "presets/current.json")
         }
 
+        /// Куда машина шлёт свой журнал для Spark (`POST /logs`).
+        var logsURL: URL? {
+            URL(string: root + "logs")
+        }
+
         /// Адрес помашинного объекта: `config/<id>` или `revoked/<id>`.
         ///
         /// Приставка приходит сюда строкой, а не перечислением: их две, обе

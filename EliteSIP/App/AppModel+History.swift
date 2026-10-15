@@ -93,6 +93,7 @@ extension AppModel {
         role: CallRecord.Role = .primary,
         wasDistribution: Bool = false
     ) {
+        ClientEventLog.shared.callStarted(lineID: lineID, incoming: direction == .incoming)
         guard let historyStore else { return }
         let record = CallRecord(
             callID: lineID,
@@ -120,6 +121,9 @@ extension AppModel {
     /// `mutate`. Так же, как маскирование секретов стоит на единственном пути в
     /// файл журнала: второй путь, забывший отметить ответ, тут завести нельзя.
     func noteHistory(before: CallLine, after: CallLine) {
+        if before.phase != .active, after.phase == .active {
+            ClientEventLog.shared.callAnswered(lineID: after.id)
+        }
         guard let historyStore, let id = historyRecordIDs[after.id] else { return }
 
         if before.phase != .active, after.phase == .active {
@@ -152,6 +156,7 @@ extension AppModel {
     /// формулировку на панели однажды поменяют, и история молча начнёт писать
     /// «отказ» вместо «занято».
     func finishHistory(lineID: String, reason: String, outcome: CallRecord.Outcome? = nil) {
+        ClientEventLog.shared.callFinished(lineID: lineID, reason: reason, failed: outcome == .failed)
         guard let historyStore, let id = historyRecordIDs.removeValue(forKey: lineID) else { return }
         historyStore.finish(id, reason: reason, outcome: outcome)
         reloadHistory()

@@ -339,6 +339,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
         machineService = machines
+        ClientEventLog.shared.start(settings: { [weak self] in self?.model.settings ?? AppSettings.default })
         startRevocationWatch(machines, presets: presets)
 
         let service = UpdateService(
