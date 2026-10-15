@@ -747,6 +747,12 @@ final class AppModel: ObservableObject {
         registrationSlowTask = nil
 
         SessionHealth.noteRegistration(registration)
+        switch registration {
+        case .registered: ClientEventLog.shared.noteRegistration(.registered)
+        case .failed(let reason, _): ClientEventLog.shared.noteRegistration(.failed(reason: reason, code: nil))
+        case .idle: ClientEventLog.shared.noteRegistration(.unregistered)
+        default: break
+        }
 
         switch registration {
         case .registered: consecutiveRegistrationFailures = 0
@@ -2869,6 +2875,9 @@ final class AppModel: ObservableObject {
     /// должно — иначе однажды появится вторая запись, которая не попадает в
     /// файл и не маскируется.
     func append(level: SIPLogLevel, message: String) {
+        if level == .error {
+            ClientEventLog.shared.noteError(message)
+        }
         // В файл — до фильтра экрана и по своему уровню. Иначе «покажите
         // поменьше» на панели молча обрезало бы и то, ради чего журнал заводили.
         if let logFile, level >= settings.logFile.minimumLevel {
