@@ -68,6 +68,7 @@ extension AppModel {
             settings.panel.presetID = config.presetID
             settings.panel.appliedRevision = 0
             append(level: .info, message: "Spark сменил предустановку машины: «\(was)» → «\(config.presetName)»")
+            ClientEventLog.shared.record(.config, .info, "Сменена предустановка: «\(was)» → «\(config.presetName)»")
         }
         if !config.presetName.isEmpty { settings.panel.presetName = config.presetName }
         settings.panel.mode = .managed
@@ -78,6 +79,9 @@ extension AppModel {
         append(level: .info,
                message: "настройки из Spark применены: номер \(config.number), ревизия \(config.revision)")
         let numberNow = settings.profiles.active.account.username
+        if numberBefore != numberNow, !numberBefore.isEmpty {
+            ClientEventLog.shared.record(.config, .info, "Сменён номер: \(numberBefore) → \(numberNow)")
+        }
         if accountChanged, numberBefore != numberNow, !numberBefore.isEmpty {
             showPanelNotice(String(
                 format: NSLocalizedString("Администратор сменил номер: %@", comment: "уведомление в панели"),

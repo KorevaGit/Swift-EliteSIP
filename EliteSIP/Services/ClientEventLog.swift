@@ -14,7 +14,7 @@ final class ClientEventLog {
 
     static let shared = ClientEventLog()
 
-    enum Kind: String, Codable { case registration, call, error }
+    enum Kind: String, Codable { case registration, call, config, error }
     enum Level: String, Codable { case info, warning, error }
 
     struct Event: Codable, Equatable {
@@ -31,12 +31,17 @@ final class ClientEventLog {
     /// Сколько событий держим, пока сервер недоступен. Старые вытесняются.
     static let capacity = 1000
     static let sendInterval: TimeInterval = 5 * 60
+    /// Событие уходит через несколько секунд, а не с общим тактом: тот, кто
+    /// смотрит журнал в Spark, проверяет то, что только что сделал. Пауза
+    /// собирает в одну пачку то, что идёт подряд, — снятие и новую регистрацию.
+    static let flushDelay: TimeInterval = 10
     /// Одинаковая ошибка чаще раза в минуту — шум, а не новое событие.
     static let errorRepeatWindow: TimeInterval = 60
 
     private(set) var pending: [Event] = []
     private var settings: (() -> AppSettings)?
     private var timer: Timer?
+    private var flushTask: Task<Void, Never>?
     private var sending = false
     private var lastErrors: [String: Date] = [:]
     private var calls: [String: (direction: String, answeredAt: Date?)] = [:]
@@ -63,6 +68,8 @@ final class ClientEventLog {
         timer = Timer.scheduledTimer(withTimeInterval: Self.sendInterval, repeats: true) { _ in
             Task { @MainActor in ClientEventLog.shared.send() }
         }
+        // Накопленное до запуска (или пока сервер был недоступен) — не ждать такта.
+        if !pending.isEmpty { scheduleFlush() }
     }
 
     // MARK: - События
@@ -76,10 +83,14 @@ final class ClientEventLog {
         case .failed(let reason, let code):
             wasRegistered = false
             record(.registration, .error, "Регистрация не прошла: \(reason)", sipCode: code)
-        case .unregistered:
+        case .unregistered(let byOperator):
             guard wasRegistered else { return }
             wasRegistered = false
-            record(.registration, .warning, "Снята регистрация на АТС")
+            if byOperator {
+                record(.registration, .info, "Оператор отключился от АТС")
+            } else {
+                record(.registration, .warning, "Снята регистрация на АТС")
+            }
         }
     }
 
@@ -124,9 +135,20 @@ final class ClientEventLog {
             pending.removeFirst(pending.count - Self.capacity)
         }
         persist()
+        scheduleFlush()
     }
 
     // MARK: - Отправка
+
+    private func scheduleFlush() {
+        guard flushTask == nil else { return }
+        flushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.flushDelay * 1_000_000_000))
+            guard let self else { return }
+            self.flushTask = nil
+            self.send()
+        }
+    }
 
     func send() {
         guard !sending, !pending.isEmpty, let settings else { return }
@@ -154,6 +176,7 @@ final class ClientEventLog {
 
     private func didSend(count: Int, status: Int?) {
         sending = false
+        defer { if !pending.isEmpty, status == 204 { scheduleFlush() } }
         // 204 — пачка принята. 400 — её не примут никогда, держать незачем.
         // Остальное (сеть, 429, 5xx) — попробуем в следующий раз.
         if status == 204 || status == 400 {
@@ -172,5 +195,6 @@ final class ClientEventLog {
 enum SIPRegistrationStateSummary: Equatable {
     case registered
     case failed(reason: String, code: Int?)
-    case unregistered
+    /// byOperator — оператор сам ушёл с линии, а не АТС или сеть его сняли.
+    case unregistered(byOperator: Bool)
 }

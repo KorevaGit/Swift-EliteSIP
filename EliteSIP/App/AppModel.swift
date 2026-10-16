@@ -750,7 +750,7 @@ final class AppModel: ObservableObject {
         switch registration {
         case .registered: ClientEventLog.shared.noteRegistration(.registered)
         case .failed(let reason, _): ClientEventLog.shared.noteRegistration(.failed(reason: reason, code: nil))
-        case .idle: ClientEventLog.shared.noteRegistration(.unregistered)
+        case .idle: ClientEventLog.shared.noteRegistration(.unregistered(byOperator: isOfflineByChoice))
         default: break
         }
 
