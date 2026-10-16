@@ -339,7 +339,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
         machineService = machines
-        ClientEventLog.shared.start(settings: { [weak self] in self?.model.settings ?? AppSettings.default })
+        ClientEventLog.shared.start(
+            settings: { [weak self] in self?.model.settings ?? AppSettings.default },
+            log: { [weak self] level, message in self?.model.append(level: level, message: message) })
         startRevocationWatch(machines, presets: presets)
 
         let service = UpdateService(
@@ -441,6 +443,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// зависшее снятие регистрации повесило бы установщик, и рабочее место
     /// осталось бы с наполовину заменённым приложением.
     private func deregisterBeforeRestart(then done: @escaping () -> Void) {
+        ClientEventLog.shared.noteShutdown("установка обновления")
         Task { @MainActor in
             let teardown = Task { @MainActor in await self.model.disconnect(force: true) }
             let limit = Task { @MainActor in
@@ -541,6 +544,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @MainActor
     private func tearDownAndExit() async {
         model.append(level: .info, message: "выход: снимаем регистрацию")
+        ClientEventLog.shared.noteShutdown("выход из приложения")
 
         let teardown = Task { @MainActor in await self.model.disconnect(force: true) }
         let limit = Task { @MainActor in

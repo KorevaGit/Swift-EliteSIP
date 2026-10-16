@@ -1,5 +1,6 @@
 import Diagnostics
 import Foundation
+import SIPCore
 
 /// Журнал машины для Spark: регистрация, звонки и критические ошибки.
 ///
@@ -42,10 +43,26 @@ final class ClientEventLog {
     private var settings: (() -> AppSettings)?
     private var timer: Timer?
     private var flushTask: Task<Void, Never>?
+    /// Не даёт App Nap усыпить ожидание отправки. Оператор нажимает
+    /// «Отключён» и уходит в браузер — окно скрыто, и без этого десять секунд
+    /// растягивались до его возвращения в приложение (16 октября 2026: событие
+    /// 08:51:45 ушло в 08:53:30).
+    private var activity: NSObjectProtocol?
+    /// Пауза перед повтором после неудачной отправки; растёт до такта.
+    private var retryDelay: TimeInterval = 0
+    /// Куда писать исход отправки — в журнал приложения.
+    private var log: ((SIPLogLevel, String) -> Void)?
     private var sending = false
     private var lastErrors: [String: Date] = [:]
     private var calls: [String: (direction: String, answeredAt: Date?)] = [:]
     private var wasRegistered = false
+    /// Почему приложение само снимает регистрацию: обновление или выход.
+    /// Без подписи такое снятие выглядело в Spark как сбой.
+    private var shutdownReason: String?
+
+    func noteShutdown(_ reason: String) {
+        shutdownReason = reason
+    }
     private let fileURL: URL?
     private let now: () -> Date
 
@@ -62,8 +79,9 @@ final class ClientEventLog {
         SettingsStore.fileURL.deletingLastPathComponent().appendingPathComponent("client-events.json")
     }
 
-    func start(settings: @escaping () -> AppSettings) {
+    func start(settings: @escaping () -> AppSettings, log: @escaping (SIPLogLevel, String) -> Void) {
         self.settings = settings
+        self.log = log
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: Self.sendInterval, repeats: true) { _ in
             Task { @MainActor in ClientEventLog.shared.send() }
@@ -86,7 +104,9 @@ final class ClientEventLog {
         case .unregistered(let byOperator):
             guard wasRegistered else { return }
             wasRegistered = false
-            if byOperator {
+            if let reason = shutdownReason {
+                record(.registration, .info, "Регистрация снята: \(reason)")
+            } else if byOperator {
                 record(.registration, .info, "Оператор отключился от АТС")
             } else {
                 record(.registration, .warning, "Снята регистрация на АТС")
@@ -140,10 +160,14 @@ final class ClientEventLog {
 
     // MARK: - Отправка
 
-    private func scheduleFlush() {
+    private func scheduleFlush(after delay: TimeInterval = ClientEventLog.flushDelay) {
         guard flushTask == nil else { return }
+        if activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep, reason: "отправка журнала машины")
+        }
         flushTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(Self.flushDelay * 1_000_000_000))
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self else { return }
             self.flushTask = nil
             self.send()
@@ -151,11 +175,12 @@ final class ClientEventLog {
     }
 
     func send() {
-        guard !sending, !pending.isEmpty, let settings else { return }
+        guard !sending else { return }
+        guard !pending.isEmpty, let settings else { endActivity(); return }
         let panel = settings().panel
         guard panel.hasChannelKey, !panel.installationID.isEmpty,
               let url = Provisioning.secrets?.updates?.logsURL
-        else { return }
+        else { endActivity(); return }
         let batch = Array(pending.prefix(500))
         var request = MachineService.machineRequest(url: url, panel: panel)
         request.httpMethod = "POST"
@@ -176,13 +201,31 @@ final class ClientEventLog {
 
     private func didSend(count: Int, status: Int?) {
         sending = false
-        defer { if !pending.isEmpty, status == 204 { scheduleFlush() } }
         // 204 — пачка принята. 400 — её не примут никогда, держать незачем.
-        // Остальное (сеть, 429, 5xx) — попробуем в следующий раз.
         if status == 204 || status == 400 {
             pending.removeFirst(min(count, pending.count))
             persist()
+            retryDelay = 0
+            if status == 400 {
+                log?(.warning, "журнал машины: сервер отверг пачку (400), событий выброшено: \(count)")
+            } else {
+                log?(.debug, "журнал машины: отправлено событий \(count)")
+            }
+            // Пока шла отправка, могли прийти новые.
+            if pending.isEmpty { endActivity() } else { scheduleFlush() }
+            return
         }
+        // Сеть, 429, 5xx — повтор с нарастающей паузой, а не через пять минут.
+        retryDelay = min(max(retryDelay * 2, 30), Self.sendInterval)
+        log?(.warning, "журнал машины: отправка не прошла (\(status.map(String.init) ?? "нет ответа")), "
+            + "повтор через \(Int(retryDelay)) с, в буфере \(pending.count)")
+        endActivity()
+        scheduleFlush(after: retryDelay)
+    }
+
+    private func endActivity() {
+        if let activity { ProcessInfo.processInfo.endActivity(activity) }
+        activity = nil
     }
 
     private func persist() {
