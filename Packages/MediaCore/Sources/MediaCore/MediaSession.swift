@@ -1049,12 +1049,16 @@ public final class MediaSession: @unchecked Sendable {
         // Длительность считается по отсчётам, которые запросила звуковая карта:
         // это единственные часы в разговоре, которые нельзя оспорить.
         let seconds = Double(renderedSamples) / Double(codec.sampleRate)
-        let buffer = bufferLock.withLock { (jitter.jitterMilliseconds, jitter.targetDepth) }
+        // Запас — фактический и целевой рядом. До 17 октября 2026 здесь стояла
+        // одна цель, и по журналу выглядело, что буфер «ужался до двух кадров»,
+        // когда в нём лежало восемь: ужималась цель, а не задержка.
+        let buffer = bufferLock.withLock { (jitter.jitterMilliseconds, jitter.depth, jitter.targetDepth) }
         return String(
             format: "принято %d, спрятано %d, не по порядку %d, недоборов %d, "
-                + "проиграно %.1f с, пустых рендеров %d, джиттер %.1f мс, запас %d кадр.",
+                + "проиграно %.1f с, пустых рендеров %d, джиттер %.1f мс, "
+                + "запас %d/цель %d кадр., сброшено лишних %d",
             stats.received, stats.concealed, stats.reordered, stats.underruns,
-            seconds, starvedRenders, buffer.0, buffer.1
+            seconds, starvedRenders, buffer.0, buffer.1, buffer.2, stats.drained
         ) + (remoteView.map { " | у собеседника: \($0.summary)" } ?? "")
     }
 

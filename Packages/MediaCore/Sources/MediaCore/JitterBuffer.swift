@@ -41,6 +41,8 @@ public struct JitterBuffer: Sendable {
         public var underruns = 0
         /// Пакеты, пришедшие не в том порядке, но вовремя.
         public var reordered = 0
+        /// Кадры, выброшенные ради того, чтобы вернуть задержку к цели (`drainExcess`).
+        public var drained = 0
 
         public init() {}
     }
@@ -59,6 +61,7 @@ public struct JitterBuffer: Sendable {
     /// Тишина в текущем кодеке. Нужна на самый первый кадр, когда повторять
     /// ещё нечего.
     private let silencePayload: Data
+    private let codec: AudioCodec
 
     private let samplesPerFrame: Int
     private let clockRate: Int
@@ -98,6 +101,27 @@ public struct JitterBuffer: Sendable {
     private var receivedAtLastReport: Int64 = 0
     private var isPrimed = false
 
+    /// Сколько выдач подряд в буфере лежит больше цели.
+    private var excessPops = 0
+
+    /// Сколько выдач подряд запас должен быть лишним, прежде чем его начнут
+    /// сбрасывать, — секунда. Короче нельзя: пачка после провала сети
+    /// рассасывается сама, если провал был с нашей стороны часов.
+    static let drainAfterPops = 50
+
+    /// Через сколько выдач лишнего запаса кадр выбрасывается и не тихим —
+    /// пять секунд. Тихий кадр (пауза между словами) выбрасывается неслышно,
+    /// и его ждут; но у G.722 тишину по байтам не узнать, а в сплошной речи
+    /// пауза может не прийти, и задержка не должна жить из-за этого вечно.
+    static let forceDrainAfterPops = 250
+
+    /// Не чаще одного выброса за столько выдач — 200 мс. Выбросы подряд
+    /// слышны, разнесённые — нет.
+    static let drainSpacingPops = 10
+
+    /// Порог тишины для G.711: пик кадра ниже −40 дБ полной шкалы.
+    static let quietPeak: Int16 = 328
+
     public private(set) var statistics = Statistics()
 
     /// Сколько кадров подряд можно спрятать повтором. Пять — это 100 мс:
@@ -119,6 +143,7 @@ public struct JitterBuffer: Sendable {
         self.samplesPerFrame = Int(codec.timestampIncrement(forPacketTime: packetTimeMilliseconds))
         self.clockRate = Int(codec.rtpClockRate)
         self.silencePayload = codec.silencePayload(forPacketTime: packetTimeMilliseconds)
+        self.codec = codec
     }
 
     /// Замеренный джиттер сети в миллисекундах. Для журнала и для RTCP.
@@ -305,6 +330,7 @@ public struct JitterBuffer: Sendable {
             lastGoodPayload = frame.payload
             concealmentRun = 0
             adaptTargetDepth()
+            drainExcess(after: next)
             return frame
         }
 
@@ -339,8 +365,56 @@ public struct JitterBuffer: Sendable {
         )
     }
 
+    /// Возвращает задержку к цели после всплеска джиттера.
+    ///
+    /// До 17 октября 2026 цель снижалась, а сам буфер — нет: приходит кадр,
+    /// уходит кадр, и пачка, принятая после провала сети, оставалась в буфере
+    /// лишней задержкой до конца разговора. Провал на 160 мс давал 8 кадров
+    /// при цели 2 и через 30 секунд, и каждый следующий провал добавлял ещё,
+    /// пока буфер не упирался в `maximumDepth`.
+    ///
+    /// Лишним считается всё сверх цели после выдачи: в ровном потоке там
+    /// лежит `targetDepth - 1`. Выбрасывается следующий по очереди кадр —
+    /// тихий сразу, как запас продержался `drainAfterPops`, любой — после
+    /// `forceDrainAfterPops`, и не чаще раза в `drainSpacingPops`.
+    private mutating func drainExcess(after played: UInt16) {
+        guard frames.count > targetDepth else {
+            excessPops = 0
+            return
+        }
+        excessPops += 1
+        guard excessPops >= Self.drainAfterPops else { return }
+
+        let candidate = played &+ 1
+        guard let frame = frames[candidate] else { return }
+        guard excessPops >= Self.forceDrainAfterPops || isQuiet(frame.payload) else { return }
+
+        frames.removeValue(forKey: candidate)
+        nextSequence = candidate &+ 1
+        statistics.drained += 1
+        // Не сброс в ноль: следующий выброс через интервал, а не через секунду.
+        excessPops = min(excessPops, Self.forceDrainAfterPops) - Self.drainSpacingPops
+    }
+
+    /// Тишина ли в кадре. У G.711 — по пику декодированных отсчётов, это
+    /// таблица. У G.722 без состояния декодера не узнать ничего — тогда «нет»,
+    /// и выброс ждёт `forceDrainAfterPops`.
+    private func isQuiet(_ payload: Data) -> Bool {
+        let decode: (UInt8) -> Int16
+        switch codec {
+        case .pcmu: decode = G711.decodeMuLaw
+        case .pcma: decode = G711.decodeALaw
+        case .g722: return false
+        }
+        return payload.allSatisfy { byte in
+            let sample = decode(byte)
+            return sample > -Self.quietPeak && sample < Self.quietPeak
+        }
+    }
+
     public mutating func reset() {
         frames.removeAll()
+        excessPops = 0
         nextSequence = nil
         highestSequence = nil
         isPrimed = false

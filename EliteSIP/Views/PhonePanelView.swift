@@ -1058,10 +1058,15 @@ struct CallControls: View {
                     Task { await model.toggleHold() }
                 }
 
+                // Подпись меняется вместе с состоянием, как у «Удержать». До
+                // 17 октября 2026 она всегда была «Микрофон», а подсвечивалась
+                // кнопка при выключенном: подсвеченное «Микрофон» читалось
+                // ровно наоборот, и разницу несла одна мелкая иконка.
                 controlButton(
-                    title: "Микрофон",
+                    title: model.isMicrophoneMuted ? "Микрофон выкл." : "Микрофон",
                     symbol: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
                     isOn: model.isMicrophoneMuted,
+                    onColor: Theme.Palette.microphoneMuted,
                     isEnabled: model.callPhase == .active
                 ) {
                     model.toggleMicrophone()
@@ -1099,6 +1104,7 @@ struct CallControls: View {
         title: LocalizedStringKey,
         symbol: String,
         isOn: Bool,
+        onColor: Color = Theme.Palette.connecting,
         isEnabled: Bool,
         action: @escaping () -> Void
     ) -> some View {
@@ -1122,7 +1128,7 @@ struct CallControls: View {
         .compatBackground {
             if isOn {
                 RoundedRectangle(cornerRadius: Theme.Radius.control)
-                    .fill(Theme.Palette.connecting)
+                    .fill(onColor)
             }
         }
         .themedControlSurface()
