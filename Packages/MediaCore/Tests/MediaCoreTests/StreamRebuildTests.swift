@@ -124,6 +124,57 @@ struct StreamRebuildTests {
         session.stop()
     }
 
+    @Test("Несогласованный тип нагрузки в звук не идёт")
+    func dropsUnnegotiatedPayloadType() throws {
+        let reservation = try RTPSession.reservePortPair()
+        defer { reservation.release() }
+
+        let negotiated = NegotiatedMedia(
+            codec: .pcmu,
+            payloadType: 0,
+            remoteAddress: "127.0.0.1",
+            remotePort: 40110
+        )
+        let session = try MediaSession(negotiated: negotiated, reservation: reservation)
+        reservation.activate()
+        var moved = negotiated
+        moved.remotePort = 40112
+        _ = try session.renegotiate(to: moved)
+
+        var sequenceNumber: UInt16 = 2000
+        func packet(type: UInt8) -> Data {
+            defer { sequenceNumber &+= 1 }
+            return RTPPacket(
+                payloadType: type,
+                sequenceNumber: sequenceNumber,
+                timestamp: UInt32(sequenceNumber) * 160,
+                ssrc: 0x1234_5678,
+                payload: Data(repeating: 0xD5, count: 160)
+            ).encoded()
+        }
+
+        // A-law при согласованном µ-law: разобранный не тем декодером, он
+        // звучал бы треском. В буфер не попадает ни один.
+        for _ in 0..<20 {
+            try send(packet(type: 8), toLocalPort: session.localPort, fromLocalPort: moved.remotePort)
+        }
+        usleep(200_000)
+        #expect(session.statistics.received == 0)
+        // Сколько датаграмм дошло по loopback, не важно — важно, что они
+        // посчитаны и названы, а не пропали молча.
+        #expect(session.summary.contains("отброшено несогласованных пакетов"), "\(session.summary)")
+        #expect(session.summary.contains("тип 8"), "\(session.summary)")
+
+        // А согласованный после них принимается: отброшенное не сломало поток.
+        let received = try pumpUntil(
+            send: { try send(packet(type: 0), toLocalPort: session.localPort, fromLocalPort: moved.remotePort) },
+            condition: { session.statistics.received > 0 }
+        )
+        #expect(received)
+
+        session.stop()
+    }
+
     @Test("RTCP занимает свой порт заново сразу после остановки")
     func rtcpRebindsSameLocalPortImmediatelyAfterStop() throws {
         let reservation = try RTPSession.reservePortPair()

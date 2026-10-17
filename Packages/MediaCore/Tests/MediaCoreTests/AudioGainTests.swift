@@ -36,6 +36,23 @@ struct AudioGainTests {
         #expect(samples[1] == 16_383)
     }
 
+    @Test("Громкое при усилении сжимается, а не срезается")
+    func gainSoftensPeaksInsteadOfFlattening() {
+        // При жёстком срезе все три отсчёта стали бы одним Int16.max —
+        // плоская верхушка волны, то есть хрип. Мягкое колено сохраняет их
+        // порядок: форма волны сжата, но жива.
+        var samples: [Int16] = [16_000, 20_000, 24_000, -16_000, -20_000, -24_000]
+        VoiceAudioEngine.amplify(&samples, by: 2)
+
+        #expect(samples[0] < samples[1] && samples[1] < samples[2], "\(samples)")
+        #expect(samples[3] > samples[4] && samples[4] > samples[5], "\(samples)")
+        // Всё сжатое лежит выше колена и ниже шкалы.
+        let knee = Int16(SoftLimiter.knee * 32768)
+        for sample in samples {
+            #expect(abs(Int(sample)) >= Int(knee))
+        }
+    }
+
     @Test("Ноль — это тишина, а не отключение потока")
     func zeroGainIsSilence() {
         var samples: [Int16] = [-30_000, 1_000, 30_000]

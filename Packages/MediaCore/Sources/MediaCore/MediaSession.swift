@@ -168,6 +168,10 @@ public final class MediaSession: @unchecked Sendable {
     /// Кто из говорящих на нашем порту — собеседник. Устройство и цена решения
     /// — в `RemoteSourceFilter`.
     private let remoteSource = UnfairLock(initialState: RemoteSourceFilter())
+
+    /// Пакеты с типом нагрузки, которого не согласовывали: сколько и какой
+    /// последний. В звук они не идут — см. `wireTransport`.
+    private let unexpectedPayloads = UnfairLock(initialState: (count: 0, lastType: UInt8?.none))
     private let remoteViewLock = UnfairLock(initialState: RTCPSession.RemoteView?.none)
 
     /// Что сейчас можно делать со звуком.
@@ -475,6 +479,7 @@ public final class MediaSession: @unchecked Sendable {
     private func wireTransport() {
         guard let current = transport.withLock({ $0 }) else { return }
         let eventPayloadType = current.configuration.telephoneEventPayloadType
+        let audioPayloadType = current.configuration.payloadType
         // Обе половины по отдельности, а не через `current`: отчёт RTCP берёт
         // счётчики у RTP, и замыкание, захватившее пару целиком, замкнуло бы
         // RTCP сам на себя — сессия не освободилась бы никогда.
@@ -486,6 +491,26 @@ public final class MediaSession: @unchecked Sendable {
             // События DTMF в звук не отдаём: их полезная нагрузка — не аудио, и
             // декодированная как G.711 она превратится в громкий треск.
             if let eventPayloadType, packet.payloadType == eventPayloadType {
+                return
+            }
+            // Голос — только согласованного типа. Декодер у тракта один, под
+            // согласованный кодек, а ответ на предложение с несколькими
+            // кодеками разрешает собеседнику переключаться между ними
+            // (RFC 3264): A-law, разобранный как µ-law, — громкий треск, а не
+            // тишина. До 17 октября 2026 сюда шло всё, кроме DTMF.
+            //
+            // Смена кодека посреди разговора сюда не попадает: её отвергает
+            // `renegotiate`, а пересогласование подключает транспорт заново.
+            guard packet.payloadType == audioPayloadType else {
+                let first = unexpectedPayloads.withLock { state -> Bool in
+                    defer { state.count += 1; state.lastType = packet.payloadType }
+                    return state.count == 0
+                }
+                // Одна строка на разговор, остальное — счётчиком в сводке.
+                if first {
+                    onDiagnostic?("пакет с несогласованным типом нагрузки \(packet.payloadType) "
+                        + "(ждали \(audioPayloadType)) — в звук не идёт")
+                }
                 return
             }
             // На удержании принятое просто выбрасывается. Копить его в буфере
@@ -1032,6 +1057,13 @@ public final class MediaSession: @unchecked Sendable {
         bufferLock.withLock { jitter.statistics }
     }
 
+    /// Хвост сводки про несогласованные пакеты — пустой, пока их не было.
+    private var unexpectedPayloadSummary: String {
+        let state = unexpectedPayloads.withLock { $0 }
+        guard state.count > 0, let type = state.lastType else { return "" }
+        return ", отброшено несогласованных пакетов \(state.count), тип \(type)"
+    }
+
     public var summary: String {
         let stats = statistics
         let codec = transport.withLock { $0?.configuration.codec } ?? .pcmu
@@ -1059,7 +1091,8 @@ public final class MediaSession: @unchecked Sendable {
                 + "запас %d/цель %d кадр., сброшено лишних %d",
             stats.received, stats.concealed, stats.reordered, stats.underruns,
             seconds, starvedRenders, buffer.0, buffer.1, buffer.2, stats.drained
-        ) + (remoteView.map { " | у собеседника: \($0.summary)" } ?? "")
+        ) + unexpectedPayloadSummary
+            + (remoteView.map { " | у собеседника: \($0.summary)" } ?? "")
     }
 
     public var route: AudioRoute {

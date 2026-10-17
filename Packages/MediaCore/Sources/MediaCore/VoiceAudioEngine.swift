@@ -1790,13 +1790,28 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     ///
     /// Единица не бесплатна только на словах: проверка на неё убирает проход по
     /// массиву у всех, кто ползунок не трогал, то есть почти у всех.
+    ///
+    /// **Усиление идёт через `SoftLimiter`, как громкость воспроизведения.**
+    /// До 17 октября 2026 громкое здесь просто упиралось в шкалу: при
+    /// ползунке выше единицы ударные слоги уходили в плоскую верхушку, и
+    /// собеседник слышал хрип, о котором оператор узнать не мог — себя он
+    /// не слышит. Мягкое колено начинается с 0,9 шкалы, поэтому всё, что
+    /// ниже, по-прежнему умножается ровно. Ослабление ограничителя не
+    /// требует и остаётся линейным.
     static func amplify(_ samples: inout [Int16], by gain: Float) {
         guard gain != 1 else { return }
         let low = Float(Int16.min)
         let high = Float(Int16.max)
+        if gain < 1 {
+            for index in samples.indices {
+                let value = Float(samples[index]) * gain
+                samples[index] = Int16(min(max(value, low), high))
+            }
+            return
+        }
         for index in samples.indices {
-            let value = Float(samples[index]) * gain
-            samples[index] = Int16(min(max(value, low), high))
+            let value = SoftLimiter.limit(Float(samples[index]) / 32768 * gain) * 32768
+            samples[index] = Int16(min(max(value.rounded(), low), high))
         }
     }
 
