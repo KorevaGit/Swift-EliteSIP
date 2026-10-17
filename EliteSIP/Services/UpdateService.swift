@@ -342,6 +342,17 @@ final class UpdateService: NSObject, ObservableObject {
             ))
             return
         }
+        // Скачанное ждёт решения — Sparkle держит сессию и проверять заново не
+        // даст. Отвечать «проверка уже идёт» здесь неправда: идти некуда,
+        // обновление готово. Говорим об этом и заодно показываем предложение.
+        if installAction != nil, let version = readyVersion {
+            setCheckState(checking: false, result: String(format: NSLocalizedString(
+                "Обновление готово: %@",
+                comment: "результат ручной проверки обновлений"
+            ), version))
+            offerIfPossible(force: true)
+            return
+        }
         // Уже идёт проверка — своя или фоновая по таймеру. Кнопка блокируется
         // только на свою (`isChecking` отражает лишь ручной путь), поэтому
         // фоновую нельзя различить заранее — отвечаем текстом, а не молчанием:

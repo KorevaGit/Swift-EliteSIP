@@ -31,9 +31,12 @@ extension AppModel {
     /// записана.
     @discardableResult
     func applyMachineConfig(_ config: MachineConfig) -> ConfigOutcome {
-        guard config.installationID == settings.panel.installationID,
-              config.revision > settings.panel.appliedConfigRevision
-        else { return .unchanged }
+        guard config.installationID == settings.panel.installationID else { return .unchanged }
+        guard config.revision > settings.panel.appliedConfigRevision else {
+            noteStaleConfig(config.revision)
+            return .unchanged
+        }
+        reportedStaleConfigRevision = nil
 
         let site = siteFor(workFormat: config.workFormat) ?? settings.profiles.active.site
         let before = settings.profiles
@@ -218,6 +221,25 @@ extension AppModel {
     /// Цена полной чистки названа прямо: после неё разбирать ошибочный отзыв
     /// не по чему — журнал и история уходят вместе со всем остальным. Принято
     /// сознательно 26 августа 2026.
+    /// Spark прислал ревизию младше применённой.
+    ///
+    /// Отказ правильный — так старую подписанную конфигурацию нельзя подсунуть
+    /// повторно. Но молча отказывать нельзя: такое бывает и честно, когда
+    /// счётчик в Spark сбросился (восстановление базы, пересозданная запись
+    /// машины), и тогда машина больше не примет ни одной правки, а снаружи
+    /// это не видно. Поэтому — предупреждение и сюда, и в журнал для Spark.
+    /// Равная ревизия — обычный повторный опрос, о ней молчим.
+    private func noteStaleConfig(_ revision: Int) {
+        let applied = settings.panel.appliedConfigRevision
+        guard revision < applied, reportedStaleConfigRevision != revision else { return }
+        reportedStaleConfigRevision = revision
+        append(level: .warning,
+               message: "конфигурация из Spark отклонена: ревизия \(revision) меньше применённой \(applied)")
+        ClientEventLog.shared.record(.config, .warning,
+            "Конфигурация отклонена: ревизия \(revision) меньше применённой \(applied). "
+            + "Новые настройки из Spark не применятся, пока ревизия не станет больше \(applied)")
+    }
+
     func resetByRevocation(_ revocation: Revocation) {
         // В разговоре не сбрасываем: сброс снимает регистрацию и закрывает
         // диалоги, то есть кладёт трубку за оператора. Ждать безопасно —
