@@ -350,7 +350,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 guard let self else { done(); return }
                 self.deregisterBeforeRestart(then: done)
             },
-            hostWindow: { [weak self] in self?.phoneWindow },
+            // Скрытую панель показываем: предложение — лист на ней, а лист на
+            // невидимом окне никто не видит. Окна нет вовсе (идёт мастер) —
+            // `nil`, и сервис покажет предложение отдельным окном.
+            hostWindow: { [weak self] in
+                guard let self, let window = self.phoneWindow else { return nil }
+                if !window.isVisible { self.showPhoneWindow(nil) }
+                return window
+            },
             announce: { [weak self] version in self?.model.noteUpdateReady(version) },
             reportCheckState: { [weak self] checking, result in
                 self?.model.noteUpdateCheckState(checking: checking, result: result)
@@ -442,16 +449,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// будет установщик Sparkle, а не мы. Ограничение по времени обязательно —
     /// зависшее снятие регистрации повесило бы установщик, и рабочее место
     /// осталось бы с наполовину заменённым приложением.
+    /// Снять регистрацию, но ждать этого не дольше `seconds`.
+    ///
+    /// Гонка двух задач, а не отмена одной. До 17 октября 2026 здесь стояло
+    /// `teardown.cancel()` по таймеру и следом `await teardown.value` — и предел
+    /// не работал: отмена не доходит до `agent.stop()` (внутри несвязанные
+    /// задачи, `hangUp()` и остановка транзакций), а `value` всё равно ждёт
+    /// конца. Без ответа АТС на BYE выход и установка обновления стояли
+    /// десятки секунд. Теперь по истечении срока мы просто идём дальше, а
+    /// снятие доделывает что успеет, пока процесс жив.
+    private func disconnectAtMost(seconds: Double) async {
+        @MainActor final class Once {
+            var continuation: CheckedContinuation<Void, Never>?
+            func finish() {
+                continuation?.resume()
+                continuation = nil
+            }
+        }
+        let once = Once()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            once.continuation = continuation
+            Task { @MainActor in
+                await self.model.disconnect(force: true)
+                once.finish()
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                once.finish()
+            }
+        }
+    }
+
     private func deregisterBeforeRestart(then done: @escaping () -> Void) {
         ClientEventLog.shared.noteShutdown("установка обновления")
         Task { @MainActor in
-            let teardown = Task { @MainActor in await self.model.disconnect(force: true) }
-            let limit = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                teardown.cancel()
-            }
-            await teardown.value
-            limit.cancel()
+            await self.disconnectAtMost(seconds: 2)
             self.model.append(level: .info, message: "обновление: регистрация снята, ставим")
             UserDefaults.standard.synchronize()
             SessionHealth.noteCleanExit()
@@ -546,13 +578,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.append(level: .info, message: "выход: снимаем регистрацию")
         ClientEventLog.shared.noteShutdown("выход из приложения")
 
-        let teardown = Task { @MainActor in await self.model.disconnect(force: true) }
-        let limit = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            teardown.cancel()
-        }
-        await teardown.value
-        limit.cancel()
+        await self.disconnectAtMost(seconds: 2)
 
         model.append(level: .info, message: "выход")
         UserDefaults.standard.synchronize()

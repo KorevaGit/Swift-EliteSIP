@@ -103,12 +103,19 @@ final class UpdateService: NSObject, ObservableObject {
 
     private var updater: SPUUpdater?
 
-    /// Ответ Sparkle, который мы держим у себя, пока оператор не решит.
+    /// Что сделать по «Обновить», пока оператор не решил.
     ///
     /// Именно удержание, а не отказ с повторной проверкой: пока блок не позван,
     /// сессия обновления жива, файл лежит распакованным, и «Обновить» через час
     /// сработает так же мгновенно, как сразу.
-    private var installReply: ((SPUUserUpdateChoice) -> Void)?
+    ///
+    /// Путей сюда два, и оба нужны. Фоновая загрузка приходит через
+    /// `willInstallUpdateOnQuit` — блоком немедленной установки. Ручная
+    /// проверка из «Диагностики» приходит в `SPUUserDriver` — ответом `.install`.
+    /// До 17 октября 2026 первого пути не было: фоновый драйвер Sparkle молча
+    /// ставил скачанное «на выход», а пользовательский драйвер видел его только
+    /// на следующем такте, то есть предложение опаздывало на два часа.
+    private var installAction: (() -> Void)?
 
     private var reminder: Timer?
 
@@ -307,7 +314,7 @@ final class UpdateService: NSObject, ObservableObject {
 
     /// Разговоров больше нет.
     func hostBecameIdle() {
-        guard installReply != nil, offerSheet == nil, reminder != nil else { return }
+        guard installAction != nil, offerSheet == nil, reminder != nil else { return }
         offerIfPossible()
     }
 
@@ -352,7 +359,7 @@ final class UpdateService: NSObject, ObservableObject {
     // MARK: - Предложение
 
     private func offerIfPossible(force: Bool = false) {
-        guard let reply = installReply, let version = readyVersion else { return }
+        guard let install = installAction, let version = readyVersion else { return }
         guard offerSheet == nil else { return }
 
         // Между показом окна и нажатием мог прийти входящий: проверяем в
@@ -392,8 +399,8 @@ final class UpdateService: NSObject, ObservableObject {
                 self.log("обновление: устанавливаем")
                 self.reminder?.invalidate()
                 self.reminder = nil
-                self.installReply = nil
-                reply(.install)
+                self.installAction = nil
+                install()
             } else {
                 // не переводится: строка журнала
                 self.log("обновление: отложено на полчаса")
@@ -401,7 +408,11 @@ final class UpdateService: NSObject, ObservableObject {
             }
         }
 
-        if let window = hostWindow() {
+        // Только на видимое окно. Скрытая панель не уничтожается, и лист на ней
+        // висел невидимым: `offerSheet` занят, напоминания и кнопка «Обновить»
+        // упирались в него и молчали, пока оператор сам не откроет панель.
+        // Показать окно — дело `hostWindow`, здесь только проверка итога.
+        if let window = hostWindow(), window.isVisible {
             alert.beginSheetModal(for: window, completionHandler: decide)
         } else {
             decide(alert.runModal())
@@ -418,7 +429,7 @@ final class UpdateService: NSObject, ObservableObject {
 
     private func scheduleReminder(after delay: TimeInterval) {
         reminder?.invalidate()
-        guard installReply != nil else { return }
+        guard installAction != nil else { return }
         // Цель и селектор, а не замыкание: замыкание таймера помечено
         // `@Sendable`, и захват `self` в нём — предупреждение на ровном месте.
         // Класс и так `NSObject`, так что старый способ здесь дешевле.
@@ -465,6 +476,33 @@ extension UpdateService: SPUUpdaterDelegate {
         // не переводится: строка журнала
         log("обновление: снимаем регистрацию перед установкой")
         prepareForRestart(installHandler)
+        return true
+    }
+
+    /// Фоновая загрузка закончилась: файл проверен и стоит на установку «при
+    /// выходе». Отсюда и показываем предложение — сразу, а не через такт.
+    ///
+    /// `true` забирает установку себе: Sparkle останавливает свой цикл и ждёт
+    /// блока. Установка при выходе остаётся в силе в любом случае — установщик
+    /// следит за самим процессом (`TerminationListener`), поэтому и наш выход
+    /// через `exit(0)` её запускает.
+    ///
+    /// Регистрацию снимаем сами до блока: про путь немедленной установки
+    /// Sparkle не обещает позвать `shouldPostponeRelaunchForUpdate`. Если всё
+    /// же позовёт — второе снятие ничего не стоит, агента к тому времени нет.
+    func updater(_ updater: SPUUpdater,
+                 willInstallUpdateOnQuit item: SUAppcastItem,
+                 immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        // не переводится: строка журнала
+        log("обновление \(item.displayVersionString) скачано и проверено")
+        readyVersion = item.displayVersionString
+        installAction = { [weak self] in
+            guard let self else { immediateInstallHandler(); return }
+            // не переводится: строка журнала
+            self.log("обновление: снимаем регистрацию перед установкой")
+            self.prepareForRestart(immediateInstallHandler)
+        }
+        offerIfPossible()
         return true
     }
 }
@@ -516,7 +554,7 @@ extension UpdateService: SPUUserDriver {
         case .installing:
             // А вот это уже готовое к установке — спрашиваем.
             readyVersion = appcastItem.displayVersionString
-            installReply = reply
+            installAction = { reply(.install) }
             offerIfPossible()
         @unknown default:
             reply(.dismiss)
@@ -566,7 +604,7 @@ extension UpdateService: SPUUserDriver {
 
     /// Всё проверено и распаковано. Отсюда начинается видимая часть.
     func showReady(toInstallAndRelaunch reply: @escaping (SPUUserUpdateChoice) -> Void) {
-        installReply = reply
+        installAction = { reply(.install) }
         if readyVersion == nil { readyVersion = NSLocalizedString("новая", comment: "версия обновления неизвестна") }
         // не переводится: строка журнала
         log("обновление готово к установке")
@@ -585,7 +623,7 @@ extension UpdateService: SPUUserDriver {
     func dismissUpdateInstallation() {
         reminder?.invalidate()
         reminder = nil
-        installReply = nil
+        installAction = nil
         readyVersion = nil
         dismissOffer()
         // Подстраховка: если сессия оборвалась, не дойдя ни до одного из мест
