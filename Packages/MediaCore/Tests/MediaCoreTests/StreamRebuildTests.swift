@@ -155,10 +155,16 @@ struct StreamRebuildTests {
 
         // A-law при согласованном µ-law: разобранный не тем декодером, он
         // звучал бы треском. В буфер не попадает ни один.
-        for _ in 0..<20 {
-            try send(packet(type: 8), toLocalPort: session.localPort, fromLocalPort: moved.remotePort)
-        }
-        usleep(200_000)
+        //
+        // Досылаем до первого учтённого отказа, а не двадцать штук с паузой:
+        // под нагрузкой (`check-compat.sh` гоняет пакеты подряд) пересобранный
+        // приёмник успевал не проснуться за 200 мс, и тест падал с нулём
+        // везде — ни принятых, ни отброшенных.
+        let counted = try pumpUntil(
+            send: { try send(packet(type: 8), toLocalPort: session.localPort, fromLocalPort: moved.remotePort) },
+            condition: { session.summary.contains("отброшено несогласованных пакетов") }
+        )
+        #expect(counted)
         #expect(session.statistics.received == 0)
         // Сколько датаграмм дошло по loopback, не важно — важно, что они
         // посчитаны и названы, а не пропали молча.
