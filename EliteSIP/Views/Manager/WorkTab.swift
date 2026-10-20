@@ -19,16 +19,25 @@ import SwiftUI
 /// **Чего здесь нет.** Варианта «определять самому»: третья кнопка означала бы
 /// «не выбирать», а выбирает как раз человек. Догадка по адресу осталась
 /// умолчанием модели и показывается выбранной — `AppModel.workplaceSite`.
+///
+/// **Закрепление из Spark.** Администратор может закрепить формат за местом —
+/// тогда переключатель гаснет, а при закреплённом офисе гаснет и «Исправить
+/// сеть». Снять закрепление на месте можно административным паролем, ценой
+/// оффлайна — разбор в `AppModel+WorkFormat`.
 struct WorkTab: View {
 
     @EnvironmentObject private var model: AppModel
+
+    /// Окно административного пароля — своё, не общее с «Управлением»: после
+    /// входа оно не открывает окно, а оставляет человека здесь.
+    @State private var isAskingForPassword = false
 
     var body: some View {
         SettingsSection("Рабочее место") {
             SettingsRow("Работа") {
                 Picker("", selection: Binding(
                     get: { model.workplaceSite },
-                    set: { site in Task { await model.setProfileSite(site, for: model.settings.profiles.activeID) } }
+                    set: { site in Task { await model.chooseWorkplaceSite(site) } }
                 )) {
                     Text("Офис").tag(SIPProfileSite.office)
                     Text("Из дома").tag(SIPProfileSite.remote)
@@ -43,7 +52,7 @@ struct WorkTab: View {
             // Посреди разговора переключать нельзя — тот же запрет, что у смены
             // профиля и у отключения (M6b). Сегменты гасятся, а не молча
             // отказывают: отказ после нажатия оператор читает как поломку.
-            .disabled(!model.canSwitchProfile)
+            .disabled(!model.canSwitchProfile || model.isWorkplaceSwitchLocked)
 
             SettingsRow("Адрес АТС") {
                 Text(verbatim: model.settings.account.domain)
@@ -57,9 +66,27 @@ struct WorkTab: View {
                 длинной дорогой через шлюз.
                 """)
 
+            if model.isWorkplaceSwitchLocked {
+                SettingsNote("Формат работы закреплён администратором.")
+                SettingsButtonsRow {
+                    Button("Снять закрепление…") { isAskingForPassword = true }
+                }
+            } else if model.lockedWorkplaceSite != nil {
+                // Закрепление снято паролем, но машина ещё под панелью: цену
+                // переключения надо видеть до нажатия, а не после.
+                SettingsNote(
+                    "Закрепление снято. Переключение переведёт машину в оффлайн.",
+                    isAlarming: true
+                )
+            }
+
             if !model.canSwitchProfile {
                 SettingsNote("Идёт разговор — переключить сейчас нельзя.", isAlarming: true)
             }
+        }
+        .sheet(isPresented: $isAskingForPassword) {
+            AdminUnlockView(isPresented: $isAskingForPassword, purpose: .workplace)
+                .environmentObject(model)
         }
 
         SettingsSection("Если не подключается") {
@@ -67,6 +94,7 @@ struct WorkTab: View {
                 Button("Исправить сеть") {
                     Task { await model.repairNetwork() }
                 }
+                .disabled(model.isNetworkRepairLocked)
             }
 
             SettingsNote("""
@@ -74,6 +102,10 @@ struct WorkTab: View {
                 дома перестало подключаться без видимой причины: у домашнего интернета \
                 сменился адрес, а шлюз помнит прежний.
                 """)
+
+            if model.isNetworkRepairLocked {
+                SettingsNote("Место закреплено за офисом — из офиса АТС достижима напрямую.")
+            }
 
             if let status = model.networkRepairStatus {
                 SettingsNote(verbatim: status)

@@ -25,4 +25,15 @@ final class MachineConfigLinesTests: XCTestCase {
         XCTAssertEqual(old.lines, [])
         XCTAssertEqual(old.effectiveLines.count, 1)
     }
+
+    func testStoredConfigWithoutWorkFormatLockIsUnlocked() throws {
+        let config = MachineConfig(installationID: "a", revision: 3, issuedAt: Date(timeIntervalSince1970: 0),
+                                   employee: "С", number: "101", sipPassword: "p", workFormat: "remote",
+                                   workFormatLocked: true, presetID: "x", presetName: "М", adminPassword: "")
+        XCTAssertEqual(try JSONDecoder().decode(MachineConfig.self, from: JSONEncoder().encode(config)), config)
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(config)) as! [String: Any]
+        json.removeValue(forKey: "workFormatLocked")
+        let old = try JSONDecoder().decode(MachineConfig.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertFalse(old.workFormatLocked)
+    }
 }

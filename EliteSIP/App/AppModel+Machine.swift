@@ -76,6 +76,7 @@ extension AppModel {
         if !config.presetName.isEmpty { settings.panel.presetName = config.presetName }
         settings.panel.mode = .managed
         settings.panel.appliedConfigRevision = config.revision
+        noteWorkFormatLock(lockedWorkFormat(of: config))
         applyPanelPassword(config.adminPassword)
         persistSettings()
 
@@ -162,6 +163,29 @@ extension AppModel {
         case "remote": return .remote
         case "office": return .office
         default: return nil
+        }
+    }
+
+    /// Закреплённый формат из конфигурации: пусто, если не закреплён или
+    /// формат незнакомый. Незнакомый не закрепляется — запрет без площадки,
+    /// к которой он привязан, запер бы менеджера неизвестно где.
+    func lockedWorkFormat(of config: MachineConfig) -> String {
+        guard config.workFormatLocked, siteFor(workFormat: config.workFormat) != nil else { return "" }
+        return config.workFormat
+    }
+
+    /// Запоминает закрепление формата и пишет в журнал, только если оно
+    /// сменилось: конфигурация приезжает на любую правку места.
+    private func noteWorkFormatLock(_ format: String) {
+        guard settings.panel.lockedWorkFormat != format else { return }
+        settings.panel.lockedWorkFormat = format
+        if format.isEmpty {
+            append(level: .info, message: "Spark разрешил менять формат работы")
+            ClientEventLog.shared.record(.config, .info, "Смена формата работы разрешена")
+        } else {
+            let site = siteFor(workFormat: format)?.title ?? format
+            append(level: .info, message: "Spark закрепил формат работы: \(site)")
+            ClientEventLog.shared.record(.config, .info, "Формат работы закреплён: \(site)")
         }
     }
 

@@ -2990,7 +2990,7 @@ final class AppModel: ObservableObject {
     /// диалоги. Кнопка стоит в настройках, а трубка от этого кладётся так же.
     var canSwitchProfile: Bool { lines.isEmpty }
 
-    private func refuseProfileChange() {
+    func refuseProfileChange() {
         append(level: .warning, message: "смена профиля недоступна: идёт разговор")
         callStatus = NSLocalizedString("Сначала завершите разговор", comment: "состояние линии")
     }
@@ -3171,6 +3171,13 @@ final class AppModel: ObservableObject {
     /// Стучим независимо от пометки рабочего места: кнопку нажимают тогда, когда
     /// что-то уже не работает, и спорить с человеком в этот момент неуместно.
     func repairNetwork() async {
+        // Место закреплено за офисом: снаружи стучаться незачем. Проверка и
+        // здесь, а не только погашенной кнопкой, — кнопка не единственный
+        // вызывающий навсегда.
+        guard !isNetworkRepairLocked else {
+            networkRepairStatus = NSLocalizedString("Место закреплено за офисом", comment: "«Исправить сеть»")
+            return
+        }
         guard !settings.portKnock.isEmpty else {
             networkRepairStatus = NSLocalizedString("Стук выключен в настройках", comment: "«Исправить сеть»")
             return

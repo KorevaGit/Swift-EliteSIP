@@ -296,6 +296,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.model.alignProfileAddress(previous: addressesBefore)
                 self.model.persistSettings()
                 self.model.append(level: .info, message: "применено с панели: \(note)")
+                // Возврат в онлайн переприменяет предустановку — тем же заходом
+                // площадка возвращается к закреплённой в Spark.
+                self.model.enforceLockedWorkplaceSite()
             },
             // Два повода подождать, и оба объяснены в самой службе: разговор и
             // открытое «Управление» с несохранёнными правками.

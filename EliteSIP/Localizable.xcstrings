@@ -3466,6 +3466,22 @@
         }
       }
     },
+    "Закрепление снято. Переключение переведёт машину в оффлайн.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlocked. Switching will take this machine offline."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепление снято. Переключение переведёт машину в оффлайн."
+          }
+        }
+      }
+    },
     "Закрыть": {
       "comment": "пункт меню «Окно»",
       "localizations": {
@@ -4929,6 +4945,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Машину привязали — забираем настройки…"
+          }
+        }
+      }
+    },
+    "Место закреплено за офисом": {
+      "comment": "«Исправить сеть»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workplace is locked to the office"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Место закреплено за офисом"
+          }
+        }
+      }
+    },
+    "Место закреплено за офисом — из офиса АТС достижима напрямую.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This workplace is locked to the office — the PBX is reachable directly from there."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Место закреплено за офисом — из офиса АТС достижима напрямую."
           }
         }
       }
@@ -8439,6 +8488,22 @@
         }
       }
     },
+    "Прежде чем снять закрепление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before unlocking"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прежде чем снять закрепление"
+          }
+        }
+      }
+    },
     "Приглушать голоса вокруг": {
       "localizations": {
         "en": {
@@ -10064,6 +10129,22 @@
         }
       }
     },
+    "Сменить офис или дом можно только с паролем администратора.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching between office and home requires the administrator password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить офис или дом можно только с паролем администратора."
+          }
+        }
+      }
+    },
     "Сменить пароль": {
       "localizations": {
         "en": {
@@ -10211,6 +10292,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Снимок списка"
+          }
+        }
+      }
+    },
+    "Снять закрепление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять закрепление"
+          }
+        }
+      }
+    },
+    "Снять закрепление…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять закрепление…"
           }
         }
       }
@@ -11270,6 +11383,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Файл сделан для другой установки EliteSIP и здесь не открывается."
+          }
+        }
+      }
+    },
+    "Формат работы закрепил EliteSupport. Переключение офиса и дома переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nПока настройки открыты, переключатель доступен. Машина уходит в оффлайн только если его действительно переключить.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EliteSupport has locked the work mode. Switching between office and home takes this machine offline: configuration updates, new keys and new PBX addresses stop arriving, and you take over managing the client.\n\nYou can go back with “Return online” in “Support” or in “Account” — the panel will then replace local changes.\n\nThe switch stays available while settings are open. The machine goes offline only if you actually switch it."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Формат работы закрепил EliteSupport. Переключение офиса и дома переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nПока настройки открыты, переключатель доступен. Машина уходит в оффлайн только если его действительно переключить."
+          }
+        }
+      }
+    },
+    "Формат работы закреплён": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work mode is locked"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Формат работы закреплён"
+          }
+        }
+      }
+    },
+    "Формат работы закреплён администратором.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The work mode is locked by the administrator."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Формат работы закреплён администратором."
           }
         }
       }
