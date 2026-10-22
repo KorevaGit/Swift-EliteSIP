@@ -754,7 +754,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let window = NSWindow(
             contentRect: CGRect(
                 origin: .zero,
-                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
+                size: CGSize(width: Theme.Metrics.panelInitialWidth, height: Theme.Metrics.panelInitialHeight)
             ),
             // `.resizable` — с 14 сентября 2026: оператор растягивает панель
             // сам, и растут у неё клавиши и кнопки, а не пустое место. Меньше
@@ -835,7 +835,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrame(
             CGRect(
                 origin: .zero,
-                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
+                size: CGSize(width: Theme.Metrics.panelInitialWidth, height: Theme.Metrics.panelInitialHeight)
             ),
             display: false
         )
@@ -843,7 +843,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             of: window,
             autosaveName: Self.phoneWindowAutosaveName,
             defaultContentSize: CGSize(
-                width: Theme.Metrics.panelWidth,
+                width: Theme.Metrics.panelInitialWidth,
                 height: Theme.Metrics.panelInitialHeight
             ),
             restoresHeight: false

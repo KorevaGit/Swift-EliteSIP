@@ -1,7 +1,7 @@
 import AppKit
 import MediaCore
 
-/// Тоны клавиш поля набора и сигнал отбоя.
+/// Тоны клавиш поля набора, сигналы подключения и отбоя.
 ///
 /// Появились 14 сентября 2026 по просьбе заказчика: номер набирается с
 /// клавиатуры, и без звука цифра на экране — единственное подтверждение
@@ -33,6 +33,7 @@ final class CallSounds {
 
     private var keySounds: [Character: NSSound] = [:]
     private lazy var endSound: NSSound? = Self.makeSound(samples: Self.endSamples())
+    private lazy var connectedSound: NSSound? = Self.makeSound(samples: Self.connectedSamples())
 
     /// Тон одной клавиши — как у кнопочного телефона: та же пара частот DTMF,
     /// что уходит в линию, только коротко и тихо.
@@ -58,6 +59,17 @@ final class CallSounds {
     /// избежать.
     func playEnd(outputDeviceUID: String?) {
         play(endSound, outputDeviceUID: outputDeviceUID)
+    }
+
+    /// Сигнал подключения: две мягкие ноты вверх — «соединились, говорите».
+    ///
+    /// Перенесён с Windows 0.1.82 (`ConnectedToneProvider`) 22 октября 2026:
+    /// после автоподъёма оператор не слышал, что разговор уже идёт, и первые
+    /// слова клиента уходили в паузу. Тише отбоя примерно на 7 дБ по пику —
+    /// отбой сообщает «кончилось», его надо заметить; подключение только
+    /// подтверждает то, что и так видно на экране.
+    func playConnected(outputDeviceUID: String?) {
+        play(connectedSound, outputDeviceUID: outputDeviceUID)
     }
 
     // MARK: - Гудки
@@ -171,6 +183,32 @@ final class CallSounds {
             }
         }
         return samples
+    }
+
+    /// До и ми пятой октавы внахлёст: вторая вступает через 110 мс, весь
+    /// сигнал — 340 мс. Огибающая та же, что у Windows: подъём 12 мс и спад
+    /// 60 мс по квадрату синуса, без щелчков на краях.
+    ///
+    /// Множитель 0,06 считан от пика отбоя (около −17,5 дБ) минус 7 дБ, а не
+    /// взят у Windows (0,032): у Windows свой отбой и своя громкость вывода, и
+    /// переносится соотношение двух сигналов, а не абсолютное число.
+    private static func connectedSamples() -> [Float] {
+        func note(_ time: Double, start: Double, frequency: Double, length: Double, gain: Double) -> Double {
+            let local = time - start
+            guard local >= 0, local < length else { return 0 }
+            let attack = pow(sin(min(local / 0.012, 1) * .pi / 2), 2)
+            let release = pow(sin(min((length - local) / 0.060, 1) * .pi / 2), 2)
+            let phase = 2 * .pi * frequency * local
+            return gain * attack * release * exp(-7 * local)
+                * (sin(phase) + 0.08 * sin(2 * phase)) / 1.08
+        }
+        let count = Int(0.34 * sampleRate)
+        return (0..<count).map { index in
+            let time = Double(index) / sampleRate
+            let value = note(time, start: 0, frequency: 523.25, length: 0.19, gain: 0.90)
+                + note(time, start: 0.11, frequency: 659.25, length: 0.23, gain: 0.75)
+            return Float(0.06 * value)
+        }
     }
 
     /// Скос по краям: обрыв синусоиды на ненулевой фазе слышен как щелчок.

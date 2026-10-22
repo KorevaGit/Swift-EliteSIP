@@ -3761,18 +3761,18 @@
         }
       }
     },
-    "Звуки набора и отбоя": {
+    "Звуки набора и разговора": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Key tones and hang-up sound"
+            "value": "Key tones and call sounds"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Звуки набора и отбоя"
+            "value": "Звуки набора и разговора"
           }
         }
       }
@@ -10739,18 +10739,18 @@
         }
       }
     },
-    "Тихий тон на каждую цифру в поле номера и короткий мягкий сигнал, когда разговор закончился. Звучат в устройство разговора.": {
+    "Тихий тон на каждую цифру в поле номера, короткий мягкий сигнал, когда разговор начался и когда закончился. Звучат в устройство разговора.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A quiet tone for each digit typed in the number field and a short, soft chime when a call ends. Both play on the call device."
+            "value": "A quiet tone for each digit typed in the number field and a short, soft chime when a call connects and when it ends. All play on the call device."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Тихий тон на каждую цифру в поле номера и короткий мягкий сигнал, когда разговор закончился. Звучат в устройство разговора."
+            "value": "Тихий тон на каждую цифру в поле номера, короткий мягкий сигнал, когда разговор начался и когда закончился. Звучат в устройство разговора."
           }
         }
       }
@@ -10771,18 +10771,18 @@
         }
       }
     },
-    "Тоны клавиш и сигнал отбоя": {
+    "Тоны клавиш и сигналы разговора": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Play key tones and a hang-up sound"
+            "value": "Play key tones and call sounds"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Тоны клавиш и сигнал отбоя"
+            "value": "Тоны клавиш и сигналы разговора"
           }
         }
       }

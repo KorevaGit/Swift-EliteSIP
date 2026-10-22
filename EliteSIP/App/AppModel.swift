@@ -857,6 +857,11 @@ final class AppModel: ObservableObject {
 
         var status: String = ""
 
+        /// Прозвучал ли уже сигнал подключения. Ставится однажды и не
+        /// сбрасывается: повторный ответ, удержание и возврат на линию
+        /// сигналом не считаются. См. `signalConnectionIfNeeded`.
+        var didSignalConnection = false
+
         /// Линия, ради которой заведена эта консультация. У обычной — nil.
         var consultsLine: String?
 
@@ -948,6 +953,27 @@ final class AppModel: ObservableObject {
         let before = lines[index]
         body(&lines[index])
         noteHistory(before: before, after: lines[index])
+        signalConnectionIfNeeded(at: index)
+    }
+
+    /// Сигнал подключения — один раз на звонок, когда разговор состоялся.
+    ///
+    /// Здесь, в `mutate`, а не в местах ответа, по той же причине, что и
+    /// история: «разговор» складывается из двух событий в разном порядке.
+    /// У входящего звук поднимается до 200 OK, а фаза приходит следом; у
+    /// исходящего 200 OK бывает раньше звука, а с ранним медиа — позже.
+    /// Сигнал звучит на втором из двух, каким бы оно ни было, — то есть после
+    /// успешного запуска звука, как у Windows (`PhoneService.MarkAnswered`).
+    ///
+    /// Отметка ставится и фоновой линии, но звучит только активная: линия,
+    /// соединившаяся в фоне, при переключении на неё уже не «подключилась», и
+    /// сигнал на смене линии был бы ложным.
+    private func signalConnectionIfNeeded(at index: Int) {
+        let line = lines[index]
+        guard !line.didSignalConnection, line.phase == .active, line.media != nil else { return }
+        lines[index].didSignalConnection = true
+        guard line.id == activeLineID, !line.isOnHold, settings.ringtone.callSoundsEnabled else { return }
+        callSounds.playConnected(outputDeviceUID: settings.audio.outputDeviceUID)
     }
 
     /// Строка состояния показывает активную линию.
@@ -988,7 +1014,7 @@ final class AppModel: ObservableObject {
     let incomingCallPanel = IncomingCallPanel()
     private let ringtone = Ringtone()
 
-    /// Тоны клавиш и сигнал отбоя.
+    /// Тоны клавиш, сигналы подключения и отбоя.
     private let callSounds = CallSounds()
 
     /// Тон клавиши, набранной в поле номера.

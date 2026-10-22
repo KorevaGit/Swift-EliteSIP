@@ -39,6 +39,18 @@ final class IncomingCallPanel: ObservableObject {
     private var placement: IncomingCallPlacement?
 
     private var resizeObserver: Any?
+    private var moveObserver: Any?
+
+    /// Куда окно поставили мы сами — размещением или возвратом на экран.
+    ///
+    /// По нему перенос оператором отличается от своего: уведомление о
+    /// перемещении приходит на оба, а пометить своё флагом на время вызова
+    /// нельзя — AppKit может доставить уведомление и позже. Рамка, совпавшая
+    /// с поставленной нами точкой, — наша; любая другая — его.
+    private var placedOrigin: CGPoint?
+
+    /// Политика текущего вызова: решает, сохранять ли место после переноса.
+    private var policy: CallGuardPolicy?
 
     /// Защита текущего вызова. Живёт ровно столько, сколько висит окно.
     ///
@@ -159,12 +171,19 @@ final class IncomingCallPanel: ObservableObject {
             height: max(fitting.height, 1)
         ))
 
-        let placement = placement(policy: policy)
+        self.policy = policy
+        let size = panel.frame.size
+
+        // Место оператора — только без случайной позиции: при ней каждый
+        // вызов обязан появиться в новом месте, и сохранённая точка была бы
+        // ровно той фиксированной координатой, которую ищет кликер.
+        let saved = Self.usesRandomPosition(policy) ? nil : Self.savedOrigin
+        let placement = placement(policy: policy, near: saved.map { CGRect(origin: $0, size: size) })
         self.placement = placement
 
-        let origin = nextOrigin(forPanelSize: panel.frame.size, placement: placement, policy: policy)
-        panel.setFrameOrigin(origin)
-        lastOrigin = origin
+        let origin = saved.map { placement.contained(CGRect(origin: $0, size: size)).origin }
+            ?? nextOrigin(forPanelSize: size, placement: placement, policy: policy)
+        place(panel, at: origin)
 
         // До показа, а не после: последний рубеж читает именно это свойство, и
         // изменение размера в момент показа заставало его пустым — то есть
@@ -183,6 +202,20 @@ final class IncomingCallPanel: ObservableObject {
             // Через `Task`, а не `MainActor.assumeIsolated`: тот появился в
             // macOS 13, а срез x86_64 обязан работать на Catalina.
             Task { @MainActor in self?.keepOnScreen() }
+        }
+
+        // Перенос оператором. Окно двигается за фон (`isMovableByWindowBackground`)
+        // — то есть за любое место, кроме кнопок: нажатие на кнопку переносом
+        // не становится, а перенос не принимает и не отклоняет вызов.
+        moveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self, weak panel] _ in
+            Task { @MainActor in
+                guard let self, let panel, panel === self.panel else { return }
+                self.noteMove(of: panel)
+            }
         }
 
         // Именно regardless: обычный orderFront активировал бы приложение.
@@ -216,11 +249,14 @@ final class IncomingCallPanel: ObservableObject {
 
     func hide() {
         stopWatchingCursor()
-        if let resizeObserver {
-            NotificationCenter.default.removeObserver(resizeObserver)
+        for observer in [resizeObserver, moveObserver] {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
         }
         resizeObserver = nil
+        moveObserver = nil
         placement = nil
+        placedOrigin = nil
+        policy = nil
         if let guardSession {
             lastReport = guardSession.report
         }
@@ -347,11 +383,93 @@ final class IncomingCallPanel: ObservableObject {
     // MARK: - Позиционирование
 
     /// Область, в которой окну разрешено появиться на этом вызове.
-    private func placement(policy: CallGuardPolicy) -> IncomingCallPlacement {
+    ///
+    /// - Parameter frame: рамка, чей монитор нужен, — сохранённое место или
+    ///   окно после переноса. Без неё — экран под курсором.
+    private func placement(policy: CallGuardPolicy, near frame: CGRect? = nil) -> IncomingCallPlacement {
         let policy = policy.normalized
-        let area = Self.currentScreen().visibleFrame
+        let screen = frame.flatMap(Self.screen(holding:)) ?? Self.currentScreen()
+        let area = screen.visibleFrame
             .insetBy(dx: policy.screenMargin, dy: policy.screenMargin)
         return IncomingCallPlacement(bounds: area, minimumTravel: policy.minimumTravel)
+    }
+
+    /// Монитор рамки, а не курсора; отключённый заменяет ближайший.
+    private static func screen(holding frame: CGRect) -> NSScreen? {
+        let screens = NSScreen.screens
+        return IncomingCallPlacement.screenIndex(for: frame, among: screens.map(\.frame)).map { screens[$0] }
+    }
+
+    private static func usesRandomPosition(_ policy: CallGuardPolicy) -> Bool {
+        let policy = policy.normalized
+        return policy.isEnabled && policy.isRandomPositionEnabled
+    }
+
+    /// Ставит окно и помнит, что поставили его мы.
+    private func place(_ panel: NSPanel, at origin: CGPoint) {
+        placedOrigin = origin
+        panel.setFrameOrigin(origin)
+        lastOrigin = origin
+    }
+
+    /// Окно сдвинулось. Если не нами — это перенос оператором.
+    ///
+    /// Три следствия, все с Windows 0.1.81:
+    ///
+    /// * следующий случайный вызов отсчитывает смещение от того места, где
+    ///   окно оказалось на самом деле, а не где мы его поставили;
+    /// * граница для возврата на экран — монитора, куда окно перенесли: курсор
+    ///   и окно теперь там, а прежняя область вытолкнула бы его обратно;
+    /// * без случайной позиции место запоминается сразу, на каждом сдвиге, —
+    ///   а не по отпусканию мыши: вызов могут принять в следующее же мгновение,
+    ///   и `hide` снимает наблюдателя раньше, чем дошло бы любое «потом».
+    ///   Закрытое окно сюда уже не попадает, так что позднее уведомление
+    ///   место не перепишет.
+    private func noteMove(of panel: NSPanel) {
+        let origin = panel.frame.origin
+        // С допуском в точку: AppKit вправе выровнять дробную случайную точку
+        // по пикселям экрана, и своё размещение не должно читаться переносом.
+        if let placedOrigin, abs(origin.x - placedOrigin.x) < 1, abs(origin.y - placedOrigin.y) < 1 {
+            return
+        }
+        guard let policy else { return }
+
+        lastOrigin = origin
+        placement = placement(policy: policy, near: panel.frame)
+        if !Self.usesRandomPosition(policy) {
+            Self.savedOrigin = origin
+        }
+    }
+
+    // MARK: - Место оператора
+
+    /// Ключ места в `UserDefaults`.
+    ///
+    /// Не в `AppSettings`, и на то две причины. Место — не настройка рабочего
+    /// места, а привычка того, кто за ним сидит: ни Spark, ни предустановки, ни
+    /// сброс к заводским его трогать не должны. И пока открыто «Управление»,
+    /// настройки на диск не пишутся, а «Отменить» откатывает их целиком —
+    /// перенос карточки посреди этого пропал бы вместе с откатом.
+    ///
+    /// Точки — глобальные координаты AppKit, общие для всех мониторов: по ним
+    /// же и восстанавливается монитор. Координаты Windows (физические пиксели)
+    /// сюда не переносятся — у каждой системы место своё.
+    static let savedOriginKey = "EliteSIPIncomingCallOrigin"
+
+    private static var savedOrigin: CGPoint? {
+        get {
+            guard let pair = UserDefaults.standard.array(forKey: savedOriginKey) as? [Double],
+                  pair.count == 2, pair.allSatisfy(\.isFinite)
+            else { return nil }
+            return CGPoint(x: pair[0], y: pair[1])
+        }
+        set {
+            if let newValue {
+                UserDefaults.standard.set([Double(newValue.x), Double(newValue.y)], forKey: savedOriginKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: savedOriginKey)
+            }
+        }
     }
 
     /// Экран, на котором работает оператор.
@@ -390,10 +508,11 @@ final class IncomingCallPanel: ObservableObject {
         placement: IncomingCallPlacement,
         policy: CallGuardPolicy
     ) -> CGPoint {
-        let policy = policy.normalized
         let area = placement.bounds
 
-        guard policy.isEnabled, policy.isRandomPositionEnabled else {
+        // Без случайной позиции сюда приходят, только когда места оператора
+        // ещё нет: тогда — середина экрана под курсором.
+        guard Self.usesRandomPosition(policy) else {
             return CGPoint(x: area.midX - size.width / 2, y: area.midY - size.height / 2)
         }
 
@@ -412,9 +531,9 @@ final class IncomingCallPanel: ObservableObject {
         let corrected = placement.contained(panel.frame)
         guard corrected.origin != panel.frame.origin else { return }
 
-        panel.setFrameOrigin(corrected.origin)
         // Запоминаем поправленную точку, а не исходную: следующий вызов обязан
         // отсчитывать смещение от того места, где окно оказалось на самом деле.
-        lastOrigin = corrected.origin
+        // Место оператора возвратом не переписывается: это наше размещение.
+        place(panel, at: corrected.origin)
     }
 }
