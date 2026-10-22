@@ -973,7 +973,12 @@ final class AppModel: ObservableObject {
         guard !line.didSignalConnection, line.phase == .active, line.media != nil else { return }
         lines[index].didSignalConnection = true
         guard line.id == activeLineID, !line.isOnHold, settings.ringtone.callSoundsEnabled else { return }
-        callSounds.playConnected(outputDeviceUID: settings.audio.outputDeviceUID)
+        // В тракт разговора: `NSSound` поверх работающей обработки голоса
+        // система приглушает до неслышного. Запасной путь — если тракт уже
+        // не у этой линии.
+        if line.media?.playCue(CallSounds.connectedCue) != true {
+            callSounds.playConnected(outputDeviceUID: settings.audio.outputDeviceUID)
+        }
     }
 
     /// Строка состояния показывает активную линию.
@@ -1030,10 +1035,13 @@ final class AppModel: ObservableObject {
     /// состоявшийся или набранный им самим. Пропущенный и отклонённый входящий
     /// молчат: разговора не было, а рингтон и так замолк.
     private func playEndToneIfNeeded(for ended: [CallLine]) {
-        guard settings.ringtone.callSoundsEnabled,
-              ended.contains(where: { $0.connectedAt != nil || $0.isOutgoing })
-        else { return }
+        guard wantsEndTone(for: ended) else { return }
         callSounds.playEnd(outputDeviceUID: settings.audio.outputDeviceUID)
+    }
+
+    private func wantsEndTone(for ended: [CallLine]) -> Bool {
+        settings.ringtone.callSoundsEnabled
+            && ended.contains(where: { $0.connectedAt != nil || $0.isOutgoing })
     }
 
     /// Играет ли рингтон по кнопке «Прослушать» в настройках.
@@ -2199,7 +2207,16 @@ final class AppModel: ObservableObject {
         outcome: CallRecord.Outcome? = nil
     ) {
         callTasks.removeValue(forKey: lineID)?.cancel()
-        retire(line(lineID)?.media)
+        // Отбой — сигналом в тракте самой линии, пока он жив: после остановки
+        // его съедает переключение гарнитуры. Только для последней линии, как
+        // и ниже: при двух линиях оператор остаётся в разговоре.
+        let endsLastLine = lines.count == 1 && lines.first?.id == lineID
+        var didSignalEnd = false
+        if endsLastLine, let ending = line(lineID), wantsEndTone(for: [ending]), let media = ending.media {
+            didSignalEnd = media.stopWithoutBlocking(playingCue: CallSounds.endCue)
+        } else {
+            retire(line(lineID)?.media)
+        }
         defer { refreshRingback() }
 
         // История закрывается здесь, потому что здесь снимается линия, — и
@@ -2241,7 +2258,7 @@ final class AppModel: ObservableObject {
             ringtone.stop()
             // Сигнал — только когда кончилась последняя линия: при двух линиях
             // оператор остаётся в разговоре, и звук посреди него сбивал бы.
-            playEndToneIfNeeded(for: removed.map { [$0] } ?? [])
+            if !didSignalEnd { playEndToneIfNeeded(for: removed.map { [$0] } ?? []) }
             incomingCallPanel.hide()
             logGuardReport()
             incomingCall = nil

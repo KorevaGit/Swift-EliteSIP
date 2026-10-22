@@ -350,9 +350,14 @@ struct IncomingCallView: View {
         // Растянутый по фиксированной высоте столбец оставлял пустую полосу
         // между именем звонящего и кнопками.
         VStack(alignment: .leading, spacing: 0) {
-            header
-            caller
-                .padding(.top, Theme.Gap.incomingHeaderToCaller)
+            // Шапка и карточка — ручка переноса окна. Кнопки — нет: нажатие
+            // на них остаётся нажатием, и перенос не принимает вызов.
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                caller
+                    .padding(.top, Theme.Gap.incomingHeaderToCaller)
+            }
+            .overlay(WindowDragHandle())
             actions
                 .padding(.top, Theme.Gap.incomingCallerToActions)
         }
@@ -627,5 +632,30 @@ private struct FilledCallButton: View {
         }
         .buttonStyle(.plain)
         .hoverHighlight()
+    }
+}
+
+/// Ручка переноса окна мышью.
+///
+/// Нужна, потому что `isMovableByWindowBackground` поверх SwiftUI не
+/// работает: `NSHostingView` нажатие окну не отдаёт, и окно входящего с
+/// 0.1.68 не двигалось вовсе, хотя флаг стоял. Перенос делает сам AppKit
+/// (`performDrag`) — тот же системный цикл, что у полосы заголовка, со
+/// снапом к краям и уведомлениями `didMove`, на которых панель запоминает
+/// место.
+///
+/// Первое же нажатие работает (`acceptsFirstMouse`): окно неактивирующее и
+/// ключевым не становится никогда, и без этого первый щелчок уходил бы на
+/// активацию, которой не будет.
+struct WindowDragHandle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
     }
 }

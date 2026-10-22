@@ -303,6 +303,26 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     private var configuration: Configuration
     private let engine = AVAudioEngine()
     private var sourceNode: AVAudioSourceNode?
+    private var cueNode: AVAudioSourceNode?
+
+    /// Местный сигнал оператору: подключение, отбой. Играет только в выход и
+    /// в линию не уходит — эхоподавление вычитает его из микрофона так же,
+    /// как голос собеседника.
+    ///
+    /// Через этот же тракт, а не отдельным плеером, и это не вкус. Пока
+    /// работает `VoiceProcessingIO`, система приглушает всё прочее аудио, в
+    /// том числе наше собственное: `NSSound` поверх разговора был неслышен
+    /// вовсе, а на AirPods ещё и терялся в переключении режима гарнитуры.
+    /// Звук, проходящий через сам голосовой тракт, приглушению не подлежит.
+    private let cueLock = UnfairLock(initialState: CueState())
+
+    private struct CueState {
+        var samples: [Float] = []
+        var position = 0
+    }
+
+    /// Частота отсчётов сигнала для `playCue`.
+    public static let cueSampleRate = 44_100.0
 
     /// Формат разговора: частота кодека, моно. У G.711 это 8 кГц, у G.722 —
     /// 16 кГц. Всё остальное движок пересчитывает сам.
@@ -859,6 +879,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         applyPlaybackVolume()
 
         try startPlayback()
+        try startCues()
         try startCapture()
 
         // `prepare` тоже трогает железо и тоже умеет ронять процесс
@@ -975,6 +996,10 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         if let sourceNode {
             engine.detach(sourceNode)
             self.sourceNode = nil
+        }
+        if let cueNode {
+            engine.detach(cueNode)
+            self.cueNode = nil
         }
         if let sinkNode {
             engine.detach(sinkNode)
@@ -1323,6 +1348,68 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             engine.connect(node, to: engine.mainMixerNode, format: conversationFormat)
         }
         sourceNode = node
+    }
+
+    // MARK: - Сигналы оператору
+
+    /// Подмешивает в выход короткий сигнал: моно, `cueSampleRate`.
+    ///
+    /// Новый сигнал заменяет недоигранный, а не ложится поверх: два сигнала
+    /// подряд — это смена события, и слышен должен последний.
+    ///
+    /// - Returns: `false`, если тракт не запущен — тогда сигнал некому
+    ///   играть, и вызывающий решает сам, чем его заменить.
+    @discardableResult
+    public func playCue(_ samples: [Float]) -> Bool {
+        // Только флаг под замком: узлы графа трогаются на `control`, а сюда
+        // приходят с главного потока и с очереди жизни сессии.
+        guard isRunning else { return false }
+        // Прежний массив освобождается здесь, на вызывающем потоке, а не в
+        // рендере: тот не должен ни выделять, ни освобождать память.
+        let previous = cueLock.withLock { state -> [Float] in
+            let old = state.samples
+            state.samples = samples
+            state.position = 0
+            return old
+        }
+        _ = previous
+        return true
+    }
+
+    private func startCues() throws {
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Self.cueSampleRate, channels: 1) else {
+            return
+        }
+        let node = AVAudioSourceNode(format: format) {
+            [cueLock] isSilence, _, frameCount, audioBufferList in
+
+            let requested = Int(frameCount)
+            nonisolated(unsafe) let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
+
+            let served = cueLock.withLock { state -> Int in
+                let available = max(0, state.samples.count - state.position)
+                let count = min(available, requested)
+                for buffer in buffers {
+                    guard let pointer = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
+                    state.samples.withUnsafeBufferPointer { source in
+                        for index in 0..<count { pointer[index] = source[state.position + index] }
+                    }
+                    for index in count..<requested { pointer[index] = 0 }
+                }
+                state.position += count
+                return count
+            }
+            // Тишину помечаем: микшер тогда не тратит на этот вход ни одного
+            // сложения — а молчит он почти весь разговор.
+            if served == 0 { isSilence.pointee = true }
+            return noErr
+        }
+
+        engine.attach(node)
+        try AudioObjCException.trap(step: "подключение сигналов к микшеру") {
+            engine.connect(node, to: engine.mainMixerNode, format: format)
+        }
+        cueNode = node
     }
 
     // MARK: - Подача кадров

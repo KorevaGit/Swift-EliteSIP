@@ -455,6 +455,45 @@ public final class MediaSession: @unchecked Sendable {
         Self.lifecycle.async { [self] in stop() }
     }
 
+    /// `stopWithoutBlocking()`, перед которым в тракте доигрывает сигнал.
+    ///
+    /// Для отбоя. Отдельным плеером после остановки сигнал не слышен: на
+    /// Bluetooth-гарнитуре остановка — это переключение из режима связи
+    /// обратно, около полутора секунд, и короткий звук в нём теряется, а до
+    /// остановки его глушит сама обработка голоса. Поэтому тракт живёт ещё
+    /// ровно столько, сколько звучит сигнал, с выключенным микрофоном: в
+    /// линию за это время не уходит ни звука.
+    ///
+    /// Ждёт очередь жизни сессий, а не вызывающий: интерфейс свободен сразу,
+    /// а подъём следующей линии и так встаёт за этой остановкой.
+    ///
+    /// - Parameter cue: отсчёты сигнала, `VoiceAudioEngine.cueSampleRate`.
+    /// - Returns: `false`, если тракт не наш — тогда сигнал играть некому, и
+    ///   сессия останавливается как обычно.
+    @discardableResult
+    public func stopWithoutBlocking(playingCue cue: [Float]) -> Bool {
+        guard ownsAudio else {
+            stopWithoutBlocking()
+            return false
+        }
+        Self.lifecycle.async { [self] in
+            isMicrophoneMuted = true
+            if bus.withEngine(token, { $0.playCue(cue) }) == true {
+                Thread.sleep(forTimeInterval: Double(cue.count) / VoiceAudioEngine.cueSampleRate + 0.05)
+            }
+            stop()
+        }
+        return true
+    }
+
+    /// Местный сигнал оператору в выход разговора; в линию не уходит.
+    ///
+    /// - Returns: `false`, если тракт сейчас не у этой линии.
+    @discardableResult
+    public func playCue(_ cue: [Float]) -> Bool {
+        bus.withEngine(token) { $0.playCue(cue) } ?? false
+    }
+
     /// Поднимает поток RTP, не трогая звуковую карту.
     ///
     /// Существует ради проверок: `start()` забирает общий аудиотракт, а

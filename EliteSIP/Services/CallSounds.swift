@@ -24,7 +24,7 @@ final class CallSounds {
 
     /// Частота дискретизации синтеза. Любое устройство её примет, а
     /// пересчёт под устройство сделает система.
-    private static let sampleRate = 44_100.0
+    private static let sampleRate = VoiceAudioEngine.cueSampleRate
 
     /// Громкость проигрывателя поверх и без того тихого синтеза. Пики тонов
     /// около −16 дБ от полной шкалы, и с этой громкостью — около −22: слышно в
@@ -71,6 +71,18 @@ final class CallSounds {
     func playConnected(outputDeviceUID: String?) {
         play(connectedSound, outputDeviceUID: outputDeviceUID)
     }
+
+    // MARK: - Сигналы в тракт разговора
+
+    /// Сигналы подключения и отбоя для голосового тракта
+    /// (`MediaSession.playCue`), с той же громкостью, что и через `NSSound`.
+    ///
+    /// Основной путь, а `playConnected`/`playEnd` — запасной, когда тракта
+    /// нет. Пока работает обработка голоса, система приглушает всё прочее
+    /// аудио, и `NSSound` в разговоре не слышно вовсе — найдено на 0.1.68:
+    /// ни подключения, ни отбоя на AirPods.
+    static let connectedCue: [Float] = connectedSamples().map { $0 * volume }
+    static let endCue: [Float] = endSamples().map { $0 * volume }
 
     // MARK: - Гудки
 
