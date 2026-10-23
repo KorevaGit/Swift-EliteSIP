@@ -634,6 +634,14 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// автоматику на приёме включает оператор сам.
         var receiveLeveling: Bool = false
 
+        /// Микрофон заглушён кнопкой панели.
+        ///
+        /// Хранится в настройках, а не в линии: оператор глушит микрофон и до
+        /// звонка, и заглушённым он остаётся, пока его не включат, — через
+        /// звонки, переподключение и перезапуск. Так же у Windows и Linux
+        /// (`AudioSettings.MicrophoneMuted`, 23 октября 2026).
+        var microphoneMuted: Bool = false
+
         init(
             inputDeviceUID: String? = nil,
             outputDeviceUID: String? = nil,
@@ -645,7 +653,8 @@ struct AppSettings: Codable, Sendable, Equatable {
             microphoneGain: Double = 1,
             playbackVolume: Double = 1,
             backgroundVoiceSuppression: Bool = true,
-            receiveLeveling: Bool = false
+            receiveLeveling: Bool = false,
+            microphoneMuted: Bool = false
         ) {
             self.inputDeviceUID = inputDeviceUID
             self.outputDeviceUID = outputDeviceUID
@@ -658,6 +667,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             self.playbackVolume = playbackVolume.clamped(to: Self.playbackVolumeRange)
             self.backgroundVoiceSuppression = backgroundVoiceSuppression
             self.receiveLeveling = receiveLeveling
+            self.microphoneMuted = microphoneMuted
         }
 
         init(from decoder: Decoder) throws {
@@ -682,6 +692,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             backgroundVoiceSuppression =
                 try container.decodeIfPresent(Bool.self, forKey: .backgroundVoiceSuppression) ?? true
             receiveLeveling = try container.decodeIfPresent(Bool.self, forKey: .receiveLeveling) ?? false
+            microphoneMuted = try container.decodeIfPresent(Bool.self, forKey: .microphoneMuted) ?? false
         }
     }
 

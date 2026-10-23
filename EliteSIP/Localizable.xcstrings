@@ -6358,6 +6358,23 @@
         }
       }
     },
+    "Номер скопирован": {
+      "comment": "подпись в окне входящего после копирования номера",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number copied"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер скопирован"
+          }
+        }
+      }
+    },
     "Номер совпал с вашим добавочным": {
       "localizations": {
         "en": {
@@ -9927,6 +9944,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Скопировать"
+          }
+        }
+      }
+    },
+    "Скопировать номер": {
+      "comment": "подсказка над номером в окне входящего",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать номер"
           }
         }
       }

@@ -292,6 +292,23 @@ enum IncomingCallSubject: Equatable {
         }
     }
 
+    /// Номер, который щелчок в окне входящего кладёт в буфер обмена. `nil` —
+    /// копировать нечего.
+    ///
+    /// Копируется только то, что оператор и так видит. Номер под маской не
+    /// копируется вовсе: маска — страховка от утечки лидов, и буфер обмена её
+    /// не обходит. Звонок по сделке номера не показывает — его и не копируют.
+    /// Правило то же, что у Windows и Linux (`CopyableNumber`).
+    var copyableNumber: String? {
+        let number: String
+        switch self {
+        case .selfCall: return nil
+        case .queue(_, let value, _), .caller(let value, _, _): number = value
+        }
+        guard !hidesNumber, !number.isEmpty, shown(number: number) == number else { return nil }
+        return number
+    }
+
     /// Пусто на звонке по сделке: там номер — свой же добавочный, одинаковый
     /// от вызова к вызову, и сказать им нечего. Пусто и на обычном звонке без
     /// имени: номер уже стоит заголовком и повторил бы сам себя.
@@ -341,6 +358,16 @@ struct IncomingCallView: View {
 
     @EnvironmentObject private var panel: IncomingCallPanel
 
+    /// Номер только что ушёл в буфер: подпись окна на время говорит об этом.
+    @State private var isNumberCopied = false
+
+    /// Номер последнего копирования. Подпись гасит только таймер последнего
+    /// щелчка — иначе второй щелчок погас бы по таймеру первого.
+    @State private var copyGeneration = 0
+
+    /// Сколько подпись говорит «номер скопирован».
+    private static let copiedNoticeTime: TimeInterval = 2
+
     var body: some View {
         // Промежутки заданы поимённо, а не общим spacing: ярусы здесь неравные
         // по смыслу — шапка и карточка отвечают на «что это за вызов» и стоят
@@ -352,12 +379,17 @@ struct IncomingCallView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Шапка и карточка — ручка переноса окна. Кнопки — нет: нажатие
             // на них остаётся нажатием, и перенос не принимает вызов.
+            //
+            // У карточки ручка своя: щелчок без переноса копирует номер.
+            // Отдельной кнопки нет — окно не должно расти ради неё, а имя и
+            // номер и есть то, что хочется скопировать.
             VStack(alignment: .leading, spacing: 0) {
                 header
+                    .overlay(WindowDragHandle())
                 caller
+                    .overlay(copyHandle)
                     .padding(.top, Theme.Gap.incomingHeaderToCaller)
             }
-            .overlay(WindowDragHandle())
             actions
                 .padding(.top, Theme.Gap.incomingCallerToActions)
         }
@@ -376,7 +408,7 @@ struct IncomingCallView: View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
             anchor
 
-            Text(panel.refusal ?? NSLocalizedString("Входящий вызов", comment: "подпись в окне входящего"))
+            Text(panel.refusal ?? caption)
                 .font(Theme.Text.incomingCaption)
                 .compatForeground(panel.refusal == nil ? Color.secondary : Theme.Palette.decline)
                 .animation(.easeOut(duration: 0.15), value: panel.refusal)
@@ -390,6 +422,39 @@ struct IncomingCallView: View {
                     .compatForeground(Theme.Palette.textTertiary)
                     .compatAccessibilityLabel("Защита от автокликеров включена")
             }
+        }
+    }
+
+    /// Подпись шапки. «Номер скопирован» — на месте подписи, а не новой
+    /// строкой, по той же причине, что и отказ.
+    private var caption: String {
+        isNumberCopied
+            ? NSLocalizedString("Номер скопирован", comment: "подпись в окне входящего после копирования номера")
+            : NSLocalizedString("Входящий вызов", comment: "подпись в окне входящего")
+    }
+
+    /// Ручка переноса над карточкой; номер скрыт или его нет — просто ручка.
+    private var copyHandle: WindowDragHandle {
+        guard let number = subject.copyableNumber else { return WindowDragHandle() }
+        return WindowDragHandle(
+            onClick: { copy(number) },
+            toolTip: NSLocalizedString("Скопировать номер", comment: "подсказка над номером в окне входящего")
+        )
+    }
+
+    /// Номер — в буфер обмена. Фокус окно при этом не берёт: оно
+    /// неактивирующее, а буферу активность приложения не нужна.
+    private func copy(_ number: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        guard pasteboard.setString(number, forType: .string) else { return }
+
+        isNumberCopied = true
+        copyGeneration += 1
+        let generation = copyGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.copiedNoticeTime) {
+            guard generation == copyGeneration else { return }
+            isNumberCopied = false
         }
     }
 
@@ -647,15 +712,62 @@ private struct FilledCallButton: View {
 /// Первое же нажатие работает (`acceptsFirstMouse`): окно неактивирующее и
 /// ключевым не становится никогда, и без этого первый щелчок уходил бы на
 /// активацию, которой не будет.
+///
+/// `onClick` — что делать на щелчке без переноса (копирование номера). Щелчок
+/// от переноса отличает сдвиг курсора: пока рука не ушла дальше
+/// `DragView.clickSlop`, это щелчок, дальше — перенос. Без `onClick` перенос
+/// начинается сразу, как раньше.
 struct WindowDragHandle: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { DragView() }
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    var onClick: (@MainActor () -> Void)?
+
+    /// Подсказка под курсором. Здесь, а не `help` у SwiftUI: ручка лежит
+    /// поверх, и наведение до вью под ней не доходит.
+    var toolTip: String?
+
+    func makeNSView(context: Context) -> NSView {
+        let view = DragView()
+        updateNSView(view, context: context)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let view = nsView as? DragView else { return }
+        view.onClick = onClick
+        view.toolTip = toolTip
+        view.window?.invalidateCursorRects(for: view)
+    }
 
     private final class DragView: NSView {
+        /// Насколько может дрогнуть рука, чтобы щелчок остался щелчком.
+        static let clickSlop: CGFloat = 3
+
+        var onClick: (@MainActor () -> Void)?
+
         override var mouseDownCanMoveWindow: Bool { true }
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        override func resetCursorRects() {
+            if onClick != nil { addCursorRect(bounds, cursor: .pointingHand) }
+        }
+
         override func mouseDown(with event: NSEvent) {
-            window?.performDrag(with: event)
+            guard let window, let onClick else {
+                window?.performDrag(with: event)
+                return
+            }
+            // Свой короткий цикл: `performDrag` щелчок от переноса не отличает.
+            while let next = window.nextEvent(matching: [.leftMouseUp, .leftMouseDragged]) {
+                if next.type == .leftMouseUp {
+                    onClick()
+                    return
+                }
+                let dx = next.locationInWindow.x - event.locationInWindow.x
+                let dy = next.locationInWindow.y - event.locationInWindow.y
+                if dx * dx + dy * dy > Self.clickSlop * Self.clickSlop {
+                    window.performDrag(with: event)
+                    return
+                }
+            }
         }
     }
 }

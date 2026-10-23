@@ -1017,8 +1017,8 @@ struct DialedNumberField: View {
     }
 }
 
-/// Кнопки, которые имеют смысл только в разговоре: удержание, микрофон, перевод
-/// и конференция.
+/// Кнопки разговора: удержание, микрофон, перевод и конференция. Микрофон
+/// работает и в покое — заглушённым он поднимется на следующем звонке.
 ///
 /// **Четыре в два ряда, а не три в один** — с 17 августа 2026. Конференция до
 /// этого дня была недостижима вовсе: кнопку убрал редизайн, положившись на
@@ -1067,7 +1067,8 @@ struct CallControls: View {
                     symbol: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
                     isOn: model.isMicrophoneMuted,
                     onColor: Theme.Palette.microphoneMuted,
-                    isEnabled: model.callPhase == .active
+                    // И в покое: заглушённым микрофон и поднимется на звонке.
+                    isEnabled: true
                 ) {
                     model.toggleMicrophone()
                 }

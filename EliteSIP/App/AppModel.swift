@@ -874,7 +874,6 @@ final class AppModel: ObservableObject {
 
         var isOnHold = false
         var isRemotelyHeld = false
-        var isMicrophoneMuted = false
         var isRenegotiating = false
         var sentDTMF = ""
         var isTransferring = false
@@ -1002,7 +1001,9 @@ final class AppModel: ObservableObject {
     var isInCall: Bool { !lines.isEmpty }
     var isOnHold: Bool { activeLine?.isOnHold ?? false }
     var isRemotelyHeld: Bool { activeLine?.isRemotelyHeld ?? false }
-    var isMicrophoneMuted: Bool { activeLine?.isMicrophoneMuted ?? false }
+    /// Кнопка микрофона — общая для всех линий и для покоя, см.
+    /// `AudioSettings.microphoneMuted`.
+    var isMicrophoneMuted: Bool { settings.audio.microphoneMuted }
     var isRenegotiating: Bool { activeLine?.isRenegotiating ?? false }
     var isTransferring: Bool { lines.contains { $0.isTransferring } }
     var isConferenceCommandSent: Bool { activeLine?.isConferenceCommandSent ?? false }
@@ -1834,11 +1835,30 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Глушит или включает микрофон — в звонке и вне его.
+    ///
+    /// До 23 октября 2026 кнопка жила в линии: работала только в разговоре и
+    /// гасла вместе с ним, и следующий звонок поднимался с открытым
+    /// микрофоном. Теперь флаг в настройках, и новая линия поднимается уже
+    /// заглушённой — так же, как у Windows и Linux.
+    ///
+    /// Открытый черновик «Управления» флаг не держит: он пишется и в снимок,
+    /// как `returnPanelOnline`, — иначе «Отменить» молча включил бы микрофон,
+    /// а закрытие окна без сохранения потеряло бы нажатие.
     func toggleMicrophone() {
-        guard let lineID = activeLineID, callPhase == .active else { return }
-        mutate(lineID) { $0.isMicrophoneMuted.toggle() }
-        applyAudioState(on: lineID)
-        append(level: .info, message: isMicrophoneMuted ? "микрофон выключен" : "микрофон включён")
+        let muted = !settings.audio.microphoneMuted
+        settings.audio.microphoneMuted = muted
+        if var snapshot = administrationSnapshot {
+            snapshot.audio.microphoneMuted = muted
+            administrationSnapshot = snapshot
+            do {
+                try SettingsStore.save(snapshot)
+            } catch {
+                append(level: .error, message: "не удалось сохранить настройки: \(error.localizedDescription)")
+            }
+        }
+        for line in lines { applyAudioState(on: line.id) }
+        append(level: .info, message: muted ? "микрофон выключен" : "микрофон включён")
     }
 
     /// Раздаёт звуковую карту активной линии и отбирает у остальных.
@@ -1886,7 +1906,7 @@ final class AppModel: ObservableObject {
             || isBeforeAnswer
             || line.isOnHold
             || line.isRemotelyHeld
-            || line.isMicrophoneMuted
+            || settings.audio.microphoneMuted
         // Музыку ожидания, которую включил сервер, оператор слышать должен:
         // по ней и понятно, что его поставили на удержание. А вот собственное
         // удержание глушит приём — оператор в это время говорит с другим.
