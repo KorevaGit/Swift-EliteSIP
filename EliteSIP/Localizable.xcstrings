@@ -2895,22 +2895,6 @@
         }
       }
     },
-    "Если не подключается": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "If it will not connect"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Если не подключается"
-          }
-        }
-      }
-    },
     "Если это не вы — не продолжайте и сообщите в поддержку.": {
       "localizations": {
         "en": {
@@ -3798,22 +3782,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Имя звонящего"
-          }
-        }
-      }
-    },
-    "Исправить сеть": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fix network"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Исправить сеть"
           }
         }
       }
@@ -13978,6 +13946,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "Цвета обоев"
+          }
+        }
+      }
+    },
+    "Запуск и подключение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startup and connection"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск и подключение"
+          }
+        }
+      }
+    },
+    "Запускать вместе с macOS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open at login"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускать вместе с macOS"
+          }
+        }
+      }
+    },
+    "Поверх всех окон": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always on top"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поверх всех окон"
+          }
+        }
+      }
+    },
+    "Восстановить подключение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore connection"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить подключение"
+          }
+        }
+      }
+    },
+    "Восстановить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить"
           }
         }
       }

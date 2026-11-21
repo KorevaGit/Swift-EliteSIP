@@ -143,6 +143,10 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// `false` — ровно прежнее поведение, когда вариант выбирала только версия.
     var plainChrome: Bool = false
 
+    /// Панель поверх всех окон и в покое — «Поверх всех окон» Windows 1.0.4,
+    /// включено по умолчанию, как там. Выключено — поверх только в разговоре.
+    var panelAlwaysOnTop: Bool = true
+
     /// Фоновые обои окон — с Windows-клиентом 1.0.4. Старый файл без поля
     /// получает «без обоев».
     var background = BackgroundSettings()
@@ -352,6 +356,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             AppearanceSetting.self, forKey: .appearance
         ) ?? .system
         plainChrome = try container.decodeIfPresent(Bool.self, forKey: .plainChrome) ?? false
+        panelAlwaysOnTop = (try? container.decodeIfPresent(Bool.self, forKey: .panelAlwaysOnTop)).flatMap { $0 } ?? true
         background = (try? container.decodeIfPresent(BackgroundSettings.self, forKey: .background)).flatMap { $0 }
             ?? BackgroundSettings()
         // Испорченная предустановка читается как «их нет», а не роняет весь

@@ -30,6 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model = AppModel()
 
     private var phoneWindow: NSWindow?
+    /// Держит панель первого запуска в правом нижнем углу, пока оператор сам
+    /// её не передвинет.
+    private var phoneCornerAnchor: CornerAnchor?
     private var settingsWindow: NSWindow?
 
     /// Окно «Управление» — закрытые настройки.
@@ -113,6 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         SessionHealth.noteLaunch()
         WallpaperStore.shared.settings = model.settings.background
         ClientEventLog.shared.beginSession()
+        LoginItem.applyDefaultIfNeeded { [model] message in model.append(level: .warning, message: message) }
         appNapOptOut = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
             reason: "SIP-регистрация и входящие вызовы"
@@ -209,6 +213,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if index + 1 < arguments.count, let section = AdministrationSection(rawValue: arguments[index + 1]) {
                 administrationRouter?.section = section
             }
+        }
+        // Замер открытия окон и перемещения панели: EliteSIP --perf [--no-wallpaper]
+        if ProcessInfo.processInfo.arguments.contains("--perf") {
+            if ProcessInfo.processInfo.arguments.contains("--no-wallpaper") {
+                WallpaperStore.shared.settings.isEnabled = false
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.runPerfProbe() }
         }
         // Меню значка — для сверки значков: EliteSIP --menu
         if ProcessInfo.processInfo.arguments.contains("--menu"), let menu = phoneMenuInStatusItem?.menu {
@@ -911,7 +922,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ),
             display: false
         )
-        restoreFrame(
+        let restored = restoreFrame(
             of: window,
             autosaveName: Self.phoneWindowAutosaveName,
             defaultContentSize: CGSize(
@@ -923,6 +934,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Высоту — ту, что держит панель, а не ту, что вернуло восстановление:
         // см. `PanelHeightView.settle`.
         PanelHeightView.settle(window)
+        // Первый запуск — справа внизу экрана, как в Windows-клиенте: там
+        // панель не закрывает CRM, которая занимает середину.
+        if !restored { phoneCornerAnchor = CornerAnchor(window: window) }
 
         phoneWindow = window
         window.makeKeyAndOrderFront(nil)
@@ -1131,12 +1145,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     ///   с ним панель наследовала высоту, посчитанную прошлой версией
     ///   приложения, — под кнопкой звонка оставалась пустая полоса, которую
     ///   ничем нельзя было убрать. Нашёл живой прогон 20 августа 2026.
+    @discardableResult
     private func restoreFrame(
         of window: NSWindow,
         autosaveName: String,
         defaultContentSize: CGSize,
         restoresHeight: Bool = true
-    ) {
+    ) -> Bool {
         let ownHeight = window.frame.height
         let restored = window.setFrameUsingName(autosaveName)
         window.setFrameAutosaveName(autosaveName)
@@ -1160,8 +1175,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard restored, isVisible else {
             window.setContentSize(defaultContentSize)
             window.center()
-            return
+            return false
         }
+        return true
     }
 
     /// Собирает окно с боковым списком разделов.
@@ -1571,6 +1587,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var administrationRouter: AdministrationRouter?
 
     #if DEBUG
+    private func runPerfProbe() {
+        func measure(_ name: String, _ open: () -> Void) {
+            let start = CACurrentMediaTime()
+            open()
+            NSApp.windows.forEach { $0.displayIfNeeded() }
+            FileHandle.standardError.write("perf open \(name): \(Int((CACurrentMediaTime() - start) * 1000)) ms\n".data(using: .utf8)!)
+        }
+        measure("history") { showCallHistoryWindow(nil) }
+        measure("settings") { showSettingsWindow(nil) }
+        let arguments = ProcessInfo.processInfo.arguments
+        let target = arguments.firstIndex(of: "--perf-window").flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+        let window: NSWindow? = switch target {
+        case "history": callHistoryWindow
+        case "settings": settingsWindow
+        default: phoneWindow
+        }
+        guard let window else { return }
+        window.makeKeyAndOrderFront(nil)
+        perfMover = PerfMover(window: window)
+    }
+
+    private var perfMover: PerfMover?
+
     /// Держит окно `--dialog`, пока оно на экране.
     private var debugDialog: GraphiteDialogWindow?
     #endif
@@ -2051,3 +2090,109 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return mainMenu
     }
 }
+
+#if DEBUG
+/// Двигает окно по кругу 240 тактов и печатает разрывы между тактами — замер `--perf`.
+@MainActor
+private final class PerfMover: NSObject {
+    private let window: NSWindow
+    private let origin: NSPoint
+    private let startSize: NSSize
+    private var step = 0
+    private var last = CACurrentMediaTime()
+    private var gaps: [Double] = []
+    private var timer: Timer?
+
+    init(window: NSWindow) {
+        self.window = window
+        origin = window.frame.origin
+        startSize = window.frame.size
+        super.init()
+        timer = Timer.scheduledTimer(timeInterval: 1.0 / 60, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
+    }
+
+    @objc private func tick() {
+        let now = CACurrentMediaTime()
+        gaps.append(now - last)
+        last = now
+        step += 1
+        let angle = Double(step) / 20
+        if ProcessInfo.processInfo.arguments.contains("--perf-resize") {
+            var frame = window.frame
+            frame.size.height = startSize.height + 120 * (1 + sin(angle)) / 2
+            frame.size.width = startSize.width + 80 * (1 + cos(angle)) / 2
+            window.setFrame(frame, display: true)
+        } else {
+            window.setFrameOrigin(NSPoint(x: origin.x + 120 * cos(angle), y: origin.y + 80 * sin(angle)))
+        }
+        window.displayIfNeeded()
+        guard step >= 240 else { return }
+        timer?.invalidate()
+        let sorted = gaps.dropFirst().sorted()
+        let mean = sorted.reduce(0, +) / Double(sorted.count)
+        let slow = sorted.filter { $0 > 1.0 / 30 }.count
+        FileHandle.standardError.write(String(
+            format: "perf move: mean %.1f ms, p95 %.1f ms, max %.1f ms, >33ms: %d/%d\n",
+            mean * 1000, sorted[sorted.count * 95 / 100] * 1000, sorted.last! * 1000, slow, sorted.count
+        ).data(using: .utf8)!)
+        window.setFrameOrigin(origin)
+    }
+}
+#endif
+
+/// Правый нижний угол видимой области экрана для панели первого запуска.
+///
+/// Высота панели уточняется ещё несколько проходов раскладки, и растёт она вниз
+/// от верхнего края (`PanelHeightView`). Поэтому угол держится на каждом
+/// изменении размера, а отпускается, как только оператор сам сдвинул или
+/// растянул окно: дальше место выбирает он, и его сохраняет автосохранение
+/// кадра.
+@MainActor
+final class CornerAnchor: NSObject {
+
+    private weak var window: NSWindow?
+    private var expected: NSPoint?
+    private var expectedSize: NSSize?
+
+    init(window: NSWindow) {
+        self.window = window
+        super.init()
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(resized), name: NSWindow.didResizeNotification, object: window)
+        center.addObserver(self, selector: #selector(moved), name: NSWindow.didMoveNotification, object: window)
+        anchor()
+    }
+
+    private func anchor() {
+        guard let window, let screen = window.screen ?? NSScreen.main else { return }
+        let margin = Theme.Metrics.contentPadding
+        let visible = screen.visibleFrame
+        let origin = NSPoint(x: visible.maxX - margin - window.frame.width, y: visible.minY + margin)
+        expected = origin
+        expectedSize = window.frame.size
+        if window.frame.origin != origin { window.setFrameOrigin(origin) }
+    }
+
+    @objc private func resized() {
+        guard let window, !window.inLiveResize else { return release() }
+        anchor()
+    }
+
+    /// Сдвиг вместе со сменой размера — это `PanelHeightView`, растущая от
+    /// верхнего края, а не оператор: угол возвращается на место.
+    @objc private func moved() {
+        guard let window, let expected else { return }
+        if window.frame.size != expectedSize {
+            if !window.inLiveResize { anchor() }
+        } else if window.frame.origin != expected {
+            release()
+        }
+    }
+
+    private func release() {
+        NotificationCenter.default.removeObserver(self)
+        expected = nil
+        expectedSize = nil
+    }
+}
+

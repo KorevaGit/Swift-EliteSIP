@@ -32,6 +32,10 @@ struct WorkTab: View {
     /// входа оно не открывает окно, а оставляет человека здесь.
     @State private var isAskingForPassword = false
 
+    /// Состояние запуска с системой — у системы, а не в настройках: оператор
+    /// мог выключить его в «Объектах входа» руками.
+    @State private var startsWithSystem = LoginItem.isEnabled
+
     var body: some View {
         SettingsSection("Рабочее место", icon: "map-pin") {
             // Две плитки вместо сегментов и схема маршрута вместо абзаца —
@@ -79,16 +83,42 @@ struct WorkTab: View {
                 .environmentObject(model)
         }
 
-        SettingsSection("Если не подключается", icon: "wrench") {
-            SettingsButtonsRow {
-                Button(action: { Task { await model.repairNetwork() } }) {
-                    HStack(spacing: Theme.Metrics.tightSpacing) {
-                        LucideIcon(name: "refresh-cw", size: Theme.Icon.medium)
-                        Text("Исправить сеть")
+        // Группа Windows 1.0.4 под значком питания: запуск с системой, панель
+        // поверх окон и восстановление подключения.
+        SettingsSection("Запуск и подключение", icon: "power") {
+            SettingsToggleRow("Запускать вместе с macOS", icon: "power", isOn: Binding(
+                get: { startsWithSystem },
+                set: { enabled in
+                    if let problem = LoginItem.setEnabled(enabled) {
+                        // не переводится: строка журнала
+                        model.append(level: .warning, message: "запуск с системой: \(problem)")
                     }
+                    startsWithSystem = LoginItem.isEnabled
                 }
-                .disabled(model.isNetworkRepairLocked)
-                .compatHelp("Открывает дорогу до АТС снаружи — когда из дома перестало подключаться: у домашнего интернета сменился адрес.")
+            ))
+
+            SettingsToggleRow("Поверх всех окон", icon: "monitor", isOn: Binding(
+                get: { model.settings.panelAlwaysOnTop },
+                set: { model.settings.panelAlwaysOnTop = $0 }
+            ))
+
+            // В колонке контролов, вровень с переключателями выше — как в
+            // группе Windows.
+            SettingsIndented {
+                HStack(spacing: Theme.Metrics.elementSpacing) {
+                    LucideIcon(name: "wrench", size: Theme.Icon.large)
+                        .compatForeground(Theme.Palette.textSecondary)
+                    Text("Восстановить подключение")
+                    Spacer()
+                    Button(action: { Task { await model.repairNetwork() } }) {
+                        HStack(spacing: Theme.Metrics.tightSpacing) {
+                            LucideIcon(name: "refresh-cw", size: Theme.Icon.medium)
+                            Text("Восстановить")
+                        }
+                    }
+                    .disabled(model.isNetworkRepairLocked)
+                    .compatHelp("Открывает дорогу до АТС снаружи — когда из дома перестало подключаться: у домашнего интернета сменился адрес.")
+                }
             }
 
 
