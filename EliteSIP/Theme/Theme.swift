@@ -609,7 +609,7 @@ enum Theme {
         /// содержимое полезло на неподвижный низ — кнопки «Назад» и «Далее»
         /// оказались под текстом.
         static let firstRunWidth: CGFloat = 460
-        static let firstRunHeight: CGFloat = 470
+        static let firstRunHeight: CGFloat = 530
         /// Точка шага внизу мастера.
         static let firstRunDotDiameter: CGFloat = 6
         /// Отступ от кромки окна мастера. Вдвое больше обычного `contentPadding`:

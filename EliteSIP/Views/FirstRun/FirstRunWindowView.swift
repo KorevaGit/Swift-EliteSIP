@@ -18,17 +18,19 @@ struct FirstRunWindowView: View {
     /// Идёт ли живая проверка регистрации.
     @State private var isChecking = false
 
+    @ObservedObject private var wallpaper = WallpaperStore.shared
+
     var body: some View {
         VStack(spacing: 0) {
+            stepper
+                .padding(.top, Theme.Metrics.firstRunTitlebarInset + Theme.Metrics.tightSpacing)
+
+            // Сдвиг обрезается рамкой экранов: без черты под ним, как в
+            // Windows 1.0.4, уезжающий экран не должен проходить под шагами и
+            // кнопками.
             screens
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
-            // Черта отделяет неподвижный низ от того, что сменяется сдвигом.
-            //
-            // Без неё уезжающий экран проходит вплотную под точками шагов и
-            // кнопкой, и на переходе видно, как содержимое ныряет за них: две
-            // разные по природе части окна выглядят одной.
-            Divider()
+                .clipped()
 
             footer
         }
@@ -49,7 +51,10 @@ struct FirstRunWindowView: View {
         // стола он читается ещё хуже: на Big Sur сквозь него видны обои.
         .compatBackground {
             Group {
-                if Theme.Chrome.usesLiquidGlass {
+                if wallpaper.settings.isEnabled {
+                    // Обои рисует `WallpaperHost` под этим вью.
+                    Color.clear
+                } else if Theme.Chrome.usesLiquidGlass {
                     CompatMaterial(
                         material: .underWindowBackground,
                         blending: .behindWindow,
@@ -142,30 +147,60 @@ struct FirstRunWindowView: View {
                 // кнопку акцентом, но кнопкой по умолчанию её не назначает.
                 .compatKeyboardShortcut("\r", modifiers: [])
             }
-            .compatOverlay(alignment: .center) { dots }
         }
         .padding(Theme.Metrics.contentPadding)
     }
 
-    /// Точки шагов. Счётчик «шаг 2 из 5» отвергнут: он читается как отчётность,
-    /// а точки — как ориентир, сколько осталось.
-    private var dots: some View {
+    /// Шаги сверху, как `WizardProgress` в Windows 1.0.4: значок и подпись,
+    /// между ними стрелки. Пройденный шаг зелёный, текущий — акцентный.
+    private var stepper: some View {
         let progress = flow.progress
         return HStack(spacing: Theme.Metrics.elementSpacing) {
-            ForEach(0..<progress.total, id: \.self) { index in
-                Circle()
-                    .fill(
-                        index == progress.index
-                            ? Color.accentColor
-                            : Theme.Palette.textTertiary
-                    )
-                    .frame(
-                        width: Theme.Metrics.firstRunDotDiameter,
-                        height: Theme.Metrics.firstRunDotDiameter
-                    )
+            ForEach(Array(flow.steps.enumerated()), id: \.offset) { index, step in
+                if index > 0 {
+                    LucideIcon(name: "arrow-right", size: Theme.Icon.small)
+                        .compatForeground(Theme.Palette.textTertiary)
+                }
+                stepItem(step, state: index < progress.index ? .done : index == progress.index ? .current : .upcoming)
             }
         }
+        .padding(.horizontal, Theme.Metrics.sectionSpacing)
+        .padding(.vertical, Theme.Metrics.elementSpacing)
+        .graphiteSurface(.call)
+        .frame(maxWidth: .infinity)
         .compatAccessibilityLabel(verbatim: "\(progress.index + 1) / \(progress.total)")
+    }
+
+    private enum StepState { case done, current, upcoming }
+
+    private func stepItem(_ step: FirstRunFlow.Step, state: StepState) -> some View {
+        let (icon, title): (String, LocalizedStringKey) = {
+            switch step {
+            case .welcome: return ("languages", "Язык")
+            case .firstUser: return ("network", "Подключение")
+            case .appearance: return ("panels-top-left", "Оформление")
+            case .finale: return ("check", "Готово")
+            }
+        }()
+        let color: Color = {
+            switch state {
+            case .done: return Theme.Palette.registered
+            case .current: return Color.accentColor
+            case .upcoming: return Theme.Palette.textTertiary
+            }
+        }()
+        return VStack(spacing: Theme.Metrics.hairSpacing + 2) {
+            LucideIcon(name: icon, size: Theme.Icon.medium)
+                .frame(width: 30, height: 30)
+                .graphiteSurface(state == .current ? .selected : .control, cornerRadius: 15)
+                .compatForeground(color)
+            Text(title)
+                .font(.caption)
+                .fontWeight(state == .current ? .semibold : .regular)
+                .compatForeground(Theme.Palette.textSecondary)
+                .lineLimit(1)
+        }
+        .frame(minWidth: 72)
     }
 
     // MARK: - Переход вперёд

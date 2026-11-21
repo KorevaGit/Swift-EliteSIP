@@ -60,6 +60,8 @@ private struct FirstRunHeader: View {
         VStack(alignment: isCentered ? .center : .leading, spacing: Theme.Metrics.tightSpacing) {
             if let glyph {
                 glyphView(glyph)
+                    .frame(width: 56, height: 56)
+                    .graphiteSurface(.control, cornerRadius: 28)
                     .compatForeground(Theme.Palette.textSecondary)
                     .padding(.bottom, Theme.Metrics.tightSpacing)
                     .compatAccessibilityHidden(true)
@@ -79,11 +81,12 @@ private struct FirstRunHeader: View {
     private func glyphView(_ glyph: Glyph) -> some View {
         switch glyph {
         case .firstUser:
-            CompatSymbol(name: "person.badge.plus", size: Theme.Metrics.firstRunGlyphSize)
+            LucideIcon(name: "users-round", size: 26)
         case .keyAccepted:
-            CompatSymbol(name: "checkmark.circle", size: Theme.Metrics.firstRunGlyphSize)
+            LucideIcon(name: "check", size: 26)
+                .compatForeground(Theme.Palette.registered)
         case .appearance:
-            AppearanceGlyph(size: Theme.Metrics.firstRunGlyphSize)
+            LucideIcon(name: "sun-moon", size: 26)
         }
     }
 }
@@ -103,6 +106,11 @@ private struct FirstRunBody<Content: View>: View {
         VStack(spacing: Theme.Metrics.sectionSpacing) {
             content
         }
+        // Графитовая карточка — `SettingsDialogCardStyle` мастера Windows
+        // 1.0.4: текст лежит на поверхности, а не прямо на обоях.
+        .padding(Theme.Metrics.firstRunPadding - 6)
+        .frame(width: Theme.Metrics.firstRunWidth - 2 * Theme.Metrics.firstRunPadding)
+        .graphiteSurface(.call)
         .padding(.horizontal, Theme.Metrics.firstRunPadding)
         // Поля сверху и снизу равные — и никакой отдельной зоны под светофор.
         //
@@ -112,7 +120,7 @@ private struct FirstRunBody<Content: View>: View {
         // 17 августа 2026 показал. Светофору при этом ничего не нужно: у обоих
         // видов экрана содержимое начинается много ниже полосы заголовка, потому
         // что центрируется по вертикали.
-        .padding(.vertical, Theme.Metrics.firstRunPadding)
+        .padding(.vertical, Theme.Metrics.sectionSpacing)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
@@ -450,9 +458,7 @@ struct FirstRunAppearanceScreen: View {
             .pickerStyle(.segmented)
             .frame(maxWidth: 260)
 
-            Divider()
-                .frame(maxWidth: Theme.Metrics.firstRunColumnWidth)
-                .padding(.vertical, Theme.Metrics.tightSpacing)
+            Color.clear.frame(height: Theme.Metrics.tightSpacing)
 
             // Стекло — двумя картинками, а не тумблером.
             //
