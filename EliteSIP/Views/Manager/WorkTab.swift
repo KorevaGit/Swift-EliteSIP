@@ -34,37 +34,27 @@ struct WorkTab: View {
 
     var body: some View {
         SettingsSection("Рабочее место", icon: "map-pin") {
-            SettingsRow("Работа") {
-                Picker("", selection: Binding(
-                    get: { model.workplaceSite },
-                    set: { site in Task { await model.chooseWorkplaceSite(site) } }
-                )) {
-                    Text("Офис").tag(SIPProfileSite.office)
-                    Text("Из дома").tag(SIPProfileSite.remote)
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                // Та же ширина, что у темы и языка в «Оформлении»: три
-                // переключателя одного вида в одном окне на разной ширине
-                // читаются как разные элементы.
-                .frame(maxWidth: 220, alignment: .leading)
+            // Две плитки вместо сегментов и схема маршрута вместо абзаца —
+            // «меньше текста, больше визуала» Windows 1.0.4.
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                siteTile(.office, title: "Офис", icon: "building-2")
+                siteTile(.remote, title: "Из дома", icon: "house")
             }
             // Посреди разговора переключать нельзя — тот же запрет, что у смены
-            // профиля и у отключения (M6b). Сегменты гасятся, а не молча
+            // профиля и у отключения (M6b). Плитки гаснут, а не молча
             // отказывают: отказ после нажатия оператор читает как поломку.
             .disabled(!model.canSwitchProfile || model.isWorkplaceSwitchLocked)
 
-            SettingsRow("Адрес АТС") {
-                Text(verbatim: model.settings.account.domain)
-                    .compatMonospacedDigit()
-                    .compatForeground(Theme.Palette.textSecondary)
-            }
+            route
 
-            SettingsNote("""
-                Переключение меняет адрес АТС и заново поднимает регистрацию: из дома \
-                внутренний адрес недостижим, а из офиса внешний ведёт на тот же сервер \
-                длинной дорогой через шлюз.
-                """)
+            SettingsRow("Адрес АТС") {
+                HStack(spacing: Theme.Metrics.tightSpacing) {
+                    LucideIcon(name: "network", size: Theme.Icon.medium)
+                    Text(verbatim: model.settings.account.domain)
+                        .compatMonospacedDigit()
+                }
+                .compatForeground(Theme.Palette.textSecondary)
+            }
 
             if model.isWorkplaceSwitchLocked {
                 SettingsNote("Формат работы закреплён администратором.")
@@ -91,17 +81,16 @@ struct WorkTab: View {
 
         SettingsSection("Если не подключается", icon: "wrench") {
             SettingsButtonsRow {
-                Button("Исправить сеть") {
-                    Task { await model.repairNetwork() }
+                Button(action: { Task { await model.repairNetwork() } }) {
+                    HStack(spacing: Theme.Metrics.tightSpacing) {
+                        LucideIcon(name: "refresh-cw", size: Theme.Icon.medium)
+                        Text("Исправить сеть")
+                    }
                 }
                 .disabled(model.isNetworkRepairLocked)
+                .compatHelp("Открывает дорогу до АТС снаружи — когда из дома перестало подключаться: у домашнего интернета сменился адрес.")
             }
 
-            SettingsNote("""
-                Открывает дорогу до АТС снаружи — один раз и прямо сейчас. Нужно, когда из \
-                дома перестало подключаться без видимой причины: у домашнего интернета \
-                сменился адрес, а шлюз помнит прежний.
-                """)
 
             if model.isNetworkRepairLocked {
                 SettingsNote("Место закреплено за офисом — из офиса АТС достижима напрямую.")
@@ -111,5 +100,57 @@ struct WorkTab: View {
                 SettingsNote(verbatim: status)
             }
         }
+    }
+
+    /// Плитка площадки: значок, подпись и выделение выбранной.
+    private func siteTile(_ site: SIPProfileSite, title: LocalizedStringKey, icon: String) -> some View {
+        let isSelected = model.workplaceSite == site
+        return Button {
+            Task { await model.chooseWorkplaceSite(site) }
+        } label: {
+            VStack(spacing: Theme.Metrics.elementSpacing) {
+                LucideIcon(name: icon, size: 22)
+                Text(title).font(.callout.weight(isSelected ? .semibold : .regular))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 64)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .compatForeground(isSelected ? Color.accentColor : Theme.Palette.textSecondary)
+        .graphiteSurface(isSelected ? .selected : .control)
+        .compatOverlay {
+            RoundedRectangle(cornerRadius: Graphite.cornerRadius)
+                .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+        }
+        .hoverHighlight(cornerRadius: Graphite.cornerRadius, isEnabled: !isSelected)
+    }
+
+    /// Маршрут до АТС: этот компьютер → офисная сеть или интернет со шлюзом → АТС.
+    private var route: some View {
+        let remote = model.workplaceSite == .remote
+        return HStack(spacing: Theme.Metrics.sectionSpacing) {
+            routeNode("monitor", title: "Этот компьютер")
+            LucideIcon(name: "arrow-right", size: Theme.Icon.medium)
+                .compatForeground(Theme.Palette.textTertiary)
+            routeNode(remote ? "cloud" : "router", title: remote ? "Интернет" : "Офисная сеть")
+            LucideIcon(name: "arrow-right", size: Theme.Icon.medium)
+                .compatForeground(Theme.Palette.textTertiary)
+            routeNode("server", title: "АТС")
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Metrics.tightSpacing)
+        .compatAccessibilityLabel(remote ? "Маршрут: компьютер, интернет, АТС" : "Маршрут: компьютер, офисная сеть, АТС")
+    }
+
+    private func routeNode(_ icon: String, title: LocalizedStringKey) -> some View {
+        VStack(spacing: Theme.Metrics.tightSpacing) {
+            LucideIcon(name: icon, size: 20)
+            Text(title)
+                .font(.caption)
+                .lineLimit(1)
+        }
+        .compatForeground(Theme.Palette.textSecondary)
+        .frame(minWidth: 72)
     }
 }

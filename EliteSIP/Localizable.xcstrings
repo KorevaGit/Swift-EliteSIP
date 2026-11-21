@@ -13721,6 +13721,102 @@
           }
         }
       }
+    },
+    "Этот компьютер": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот компьютер"
+          }
+        }
+      }
+    },
+    "Интернет": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Internet"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Интернет"
+          }
+        }
+      }
+    },
+    "Офисная сеть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Office network"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Офисная сеть"
+          }
+        }
+      }
+    },
+    "Маршрут: компьютер, интернет, АТС": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route: computer, internet, PBX"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маршрут: компьютер, интернет, АТС"
+          }
+        }
+      }
+    },
+    "Маршрут: компьютер, офисная сеть, АТС": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route: computer, office network, PBX"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маршрут: компьютер, офисная сеть, АТС"
+          }
+        }
+      }
+    },
+    "Открывает дорогу до АТС снаружи — когда из дома перестало подключаться: у домашнего интернета сменился адрес.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the way to the PBX from outside — when connecting from home stopped working because your home address changed."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывает дорогу до АТС снаружи — когда из дома перестало подключаться: у домашнего интернета сменился адрес."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
