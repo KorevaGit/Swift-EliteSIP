@@ -784,7 +784,8 @@ struct CallHeader: View {
         content
             .frame(height: Theme.Metrics.headerHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, Theme.Metrics.contentPadding)
+            // Поле 14 по бокам, как `Padding="14,0"` у поля набора Windows.
+            .padding(.horizontal, 14)
             .graphiteSurface(.call)
     }
 

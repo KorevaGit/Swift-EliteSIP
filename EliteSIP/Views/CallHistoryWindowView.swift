@@ -152,25 +152,18 @@ struct CallHistoryWindowView: View {
         // Раскладка Windows 1.0.4: фильтры слева одной группой, календарь и
         // снимок — справа.
         HStack(spacing: Theme.Metrics.elementSpacing) {
-            HStack(spacing: 2) {
-            ForEach(CallHistoryStore.Filter.allCases, id: \.self) { item in
-                Button {
-                    model.historyFilter = item
-                } label: {
-                    HStack(spacing: Theme.Metrics.tightSpacing) {
-                        FilterGlyph(filter: item)
-                        // Подпись фильтра не ужимается никогда: «Пропущенн…»
-                        // — это уже не название фильтра, а обещание, что за
-                        // кнопкой что-то не поместилось. Ширину под весь ряд
-                        // держит `historyMinWidth`.
-                        Text(item.title).fixedSize()
-                    }
+            // Фильтры — нативным сегментированным переключателем macOS.
+            Picker("", selection: Binding(
+                get: { model.historyFilter },
+                set: { model.historyFilter = $0 }
+            )) {
+                ForEach(CallHistoryStore.Filter.allCases, id: \.self) { item in
+                    Text(item.title).tag(item)
                 }
-                .buttonStyle(FilterChipStyle(isSelected: model.historyFilter == item))
             }
-            }
-            .padding(2)
-            .graphiteSurface(.macro, cornerRadius: Graphite.cornerRadius, shadow: false)
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .fixedSize()
             Spacer()
             HistoryDayButton()
             HistorySnapshotButton(

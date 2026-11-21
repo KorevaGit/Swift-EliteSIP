@@ -167,6 +167,8 @@ struct WallpaperLayer: View {
 
     let settings: BackgroundSettings
 
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         GeometryReader { geometry in
             if let image = Wallpaper.image(blur: settings.blur, brightness: settings.brightness) {
@@ -179,6 +181,12 @@ struct WallpaperLayer: View {
                     .frame(width: image.size.width * fill, height: image.size.height * fill)
                     .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
             }
+        }
+        // Подложка под текст: в светлой теме тёмные подписи над тёмными обоями
+        // не читались вовсе. Светлая — молочная, тёмная — лёгкое затемнение;
+        // картинка остаётся видна, а текст получает свой контраст.
+        .compatOverlay {
+            (scheme == .dark ? Color.black.opacity(0.28) : Color.white.opacity(0.62))
         }
         .clipped()
         .compatAccessibilityHidden(true)

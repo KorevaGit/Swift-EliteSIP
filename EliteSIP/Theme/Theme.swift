@@ -169,13 +169,15 @@ enum Theme {
         /// ровно столько же: иначе при ответе на вызов шапка вырастала бы и
         /// сдвигала вниз всё, что под ней. При двух линиях этот же слот делится
         /// на два поля по 22 точки.
-        static let headerHeight: CGFloat = 52
+        /// 72, как поле набора Windows 1.0.4 (`NumberInputArea`).
+        static let headerHeight: CGFloat = 72
 
         /// Неподвижная нижняя зона: кнопка звонка и история.
-        static let actionHeight: CGFloat = 46
+        /// 62 — нижний ряд «Позвонить / История» Windows 1.0.4.
+        static let actionHeight: CGFloat = 62
         /// Ширина «Истории». Задана явно, чтобы кнопка звонка занимала всё
         /// оставшееся место и не меняла ширину от длины подписи.
-        static let historyWidth: CGFloat = 64
+        static let historyWidth: CGFloat = 76
 
         /// Ряд управления: удержание, микрофон, перевод. Ниже клавиш макросов и
         /// с подписью в строку, а не столбиком, — так ряд читается как другой
@@ -654,7 +656,7 @@ enum Theme {
         static let lineFieldHeight: CGFloat = 22
         /// Кегль номера в поле набора. Живёт здесь, а не в `Text`, потому что
         /// нужен и SwiftUI, и AppKit: поле набора собрано на `NSTextField`.
-        static let dialedNumberSize: CGFloat = 18
+        static let dialedNumberSize: CGFloat = 20
         /// Точка активной линии в этом поле.
         static let lineDotDiameter: CGFloat = 6
         /// Поле номера перевода и кнопки под ним. Габариты, а не отступы:
