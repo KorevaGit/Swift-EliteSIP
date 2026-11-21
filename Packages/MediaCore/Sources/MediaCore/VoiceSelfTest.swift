@@ -76,7 +76,7 @@ public final class VoiceSelfTest: @unchecked Sendable {
     public func apply(microphoneGain: Float, playbackVolume: Float) {
         bus.withEngine(token) {
             $0.microphoneGain = microphoneGain.clampedGain(to: VoiceAudioEngine.Configuration.microphoneGainLimit)
-            $0.playbackVolume = playbackVolume.clampedGain(to: 1)
+            $0.playbackVolume = playbackVolume.clampedGain(to: VoiceAudioEngine.Configuration.playbackVolumeLimit)
         }
     }
 

@@ -29,6 +29,10 @@ public struct MachineConfig: Sendable, Equatable, Codable {
     public var sipPassword: String
     /// `office` или `remote`.
     public var workFormat: String
+    /// Запрещено ли менеджеру менять формат работы в разделе «Работа».
+    /// Снимается только административным паролем — с теми же последствиями,
+    /// что у правки в «Управлении». Сборки до 0.1.67 поле не знают.
+    public var workFormatLocked: Bool
     public var presetID: String
     public var presetName: String
     /// Пароль «Управления». Пустой — у предустановки пароля нет.
@@ -62,8 +66,8 @@ public struct MachineConfig: Sendable, Equatable, Codable {
     }
 
     public init(installationID: String, revision: Int, issuedAt: Date, employee: String, number: String,
-                sipPassword: String, workFormat: String, presetID: String, presetName: String,
-                adminPassword: String, lines: [Line] = []) {
+                sipPassword: String, workFormat: String, workFormatLocked: Bool = false,
+                presetID: String, presetName: String, adminPassword: String, lines: [Line] = []) {
         self.installationID = installationID
         self.revision = revision
         self.issuedAt = issuedAt
@@ -71,13 +75,15 @@ public struct MachineConfig: Sendable, Equatable, Codable {
         self.number = number
         self.sipPassword = sipPassword
         self.workFormat = workFormat
+        self.workFormatLocked = workFormatLocked
         self.presetID = presetID
         self.presetName = presetName
         self.adminPassword = adminPassword
         self.lines = lines
     }
 
-    // Конфигурация, сохранённая сборкой без номеров, читается как с одним.
+    // Конфигурация, сохранённая сборкой без номеров, читается как с одним,
+    // без запрета формата работы — как незапрещённая.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         installationID = try c.decode(String.self, forKey: .installationID)
@@ -87,6 +93,7 @@ public struct MachineConfig: Sendable, Equatable, Codable {
         number = try c.decode(String.self, forKey: .number)
         sipPassword = try c.decode(String.self, forKey: .sipPassword)
         workFormat = try c.decode(String.self, forKey: .workFormat)
+        workFormatLocked = try c.decodeIfPresent(Bool.self, forKey: .workFormatLocked) ?? false
         presetID = try c.decode(String.self, forKey: .presetID)
         presetName = try c.decode(String.self, forKey: .presetName)
         adminPassword = try c.decode(String.self, forKey: .adminPassword)
@@ -124,6 +131,7 @@ public struct MachineConfig: Sendable, Equatable, Codable {
             var number: String
             var sip_password: String
             var work_format: String
+            var work_format_locked: Bool?
             var preset_id: String
             var preset_name: String
             var admin_password: String
@@ -146,6 +154,7 @@ public struct MachineConfig: Sendable, Equatable, Codable {
             number: wire.number,
             sipPassword: wire.sip_password,
             workFormat: wire.work_format,
+            workFormatLocked: wire.work_format_locked ?? false,
             presetID: wire.preset_id,
             presetName: wire.preset_name,
             adminPassword: wire.admin_password,

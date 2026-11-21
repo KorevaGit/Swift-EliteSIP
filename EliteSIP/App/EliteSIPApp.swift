@@ -95,9 +95,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Слежение за открытым «Управлением» — ради отложенной предустановки.
     private var settingsHoldWatch: AnyCancellable?
 
+    /// Отказ от App Nap на всё время работы.
+    ///
+    /// Софтфон большую часть дня невидим — только значок в строке меню, — и
+    /// macOS усыпляет такое приложение: таймеры склеиваются, приоритет падает,
+    /// обработка пришедшего из сети откладывается на секунды. Для звонилки это
+    /// значит окно входящего, которое появляется с опозданием и не исчезает,
+    /// когда вызов уже забрал другой агент очереди. Сон дисплея и системы
+    /// при этом не запрещается.
+    private var appNapOptOut: NSObjectProtocol?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Первым делом: отметка сеанса для `X-EliteSIP-Unclean-Exit`.
         SessionHealth.noteLaunch()
+        appNapOptOut = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
+            reason: "SIP-регистрация и входящие вызовы"
+        )
         // Тема — до первого окна: иначе панель успевает нарисоваться в
         // системном оформлении и перекрашивается уже на глазах.
         NSApp.appearance = model.settings.appearance.appKitAppearance
@@ -282,6 +296,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.model.alignProfileAddress(previous: addressesBefore)
                 self.model.persistSettings()
                 self.model.append(level: .info, message: "применено с панели: \(note)")
+                // Возврат в онлайн переприменяет предустановку — тем же заходом
+                // площадка возвращается к закреплённой в Spark.
+                self.model.enforceLockedWorkplaceSite()
             },
             // Два повода подождать, и оба объяснены в самой службе: разговор и
             // открытое «Управление» с несохранёнными правками.
@@ -325,6 +342,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
         machineService = machines
+        ClientEventLog.shared.start(
+            settings: { [weak self] in self?.model.settings ?? AppSettings.default },
+            log: { [weak self] level, message in self?.model.append(level: level, message: message) })
         startRevocationWatch(machines, presets: presets)
 
         let service = UpdateService(
@@ -333,7 +353,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 guard let self else { done(); return }
                 self.deregisterBeforeRestart(then: done)
             },
-            hostWindow: { [weak self] in self?.phoneWindow },
+            // Скрытую панель показываем: предложение — лист на ней, а лист на
+            // невидимом окне никто не видит. Окна нет вовсе (идёт мастер) —
+            // `nil`, и сервис покажет предложение отдельным окном.
+            hostWindow: { [weak self] in
+                guard let self, let window = self.phoneWindow else { return nil }
+                if !window.isVisible { self.showPhoneWindow(nil) }
+                return window
+            },
             announce: { [weak self] version in self?.model.noteUpdateReady(version) },
             reportCheckState: { [weak self] checking, result in
                 self?.model.noteUpdateCheckState(checking: checking, result: result)
@@ -425,15 +452,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// будет установщик Sparkle, а не мы. Ограничение по времени обязательно —
     /// зависшее снятие регистрации повесило бы установщик, и рабочее место
     /// осталось бы с наполовину заменённым приложением.
-    private func deregisterBeforeRestart(then done: @escaping () -> Void) {
-        Task { @MainActor in
-            let teardown = Task { @MainActor in await self.model.disconnect(force: true) }
-            let limit = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                teardown.cancel()
+    /// Снять регистрацию, но ждать этого не дольше `seconds`.
+    ///
+    /// Гонка двух задач, а не отмена одной. До 17 октября 2026 здесь стояло
+    /// `teardown.cancel()` по таймеру и следом `await teardown.value` — и предел
+    /// не работал: отмена не доходит до `agent.stop()` (внутри несвязанные
+    /// задачи, `hangUp()` и остановка транзакций), а `value` всё равно ждёт
+    /// конца. Без ответа АТС на BYE выход и установка обновления стояли
+    /// десятки секунд. Теперь по истечении срока мы просто идём дальше, а
+    /// снятие доделывает что успеет, пока процесс жив.
+    private func disconnectAtMost(seconds: Double) async {
+        @MainActor final class Once {
+            var continuation: CheckedContinuation<Void, Never>?
+            func finish() {
+                continuation?.resume()
+                continuation = nil
             }
-            await teardown.value
-            limit.cancel()
+        }
+        let once = Once()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            once.continuation = continuation
+            Task { @MainActor in
+                await self.model.disconnect(force: true)
+                once.finish()
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                once.finish()
+            }
+        }
+    }
+
+    private func deregisterBeforeRestart(then done: @escaping () -> Void) {
+        ClientEventLog.shared.noteShutdown("установка обновления")
+        Task { @MainActor in
+            await self.disconnectAtMost(seconds: 2)
             self.model.append(level: .info, message: "обновление: регистрация снята, ставим")
             UserDefaults.standard.synchronize()
             SessionHealth.noteCleanExit()
@@ -526,14 +579,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @MainActor
     private func tearDownAndExit() async {
         model.append(level: .info, message: "выход: снимаем регистрацию")
+        ClientEventLog.shared.noteShutdown("выход из приложения")
 
-        let teardown = Task { @MainActor in await self.model.disconnect(force: true) }
-        let limit = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            teardown.cancel()
-        }
-        await teardown.value
-        limit.cancel()
+        await self.disconnectAtMost(seconds: 2)
 
         model.append(level: .info, message: "выход")
         UserDefaults.standard.synchronize()
@@ -706,7 +754,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let window = NSWindow(
             contentRect: CGRect(
                 origin: .zero,
-                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
+                size: CGSize(width: Theme.Metrics.panelInitialWidth, height: Theme.Metrics.panelInitialHeight)
             ),
             // `.resizable` — с 14 сентября 2026: оператор растягивает панель
             // сам, и растут у неё клавиши и кнопки, а не пустое место. Меньше
@@ -787,7 +835,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrame(
             CGRect(
                 origin: .zero,
-                size: CGSize(width: Theme.Metrics.panelWidth, height: Theme.Metrics.panelInitialHeight)
+                size: CGSize(width: Theme.Metrics.panelInitialWidth, height: Theme.Metrics.panelInitialHeight)
             ),
             display: false
         )
@@ -795,7 +843,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             of: window,
             autosaveName: Self.phoneWindowAutosaveName,
             defaultContentSize: CGSize(
-                width: Theme.Metrics.panelWidth,
+                width: Theme.Metrics.panelInitialWidth,
                 height: Theme.Metrics.panelInitialHeight
             ),
             restoresHeight: false

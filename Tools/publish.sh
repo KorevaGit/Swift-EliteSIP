@@ -156,18 +156,9 @@ upload() {
             scp -q -i "${ssh_key/#\~/$HOME}" "$src" "$ssh_host:$ssh_path/$key" \
                 || die "не положилось на стенд: $key"
             ;;
-        prod)
-            local account bucket access secret endpoint
-            account=$(jget r2.accountId); bucket=$(jget r2.bucket)
-            access=$(jget r2.accessKeyId); secret=$(jget r2.secretAccessKey)
-            [[ -n "$access" && -n "$secret" ]] || die "в $config не заполнены ключи R2 (prod.r2.accessKeyId / secretAccessKey)"
-            endpoint="https://$account.r2.cloudflarestorage.com/$bucket/$key"
-            # curl умеет подписывать по AWS SigV4 сам — отдельный клиент S3 не нужен.
-            local code
-            code=$(curl -s -o /dev/null -w '%{http_code}' --aws-sigv4 'aws:amz:auto:s3' \
-                --user "$access:$secret" --upload-file "$src" "$endpoint")
-            [[ "$code" == "200" ]] || die "R2 отверг $key: HTTP $code"
-            ;;
+        # prod (старый R2) выкладкой больше не пишется: канал сменён, а ключи
+        # записи в R2 отзываются (аудит 17 октября 2026). Старый канал живёт
+        # только мостом для копий младше 0.1.40 и меняться не должен.
     esac
     ok "выложено: $key"
 }

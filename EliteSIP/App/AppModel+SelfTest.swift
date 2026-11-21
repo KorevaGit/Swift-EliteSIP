@@ -46,7 +46,8 @@ extension AppModel {
                         releasesDeviceWhenIdle: settings.audio.releasesDeviceWhenIdle,
                         automaticGainControl: settings.audio.automaticGainControl,
                         microphoneGain: Float(settings.audio.microphoneGain),
-                        playbackVolume: Float(settings.audio.playbackVolume)
+                        playbackVolume: Float(settings.audio.playbackVolume),
+                        suppressesBackgroundVoices: settings.audio.backgroundVoiceSuppression
                     )
                 )
                 test.onDiagnostic = { [weak self] text in

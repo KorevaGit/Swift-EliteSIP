@@ -105,6 +105,34 @@ public struct IncomingCallPlacement: Sendable {
         return best
     }
 
+    /// Экран, которому принадлежит окно с рамкой `frame`.
+    ///
+    /// Нужен месту, выбранному оператором: оно восстанавливается на своём
+    /// мониторе, даже если курсор уже на другом. Свой — тот, с которым у рамки
+    /// больше всего общей площади: окно, оставленное на стыке двух мониторов,
+    /// принадлежит тому, где его больше. Не пересекается ни с одним — монитор
+    /// отключили, — тогда ближайший к центру рамки: окно вернётся туда, где
+    /// его станет видно с наименьшим скачком.
+    ///
+    /// - Returns: индекс в `screens`; `nil` только для пустого списка.
+    public static func screenIndex(for frame: CGRect, among screens: [CGRect]) -> Int? {
+        let overlaps = screens.map { screen -> CGFloat in
+            let common = screen.intersection(frame)
+            return common.isNull ? 0 : common.width * common.height
+        }
+        if let best = overlaps.indices.max(by: { overlaps[$0] < overlaps[$1] }), overlaps[best] > 0 {
+            return best
+        }
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        return screens.indices.min { gap(center, screens[$0]) < gap(center, screens[$1]) }
+    }
+
+    private static func gap(_ point: CGPoint, _ rect: CGRect) -> CGFloat {
+        let dx = max(rect.minX - point.x, 0, point.x - rect.maxX)
+        let dy = max(rect.minY - point.y, 0, point.y - rect.maxY)
+        return (dx * dx + dy * dy).squareRoot()
+    }
+
     private func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
         let dx = a.x - b.x
         let dy = a.y - b.y

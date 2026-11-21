@@ -1017,8 +1017,8 @@ struct DialedNumberField: View {
     }
 }
 
-/// Кнопки, которые имеют смысл только в разговоре: удержание, микрофон, перевод
-/// и конференция.
+/// Кнопки разговора: удержание, микрофон, перевод и конференция. Микрофон
+/// работает и в покое — заглушённым он поднимется на следующем звонке.
 ///
 /// **Четыре в два ряда, а не три в один** — с 17 августа 2026. Конференция до
 /// этого дня была недостижима вовсе: кнопку убрал редизайн, положившись на
@@ -1058,11 +1058,17 @@ struct CallControls: View {
                     Task { await model.toggleHold() }
                 }
 
+                // Подпись меняется вместе с состоянием, как у «Удержать». До
+                // 17 октября 2026 она всегда была «Микрофон», а подсвечивалась
+                // кнопка при выключенном: подсвеченное «Микрофон» читалось
+                // ровно наоборот, и разницу несла одна мелкая иконка.
                 controlButton(
-                    title: "Микрофон",
+                    title: model.isMicrophoneMuted ? "Микрофон выкл." : "Микрофон",
                     symbol: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
                     isOn: model.isMicrophoneMuted,
-                    isEnabled: model.callPhase == .active
+                    onColor: Theme.Palette.microphoneMuted,
+                    // И в покое: заглушённым микрофон и поднимется на звонке.
+                    isEnabled: true
                 ) {
                     model.toggleMicrophone()
                 }
@@ -1099,6 +1105,7 @@ struct CallControls: View {
         title: LocalizedStringKey,
         symbol: String,
         isOn: Bool,
+        onColor: Color = Theme.Palette.connecting,
         isEnabled: Bool,
         action: @escaping () -> Void
     ) -> some View {
@@ -1122,7 +1129,7 @@ struct CallControls: View {
         .compatBackground {
             if isOn {
                 RoundedRectangle(cornerRadius: Theme.Radius.control)
-                    .fill(Theme.Palette.connecting)
+                    .fill(onColor)
             }
         }
         .themedControlSurface()

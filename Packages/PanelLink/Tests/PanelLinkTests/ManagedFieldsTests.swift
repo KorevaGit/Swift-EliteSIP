@@ -162,6 +162,16 @@ struct ManagedFieldsTests {
         #expect(knock?.spacingSeconds == 1.5)
     }
 
+    @Test("маска мобильных номеров: true, false и отсутствие")
+    func parsesMasksMobileNumbers() {
+        #expect(parse(#"{"masksMobileNumbers":false}"#).masksMobileNumbers == false)
+        #expect(parse(#"{"masksMobileNumbers":true}"#).masksMobileNumbers == true)
+        // Поля нет — панель им не управляет, машина оставляет своё.
+        #expect(parse(#"{"transport":"udp"}"#).masksMobileNumbers == nil)
+        // Строка вместо булева — не значение.
+        #expect(parse(#"{"masksMobileNumbers":"false"}"#).masksMobileNumbers == nil)
+    }
+
     /// Проверка на том же файле, что приезжает с боевой панели: разбор обязан
     /// сходиться не с придуманным JSON, а с настоящим.
     @Test("поля из настоящего файла предустановок разбираются")

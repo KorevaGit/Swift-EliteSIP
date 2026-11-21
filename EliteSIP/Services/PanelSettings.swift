@@ -86,6 +86,19 @@ extension AppSettings {
         /// Снимается тем, кто применил, — и только им.
         var wantsResync: Bool = false
 
+        /// Формат работы, закреплённый Spark: `office` или `remote`. Пусто —
+        /// менеджер выбирает сам.
+        ///
+        /// Хранится сам формат, а не признак «запрещено»: возврат в онлайн
+        /// обязан вернуть площадку туда, куда её поставил Spark, а ревизия
+        /// конфигурации за время оффлайна могла не смениться — то есть приехать
+        /// заново формату неоткуда.
+        ///
+        /// Действует только под панелью (`isWorkFormatLocked`): в оффлайне
+        /// машиной управляет человек на месте, и запрет теряет смысл вместе
+        /// с остальными управляемыми полями.
+        var lockedWorkFormat: String = ""
+
         /// Режим машины — решение этапа 5 работ по панели.
         ///
         /// Действует на машину целиком, а не на отдельные настройки: половинчатый
@@ -110,6 +123,10 @@ extension AppSettings {
         /// вариант 1» и до сих пор всегда было `false`; теперь оно наконец
         /// получает смысл.
         var isManaged: Bool { mode == .managed && !presetID.isEmpty }
+
+        /// Запрещена ли смена формата работы прямо сейчас — без учёта
+        /// административного режима, который снимает запрет.
+        var isWorkFormatLocked: Bool { mode == .managed && !lockedWorkFormat.isEmpty }
 
         /// Знает ли панель об этой машине вообще.
         var isActivated: Bool { !installationID.isEmpty }
@@ -144,6 +161,7 @@ extension AppSettings {
             lastContactAt = try c.decodeIfPresent(Date.self, forKey: .lastContactAt)
             mode = (try? c.decodeIfPresent(Mode.self, forKey: .mode)) ?? .manual
             wantsResync = try c.decodeIfPresent(Bool.self, forKey: .wantsResync) ?? false
+            lockedWorkFormat = try c.decodeIfPresent(String.self, forKey: .lockedWorkFormat) ?? ""
         }
     }
 }

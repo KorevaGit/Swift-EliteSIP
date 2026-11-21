@@ -58,6 +58,13 @@ public struct ManagedFields: Sendable, Equatable {
     /// отсутствие ключа — «панель этим не управляет».
     public var autoAnswerNumbers: [String]?
 
+    /// Прятать ли мобильный номер звонящего под маской `+7**********`.
+    ///
+    /// `true` — прятать, `false` — показывать как пришёл. Отделам, которые
+    /// перезванивают клиенту сами, номер нужен открытым — поэтому решение
+    /// принимает панель, а не машина.
+    public var masksMobileNumbers: Bool?
+
     // MARK: - Блоки
 
     public struct DTMF: Sendable, Equatable, Decodable {
@@ -161,6 +168,7 @@ public struct ManagedFields: Sendable, Equatable {
         fields.transport = root["transport"] as? String
         fields.autoAnswer = root["autoAnswer"] as? String
         fields.autoAnswerNumbers = root["autoAnswerNumbers"] as? [String]
+        fields.masksMobileNumbers = root["masksMobileNumbers"] as? Bool
 
         return fields
     }

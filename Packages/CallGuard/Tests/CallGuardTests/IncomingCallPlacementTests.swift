@@ -129,4 +129,39 @@ struct IncomingCallPlacementTests {
                 == placement.origin(forPanelSize: panel, previous: nil, using: &second)
         )
     }
+
+    // MARK: - Место, выбранное оператором
+
+    private let left = CGRect(x: 0, y: 0, width: 1512, height: 916)
+    private let right = CGRect(x: 1512, y: 0, width: 2560, height: 1440)
+
+    @Test("Сохранённое место возвращается на свой монитор, а не под курсор")
+    func savedFrameKeepsItsScreen() {
+        let frame = CGRect(x: 2000, y: 600, width: 320, height: 228)
+        #expect(IncomingCallPlacement.screenIndex(for: frame, among: [left, right]) == 1)
+    }
+
+    @Test("Окно на стыке мониторов принадлежит тому, где его больше")
+    func straddlingFrameGoesToLargerOverlap() {
+        let frame = CGRect(x: 1400, y: 300, width: 320, height: 228)
+        #expect(IncomingCallPlacement.screenIndex(for: frame, among: [left, right]) == 1)
+    }
+
+    @Test("Монитор отключили — ближайший, и окно вдвигается в его область")
+    func missingScreenFallsBackToNearest() {
+        // Место было на правом мониторе, теперь остался только левый.
+        let saved = CGRect(x: 2400, y: 700, width: 320, height: 228)
+        let index = IncomingCallPlacement.screenIndex(for: saved, among: [left])
+        #expect(index == 0)
+
+        let placement = IncomingCallPlacement(bounds: left.insetBy(dx: 24, dy: 24), minimumTravel: 150)
+        let restored = placement.contained(saved)
+        #expect(placement.bounds.contains(restored))
+        #expect(restored.size == saved.size)
+    }
+
+    @Test("Пустой список экранов не роняет расчёт")
+    func noScreens() {
+        #expect(IncomingCallPlacement.screenIndex(for: .zero, among: []) == nil)
+    }
 }

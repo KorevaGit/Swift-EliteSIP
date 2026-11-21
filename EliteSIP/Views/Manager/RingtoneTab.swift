@@ -82,13 +82,13 @@ struct RingtoneTab: View {
 
         // Своим разделом, а не строкой выше: тот гаснет вместе с рингтоном, а
         // тоны клавиш от рингтона не зависят.
-        SettingsSection("Звуки набора и отбоя") {
-            SettingsToggleRow("Тоны клавиш и сигнал отбоя", isOn: Binding(
+        SettingsSection("Звуки набора и разговора") {
+            SettingsToggleRow("Тоны клавиш и сигналы разговора", isOn: Binding(
                 get: { model.settings.ringtone.callSoundsEnabled },
                 set: { model.settings.ringtone.callSoundsEnabled = $0 }
             ))
 
-            SettingsNote("Тихий тон на каждую цифру в поле номера и короткий мягкий сигнал, когда разговор закончился. Звучат в устройство разговора.")
+            SettingsNote("Тихий тон на каждую цифру в поле номера, короткий мягкий сигнал, когда разговор начался и когда закончился. Звучат в устройство разговора.")
         }
     }
 
@@ -115,11 +115,11 @@ struct RingtoneTab: View {
         panel.title = NSLocalizedString("Звук входящего вызова", comment: "заголовок окна выбора файла")
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedFileTypes = ["wav", "aiff", "aif", "caf", "m4a", "mp3"]
+        panel.allowedFileTypes = Ringtone.supportedFileExtensions
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard Ringtone.isPlayable(url: url) else {
-            soundProblem = NSLocalizedString("Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3.", comment: "выбранный файл не годится в рингтоны")
+            soundProblem = NSLocalizedString("Этот файл не читается как звук. Подойдут MP3, WAV и OGG.", comment: "выбранный файл не годится в рингтоны")
             return
         }
         soundProblem = nil

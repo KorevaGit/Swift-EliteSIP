@@ -261,6 +261,7 @@ extension AppModel {
         settings.panel.appliedRevision = setup.preset?.revision ?? 0
         settings.panel.appliedAt = setup.preset == nil ? nil : Date()
         settings.panel.mode = .managed
+        settings.panel.lockedWorkFormat = lockedWorkFormat(of: config)
 
         // Управляемые поля — той же дорогой, что и файл предустановок.
         // Предустановки не оказалось в файле — применится первым же опросом.

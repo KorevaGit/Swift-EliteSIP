@@ -12,6 +12,21 @@ struct AdminUnlockView: View {
     @EnvironmentObject private var model: AppModel
     @Binding var isPresented: Bool
 
+    /// Зачем спрашивают пароль.
+    ///
+    /// Окно одно на обе дороги: пароль, журнал неудачных попыток и
+    /// предупреждение до входа — общие, а разъехавшись, две копии однажды
+    /// разошлись бы и в том, кого пускать.
+    enum Purpose {
+        /// Открыть окно «Управление».
+        case administration
+        /// Снять закрепление формата работы в разделе «Работа». Режим
+        /// остаётся открытым до закрытия настроек — как у «Управления».
+        case workplace
+    }
+
+    var purpose: Purpose = .administration
+
     private enum Step {
         /// Обычный вход.
         case password
@@ -70,11 +85,20 @@ struct AdminUnlockView: View {
 
     private var passwordStep: some View {
         Group {
-            Text("Управление настройками")
-                .font(.headline)
-            Text("Аккаунты, клавиши, защита от автокликеров и диагностика.")
-                .font(.footnote)
-                .compatForeground(.secondary)
+            switch purpose {
+            case .administration:
+                Text("Управление настройками")
+                    .font(.headline)
+                Text("Аккаунты, клавиши, защита от автокликеров и диагностика.")
+                    .font(.footnote)
+                    .compatForeground(.secondary)
+            case .workplace:
+                Text("Формат работы закреплён")
+                    .font(.headline)
+                Text("Сменить офис или дом можно только с паролем администратора.")
+                    .font(.footnote)
+                    .compatForeground(.secondary)
+            }
 
             // `onSubmit` появился в macOS 12, поэтому ввод завершает не поле, а
             // Enter на кнопке «Войти» — см. `compatKeyboardShortcut` ниже.
@@ -157,7 +181,15 @@ struct AdminUnlockView: View {
     /// Дублирование намеренное. На входе человек ещё не знает, что будет
     /// менять, и предупреждение читается как формальность; на сохранении он уже
     /// час как забыл, что читал на входе. Один раз мало в обоих случаях.
+    @ViewBuilder
     private var warningStep: some View {
+        switch purpose {
+        case .administration: administrationWarning
+        case .workplace: workplaceWarning
+        }
+    }
+
+    private var administrationWarning: some View {
         Group {
             CompatLabel(title: "Прежде чем открыть «Управление»", symbol: "exclamationmark.triangle")
                 .font(.headline)
@@ -196,6 +228,45 @@ struct AdminUnlockView: View {
                 }
                 .compatProminentButtonStyle()
                 .compatKeyboardShortcut("\r", modifiers: [])
+            }
+        }
+    }
+
+    /// Предупреждение перед снятием закрепления.
+    ///
+    /// Последствия те же, что у «Управления», и названы теми же словами: смена
+    /// закреплённого формата — правка управляемой настройки. Отличие одно —
+    /// уходит машина в оффлайн не на «Сохранить», а на само переключение:
+    /// черновика у раздела «Работа» нет, переезд происходит сразу.
+    private var workplaceWarning: some View {
+        Group {
+            CompatLabel(title: "Прежде чем снять закрепление", symbol: "exclamationmark.triangle")
+                .font(.headline)
+                .compatForeground(.orange)
+
+            Text("""
+                Формат работы закрепил EliteSupport. Переключение офиса и дома переводит \
+                машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса \
+                АТС перестают приходить, и управление клиентом переходит к вам.
+
+                Вернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или \
+                в «Аккаунте» — местные правки тогда заменит панель.
+
+                Пока настройки открыты, переключатель доступен. Машина уходит в оффлайн \
+                только если его действительно переключить.
+                """)
+            .font(.footnote)
+            .compatForeground(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Отмена") {
+                    model.lockAdministration()
+                    isPresented = false
+                }
+                Button("Снять закрепление") { isPresented = false }
+                    .compatProminentButtonStyle()
+                    .compatKeyboardShortcut("\r", modifiers: [])
             }
         }
     }

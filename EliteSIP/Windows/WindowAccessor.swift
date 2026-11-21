@@ -309,7 +309,8 @@ struct HeightReader: NSViewRepresentable {
 /// та, до которой оператор дотянул окно мышью; она запоминается и переживает
 /// перезапуск. Окно стоит на большей из двух: оператор не может сделать панель
 /// меньше содержимого, а содержимое не отнимает у оператора выбранную высоту.
-/// Если своей нет — окно следует за содержимым, как было всегда.
+/// Если своей нет — окно встаёт формой 4:3 от ширины (`Metrics.panelAspect`),
+/// но не ниже содержимого.
 ///
 /// Своя высота хранится отдельно от кадра окна (`setFrameAutosaveName`), и это
 /// не дубль. В сохранённом кадре лежит высота, посчитанная прошлыми версиями,
@@ -355,7 +356,7 @@ final class PanelHeightView: NSView {
     /// раскладки внутри восстановления не было, `minSize` ещё начальный, и
     /// высоту поставит первый же проход, как всегда.
     static func settle(_ window: NSWindow) {
-        let height = max(window.minSize.height, storedUserHeight ?? 0)
+        let height = height(for: window, minimumHeight: window.minSize.height)
         guard abs(window.frame.height - height) > 0.5 else { return }
         let frame = window.frame
         window.setFrame(
@@ -394,14 +395,14 @@ final class PanelHeightView: NSView {
         // Только у видимого окна: невидимое двигает восстановление кадра
         // при создании, и его высота — не выбор, а устаревшее число.
         if let applied, window.isVisible, abs(window.frame.height - applied) > 0.5 {
-            let chosen = window.frame.height
-            // Дотянул до наименьшей высоты — своей у него больше нет, и окно
-            // снова следует за содержимым. Иначе, раз растянув окно, вернуть
-            // его к поведению по умолчанию было бы нельзя.
-            userHeight = chosen > minimumHeight + 0.5 ? chosen : nil
+            // Запоминается любая выбранная высота, и наименьшая тоже. Прежде
+            // наименьшая означала «своей нет, следуй за содержимым», но с
+            // 22 октября 2026 «своей нет» — это форма 4:3, и сжать окно до
+            // содержимого иначе было бы нельзя.
+            userHeight = window.frame.height
         }
 
-        let height = max(minimumHeight, userHeight ?? minimumHeight)
+        let height = Self.height(for: window, minimumHeight: minimumHeight)
         let width = max(window.frame.width, Theme.Metrics.panelWidth)
         // Сверяемся с окном, а не с прошлым своим решением.
         //
@@ -448,8 +449,26 @@ final class PanelHeightView: NSView {
     /// приложения, а выбор обязан пережить перезапуск.
     override func viewDidEndLiveResize() {
         super.viewDidEndLiveResize()
+        // Тянул только за боковой край — высоту он этим тоже выбрал: какой
+        // она была. Иначе форма 4:3 пересчиталась бы от новой ширины, и окно
+        // само поменяло бы высоту под рукой.
+        if let window { userHeight = window.frame.height }
         guard let pending else { return }
         apply(minimumHeight: pending)
+    }
+
+    /// Высота окна: своя, если оператор её выбирал, иначе форма 4:3.
+    ///
+    /// Как у Windows 0.1.80: `min(max(round(width × 4/3), содержимое), экран)`
+    /// — с одной поправкой: содержимое важнее экрана. Окно, срезающее кнопку
+    /// звонка, хуже окна, которое не влезло целиком; ниже содержимого его и
+    /// так не пустит `minSize`.
+    private static func height(for window: NSWindow, minimumHeight: CGFloat) -> CGFloat {
+        if let stored = storedUserHeight { return max(minimumHeight, stored) }
+        let width = max(window.frame.width, Theme.Metrics.panelWidth)
+        let proportional = (width * Theme.Metrics.panelAspect).rounded()
+        let room = (window.screen ?? NSScreen.main)?.visibleFrame.height ?? proportional
+        return max(minimumHeight, min(proportional, room))
     }
 
     override func viewDidMoveToWindow() {

@@ -282,6 +282,8 @@ final class PresetService {
 
         // не переводится: строка журнала
         apply(updated, "предустановка «\(entry.name)», ревизия \(entry.revision)")
+        ClientEventLog.shared.record(.config, .info,
+                                     "Применена предустановка «\(entry.name)», ревизия \(entry.revision)")
         log(wasResync
             ? "предустановка переприменена по просьбе машины: «\(entry.name)», ревизия \(entry.revision)"
             : "предустановка применена: «\(entry.name)», ревизия \(entry.revision)")

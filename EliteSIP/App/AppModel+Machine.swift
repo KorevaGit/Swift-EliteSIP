@@ -31,9 +31,12 @@ extension AppModel {
     /// записана.
     @discardableResult
     func applyMachineConfig(_ config: MachineConfig) -> ConfigOutcome {
-        guard config.installationID == settings.panel.installationID,
-              config.revision > settings.panel.appliedConfigRevision
-        else { return .unchanged }
+        guard config.installationID == settings.panel.installationID else { return .unchanged }
+        guard config.revision > settings.panel.appliedConfigRevision else {
+            noteStaleConfig(config.revision)
+            return .unchanged
+        }
+        reportedStaleConfigRevision = nil
 
         let site = siteFor(workFormat: config.workFormat) ?? settings.profiles.active.site
         let before = settings.profiles
@@ -68,16 +71,21 @@ extension AppModel {
             settings.panel.presetID = config.presetID
             settings.panel.appliedRevision = 0
             append(level: .info, message: "Spark сменил предустановку машины: «\(was)» → «\(config.presetName)»")
+            ClientEventLog.shared.record(.config, .info, "Сменена предустановка: «\(was)» → «\(config.presetName)»")
         }
         if !config.presetName.isEmpty { settings.panel.presetName = config.presetName }
         settings.panel.mode = .managed
         settings.panel.appliedConfigRevision = config.revision
+        noteWorkFormatLock(lockedWorkFormat(of: config))
         applyPanelPassword(config.adminPassword)
         persistSettings()
 
         append(level: .info,
                message: "настройки из Spark применены: номер \(config.number), ревизия \(config.revision)")
         let numberNow = settings.profiles.active.account.username
+        if numberBefore != numberNow, !numberBefore.isEmpty {
+            ClientEventLog.shared.record(.config, .info, "Сменён номер: \(numberBefore) → \(numberNow)")
+        }
         if accountChanged, numberBefore != numberNow, !numberBefore.isEmpty {
             showPanelNotice(String(
                 format: NSLocalizedString("Администратор сменил номер: %@", comment: "уведомление в панели"),
@@ -158,6 +166,29 @@ extension AppModel {
         }
     }
 
+    /// Закреплённый формат из конфигурации: пусто, если не закреплён или
+    /// формат незнакомый. Незнакомый не закрепляется — запрет без площадки,
+    /// к которой он привязан, запер бы менеджера неизвестно где.
+    func lockedWorkFormat(of config: MachineConfig) -> String {
+        guard config.workFormatLocked, siteFor(workFormat: config.workFormat) != nil else { return "" }
+        return config.workFormat
+    }
+
+    /// Запоминает закрепление формата и пишет в журнал, только если оно
+    /// сменилось: конфигурация приезжает на любую правку места.
+    private func noteWorkFormatLock(_ format: String) {
+        guard settings.panel.lockedWorkFormat != format else { return }
+        settings.panel.lockedWorkFormat = format
+        if format.isEmpty {
+            append(level: .info, message: "Spark разрешил менять формат работы")
+            ClientEventLog.shared.record(.config, .info, "Смена формата работы разрешена")
+        } else {
+            let site = siteFor(workFormat: format)?.title ?? format
+            append(level: .info, message: "Spark закрепил формат работы: \(site)")
+            ClientEventLog.shared.record(.config, .info, "Формат работы закреплён: \(site)")
+        }
+    }
+
     /// Пароль «Управления» из Spark.
     ///
     /// Ставится и снимается без открытого «Управления»: у сотрудника за
@@ -214,6 +245,25 @@ extension AppModel {
     /// Цена полной чистки названа прямо: после неё разбирать ошибочный отзыв
     /// не по чему — журнал и история уходят вместе со всем остальным. Принято
     /// сознательно 26 августа 2026.
+    /// Spark прислал ревизию младше применённой.
+    ///
+    /// Отказ правильный — так старую подписанную конфигурацию нельзя подсунуть
+    /// повторно. Но молча отказывать нельзя: такое бывает и честно, когда
+    /// счётчик в Spark сбросился (восстановление базы, пересозданная запись
+    /// машины), и тогда машина больше не примет ни одной правки, а снаружи
+    /// это не видно. Поэтому — предупреждение и сюда, и в журнал для Spark.
+    /// Равная ревизия — обычный повторный опрос, о ней молчим.
+    private func noteStaleConfig(_ revision: Int) {
+        let applied = settings.panel.appliedConfigRevision
+        guard revision < applied, reportedStaleConfigRevision != revision else { return }
+        reportedStaleConfigRevision = revision
+        append(level: .warning,
+               message: "конфигурация из Spark отклонена: ревизия \(revision) меньше применённой \(applied)")
+        ClientEventLog.shared.record(.config, .warning,
+            "Конфигурация отклонена: ревизия \(revision) меньше применённой \(applied). "
+            + "Новые настройки из Spark не применятся, пока ревизия не станет больше \(applied)")
+    }
+
     func resetByRevocation(_ revocation: Revocation) {
         // В разговоре не сбрасываем: сброс снимает регистрацию и закрывает
         // диалоги, то есть кладёт трубку за оператора. Ждать безопасно —

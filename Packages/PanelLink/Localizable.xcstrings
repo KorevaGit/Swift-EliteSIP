@@ -16,6 +16,29 @@
             "value": "The key did not work or has already been used. Ask for a new one."
           }
         }
+      },
+      "extractionState": "stale"
+    },
+    "Настройки машины не расшифровались — попросите привязать её заново.": {
+      "comment": "отказ при расшифровке конфигурации машины",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки машины не расшифровались — попросите привязать её заново."
+          }
+        }
+      }
+    },
+    "Настройки собраны более новой версией — обновите приложение.": {
+      "comment": "отказ при разборе конфигурации машины",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки собраны более новой версией — обновите приложение."
+          }
+        }
       }
     },
     "Пакет собран более новой версией программы — обновитесь.": {
@@ -33,7 +56,8 @@
             "value": "The package was built by a newer version of the app — please update."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     },
     "Подпись файла настроек не сошлась — файл отброшен.": {
       "comment": "отказ при проверке файла предустановок",
@@ -101,7 +125,8 @@
             "value": "This does not look like a key: it must have twelve characters."
           }
         }
-      }
+      },
+      "extractionState": "stale"
     }
   },
   "version": "1.0"

@@ -349,4 +349,108 @@ struct JitterBufferTests {
         #expect(buffer.jitterMilliseconds < 5, "джиттер \(buffer.jitterMilliseconds) мс")
         #expect(buffer.targetDepth == 2)
     }
+
+    // MARK: - Задержка после всплеска джиттера
+
+    /// Провал сети на `stall` кадров посреди ровного потока: воспроизведение
+    /// идёт, ничего не приходит, затем всё недошедшее приходит пачкой.
+    /// Возвращает буфер сразу после пачки; дальше поток ровный, по кадру.
+    private func bufferAfterStall(
+        _ stall: Int, byte: UInt8, sequence: inout UInt16, arrival: inout Double
+    ) -> JitterBuffer {
+        var buffer = JitterBuffer(targetDepth: 2, minimumDepth: 2, maximumDepth: 12)
+        for _ in 0..<100 {
+            buffer.push(packet(sequence, byte: byte), arrivedAt: arrival)
+            sequence &+= 1
+            _ = buffer.pop()
+            arrival += 0.02
+        }
+        for _ in 0..<stall {
+            _ = buffer.pop()
+            arrival += 0.02
+        }
+        for _ in 0..<stall {
+            buffer.push(packet(sequence, byte: byte), arrivedAt: arrival)
+            sequence &+= 1
+        }
+        return buffer
+    }
+
+    private func steady(
+        _ buffer: inout JitterBuffer, pops: Int, byte: UInt8,
+        sequence: inout UInt16, arrival: inout Double
+    ) {
+        for _ in 0..<pops {
+            buffer.push(packet(sequence, byte: byte), arrivedAt: arrival)
+            sequence &+= 1
+            _ = buffer.pop()
+            arrival += 0.02
+        }
+    }
+
+    @Test("Лишний запас после провала сети уходит в паузах речи")
+    func drainsExcessOnQuietFrames() {
+        // 0xFF в µ-law — ноль: поток тишины, каждый кадр тихий.
+        var sequence: UInt16 = 1
+        var arrival = 100.0
+        var buffer = bufferAfterStall(8, byte: 0xFF, sequence: &sequence, arrival: &arrival)
+        #expect(buffer.depth >= 8, "провал обязан был оставить пачку, глубина \(buffer.depth)")
+
+        // Секунда ожидания плюс по выбросу раз в 200 мс на каждый лишний кадр.
+        steady(&buffer, pops: 50 + 10 * 8, byte: 0xFF, sequence: &sequence, arrival: &arrival)
+
+        #expect(buffer.depth <= buffer.targetDepth,
+                "глубина \(buffer.depth) при цели \(buffer.targetDepth)")
+        #expect(buffer.statistics.drained > 0)
+        #expect(buffer.statistics.dropped == 0, "переполнения не было — выбрасывать было не за что")
+    }
+
+    @Test("Сплошная речь не держит лишний запас вечно")
+    func drainsExcessEvenWithoutPauses() {
+        // 0x11 в µ-law — громкий отсчёт: тихих кадров нет вовсе.
+        var sequence: UInt16 = 1
+        var arrival = 100.0
+        var buffer = bufferAfterStall(8, byte: 0x11, sequence: &sequence, arrival: &arrival)
+
+        steady(&buffer, pops: 200, byte: 0x11, sequence: &sequence, arrival: &arrival)
+        #expect(buffer.depth >= 7, "до пяти секунд громкие кадры не трогаются, глубина \(buffer.depth)")
+
+        steady(&buffer, pops: 50 + 10 * 8, byte: 0x11, sequence: &sequence, arrival: &arrival)
+        #expect(buffer.depth <= buffer.targetDepth,
+                "глубина \(buffer.depth) при цели \(buffer.targetDepth)")
+    }
+
+    @Test("Ровный поток на цели не теряет ни кадра")
+    func steadyStreamIsNeverDrained() {
+        var buffer = JitterBuffer(targetDepth: 2, minimumDepth: 2, maximumDepth: 12)
+        var sequence: UInt16 = 1
+        var arrival = 100.0
+        for _ in 0..<2 {
+            buffer.push(packet(sequence, byte: 0xFF), arrivedAt: arrival)
+            sequence &+= 1
+        }
+        steady(&buffer, pops: 1500, byte: 0xFF, sequence: &sequence, arrival: &arrival)
+
+        #expect(buffer.statistics.drained == 0)
+        #expect(buffer.statistics.concealed == 0)
+    }
+
+    @Test("Сниженная цель снижает и саму задержку")
+    func loweredTargetShrinksDepth() {
+        // Запас в четыре кадра набран на шумной сети; сеть успокоилась, цель
+        // через пять секунд пошла вниз — и буфер обязан пойти за ней, а не
+        // держать прежнюю глубину до конца разговора.
+        var buffer = JitterBuffer(targetDepth: 4, minimumDepth: 2, maximumDepth: 12)
+        var sequence: UInt16 = 1
+        var arrival = 100.0
+        for _ in 0..<4 {
+            buffer.push(packet(sequence, byte: 0xFF), arrivedAt: arrival)
+            sequence &+= 1
+        }
+        steady(&buffer, pops: 1500, byte: 0xFF, sequence: &sequence, arrival: &arrival)
+
+        #expect(buffer.targetDepth == 2)
+        #expect(buffer.depth <= buffer.targetDepth, "глубина \(buffer.depth)")
+        #expect(buffer.statistics.concealed == 0, "сброс не должен был оставить дыр")
+    }
 }

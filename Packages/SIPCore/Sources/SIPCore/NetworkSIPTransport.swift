@@ -57,6 +57,9 @@ public final class NetworkSIPTransport: SIPTransportChannel, @unchecked Sendable
         // Не запрещаем ни один тип интерфейса: удалённые сотрудники ходят через
         // VPN, и отсечь его случайно нельзя.
         parameters.prohibitedInterfaceTypes = []
+        // Класс трафика «сигнализация» (DSCP CS3): установление и отбой
+        // звонка не ждут в очереди за загрузками. Голос метит `RTPSession`.
+        parameters.serviceClass = .signaling
 
         connection = NWConnection(
             host: NWEndpoint.Host(remote.host),

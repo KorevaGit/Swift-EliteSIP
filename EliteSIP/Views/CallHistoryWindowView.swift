@@ -33,6 +33,11 @@ struct CallHistoryWindowView: View {
     /// якорь только держит вьюху и в перерисовках не участвует.
     @State private var snapshot = HistorySnapshotAnchor()
 
+    /// Флаг маски мобильных, прочитанный при открытии окна, а не на каждой
+    /// перерисовке. Предустановка, переключившая его под открытым окном,
+    /// перерисовала бы часть строк иначе прочих — это читалось бы как ошибка.
+    @State private var masksMobileNumbers: Bool?
+
     /// Что сказать после снимка и сколько раз его уже делали.
     ///
     /// Счётчик нужен, чтобы отложенное скрытие гасило **своё** сообщение:
@@ -73,6 +78,9 @@ struct CallHistoryWindowView: View {
                 .compatIgnoreSafeArea()
         }
         .compatBackground { WindowTitle(title: windowTitle) }
+        // Флаг маски — при открытии и до закрытия; список это не трогает.
+        .onAppear { masksMobileNumbers = model.settings.masksMobileNumbers }
+        .onDisappear { masksMobileNumbers = nil }
         // `onAppear` для перечитывания списка здесь нет намеренно: срез
         // перечитывает тот, кто открывает окно (`showCallHistoryWindow`), до
         // показа. Обновление после того, как строки уже разложены, уводило
@@ -281,7 +289,10 @@ struct CallHistoryWindowView: View {
                     // разделённое и превращает список в таблицу — а таблицу
                     // читают по колонкам, тогда как историю читают по строкам.
                     ForEach(day.records) { record in
-                        CallHistoryRow(record: record)
+                        CallHistoryRow(
+                            record: record,
+                            masksMobileNumbers: masksMobileNumbers ?? model.settings.masksMobileNumbers
+                        )
                     }
                 }
 
@@ -1244,6 +1255,7 @@ private struct CallHistoryRow: View {
     @EnvironmentObject private var model: AppModel
 
     let record: CallRecord
+    let masksMobileNumbers: Bool
 
     var body: some View {
         HStack(spacing: Theme.Metrics.sectionSpacing) {
@@ -1323,12 +1335,12 @@ private struct CallHistoryRow: View {
         switch subject {
         case .none: return record.title
         case .selfCall: return IncomingCallSubject.dealTitle
-        case .queue(let queueTitle, _): return queueTitle
+        case .queue(let queueTitle, _, _): return queueTitle
         // Не `record.title`: у записи без имени заголовком стоит номер, и
         // мобильный обязан приехать сюда под маской, как и везде.
-        case .caller(let number, let name):
+        case .caller(let number, let name, let masks):
             guard let name, !name.isEmpty else {
-                return IncomingCallSubject.shown(number: number)
+                return IncomingCallSubject.shown(number: number, masks: masks)
             }
             return name
         }
@@ -1344,7 +1356,8 @@ private struct CallHistoryRow: View {
             callerNumber: record.number,
             callerName: record.displayName,
             requestsAutoAnswer: record.wasDistribution,
-            ownNumber: model.settings.account.username
+            ownNumber: model.settings.account.username,
+            masksMobileNumbers: masksMobileNumbers
         )
     }
 
@@ -1386,7 +1399,7 @@ private struct CallHistoryRow: View {
         } else if !record.number.isEmpty, subject?.hidesNumber != true {
             parts.append(
                 record.direction == .incoming
-                    ? IncomingCallSubject.shown(number: record.number)
+                    ? IncomingCallSubject.shown(number: record.number, masks: masksMobileNumbers)
                     : record.number
             )
         }

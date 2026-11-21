@@ -133,6 +133,11 @@ public final class MediaSession: @unchecked Sendable {
         /// линии, и значение обязано дожить до возврата.
         var microphoneGain: Float = 1
         var playbackVolume: Float = 1
+        /// Переключатели обработки — по той же причине, что громкость.
+        var suppressesBackgroundVoices = false
+        var levelsReceive = false
+        /// Итог обработки за прошлые владения трактом.
+        var processing = VoiceProcessingStatistics()
         /// Что успел намерить движок, пока звук был наш. Для сводки после
         /// звонка: счётчики общего тракта обнуляются на смене владельца, и
         /// спросить их у уже отпущенного движка нельзя.
@@ -163,6 +168,10 @@ public final class MediaSession: @unchecked Sendable {
     /// Кто из говорящих на нашем порту — собеседник. Устройство и цена решения
     /// — в `RemoteSourceFilter`.
     private let remoteSource = UnfairLock(initialState: RemoteSourceFilter())
+
+    /// Пакеты с типом нагрузки, которого не согласовывали: сколько и какой
+    /// последний. В звук они не идут — см. `wireTransport`.
+    private let unexpectedPayloads = UnfairLock(initialState: (count: 0, lastType: UInt8?.none))
     private let remoteViewLock = UnfairLock(initialState: RTCPSession.RemoteView?.none)
 
     /// Что сейчас можно делать со звуком.
@@ -193,7 +202,9 @@ public final class MediaSession: @unchecked Sendable {
         releasesDeviceWhenIdle: Bool = true,
         automaticGainControl: Bool = false,
         microphoneGain: Float = 1,
-        playbackVolume: Float = 1
+        playbackVolume: Float = 1,
+        suppressesBackgroundVoices: Bool = false,
+        levelsReceive: Bool = false
     ) throws {
         localPort = reservation.rtpPort
         portReservation = reservation
@@ -210,7 +221,9 @@ public final class MediaSession: @unchecked Sendable {
             releasesDeviceWhenIdle: releasesDeviceWhenIdle,
             automaticGainControl: automaticGainControl,
             microphoneGain: microphoneGain,
-            playbackVolume: playbackVolume
+            playbackVolume: playbackVolume,
+            suppressesBackgroundVoices: suppressesBackgroundVoices,
+            levelsReceive: levelsReceive
         )
         self.bus = try bus ?? VoiceAudioBus(configuration: audioConfiguration)
         transport = UnfairLock(
@@ -235,6 +248,8 @@ public final class MediaSession: @unchecked Sendable {
         audio.withLock { state in
             state.microphoneGain = audioConfiguration.microphoneGain
             state.playbackVolume = audioConfiguration.playbackVolume
+            state.suppressesBackgroundVoices = audioConfiguration.suppressesBackgroundVoices
+            state.levelsReceive = audioConfiguration.levelsReceive
         }
     }
 
@@ -354,13 +369,16 @@ public final class MediaSession: @unchecked Sendable {
         try bus.claim(token, configuration: audioConfiguration, handlers: makeHandlers())
         // Всё, что накопилось на линии, пока звука у неё не было, досылается
         // сразу: mute, поставленный на фоновой линии, обязан пережить возврат.
-        let (muted, gain, volume) = audio.withLock {
-            ($0.isMuted, $0.microphoneGain, $0.playbackVolume)
+        let (muted, gain, volume, suppresses, levels) = audio.withLock {
+            ($0.isMuted, $0.microphoneGain, $0.playbackVolume,
+             $0.suppressesBackgroundVoices, $0.levelsReceive)
         }
         bus.withEngine(token) { engine in
             engine.isMuted = muted
             engine.microphoneGain = gain
             engine.playbackVolume = volume
+            engine.suppressesBackgroundVoices = suppresses
+            engine.levelsReceive = levels
             audio.withLock { state in
                 state.route = engine.route
                 state.usesEchoCancellation = engine.usesEchoCancellation
@@ -375,6 +393,7 @@ public final class MediaSession: @unchecked Sendable {
             audio.withLock { state in
                 state.renderedSamples += engine.renderedSampleCount
                 state.starvedRenders += engine.starvedRenderCount
+                state.processing.merge(engine.processingStatistics)
                 state.route = engine.route
                 state.usesEchoCancellation = engine.usesEchoCancellation
             }
@@ -436,6 +455,45 @@ public final class MediaSession: @unchecked Sendable {
         Self.lifecycle.async { [self] in stop() }
     }
 
+    /// `stopWithoutBlocking()`, перед которым в тракте доигрывает сигнал.
+    ///
+    /// Для отбоя. Отдельным плеером после остановки сигнал не слышен: на
+    /// Bluetooth-гарнитуре остановка — это переключение из режима связи
+    /// обратно, около полутора секунд, и короткий звук в нём теряется, а до
+    /// остановки его глушит сама обработка голоса. Поэтому тракт живёт ещё
+    /// ровно столько, сколько звучит сигнал, с выключенным микрофоном: в
+    /// линию за это время не уходит ни звука.
+    ///
+    /// Ждёт очередь жизни сессий, а не вызывающий: интерфейс свободен сразу,
+    /// а подъём следующей линии и так встаёт за этой остановкой.
+    ///
+    /// - Parameter cue: отсчёты сигнала, `VoiceAudioEngine.cueSampleRate`.
+    /// - Returns: `false`, если тракт не наш — тогда сигнал играть некому, и
+    ///   сессия останавливается как обычно.
+    @discardableResult
+    public func stopWithoutBlocking(playingCue cue: [Float]) -> Bool {
+        guard ownsAudio else {
+            stopWithoutBlocking()
+            return false
+        }
+        Self.lifecycle.async { [self] in
+            isMicrophoneMuted = true
+            if bus.withEngine(token, { $0.playCue(cue) }) == true {
+                Thread.sleep(forTimeInterval: Double(cue.count) / VoiceAudioEngine.cueSampleRate + 0.05)
+            }
+            stop()
+        }
+        return true
+    }
+
+    /// Местный сигнал оператору в выход разговора; в линию не уходит.
+    ///
+    /// - Returns: `false`, если тракт сейчас не у этой линии.
+    @discardableResult
+    public func playCue(_ cue: [Float]) -> Bool {
+        bus.withEngine(token) { $0.playCue(cue) } ?? false
+    }
+
     /// Поднимает поток RTP, не трогая звуковую карту.
     ///
     /// Существует ради проверок: `start()` забирает общий аудиотракт, а
@@ -460,6 +518,7 @@ public final class MediaSession: @unchecked Sendable {
     private func wireTransport() {
         guard let current = transport.withLock({ $0 }) else { return }
         let eventPayloadType = current.configuration.telephoneEventPayloadType
+        let audioPayloadType = current.configuration.payloadType
         // Обе половины по отдельности, а не через `current`: отчёт RTCP берёт
         // счётчики у RTP, и замыкание, захватившее пару целиком, замкнуло бы
         // RTCP сам на себя — сессия не освободилась бы никогда.
@@ -471,6 +530,26 @@ public final class MediaSession: @unchecked Sendable {
             // События DTMF в звук не отдаём: их полезная нагрузка — не аудио, и
             // декодированная как G.711 она превратится в громкий треск.
             if let eventPayloadType, packet.payloadType == eventPayloadType {
+                return
+            }
+            // Голос — только согласованного типа. Декодер у тракта один, под
+            // согласованный кодек, а ответ на предложение с несколькими
+            // кодеками разрешает собеседнику переключаться между ними
+            // (RFC 3264): A-law, разобранный как µ-law, — громкий треск, а не
+            // тишина. До 17 октября 2026 сюда шло всё, кроме DTMF.
+            //
+            // Смена кодека посреди разговора сюда не попадает: её отвергает
+            // `renegotiate`, а пересогласование подключает транспорт заново.
+            guard packet.payloadType == audioPayloadType else {
+                let first = unexpectedPayloads.withLock { state -> Bool in
+                    defer { state.count += 1; state.lastType = packet.payloadType }
+                    return state.count == 0
+                }
+                // Одна строка на разговор, остальное — счётчиком в сводке.
+                if first {
+                    onDiagnostic?("пакет с несогласованным типом нагрузки \(packet.payloadType) "
+                        + "(ждали \(audioPayloadType)) — в звук не идёт")
+                }
                 return
             }
             // На удержании принятое просто выбрасывается. Копить его в буфере
@@ -689,10 +768,37 @@ public final class MediaSession: @unchecked Sendable {
     public var playbackVolume: Float {
         get { audio.withLock { $0.playbackVolume } }
         set {
-            let value = newValue.clampedGain(to: 1)
+            let value = newValue.clampedGain(to: VoiceAudioEngine.Configuration.playbackVolumeLimit)
             audio.withLock { $0.playbackVolume = value }
             bus.withEngine(token) { $0.playbackVolume = value }
         }
+    }
+
+    /// Приглушать голоса вокруг. Меняется посреди разговора.
+    public var suppressesBackgroundVoices: Bool {
+        get { audio.withLock { $0.suppressesBackgroundVoices } }
+        set {
+            audio.withLock { $0.suppressesBackgroundVoices = newValue }
+            bus.withEngine(token) { $0.suppressesBackgroundVoices = newValue }
+        }
+    }
+
+    /// Выравнивать громкость собеседника. Меняется посреди разговора.
+    public var levelsReceive: Bool {
+        get { audio.withLock { $0.levelsReceive } }
+        set {
+            audio.withLock { $0.levelsReceive = newValue }
+            bus.withEngine(token) { $0.levelsReceive = newValue }
+        }
+    }
+
+    /// Итог обработки голоса за весь разговор — для итоговой строки звонка.
+    public var processingSummary: String {
+        var total = audio.withLock { $0.processing }
+        if let live = bus.withEngine(token, { $0.processingStatistics }) {
+            total.merge(live)
+        }
+        return total.summary
     }
 
     /// Отдавать принятое в звук.
@@ -990,6 +1096,13 @@ public final class MediaSession: @unchecked Sendable {
         bufferLock.withLock { jitter.statistics }
     }
 
+    /// Хвост сводки про несогласованные пакеты — пустой, пока их не было.
+    private var unexpectedPayloadSummary: String {
+        let state = unexpectedPayloads.withLock { $0 }
+        guard state.count > 0, let type = state.lastType else { return "" }
+        return ", отброшено несогласованных пакетов \(state.count), тип \(type)"
+    }
+
     public var summary: String {
         let stats = statistics
         let codec = transport.withLock { $0?.configuration.codec } ?? .pcmu
@@ -1007,13 +1120,18 @@ public final class MediaSession: @unchecked Sendable {
         // Длительность считается по отсчётам, которые запросила звуковая карта:
         // это единственные часы в разговоре, которые нельзя оспорить.
         let seconds = Double(renderedSamples) / Double(codec.sampleRate)
-        let buffer = bufferLock.withLock { (jitter.jitterMilliseconds, jitter.targetDepth) }
+        // Запас — фактический и целевой рядом. До 17 октября 2026 здесь стояла
+        // одна цель, и по журналу выглядело, что буфер «ужался до двух кадров»,
+        // когда в нём лежало восемь: ужималась цель, а не задержка.
+        let buffer = bufferLock.withLock { (jitter.jitterMilliseconds, jitter.depth, jitter.targetDepth) }
         return String(
             format: "принято %d, спрятано %d, не по порядку %d, недоборов %d, "
-                + "проиграно %.1f с, пустых рендеров %d, джиттер %.1f мс, запас %d кадр.",
+                + "проиграно %.1f с, пустых рендеров %d, джиттер %.1f мс, "
+                + "запас %d/цель %d кадр., сброшено лишних %d",
             stats.received, stats.concealed, stats.reordered, stats.underruns,
-            seconds, starvedRenders, buffer.0, buffer.1
-        ) + (remoteView.map { " | у собеседника: \($0.summary)" } ?? "")
+            seconds, starvedRenders, buffer.0, buffer.1, buffer.2, stats.drained
+        ) + unexpectedPayloadSummary
+            + (remoteView.map { " | у собеседника: \($0.summary)" } ?? "")
     }
 
     public var route: AudioRoute {

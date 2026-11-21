@@ -406,6 +406,7 @@
       }
     },
     "K7M2-9XQP-4TFB": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -733,6 +734,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Автоматическая регулировка усиления"
+          }
+        }
+      }
+    },
+    "Автоподъём": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto answer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоподъём"
           }
         }
       }
@@ -1263,6 +1280,7 @@
       }
     },
     "Ввести другой ключ": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1376,7 +1394,18 @@
         }
       }
     },
+    "Вернуться в онлайн": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться в онлайн"
+          }
+        }
+      }
+    },
     "Вернуться к ключу активации": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1748,6 +1777,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все закрытые настройки в окне будут заменены содержимым файла, включая пароль номера. На диск это уйдёт только по «Сохранить»."
+          }
+        }
+      }
+    },
+    "Всегда": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всегда"
           }
         }
       }
@@ -2139,6 +2184,22 @@
         }
       }
     },
+    "Вызов принимает оператор.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The operator answers the call."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вызов принимает оператор."
+          }
+        }
+      }
+    },
     "Выключается в «Настройках», раздел «Оформление»: там же, где тема.": {
       "localizations": {
         "en": {
@@ -2151,6 +2212,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выключается в «Настройках», раздел «Оформление»: там же, где тема."
+          }
+        }
+      }
+    },
+    "Выключен": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключен"
           }
         }
       }
@@ -2183,6 +2260,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выключить стекло?"
+          }
+        }
+      }
+    },
+    "Выравнивать громкость собеседника": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Level the other party’s volume"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выравнивать громкость собеседника"
           }
         }
       }
@@ -2404,6 +2497,7 @@
     },
     "Готово: настройки рабочего места обновлены.": {
       "comment": "перепрошивка применена",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2648,6 +2742,22 @@
         }
       }
     },
+    "Добавить номер": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить номер"
+          }
+        }
+      }
+    },
     "Добавить очередь": {
       "localizations": {
         "en": {
@@ -2880,7 +2990,24 @@
         }
       }
     },
+    "Если АТС просит автоответ заголовком, как в MicroSIP.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When the PBX requests auto answer via a header, as in MicroSIP."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если АТС просит автоответ заголовком, как в MicroSIP."
+          }
+        }
+      }
+    },
     "Если вам прислали новый ключ — введите его здесь. Машина перейдёт на него: номер и настройки сменятся сами, переустанавливать ничего не нужно.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2912,7 +3039,19 @@
         }
       }
     },
+    "Если тронуты настройки, которыми управляет EliteSupport, машина после сохранения уйдёт в оффлайн: обновления конфигураций, клавиш и адресов АТС приходить перестанут, пока не нажать «Вернуться в онлайн» — тогда местные правки заменит панель. Это будет записано в журнал.": {
+      "comment": "вопрос при закрытии «Управления»",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если тронуты настройки, которыми управляет EliteSupport, машина после сохранения уйдёт в оффлайн: обновления конфигураций, клавиш и адресов АТС приходить перестанут, пока не нажать «Вернуться в онлайн» — тогда местные правки заменит панель. Это будет записано в журнал."
+          }
+        }
+      }
+    },
     "Если тронуты настройки, которыми управляет EliteSupport, сохранение разорвёт связку с панелью: обновления конфигураций, клавиш и адресов АТС на эту машину больше не придут, а вернуть её можно будет только новым ключом. Это будет записано в журнал.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3327,6 +3466,22 @@
         }
       }
     },
+    "Закрепление снято. Переключение переведёт машину в оффлайн.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlocked. Switching will take this machine offline."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепление снято. Переключение переведёт машину в оффлайн."
+          }
+        }
+      }
+    },
     "Закрыть": {
       "comment": "пункт меню «Окно»",
       "localizations": {
@@ -3362,6 +3517,7 @@
       }
     },
     "Записать и прослушать": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3489,6 +3645,22 @@
         }
       }
     },
+    "Звонки с номеров из списка принимаются сразу.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calls from numbers on the list are answered immediately."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звонки с номеров из списка принимаются сразу."
+          }
+        }
+      }
+    },
     "Звонков пока не было": {
       "comment": "пустой список истории",
       "localizations": {
@@ -3589,18 +3761,18 @@
         }
       }
     },
-    "Звуки набора и отбоя": {
+    "Звуки набора и разговора": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Key tones and hang-up sound"
+            "value": "Key tones and call sounds"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Звуки набора и отбоя"
+            "value": "Звуки набора и разговора"
           }
         }
       }
@@ -3685,6 +3857,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Значение приезжает из панели предустановкой «%@». Правка здесь действует сразу и держится до следующей выкладки этой предустановки — потом вернётся то, что задано в панели. Чтобы правка осталась навсегда, снимите «Слушать панель» в разделе «Аккаунт» или поменяйте значение в самой панели."
+          }
+        }
+      }
+    },
+    "Значение приезжает из панели.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This value comes from the panel."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значение приезжает из панели."
           }
         }
       }
@@ -4050,6 +4238,7 @@
       }
     },
     "Ключ": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4066,6 +4255,7 @@
       }
     },
     "Ключ из сообщения": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4083,6 +4273,7 @@
     },
     "Ключ получен из EliteGuard": {
       "comment": "QR для EliteGuard на экране ключа",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4167,6 +4358,7 @@
     },
     "Код для EliteGuard недоступен — введите ключ.": {
       "comment": "QR для EliteGuard на экране ключа",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4515,6 +4707,22 @@
         }
       }
     },
+    "Любой входящий принимается сразу.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every incoming call is answered immediately."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Любой входящий принимается сразу."
+          }
+        }
+      }
+    },
     "Макросов нет. Кнопки появятся на панели во время разговора.": {
       "extractionState": "stale",
       "localizations": {
@@ -4611,6 +4819,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Машина"
+          }
+        }
+      }
+    },
+    "Машина в оффлайне: настройки из панели не приходят. Возврат заменит местные правки управляемых настроек настройками панели.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машина в оффлайне: настройки из панели не приходят. Возврат заменит местные правки управляемых настроек настройками панели."
           }
         }
       }
@@ -4731,6 +4949,39 @@
         }
       }
     },
+    "Место закреплено за офисом": {
+      "comment": "«Исправить сеть»",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workplace is locked to the office"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Место закреплено за офисом"
+          }
+        }
+      }
+    },
+    "Место закреплено за офисом — из офиса АТС достижима напрямую.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This workplace is locked to the office — the PBX is reachable directly from there."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Место закреплено за офисом — из офиса АТС достижима напрямую."
+          }
+        }
+      }
+    },
     "Микрофон": {
       "localizations": {
         "en": {
@@ -4743,6 +4994,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Микрофон"
+          }
+        }
+      }
+    },
+    "Микрофон выкл.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mic Off"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Микрофон выкл."
           }
         }
       }
@@ -4775,6 +5042,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Минимум по RFC 4733 — 40 мс. Глухие голосовые меню лучше слышат 120."
+          }
+        }
+      }
+    },
+    "Мобильный номер показывается как +7 и звёздочки — в окне входящего, в панели во время разговора и в истории. Городские и внутренние номера видны всегда. Выключайте для отделов, которым номер клиента нужен открытым.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A mobile number is shown as +7 and asterisks — in the incoming call window, in the panel during a call and in the history. Landline and internal numbers are always visible. Turn this off for departments that need the client’s number in full."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мобильный номер показывается как +7 и звёздочки — в окне входящего, в панели во время разговора и в истории. Городские и внутренние номера видны всегда. Выключайте для отделов, которым номер клиента нужен открытым."
           }
         }
       }
@@ -5536,6 +5819,7 @@
     },
     "Не удалось связаться с сервером: %@. Проверьте сеть и попробуйте снова.": {
       "comment": "отказ при получении пакета активации",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5927,6 +6211,7 @@
       }
     },
     "Новый ключ": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6073,6 +6358,23 @@
         }
       }
     },
+    "Номер скопирован": {
+      "comment": "подпись в окне входящего после копирования номера",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number copied"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер скопирован"
+          }
+        }
+      }
+    },
     "Номер совпал с вашим добавочным": {
       "localizations": {
         "en": {
@@ -6085,6 +6387,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Номер совпал с вашим добавочным"
+          }
+        }
+      }
+    },
+    "Номера для автоподъёма": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto answer numbers"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номера для автоподъёма"
+          }
+        }
+      }
+    },
+    "Номера звонящих": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caller numbers"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номера звонящих"
           }
         }
       }
@@ -6687,6 +7021,7 @@
     },
     "Отсканируйте в EliteGuard — ключ придёт сам": {
       "comment": "QR для EliteGuard на экране ключа",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7401,6 +7736,38 @@
         }
       }
     },
+    "По SIP-заголовку": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By SIP header"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По SIP-заголовку"
+          }
+        }
+      }
+    },
+    "По списку номеров": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By number list"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По списку номеров"
+          }
+        }
+      }
+    },
     "Повтор": {
       "localizations": {
         "en": {
@@ -7926,7 +8293,18 @@
         }
       }
     },
+    "Правка настроек, которыми управляет EliteSupport, переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nВсе настройки применяются после нажатия «Сохранить».": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка настроек, которыми управляет EliteSupport, переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nВсе настройки применяются после нажатия «Сохранить»."
+          }
+        }
+      }
+    },
     "Правка настроек, которыми управляет EliteSupport, полностью ломает синхронизацию с ключом. Чтобы вернуть её, ключ придётся выпускать и привязывать заново.\n\nПродолжая, вы осознанно рвёте связку с EliteSupport и соглашаетесь не получать обновления конфигураций, новые клавиши и новые адреса АТС — управление клиентом полностью переходит к вам.\n\nВсе настройки применяются после нажатия «Сохранить».": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8127,6 +8505,38 @@
         }
       }
     },
+    "Прежде чем снять закрепление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before unlocking"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прежде чем снять закрепление"
+          }
+        }
+      }
+    },
+    "Приглушать голоса вокруг": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suppress voices around you"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приглушать голоса вокруг"
+          }
+        }
+      }
+    },
     "Приезжают вместе с приложением и правке не подлежат — их меняют пересборкой. Чтобы отступить от заводской на одной машине, настройте её как надо и снимите свою предустановку ниже.": {
       "extractionState": "stale",
       "localizations": {
@@ -8276,6 +8686,7 @@
       }
     },
     "Применить ключ": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8309,6 +8720,7 @@
       }
     },
     "Применяем…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8376,6 +8788,7 @@
     },
     "Принято: настройки применятся, как только вы положите трубку. Разговор не прервётся.": {
       "comment": "перепрошивка отложена до конца разговора",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8457,6 +8870,7 @@
       }
     },
     "Проверить ключ": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8620,6 +9034,7 @@
       }
     },
     "Проверяем…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8881,6 +9296,7 @@
       }
     },
     "Пять секунд записи и сразу воспроизведение — тем же трактом, что и разговор.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8979,6 +9395,7 @@
       }
     },
     "Разделители и регистр не важны — вставьте ключ как есть.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9467,6 +9884,22 @@
         }
       }
     },
+    "Системный шумодав убирает ровный фон, а чужую речь не трогает: для неё этот переключатель. Всё, что заметно тише вашего голоса, — коллеги рядом, телевизор — в паузах приглушается. Лучше всего работает на гарнитуре с микрофоном у рта; на микрофоне ноутбука громкий сосед рядом всё равно будет слышен. Если собеседник жалуется, что у вас пропадают начала или концы фраз, выключите.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system noise suppressor removes steady background noise but leaves other people’s speech alone — this switch is for that. Anything noticeably quieter than your voice — colleagues nearby, a TV — is turned down in your pauses. Works best with a headset whose microphone is at your mouth; on a laptop microphone a loud neighbour nearby will still be heard. If the other party says the starts or ends of your phrases drop out, turn it off."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системный шумодав убирает ровный фон, а чужую речь не трогает: для неё этот переключатель. Всё, что заметно тише вашего голоса, — коллеги рядом, телевизор — в паузах приглушается. Лучше всего работает на гарнитуре с микрофоном у рта; на микрофоне ноутбука громкий сосед рядом всё равно будет слышен. Если собеседник жалуется, что у вас пропадают начала или концы фраз, выключите."
+          }
+        }
+      }
+    },
     "Скажите фразу — шкала «Голос» покажет, как вас слышно. Через пять секунд запись прозвучит в наушниках, и отзовётся шкала «Звук». Микрофон занят только на время проверки.": {
       "localizations": {
         "en": {
@@ -9515,6 +9948,23 @@
         }
       }
     },
+    "Скопировать номер": {
+      "comment": "подсказка над номером в окне входящего",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать номер"
+          }
+        }
+      }
+    },
     "Скопировать снимок списка в буфер обмена": {
       "localizations": {
         "en": {
@@ -9527,6 +9977,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Скопировать снимок списка в буфер обмена"
+          }
+        }
+      }
+    },
+    "Скрывать мобильные номера": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide mobile numbers"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрывать мобильные номера"
           }
         }
       }
@@ -9697,6 +10163,22 @@
         }
       }
     },
+    "Сменить офис или дом можно только с паролем администратора.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching between office and home requires the administrator password."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить офис или дом можно только с паролем администратора."
+          }
+        }
+      }
+    },
     "Сменить пароль": {
       "localizations": {
         "en": {
@@ -9844,6 +10326,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Снимок списка"
+          }
+        }
+      }
+    },
+    "Снять закрепление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять закрепление"
+          }
+        }
+      }
+    },
+    "Снять закрепление…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять закрепление…"
           }
         }
       }
@@ -10046,6 +10560,22 @@
         }
       }
     },
+    "Список пуст — автоподъём не сработает ни на один звонок.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The list is empty — no call will be answered automatically."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список пуст — автоподъём не сработает ни на один звонок."
+          }
+        }
+      }
+    },
     "Стандартный": {
       "localizations": {
         "en": {
@@ -10243,18 +10773,18 @@
         }
       }
     },
-    "Тихий тон на каждую цифру в поле номера и короткий мягкий сигнал, когда разговор закончился. Звучат в устройство разговора.": {
+    "Тихий тон на каждую цифру в поле номера, короткий мягкий сигнал, когда разговор начался и когда закончился. Звучат в устройство разговора.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A quiet tone for each digit typed in the number field and a short, soft chime when a call ends. Both play on the call device."
+            "value": "A quiet tone for each digit typed in the number field and a short, soft chime when a call connects and when it ends. All play on the call device."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Тихий тон на каждую цифру в поле номера и короткий мягкий сигнал, когда разговор закончился. Звучат в устройство разговора."
+            "value": "Тихий тон на каждую цифру в поле номера, короткий мягкий сигнал, когда разговор начался и когда закончился. Звучат в устройство разговора."
           }
         }
       }
@@ -10275,18 +10805,18 @@
         }
       }
     },
-    "Тоны клавиш и сигнал отбоя": {
+    "Тоны клавиш и сигналы разговора": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Play key tones and a hang-up sound"
+            "value": "Play key tones and call sounds"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Тоны клавиш и сигнал отбоя"
+            "value": "Тоны клавиш и сигналы разговора"
           }
         }
       }
@@ -10635,6 +11165,7 @@
       }
     },
     "Уровень": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10651,6 +11182,7 @@
       }
     },
     "Уровни появятся здесь в разговоре и во время проверки ниже: по ним видно, что уходит в линию и что приходит из неё.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10885,6 +11417,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Файл сделан для другой установки EliteSIP и здесь не открывается."
+          }
+        }
+      }
+    },
+    "Формат работы закрепил EliteSupport. Переключение офиса и дома переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nПока настройки открыты, переключатель доступен. Машина уходит в оффлайн только если его действительно переключить.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EliteSupport has locked the work mode. Switching between office and home takes this machine offline: configuration updates, new keys and new PBX addresses stop arriving, and you take over managing the client.\n\nYou can go back with “Return online” in “Support” or in “Account” — the panel will then replace local changes.\n\nThe switch stays available while settings are open. The machine goes offline only if you actually switch it."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Формат работы закрепил EliteSupport. Переключение офиса и дома переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nПока настройки открыты, переключатель доступен. Машина уходит в оффлайн только если его действительно переключить."
+          }
+        }
+      }
+    },
+    "Формат работы закреплён": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work mode is locked"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Формат работы закреплён"
+          }
+        }
+      }
+    },
+    "Формат работы закреплён администратором.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The work mode is locked by the administrator."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Формат работы закреплён администратором."
           }
         }
       }
@@ -11228,6 +11808,7 @@
     },
     "Это рабочее место поднимали не ключом — сменить настройки ключом нельзя.": {
       "comment": "перепрошивка на неактивированной машине",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -11261,19 +11842,31 @@
         }
       }
     },
-    "Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3.": {
+    "Этот файл не читается как звук. Подойдут MP3, WAV и OGG, а также M4A, AIFF и CAF.": {
       "comment": "выбранный файл не годится в рингтоны",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This file cannot be read as audio. WAV, AIFF, CAF, M4A and MP3 will do."
+            "value": "This file cannot be read as audio. MP3, WAV and OGG will do, as well as M4A, AIFF and CAF."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Этот файл не читается как звук. Подойдут WAV, AIFF, CAF, M4A и MP3."
+            "value": "Этот файл не читается как звук. Подойдут MP3, WAV и OGG, а также M4A, AIFF и CAF."
+          }
+        }
+      }
+    },
+    "Этот файл не читается как звук. Подойдут MP3, WAV и OGG.": {
+      "comment": "выбранный файл не годится в рингтоны",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот файл не читается как звук. Подойдут MP3, WAV и OGG."
           }
         }
       }
@@ -11694,6 +12287,7 @@
     },
     "или введите ключ": {
       "comment": "QR для EliteGuard на экране ключа",
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -12248,7 +12842,18 @@
         }
       }
     },
+    "оффлайн, вручную": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "оффлайн, вручную"
+          }
+        }
+      }
+    },
     "панель": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -12260,6 +12865,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "панель"
+          }
+        }
+      }
+    },
+    "панель, онлайн": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "панель, онлайн"
           }
         }
       }
@@ -12597,6 +13212,16 @@
         }
       }
     },
+    "…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "…"
+          }
+        }
+      }
+    },
     "‹": {
       "localizations": {
         "en": {
@@ -12641,198 +13266,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "🔥Горячая раздача🔥"
-          }
-        }
-      }
-    },
-    "Автоподъём": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auto answer"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Автоподъём"
-          }
-        }
-      }
-    },
-    "Всегда": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Always"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Всегда"
-          }
-        }
-      }
-    },
-    "Вызов принимает оператор.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The operator answers the call."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вызов принимает оператор."
-          }
-        }
-      }
-    },
-    "Выключен": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Off"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выключен"
-          }
-        }
-      }
-    },
-    "Добавить номер": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add number"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавить номер"
-          }
-        }
-      }
-    },
-    "Если АТС просит автоответ заголовком, как в MicroSIP.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When the PBX requests auto answer via a header, as in MicroSIP."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Если АТС просит автоответ заголовком, как в MicroSIP."
-          }
-        }
-      }
-    },
-    "Звонки с номеров из списка принимаются сразу.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calls from numbers on the list are answered immediately."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Звонки с номеров из списка принимаются сразу."
-          }
-        }
-      }
-    },
-    "Любой входящий принимается сразу.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Every incoming call is answered immediately."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Любой входящий принимается сразу."
-          }
-        }
-      }
-    },
-    "Номера для автоподъёма": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auto answer numbers"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Номера для автоподъёма"
-          }
-        }
-      }
-    },
-    "По SIP-заголовку": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "By SIP header"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "По SIP-заголовку"
-          }
-        }
-      }
-    },
-    "По списку номеров": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "By number list"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "По списку номеров"
-          }
-        }
-      }
-    },
-    "Список пуст — автоподъём не сработает ни на один звонок.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The list is empty — no call will be answered automatically."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Список пуст — автоподъём не сработает ни на один звонок."
           }
         }
       }

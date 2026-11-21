@@ -52,7 +52,12 @@ enum IncomingCallSubject: Equatable {
     /// как есть, мобильный — под маской. Мобильный здесь означает, что очередь
     /// настроена не так, как боевые, и в вызов просочился номер клиента; маска
     /// закрывает этот случай, не мешая обычному.
-    case queue(title: String, number: String)
+    ///
+    /// `masksMobile` — флаг маски, разобранный вместе с вызовом
+    /// (`AppSettings.masksMobileNumbers`). Свойство вызова, а не глобальная
+    /// настройка, которую каждый вид читает сам: так окно входящего, шапка
+    /// панели и история не могут разойтись между собой.
+    case queue(title: String, number: String, masksMobile: Bool)
 
     /// Звонок по сделке из CRM: менеджер нажал «Позвонить» в Битриксе, АТС
     /// сперва поднимает его самого и только потом набирает клиента.
@@ -67,7 +72,7 @@ enum IncomingCallSubject: Equatable {
     case selfCall
 
     /// Обычный звонок: имя главным, номер под ним. Имени нет — номер главным.
-    case caller(number: String, name: String?)
+    case caller(number: String, name: String?, masksMobile: Bool)
 
     /// Заголовок случая «звонок по сделке».
     ///
@@ -122,7 +127,8 @@ enum IncomingCallSubject: Equatable {
         callerName: String?,
         requestsAutoAnswer: Bool = false,
         ownNumber: String,
-        queueTitle: String? = nil
+        queueTitle: String? = nil,
+        masksMobileNumbers: Bool = true
     ) {
         let own = Self.digits(ownNumber)
         let caller = Self.digits(callerNumber)
@@ -145,7 +151,7 @@ enum IncomingCallSubject: Equatable {
         if !own.isEmpty, own == caller {
             self = .selfCall
         } else if let named, !named.isEmpty {
-            self = .queue(title: named, number: callerNumber)
+            self = .queue(title: named, number: callerNumber, masksMobile: masksMobileNumbers)
         } else if requestsAutoAnswer {
             // Просьба снять трубку самостоятельно — и есть признак раздачи.
             //
@@ -159,11 +165,11 @@ enum IncomingCallSubject: Equatable {
             // раздача:  "GORACHAYA RAZDACHACall Center"  <710>  X-Autoanswer: TRUE
             // коллега:  "Semenov_Artyom"                 <132>  — заголовка нет
             // ```
-            self = .queue(title: Self.distributionTitle, number: callerNumber)
+            self = .queue(title: Self.distributionTitle, number: callerNumber, masksMobile: masksMobileNumbers)
         } else if Self.campaign(number: caller, name: callerName) {
-            self = .queue(title: Self.distributionTitle, number: callerNumber)
+            self = .queue(title: Self.distributionTitle, number: callerNumber, masksMobile: masksMobileNumbers)
         } else {
-            self = .caller(number: callerNumber, name: callerName)
+            self = .caller(number: callerNumber, name: callerName, masksMobile: masksMobileNumbers)
         }
     }
 
@@ -236,8 +242,23 @@ enum IncomingCallSubject: Equatable {
     /// шапка панели в разговоре и история. Три отдельных правила разошлись бы —
     /// это уже случилось однажды, когда окно номер прятало, а панель через
     /// секунду показывала его крупно.
-    static func shown(number: String) -> String {
-        masked(number) ?? number
+    ///
+    /// `masks: false` — отдел, которому номер клиента нужен открытым: номер
+    /// показывается как пришёл.
+    static func shown(number: String, masks: Bool) -> String {
+        guard masks else { return number }
+        return masked(number) ?? number
+    }
+
+    /// Номер этого вызова в том виде, в каком его видит менеджер, — с тем
+    /// флагом маски, с которым вызов разобран.
+    func shown(number: String) -> String {
+        switch self {
+        case .queue(_, _, let masks), .caller(_, _, let masks):
+            return Self.shown(number: number, masks: masks)
+        case .selfCall:
+            return Self.shown(number: number, masks: true)
+        }
     }
 
     /// Что стоит на главном месте — в окне входящего и в шапке панели.
@@ -246,10 +267,10 @@ enum IncomingCallSubject: Equatable {
     /// вида одного вызова, и разойтись они не имеют права.
     var headline: String {
         switch self {
-        case .queue(let title, _): return title
+        case .queue(let title, _, _): return title
         case .selfCall: return IncomingCallSubject.dealTitle
-        case .caller(let number, let name):
-            guard let name, !name.isEmpty else { return Self.shown(number: number) }
+        case .caller(let number, let name, _):
+            guard let name, !name.isEmpty else { return shown(number: number) }
             return name
         }
     }
@@ -271,18 +292,35 @@ enum IncomingCallSubject: Equatable {
         }
     }
 
+    /// Номер, который щелчок в окне входящего кладёт в буфер обмена. `nil` —
+    /// копировать нечего.
+    ///
+    /// Копируется только то, что оператор и так видит. Номер под маской не
+    /// копируется вовсе: маска — страховка от утечки лидов, и буфер обмена её
+    /// не обходит. Звонок по сделке номера не показывает — его и не копируют.
+    /// Правило то же, что у Windows и Linux (`CopyableNumber`).
+    var copyableNumber: String? {
+        let number: String
+        switch self {
+        case .selfCall: return nil
+        case .queue(_, let value, _), .caller(let value, _, _): number = value
+        }
+        guard !hidesNumber, !number.isEmpty, shown(number: number) == number else { return nil }
+        return number
+    }
+
     /// Пусто на звонке по сделке: там номер — свой же добавочный, одинаковый
     /// от вызова к вызову, и сказать им нечего. Пусто и на обычном звонке без
     /// имени: номер уже стоит заголовком и повторил бы сам себя.
     var secondaryNumber: String? {
         switch self {
         case .selfCall: return nil
-        case .queue(_, let number):
+        case .queue(_, let number, _):
             guard !number.isEmpty else { return nil }
-            return Self.shown(number: number)
-        case .caller(let number, let name):
+            return shown(number: number)
+        case .caller(let number, let name, _):
             guard let name, !name.isEmpty, !number.isEmpty else { return nil }
-            return Self.shown(number: number)
+            return shown(number: number)
         }
     }
 }
@@ -320,6 +358,16 @@ struct IncomingCallView: View {
 
     @EnvironmentObject private var panel: IncomingCallPanel
 
+    /// Номер только что ушёл в буфер: подпись окна на время говорит об этом.
+    @State private var isNumberCopied = false
+
+    /// Номер последнего копирования. Подпись гасит только таймер последнего
+    /// щелчка — иначе второй щелчок погас бы по таймеру первого.
+    @State private var copyGeneration = 0
+
+    /// Сколько подпись говорит «номер скопирован».
+    private static let copiedNoticeTime: TimeInterval = 2
+
     var body: some View {
         // Промежутки заданы поимённо, а не общим spacing: ярусы здесь неравные
         // по смыслу — шапка и карточка отвечают на «что это за вызов» и стоят
@@ -329,9 +377,19 @@ struct IncomingCallView: View {
         // Растянутый по фиксированной высоте столбец оставлял пустую полосу
         // между именем звонящего и кнопками.
         VStack(alignment: .leading, spacing: 0) {
-            header
-            caller
-                .padding(.top, Theme.Gap.incomingHeaderToCaller)
+            // Шапка и карточка — ручка переноса окна. Кнопки — нет: нажатие
+            // на них остаётся нажатием, и перенос не принимает вызов.
+            //
+            // У карточки ручка своя: щелчок без переноса копирует номер.
+            // Отдельной кнопки нет — окно не должно расти ради неё, а имя и
+            // номер и есть то, что хочется скопировать.
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    .overlay(WindowDragHandle())
+                caller
+                    .overlay(copyHandle)
+                    .padding(.top, Theme.Gap.incomingHeaderToCaller)
+            }
             actions
                 .padding(.top, Theme.Gap.incomingCallerToActions)
         }
@@ -350,7 +408,7 @@ struct IncomingCallView: View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
             anchor
 
-            Text(panel.refusal ?? NSLocalizedString("Входящий вызов", comment: "подпись в окне входящего"))
+            Text(panel.refusal ?? caption)
                 .font(Theme.Text.incomingCaption)
                 .compatForeground(panel.refusal == nil ? Color.secondary : Theme.Palette.decline)
                 .animation(.easeOut(duration: 0.15), value: panel.refusal)
@@ -364,6 +422,39 @@ struct IncomingCallView: View {
                     .compatForeground(Theme.Palette.textTertiary)
                     .compatAccessibilityLabel("Защита от автокликеров включена")
             }
+        }
+    }
+
+    /// Подпись шапки. «Номер скопирован» — на месте подписи, а не новой
+    /// строкой, по той же причине, что и отказ.
+    private var caption: String {
+        isNumberCopied
+            ? NSLocalizedString("Номер скопирован", comment: "подпись в окне входящего после копирования номера")
+            : NSLocalizedString("Входящий вызов", comment: "подпись в окне входящего")
+    }
+
+    /// Ручка переноса над карточкой; номер скрыт или его нет — просто ручка.
+    private var copyHandle: WindowDragHandle {
+        guard let number = subject.copyableNumber else { return WindowDragHandle() }
+        return WindowDragHandle(
+            onClick: { copy(number) },
+            toolTip: NSLocalizedString("Скопировать номер", comment: "подсказка над номером в окне входящего")
+        )
+    }
+
+    /// Номер — в буфер обмена. Фокус окно при этом не берёт: оно
+    /// неактивирующее, а буферу активность приложения не нужна.
+    private func copy(_ number: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        guard pasteboard.setString(number, forType: .string) else { return }
+
+        isNumberCopied = true
+        copyGeneration += 1
+        let generation = copyGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.copiedNoticeTime) {
+            guard generation == copyGeneration else { return }
+            isNumberCopied = false
         }
     }
 
@@ -606,5 +697,77 @@ private struct FilledCallButton: View {
         }
         .buttonStyle(.plain)
         .hoverHighlight()
+    }
+}
+
+/// Ручка переноса окна мышью.
+///
+/// Нужна, потому что `isMovableByWindowBackground` поверх SwiftUI не
+/// работает: `NSHostingView` нажатие окну не отдаёт, и окно входящего с
+/// 0.1.68 не двигалось вовсе, хотя флаг стоял. Перенос делает сам AppKit
+/// (`performDrag`) — тот же системный цикл, что у полосы заголовка, со
+/// снапом к краям и уведомлениями `didMove`, на которых панель запоминает
+/// место.
+///
+/// Первое же нажатие работает (`acceptsFirstMouse`): окно неактивирующее и
+/// ключевым не становится никогда, и без этого первый щелчок уходил бы на
+/// активацию, которой не будет.
+///
+/// `onClick` — что делать на щелчке без переноса (копирование номера). Щелчок
+/// от переноса отличает сдвиг курсора: пока рука не ушла дальше
+/// `DragView.clickSlop`, это щелчок, дальше — перенос. Без `onClick` перенос
+/// начинается сразу, как раньше.
+struct WindowDragHandle: NSViewRepresentable {
+    var onClick: (@MainActor () -> Void)?
+
+    /// Подсказка под курсором. Здесь, а не `help` у SwiftUI: ручка лежит
+    /// поверх, и наведение до вью под ней не доходит.
+    var toolTip: String?
+
+    func makeNSView(context: Context) -> NSView {
+        let view = DragView()
+        updateNSView(view, context: context)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let view = nsView as? DragView else { return }
+        view.onClick = onClick
+        view.toolTip = toolTip
+        view.window?.invalidateCursorRects(for: view)
+    }
+
+    private final class DragView: NSView {
+        /// Насколько может дрогнуть рука, чтобы щелчок остался щелчком.
+        static let clickSlop: CGFloat = 3
+
+        var onClick: (@MainActor () -> Void)?
+
+        override var mouseDownCanMoveWindow: Bool { true }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        override func resetCursorRects() {
+            if onClick != nil { addCursorRect(bounds, cursor: .pointingHand) }
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            guard let window, let onClick else {
+                window?.performDrag(with: event)
+                return
+            }
+            // Свой короткий цикл: `performDrag` щелчок от переноса не отличает.
+            while let next = window.nextEvent(matching: [.leftMouseUp, .leftMouseDragged]) {
+                if next.type == .leftMouseUp {
+                    onClick()
+                    return
+                }
+                let dx = next.locationInWindow.x - event.locationInWindow.x
+                let dy = next.locationInWindow.y - event.locationInWindow.y
+                if dx * dx + dy * dy > Self.clickSlop * Self.clickSlop {
+                    window.performDrag(with: event)
+                    return
+                }
+            }
+        }
     }
 }

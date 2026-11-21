@@ -59,7 +59,9 @@ final class AppModel: ObservableObject {
             // ровно потому, что собеседника плохо слышно ПРЯМО СЕЙЧАС, — и
             // ответ «со следующего звонка» на это не годится.
             if settings.audio.microphoneGain != oldValue.audio.microphoneGain
-                || settings.audio.playbackVolume != oldValue.audio.playbackVolume {
+                || settings.audio.playbackVolume != oldValue.audio.playbackVolume
+                || settings.audio.backgroundVoiceSuppression != oldValue.audio.backgroundVoiceSuppression
+                || settings.audio.receiveLeveling != oldValue.audio.receiveLeveling {
                 applyAudioGains()
             }
             // Срок хранения меняет администратор, и уменьшение срока обязано
@@ -109,6 +111,11 @@ final class AppModel: ObservableObject {
     /// разговора — ничего не теряется: применённой ревизия не записана, и
     /// следующий опрос привезёт её снова.
     var pendingConfig: PanelLink.MachineConfig?
+
+    /// Ревизия из Spark, которая оказалась **меньше** применённой, — уже
+    /// сказанная в журнал. Конфигурация спрашивается каждые пятнадцать минут,
+    /// и без этой отметки одна и та же строка шла бы туда весь день.
+    var reportedStaleConfigRevision: Int?
 
     /// Короткое сообщение в строке панели — например, «Администратор сменил
     /// номер». Гаснет само через минуту; беда и обновление важнее его.
@@ -745,6 +752,12 @@ final class AppModel: ObservableObject {
         registrationSlowTask = nil
 
         SessionHealth.noteRegistration(registration)
+        switch registration {
+        case .registered: ClientEventLog.shared.noteRegistration(.registered)
+        case .failed(let reason, _): ClientEventLog.shared.noteRegistration(.failed(reason: reason, code: nil))
+        case .idle: ClientEventLog.shared.noteRegistration(.unregistered(byOperator: isOfflineByChoice))
+        default: break
+        }
 
         switch registration {
         case .registered: consecutiveRegistrationFailures = 0
@@ -777,7 +790,11 @@ final class AppModel: ObservableObject {
             append(level: level, message: message)
 
         case .incomingCall(let call):
-            handle(incoming: call)
+            if lines.isEmpty {
+                handle(incoming: call)
+            } else {
+                Task { [weak self] in await self?.admitAfterStaleLines(call) }
+            }
 
         case .unsupportedRequest(let method):
             append(level: .info, message: "запрос \(method.rawValue) отклонён: ещё не поддерживается")
@@ -840,6 +857,11 @@ final class AppModel: ObservableObject {
 
         var status: String = ""
 
+        /// Прозвучал ли уже сигнал подключения. Ставится однажды и не
+        /// сбрасывается: повторный ответ, удержание и возврат на линию
+        /// сигналом не считаются. См. `signalConnectionIfNeeded`.
+        var didSignalConnection = false
+
         /// Линия, ради которой заведена эта консультация. У обычной — nil.
         var consultsLine: String?
 
@@ -852,7 +874,6 @@ final class AppModel: ObservableObject {
 
         var isOnHold = false
         var isRemotelyHeld = false
-        var isMicrophoneMuted = false
         var isRenegotiating = false
         var sentDTMF = ""
         var isTransferring = false
@@ -931,6 +952,32 @@ final class AppModel: ObservableObject {
         let before = lines[index]
         body(&lines[index])
         noteHistory(before: before, after: lines[index])
+        signalConnectionIfNeeded(at: index)
+    }
+
+    /// Сигнал подключения — один раз на звонок, когда разговор состоялся.
+    ///
+    /// Здесь, в `mutate`, а не в местах ответа, по той же причине, что и
+    /// история: «разговор» складывается из двух событий в разном порядке.
+    /// У входящего звук поднимается до 200 OK, а фаза приходит следом; у
+    /// исходящего 200 OK бывает раньше звука, а с ранним медиа — позже.
+    /// Сигнал звучит на втором из двух, каким бы оно ни было, — то есть после
+    /// успешного запуска звука, как у Windows (`PhoneService.MarkAnswered`).
+    ///
+    /// Отметка ставится и фоновой линии, но звучит только активная: линия,
+    /// соединившаяся в фоне, при переключении на неё уже не «подключилась», и
+    /// сигнал на смене линии был бы ложным.
+    private func signalConnectionIfNeeded(at index: Int) {
+        let line = lines[index]
+        guard !line.didSignalConnection, line.phase == .active, line.media != nil else { return }
+        lines[index].didSignalConnection = true
+        guard line.id == activeLineID, !line.isOnHold, settings.ringtone.callSoundsEnabled else { return }
+        // В тракт разговора: `NSSound` поверх работающей обработки голоса
+        // система приглушает до неслышного. Запасной путь — если тракт уже
+        // не у этой линии.
+        if line.media?.playCue(CallSounds.connectedCue) != true {
+            callSounds.playConnected(outputDeviceUID: settings.audio.outputDeviceUID)
+        }
     }
 
     /// Строка состояния показывает активную линию.
@@ -954,7 +1001,9 @@ final class AppModel: ObservableObject {
     var isInCall: Bool { !lines.isEmpty }
     var isOnHold: Bool { activeLine?.isOnHold ?? false }
     var isRemotelyHeld: Bool { activeLine?.isRemotelyHeld ?? false }
-    var isMicrophoneMuted: Bool { activeLine?.isMicrophoneMuted ?? false }
+    /// Кнопка микрофона — общая для всех линий и для покоя, см.
+    /// `AudioSettings.microphoneMuted`.
+    var isMicrophoneMuted: Bool { settings.audio.microphoneMuted }
     var isRenegotiating: Bool { activeLine?.isRenegotiating ?? false }
     var isTransferring: Bool { lines.contains { $0.isTransferring } }
     var isConferenceCommandSent: Bool { activeLine?.isConferenceCommandSent ?? false }
@@ -971,7 +1020,7 @@ final class AppModel: ObservableObject {
     let incomingCallPanel = IncomingCallPanel()
     private let ringtone = Ringtone()
 
-    /// Тоны клавиш и сигнал отбоя.
+    /// Тоны клавиш, сигналы подключения и отбоя.
     private let callSounds = CallSounds()
 
     /// Тон клавиши, набранной в поле номера.
@@ -987,10 +1036,13 @@ final class AppModel: ObservableObject {
     /// состоявшийся или набранный им самим. Пропущенный и отклонённый входящий
     /// молчат: разговора не было, а рингтон и так замолк.
     private func playEndToneIfNeeded(for ended: [CallLine]) {
-        guard settings.ringtone.callSoundsEnabled,
-              ended.contains(where: { $0.connectedAt != nil || $0.isOutgoing })
-        else { return }
+        guard wantsEndTone(for: ended) else { return }
         callSounds.playEnd(outputDeviceUID: settings.audio.outputDeviceUID)
+    }
+
+    private func wantsEndTone(for ended: [CallLine]) -> Bool {
+        settings.ringtone.callSoundsEnabled
+            && ended.contains(where: { $0.connectedAt != nil || $0.isOutgoing })
     }
 
     /// Играет ли рингтон по кнопке «Прослушать» в настройках.
@@ -1280,6 +1332,7 @@ final class AppModel: ObservableObject {
             append(level: .info, message: "звонок завершён: \(reason)")
             if let media = line(lineID)?.media {
                 append(level: .debug, message: "медиа: \(media.summary)")
+                append(level: .info, message: "звук: \(media.processingSummary)")
             }
             teardown(lineID: lineID, status: line(lineID)?.transferOutcome ?? reason)
         }
@@ -1365,7 +1418,14 @@ final class AppModel: ObservableObject {
                 releasesDeviceWhenIdle: settings.audio.releasesDeviceWhenIdle,
                 automaticGainControl: settings.audio.automaticGainControl,
                 microphoneGain: Float(settings.audio.microphoneGain),
-                playbackVolume: Float(settings.audio.playbackVolume)
+                playbackVolume: Float(settings.audio.playbackVolume),
+                suppressesBackgroundVoices: settings.audio.backgroundVoiceSuppression,
+                levelsReceive: settings.audio.receiveLeveling
+            )
+            append(
+                level: .info,
+                message: "звук: голоса вокруг \(settings.audio.backgroundVoiceSuppression ? "приглушаются" : "не приглушаются")"
+                    + (settings.audio.receiveLeveling ? ", громкость собеседника выравнивается" : "")
             )
             session.onDiagnostic = { [weak self] text in
                 Task { @MainActor in self?.append(level: .debug, message: "звук: \(text)") }
@@ -1775,11 +1835,30 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Глушит или включает микрофон — в звонке и вне его.
+    ///
+    /// До 23 октября 2026 кнопка жила в линии: работала только в разговоре и
+    /// гасла вместе с ним, и следующий звонок поднимался с открытым
+    /// микрофоном. Теперь флаг в настройках, и новая линия поднимается уже
+    /// заглушённой — так же, как у Windows и Linux.
+    ///
+    /// Открытый черновик «Управления» флаг не держит: он пишется и в снимок,
+    /// как `returnPanelOnline`, — иначе «Отменить» молча включил бы микрофон,
+    /// а закрытие окна без сохранения потеряло бы нажатие.
     func toggleMicrophone() {
-        guard let lineID = activeLineID, callPhase == .active else { return }
-        mutate(lineID) { $0.isMicrophoneMuted.toggle() }
-        applyAudioState(on: lineID)
-        append(level: .info, message: isMicrophoneMuted ? "микрофон выключен" : "микрофон включён")
+        let muted = !settings.audio.microphoneMuted
+        settings.audio.microphoneMuted = muted
+        if var snapshot = administrationSnapshot {
+            snapshot.audio.microphoneMuted = muted
+            administrationSnapshot = snapshot
+            do {
+                try SettingsStore.save(snapshot)
+            } catch {
+                append(level: .error, message: "не удалось сохранить настройки: \(error.localizedDescription)")
+            }
+        }
+        for line in lines { applyAudioState(on: line.id) }
+        append(level: .info, message: muted ? "микрофон выключен" : "микрофон включён")
     }
 
     /// Раздаёт звуковую карту активной линии и отбирает у остальных.
@@ -1827,7 +1906,7 @@ final class AppModel: ObservableObject {
             || isBeforeAnswer
             || line.isOnHold
             || line.isRemotelyHeld
-            || line.isMicrophoneMuted
+            || settings.audio.microphoneMuted
         // Музыку ожидания, которую включил сервер, оператор слышать должен:
         // по ней и понятно, что его поставили на удержание. А вот собственное
         // удержание глушит приём — оператор в это время говорит с другим.
@@ -1843,9 +1922,13 @@ final class AppModel: ObservableObject {
     private func applyAudioGains() {
         let gain = Float(settings.audio.microphoneGain)
         let volume = Float(settings.audio.playbackVolume)
+        let suppresses = settings.audio.backgroundVoiceSuppression
+        let levels = settings.audio.receiveLeveling
         for line in lines {
             line.media?.microphoneGain = gain
             line.media?.playbackVolume = volume
+            line.media?.suppressesBackgroundVoices = suppresses
+            line.media?.levelsReceive = levels
         }
         selfTest?.apply(microphoneGain: gain, playbackVolume: volume)
     }
@@ -2144,7 +2227,16 @@ final class AppModel: ObservableObject {
         outcome: CallRecord.Outcome? = nil
     ) {
         callTasks.removeValue(forKey: lineID)?.cancel()
-        retire(line(lineID)?.media)
+        // Отбой — сигналом в тракте самой линии, пока он жив: после остановки
+        // его съедает переключение гарнитуры. Только для последней линии, как
+        // и ниже: при двух линиях оператор остаётся в разговоре.
+        let endsLastLine = lines.count == 1 && lines.first?.id == lineID
+        var didSignalEnd = false
+        if endsLastLine, let ending = line(lineID), wantsEndTone(for: [ending]), let media = ending.media {
+            didSignalEnd = media.stopWithoutBlocking(playingCue: CallSounds.endCue)
+        } else {
+            retire(line(lineID)?.media)
+        }
         defer { refreshRingback() }
 
         // История закрывается здесь, потому что здесь снимается линия, — и
@@ -2186,7 +2278,7 @@ final class AppModel: ObservableObject {
             ringtone.stop()
             // Сигнал — только когда кончилась последняя линия: при двух линиях
             // оператор остаётся в разговоре, и звук посреди него сбивал бы.
-            playEndToneIfNeeded(for: removed.map { [$0] } ?? [])
+            if !didSignalEnd { playEndToneIfNeeded(for: removed.map { [$0] } ?? []) }
             incomingCallPanel.hide()
             logGuardReport()
             incomingCall = nil
@@ -2291,15 +2383,44 @@ final class AppModel: ObservableObject {
             callerName: call.callerName,
             requestsAutoAnswer: call.requestsAutoAnswer,
             ownNumber: settings.account.username,
-            queueTitle: settings.queues.title(forCallerNumber: call.displayNumber)
+            queueTitle: settings.queues.title(forCallerNumber: call.displayNumber),
+            masksMobileNumbers: settings.masksMobileNumbers
         )
+    }
+
+    /// Пропускает входящий, когда прошлая линия у нас ещё не снята.
+    ///
+    /// Гонка раздачи «звонить всем»: другой агент забрал вызов, пришёл CANCEL,
+    /// и следом очередь шлёт новый INVITE. `SIPCore` прошлую линию к этому
+    /// моменту уже закрыл — иначе новый INVITE получил бы 486, — но её `.ended`
+    /// и событие нового вызова идут разными потоками, и порядок между ними не
+    /// гарантирован. Новый вызов приходил раньше, `handle(incoming:)` видел
+    /// непустые линии и молча его бросал: у АТС он звонил, окна не было.
+    ///
+    /// Линии, которых `SIPCore` уже не знает, — это именно такие хвосты.
+    /// Их события не выдумываются, а дочитываются: поток закрыт, и задача
+    /// линии доходит до `teardown` с настоящей причиной окончания — история
+    /// записывает её же, что и без гонки.
+    private func admitAfterStaleLines(_ call: SIPIncomingCall) async {
+        guard let agent else { return }
+        for lineID in lines.map(\.id) {
+            guard await agent.callState(of: lineID) == nil else { continue }
+            await callTasks[lineID]?.value
+        }
+        handle(incoming: call)
     }
 
     private func handle(incoming call: SIPIncomingCall) {
         // Занятому оператору агент отвечает 486 ещё до события: раздача лидов
         // должна отдать вызов следующему агенту. Проверка здесь — на случай
-        // рассогласования, а не на нормальный ход.
-        guard lines.isEmpty else { return }
+        // рассогласования, а не на нормальный ход. Отказ обязателен: без него
+        // `SIPCore` держал бы вызов на 180, и очередь ждала бы ответа от
+        // оператора, который об этом вызове не знает.
+        guard lines.isEmpty else {
+            append(level: .warning, message: "входящий \(call.displayNumber) при занятой линии — отклонён 486")
+            Task { [weak self] in await self?.agent?.rejectIncomingCall(callID: call.callID, status: 486) }
+            return
+        }
 
         incomingCall = call
         lines.append(CallLine(
@@ -2415,6 +2536,7 @@ final class AppModel: ObservableObject {
             append(level: .info, message: "входящий завершён: \(reason)")
             if let media = line(lineID)?.media {
                 append(level: .debug, message: "медиа: \(media.summary)")
+                append(level: .info, message: "звук: \(media.processingSummary)")
             }
             teardown(lineID: lineID, status: line(lineID)?.transferOutcome ?? reason)
         }
@@ -2853,6 +2975,9 @@ final class AppModel: ObservableObject {
     /// должно — иначе однажды появится вторая запись, которая не попадает в
     /// файл и не маскируется.
     func append(level: SIPLogLevel, message: String) {
+        if level == .error {
+            ClientEventLog.shared.noteError(message)
+        }
         // В файл — до фильтра экрана и по своему уровню. Иначе «покажите
         // поменьше» на панели молча обрезало бы и то, ради чего журнал заводили.
         if let logFile, level >= settings.logFile.minimumLevel {
@@ -2928,7 +3053,7 @@ final class AppModel: ObservableObject {
     /// диалоги. Кнопка стоит в настройках, а трубка от этого кладётся так же.
     var canSwitchProfile: Bool { lines.isEmpty }
 
-    private func refuseProfileChange() {
+    func refuseProfileChange() {
         append(level: .warning, message: "смена профиля недоступна: идёт разговор")
         callStatus = NSLocalizedString("Сначала завершите разговор", comment: "состояние линии")
     }
@@ -3109,6 +3234,13 @@ final class AppModel: ObservableObject {
     /// Стучим независимо от пометки рабочего места: кнопку нажимают тогда, когда
     /// что-то уже не работает, и спорить с человеком в этот момент неуместно.
     func repairNetwork() async {
+        // Место закреплено за офисом: снаружи стучаться незачем. Проверка и
+        // здесь, а не только погашенной кнопкой, — кнопка не единственный
+        // вызывающий навсегда.
+        guard !isNetworkRepairLocked else {
+            networkRepairStatus = NSLocalizedString("Место закреплено за офисом", comment: "«Исправить сеть»")
+            return
+        }
         guard !settings.portKnock.isEmpty else {
             networkRepairStatus = NSLocalizedString("Стук выключен в настройках", comment: "«Исправить сеть»")
             return
