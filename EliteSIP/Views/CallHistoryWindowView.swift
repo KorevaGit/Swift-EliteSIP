@@ -73,9 +73,12 @@ struct CallHistoryWindowView: View {
         // обязан накрыть полосу заголовка, иначе светофор с названием повиснут
         // над чужим окном, — а содержимое должно встать под полосой само.
         .compatBackground {
-            Color.clear
-                .themedPanelSurface(cornerRadius: 0)
-                .compatIgnoreSafeArea()
+            // Под обоями своего фона нет — их рисует `WallpaperHost`.
+            if !WallpaperStore.shared.settings.isEnabled {
+                Color.clear
+                    .themedPanelSurface(cornerRadius: 0)
+                    .compatIgnoreSafeArea()
+            }
         }
         .compatBackground { WindowTitle(title: windowTitle) }
         // Флаг маски — при открытии и до закрытия; список это не трогает.
@@ -146,8 +149,10 @@ struct CallHistoryWindowView: View {
     /// `compatProminentButtonStyle` разбирает это одним местом на всё
     /// приложение.
     private var filterBar: some View {
+        // Раскладка Windows 1.0.4: фильтры слева одной группой, календарь и
+        // снимок — справа.
         HStack(spacing: Theme.Metrics.elementSpacing) {
-            Spacer()
+            HStack(spacing: 2) {
             ForEach(CallHistoryStore.Filter.allCases, id: \.self) { item in
                 Button {
                     model.historyFilter = item
@@ -163,6 +168,10 @@ struct CallHistoryWindowView: View {
                 }
                 .buttonStyle(FilterChipStyle(isSelected: model.historyFilter == item))
             }
+            }
+            .padding(2)
+            .graphiteSurface(.macro, cornerRadius: Graphite.cornerRadius, shadow: false)
+            Spacer()
             HistoryDayButton()
             HistorySnapshotButton(
                 anchor: snapshot,
@@ -173,7 +182,6 @@ struct CallHistoryWindowView: View {
                 isEnabled: !model.historyRecords.isEmpty,
                 onResult: show(notice:)
             )
-            Spacer()
         }
         .font(.callout)
         // Ряд не сжимается по вертикали ни при каких обстоятельствах.
@@ -268,10 +276,11 @@ struct CallHistoryWindowView: View {
                     // расстояние от края плашки задаёт сама плашка, и оно
                     // должно совпадать с разделами настроек, а не складываться
                     // с ним в двойное.
+                    // Заголовок дня — 17 полужирным, как в Windows 1.0.4.
                     Text(day.title)
-                        .font(Font.subheadline.weight(.semibold))
-                        .padding(.horizontal, Theme.Metrics.sectionSpacing)
-                        .padding(.top, position == 0 ? 0 : Theme.Metrics.contentPadding)
+                        .font(.system(size: 17, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.top, position == 0 ? Theme.Metrics.sectionSpacing : 18)
                         .padding(.bottom, Theme.Metrics.tightSpacing)
 
                     // Разделительных линий между звонками нет.
@@ -494,6 +503,21 @@ enum HistoryDate {
         shortDayFormatter.string(from: date)
     }
 
+    /// Время и дата строки — порознь, как в столбце Windows 1.0.4.
+    static func time(_ date: Date) -> String {
+        DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .short)
+    }
+
+    static func date(_ date: Date) -> String {
+        stampDayFormatter.string(from: date)
+    }
+
+    private static let stampDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd.MM.yyyy"
+        return formatter
+    }()
+
     static func monthTitle(_ date: Date) -> String {
         monthFormatter.string(from: date)
     }
@@ -532,7 +556,8 @@ struct CallOutcomeBadge: View {
     var size: CGFloat = Theme.Metrics.outcomeBadgeSize
     var label: LocalizedStringKey?
 
-    init(record: CallRecord) {
+    init(record: CallRecord, size: CGFloat = Theme.Metrics.outcomeBadgeSize) {
+        self.size = size
         isIncoming = record.direction == .incoming
         isCompleted = record.isAnswered
         color = Self.color(for: record)
@@ -1252,54 +1277,53 @@ private struct CallHistoryRow: View {
     let masksMobileNumbers: Bool
 
     var body: some View {
-        HStack(spacing: Theme.Metrics.sectionSpacing) {
-            CallOutcomeBadge(record: record)
+        // Раскладка строки Windows 1.0.4: значок 40, имя 18 и номер 13,
+        // время 18 и дата 14 отдельным столбцом, исход справа.
+        HStack(spacing: 12) {
+            CallOutcomeBadge(record: record, size: 40)
 
-            VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
-                // Имя, а нет имени — номер. До M9 имён почти нет: `display_name`
-                // заполняется только тем, что пришло в `From`, а боевой FreePBX
-                // кладёт туда тот же номер. Пустое главное место было бы хуже
-                // повторения — строка выглядела бы сломанной.
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
+                    .font(.system(size: 18, weight: .semibold))
                     .compatMonospacedDigit()
                     .lineLimit(1)
 
                 Text(subtitle)
-                    .font(.footnote)
+                    .font(.system(size: 13))
                     .compatForeground(Theme.Palette.textSecondary)
                     .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: Theme.Metrics.elementSpacing)
-
-            // Колонка постоянной ширины: иначе исход и время ездят по
-            // горизонтали от длины слова исхода и не стоят на одной вертикали.
-            VStack(alignment: .trailing, spacing: Theme.Metrics.hairSpacing) {
-                Text(outcome)
+            VStack(spacing: 4) {
+                Text(HistoryDate.time(record.startedAt))
+                    .font(.system(size: 18, weight: .semibold))
                     .compatMonospacedDigit()
-                    .compatForeground(
-                        record.isMissed ? Theme.Palette.outcomeMissed : Theme.Palette.textPrimary
-                    )
-                    .lineLimit(1)
-
-                Text(HistoryDate.stamp(record.startedAt))
-                    .font(.footnote)
+                Text(HistoryDate.date(record.startedAt))
+                    .font(.system(size: 14))
                     .compatMonospacedDigit()
                     .compatForeground(Theme.Palette.textSecondary)
             }
-            .frame(width: Theme.Metrics.historyOutcomeColumn, alignment: .trailing)
+            .frame(width: 150)
+
+            Text(outcome)
+                .font(.system(size: 15, weight: .medium))
+                .compatMonospacedDigit()
+                .compatForeground(
+                    record.isMissed ? Theme.Palette.outcomeMissed : Theme.Palette.textPrimary
+                )
+                .lineLimit(1)
+                .frame(width: 112, alignment: .trailing)
         }
-        // Кегль задаётся строке целиком, а не каждой надписи: `.callout` на
-        // содержимое, `.footnote` на второй план — те же два голоса, что на
-        // странице настроек.
-        .font(.callout)
-        .padding(.vertical, Theme.Metrics.elementSpacing)
-        // Тот же отступ внутри плашки, что у разделов настроек
-        // (`sectionSpacing`): плашка стоит на `contentPadding` от края окна, и
-        // содержимое начинается на 20 точках — как на менеджерской странице.
-        // Прежние 6 давали 18 и расходились с ней ровно на две точки, то есть
-        // на глаз не читались, а числами не совпадали.
-        .padding(.horizontal, Theme.Metrics.sectionSpacing)
+        .frame(minHeight: 48)
+        .padding(.vertical, 9)
+        .padding(.horizontal, 14)
+        .compatOverlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.09))
+                .frame(height: 1)
+                .padding(.horizontal, 14)
+        }
     }
 
     /// Что стоит главной строкой.
