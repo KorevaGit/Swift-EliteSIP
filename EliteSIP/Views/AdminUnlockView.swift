@@ -87,17 +87,17 @@ struct AdminUnlockView: View {
         Group {
             switch purpose {
             case .administration:
-                Text("Управление настройками")
-                    .font(.headline)
-                Text("Аккаунты, клавиши, защита от автокликеров и диагностика.")
-                    .font(.footnote)
-                    .compatForeground(.secondary)
+                DialogHeader(
+                    icon: "shield-check",
+                    title: "Управление настройками",
+                    subtitle: "Аккаунты, клавиши, защита от автокликеров и диагностика."
+                )
             case .workplace:
-                Text("Формат работы закреплён")
-                    .font(.headline)
-                Text("Сменить офис или дом можно только с паролем администратора.")
-                    .font(.footnote)
-                    .compatForeground(.secondary)
+                DialogHeader(
+                    icon: "lock-keyhole",
+                    title: "Формат работы закреплён",
+                    subtitle: "Сменить офис или дом можно только с паролем администратора."
+                )
             }
 
             // `onSubmit` появился в macOS 12, поэтому ввод завершает не поле, а

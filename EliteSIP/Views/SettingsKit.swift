@@ -328,15 +328,9 @@ struct SettingsIndented<Content: View>: View {
 /// чёрточку. Здесь нужна линия поперёк, поэтому она задана прямоугольником.
 struct SettingsDivider: View {
 
-    @Environment(\.settingsLabelColumn) private var labelColumn
-
+    /// Без линии, как в Windows 1.0.4: группы разделяет воздух, а не черта.
     var body: some View {
-        HStack(spacing: Theme.Metrics.elementSpacing) {
-            Color.clear.frame(width: labelColumn, height: 1)
-            Rectangle()
-                .fill(Theme.Palette.textTertiary)
-                .frame(height: 1)
-        }
+        Color.clear.frame(height: Theme.Metrics.tightSpacing)
     }
 }
 

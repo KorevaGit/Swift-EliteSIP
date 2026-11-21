@@ -183,3 +183,29 @@ struct LucideIcon: View {
         CompatSymbol(name: "Lucide/\(name)", size: size)
     }
 }
+
+/// Заголовок всплывающего окна — общая карточка диалогов Windows 1.0.4:
+/// векторный значок в графитовом круге, заголовок и короткое последствие.
+struct DialogHeader: View {
+
+    let icon: String
+    let title: LocalizedStringKey
+    var subtitle: LocalizedStringKey?
+
+    var body: some View {
+        HStack(alignment: .center, spacing: Theme.Metrics.sectionSpacing + 2) {
+            LucideIcon(name: icon, size: 20)
+                .frame(width: 40, height: 40)
+                .graphiteSurface(.control, cornerRadius: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.footnote)
+                        .compatForeground(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}

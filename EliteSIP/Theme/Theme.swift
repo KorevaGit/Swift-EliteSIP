@@ -501,7 +501,8 @@ enum Theme {
         ///
         /// 24 — высота подписи `.callout` с полями капсулы: то, к чему ряд и так
         /// приходил на текстовых кнопках. Значковые подтягиваются к ней.
-        static let filterChipHeight: CGFloat = 24
+        /// Вровень с крупным сегментированным переключателем фильтров (28).
+        static let filterChipHeight: CGFloat = 28
 
         static let historyOutcomeColumn: CGFloat = 124
 
@@ -1063,18 +1064,12 @@ private struct IncomingSurface: ViewModifier {
             // Обои — и на карточке входящего, как на всех окнах.
             WallpaperLayer(settings: WallpaperStore.shared.settings)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        } else if reducesTransparency || !Theme.Chrome.usesLiquidGlass {
-            // Графитовая карточка Windows 1.0.4 — градиент шапки звонка.
+        } else {
+            // Графитовая карточка Windows 1.0.4 — всегда, и в стекле тоже:
+            // входящий читается одинаково над любой CRM, а не по тону того,
+            // что под окном.
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(Graphite.Surface.call.gradient(dark: scheme == .dark))
-        } else {
-            material.compatOverlay {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(
-                        (scheme == .dark ? Color.black : Color.white)
-                            .opacity(Theme.Metrics.incomingSurfaceTint)
-                    )
-            }
         }
     }
 

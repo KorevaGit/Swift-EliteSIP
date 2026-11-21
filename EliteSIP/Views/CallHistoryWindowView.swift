@@ -152,17 +152,12 @@ struct CallHistoryWindowView: View {
         // Раскладка Windows 1.0.4: фильтры слева одной группой, календарь и
         // снимок — справа.
         HStack(spacing: Theme.Metrics.elementSpacing) {
-            // Фильтры — нативным сегментированным переключателем macOS.
-            Picker("", selection: Binding(
+            // Фильтры — нативным сегментированным переключателем macOS, со
+            // значками исхода, по высоте вровень с календарём и снимком.
+            HistoryFilterSegments(selection: Binding(
                 get: { model.historyFilter },
                 set: { model.historyFilter = $0 }
-            )) {
-                ForEach(CallHistoryStore.Filter.allCases, id: \.self) { item in
-                    Text(item.title).tag(item)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
+            ))
             .fixedSize()
             Spacer()
             HistoryDayButton()
@@ -1711,5 +1706,102 @@ private struct HistoryCalendar: View {
     private func canShow(month candidate: Date) -> Bool {
         guard let interval = calendar.dateInterval(of: .month, for: candidate) else { return false }
         return interval.end > horizon && interval.start <= Date()
+    }
+}
+
+
+/// Нативный `NSSegmentedControl` фильтров истории — со значками исхода.
+///
+/// AppKit, а не `Picker(.segmented)`: тот на macOS отбрасывает картинки у
+/// сегментов, а значок здесь важнее подписи.
+private struct HistoryFilterSegments: NSViewRepresentable {
+
+    @Binding var selection: CallHistoryStore.Filter
+
+    private let filters = CallHistoryStore.Filter.allCases
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl(
+            labels: filters.map(\.title),
+            trackingMode: .selectOne,
+            target: context.coordinator,
+            action: #selector(Coordinator.changed(_:))
+        )
+        if #available(macOS 11.0, *) { control.controlSize = .large }
+        for (index, filter) in filters.enumerated() {
+            control.setImage(Self.badge(for: filter), forSegment: index)
+            control.setImageScaling(.scaleNone, forSegment: index)
+        }
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        // Размер — каждый раз: окружение SwiftUI (`controlSize(.small)` у ряда)
+        // иначе ужимает сегменты ниже кнопок календаря и снимка.
+        if #available(macOS 11.0, *) { control.controlSize = .large }
+        control.font = .systemFont(ofSize: NSFont.systemFontSize)
+        context.coordinator.selection = $selection
+        control.selectedSegment = filters.firstIndex(of: selection) ?? 0
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
+
+    final class Coordinator: NSObject {
+        var selection: Binding<CallHistoryStore.Filter>
+        init(selection: Binding<CallHistoryStore.Filter>) { self.selection = selection }
+
+        @MainActor @objc func changed(_ sender: NSSegmentedControl) {
+            let filters = CallHistoryStore.Filter.allCases
+            guard filters.indices.contains(sender.selectedSegment) else { return }
+            selection.wrappedValue = filters[sender.selectedSegment]
+        }
+    }
+
+    /// Значок исхода тем же языком, что в строках: залитый круг со стрелкой —
+    /// состоялся, кольцо — пропущен; внутрь — входящий, наружу — исходящий.
+    private static func badge(for filter: CallHistoryStore.Filter) -> NSImage? {
+        guard filter != .all else { return nil }
+        let side: CGFloat = 14
+        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            let circle = NSBezierPath(ovalIn: rect.insetBy(dx: 0.75, dy: 0.75))
+            let color: NSColor
+            switch filter {
+            case .incoming: color = .systemGreen
+            case .outgoing: color = .systemGray
+            default: color = .systemRed
+            }
+            let arrow = NSBezierPath()
+            let inset: CGFloat = 4
+            if filter == .outgoing {
+                arrow.move(to: NSPoint(x: inset, y: inset))
+                arrow.line(to: NSPoint(x: side - inset, y: side - inset))
+                arrow.move(to: NSPoint(x: side - inset - 3.5, y: side - inset))
+                arrow.line(to: NSPoint(x: side - inset, y: side - inset))
+                arrow.line(to: NSPoint(x: side - inset, y: side - inset - 3.5))
+            } else {
+                arrow.move(to: NSPoint(x: side - inset, y: side - inset))
+                arrow.line(to: NSPoint(x: inset, y: inset))
+                arrow.move(to: NSPoint(x: inset + 3.5, y: inset))
+                arrow.line(to: NSPoint(x: inset, y: inset))
+                arrow.line(to: NSPoint(x: inset, y: inset + 3.5))
+            }
+            arrow.lineWidth = 1.5
+            arrow.lineCapStyle = .round
+            arrow.lineJoinStyle = .round
+            if filter == .missed {
+                color.setStroke()
+                circle.lineWidth = 1.3
+                circle.stroke()
+                arrow.stroke()
+            } else {
+                color.setFill()
+                circle.fill()
+                NSColor.white.setStroke()
+                arrow.stroke()
+            }
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 }
