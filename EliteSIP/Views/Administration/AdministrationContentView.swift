@@ -106,15 +106,19 @@ struct AdministrationContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
                 switch router.section {
-                case .account: AccountSettingsTab()
-                case .pbx: PBXSettingsTab()
-                case .incoming: IncomingCallSettingsTab()
+                case .connection:
+                    AccountSettingsTab()
+                    PBXSettingsTab()
                 case .macros: DTMFSettingsTab()
-                case .queues: QueueSettingsTab()
-                case .history: CallHistorySettingsTab()
-                case .diagnostics: DiagnosticsTab()
-                case .access: AdministrationTab()
-                case .maintenance: MaintenanceTab()
+                case .incoming:
+                    QueueSettingsTab()
+                    IncomingCallSettingsTab()
+                case .system:
+                    CallHistorySettingsTab()
+                    DiagnosticsTab()
+                    AdministrationTab()
+                    MaintenanceTab()
+                case .spark: PanelStatusCard()
                 }
             }
             .padding(.horizontal, Theme.Metrics.contentPadding)

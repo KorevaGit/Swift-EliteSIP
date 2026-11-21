@@ -193,31 +193,24 @@ struct AdministrationSidebarView: View {
         let now = model.settings
 
         switch item {
-        case .account:
+        case .connection:
             return now.profiles != snapshot.profiles
-        case .pbx:
-            return now.conference != snapshot.conference
                 || now.portKnock != snapshot.portKnock
                 || now.audio.prefersWideband != snapshot.audio.prefersWideband
-        case .incoming:
-            return now.incomingCall != snapshot.incomingCall
         case .macros:
             return now.dtmf != snapshot.dtmf
-        case .queues:
-            return now.queues != snapshot.queues
-        case .history:
+                || now.conference != snapshot.conference
+        case .incoming:
+            return now.incomingCall != snapshot.incomingCall
+                || now.queues != snapshot.queues
+        case .system:
             return now.history != snapshot.history
-        case .diagnostics:
-            // `plainChrome` здесь больше не проверяется: выключатель уехал к
-            // менеджеру, в этом окне его нет, и разойтись со снимком он может
-            // только вместе с перезапуском приложения.
-            return now.minimumLogLevel != snapshot.minimumLogLevel
+                || now.minimumLogLevel != snapshot.minimumLogLevel
                 || now.logFile != snapshot.logFile
-        case .access:
-            return now.admin != snapshot.admin
+                || now.admin != snapshot.admin
                 || model.pendingAdminPassword != nil
                 || model.pendingAdminPasswordRemoval
-        case .maintenance:
+        case .spark:
             return false
         }
     }

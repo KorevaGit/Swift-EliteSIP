@@ -68,7 +68,6 @@ struct AccountSettingsTab: View {
         // открыв окно. До 25 августа 2026 блок жил в отдельном разделе
         // «Предустановки», вместе с локальными снимками настроек, которых
         // больше нет.
-        PanelStatusCard()
 
         SettingsSection("Профили") {
             if model.profiles.isEmpty {

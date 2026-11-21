@@ -13913,6 +13913,22 @@
           }
         }
       }
+    },
+    "Подключение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

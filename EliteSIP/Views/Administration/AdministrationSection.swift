@@ -8,75 +8,37 @@ import SwiftUI
 /// как снаружи.
 enum AdministrationSection: String, CaseIterable, Identifiable {
 
-    case account, pbx, incoming
-    case macros, queues
-    case history, diagnostics, access, maintenance
+    /// Пять разделов, как в «Управлении» Windows-клиента 1.0.4: подключение
+    /// (профили, АТС, стук), клавиши, входящие (очереди, автоответ, защита),
+    /// система (история, журнал, доступ, обслуживание) и Spark.
+    case connection, macros, incoming, system, spark
 
     var id: String { rawValue }
 
-    /// `NSLocalizedString`, а не литерал: раздел — это `String`, а не вью, и
-    /// ключом он сам по себе не станет. `String(localized:)` подошёл бы лучше,
-    /// но он с macOS 12, а нижняя планка проекта — Catalina.
     var title: String {
         switch self {
-        case .account: NSLocalizedString("Аккаунт", comment: "раздел «Управления»")
-        case .pbx: NSLocalizedString("АТС", comment: "раздел «Управления»")
-        case .incoming: NSLocalizedString("Входящие", comment: "раздел «Управления»")
+        case .connection: NSLocalizedString("Подключение", comment: "раздел «Управления»")
         case .macros: NSLocalizedString("Клавиши", comment: "раздел «Управления»")
-        case .queues: NSLocalizedString("Очереди", comment: "раздел «Управления»")
-        case .history: NSLocalizedString("История", comment: "раздел «Управления»")
-        case .diagnostics: NSLocalizedString("Диагностика", comment: "раздел «Управления»")
-        case .access: NSLocalizedString("Доступ", comment: "раздел «Управления»")
-        case .maintenance: NSLocalizedString("Обслуживание", comment: "раздел «Управления»")
+        case .incoming: NSLocalizedString("Входящие", comment: "раздел «Управления»")
+        case .system: NSLocalizedString("Система", comment: "раздел «Управления»")
+        case .spark: "Spark"
         }
     }
 
-    /// Всё из имеющегося комплекта: новых значков этап не добавляет, и долг
-    /// этапа 7 по дорисовке от него не растёт.
+    /// Значки Lucide — те же, что в сайдбаре «Управления» Windows.
     var symbol: String {
         switch self {
-        case .account: "Lucide/users-round"
-        // Своего значка у предустановок в комплекте нет, и новый этап не
-        // рисует (долг этапа 7). `person.badge.plus` ближе прочего по смыслу:
-        // предустановкой заводят рабочее место.
-        case .pbx: "Lucide/server"
-        case .incoming: "Lucide/bell"
-        case .macros: "Lucide/grid-3x3"
-        case .queues: "Lucide/list-checks"
-        case .history: "Lucide/history"
-        case .diagnostics: "Lucide/activity"
-        case .access: "Lucide/shield-check"
-        case .maintenance: "Lucide/wrench"
+        case .connection: "Lucide/network"
+        case .macros: "Lucide/panels-top-left"
+        case .incoming: "Lucide/headset"
+        case .system: "Lucide/monitor"
+        case .spark: "Lucide/cloud"
         }
     }
 
-    /// Заголовок группы, если раздел её открывает.
-    ///
-    /// Группы отвечают на «про что этот раздел»: без них десять пунктов
-    /// читаются одним списком, в котором «Очереди» стоят рядом с «Историей» без
-    /// всякой причины.
-    ///
-    /// У первой группы заголовка нет намеренно. В системных сайдбарах первая
-    /// пачка тоже идёт без подписи — у Finder «Recents» и «Shared» стоят до
-    /// «Favorites», — а подпись над самой верхней строкой ещё и отодвигала бы её
-    /// от светофора, ломая выравнивание, ради которого сайдбар вообще уходит под
-    /// полосу заголовка.
-    var group: String? {
-        switch self {
-        // «Вызов», а не «Обслуживание вызова»: прежнее занимало 133 точки — на
-        // 44 больше самого длинного своего пункта — и в одиночку держало ширину
-        // всей панели.
-        case .macros: NSLocalizedString("Вызов", comment: "группа разделов «Управления»")
-        case .history: NSLocalizedString("Машина", comment: "группа разделов «Управления»")
-        default: nil
-        }
-    }
+    /// Групп у пяти разделов нет — как в Windows, один список.
+    var group: String? { nil }
 
-    /// Те же разделы, но уже разложенные по группам.
-    ///
-    /// Раскладку делает модель, а не вью: системный список складывается из
-    /// `Section`, и порядок «заголовок — его пункты» ему нужен готовым, а не
-    /// восстановленным по ходу перебора.
     static var groups: [Group] {
         var result: [Group] = []
         for item in allCases {
@@ -108,5 +70,5 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
 @MainActor
 final class AdministrationRouter: ObservableObject {
 
-    @Published var section: AdministrationSection = .account
+    @Published var section: AdministrationSection = .connection
 }
