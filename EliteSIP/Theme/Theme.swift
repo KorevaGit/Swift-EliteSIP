@@ -982,8 +982,10 @@ private struct PanelSurface: ViewModifier {
         // нет и прозрачности. Ручной тумблер при этом остаётся тем же, чем был,
         // — единственным способом получить непрозрачность там, где стекло есть.
         if !Theme.Chrome.usesLiquidGlass {
+            // Графит Windows-клиента: #191919 / #F1F1F1, а не системный серый —
+            // на нём градиенты клавиш и читаются объёмом.
             RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(Color(NSColor.windowBackgroundColor))
+                .fill(Color(Graphite.windowBackground))
         } else if #available(macOS 26.0, *) {
             // `.regular` — ради размытия, а не ради плотности.
             //
@@ -1093,7 +1095,10 @@ private struct HoverHighlight: ViewModifier {
         content
             .compatOverlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(Color.primary.opacity(isHovered && isEnabled ? 0.12 : 0))
+                    // Мягче прежних 0.12 — как ослабленная подсветка графита
+                    // Windows: поверхность и так объёмная, сильная плёнка
+                    // съедала градиент.
+                    .fill(Color.primary.opacity(isHovered && isEnabled ? 0.07 : 0))
                     // Наложение обязано быть прозрачным для мыши, иначе оно же
                     // и съест нажатие, ради которого рисовалось.
                     .allowsHitTesting(false)

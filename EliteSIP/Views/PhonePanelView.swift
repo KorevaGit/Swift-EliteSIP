@@ -367,7 +367,7 @@ struct PhonePanelView: View {
                 .compatOverlay(alignment: .leading) { troubleLabel }
                 .clipped()
 
-            iconButton("gearshape", label: "Настройки") {
+            iconButton("Lucide/sliders-horizontal", label: "Настройки") {
                 NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
             }
         }
@@ -426,7 +426,7 @@ struct PhonePanelView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .themedControlSurface(cornerRadius: pickerRadius)
+        .graphiteSurface(.profile, cornerRadius: pickerRadius, shadow: false)
         .hoverHighlight(cornerRadius: pickerRadius, isEnabled: model.canOpenProfileMenu)
         .disabled(!model.canOpenProfileMenu)
         .compatBackground { MenuAnchorView(anchor: anchor) }
@@ -681,7 +681,7 @@ struct PhonePanelView: View {
                 NSApp.sendAction(#selector(AppDelegate.showCallHistoryWindow(_:)), to: nil, from: nil)
             } label: {
                 VStack(spacing: Theme.Metrics.hairSpacing) {
-                    CompatSymbol(name: "clock", size: Theme.Icon.large)
+                    LucideIcon(name: "history", size: Theme.Icon.large + 2)
                     Text("История")
                         .font(Theme.Text.actionCaption)
                 }
@@ -693,8 +693,8 @@ struct PhonePanelView: View {
                 width: Theme.Metrics.historyWidth,
                 height: Theme.Metrics.actionHeight
             )
-            .themedControlSurface()
-            .hoverHighlight()
+            .graphiteSurface(.control)
+            .hoverHighlight(cornerRadius: Graphite.cornerRadius)
             .compatAccessibilityLabel("История звонков")
         }
     }
@@ -713,17 +713,18 @@ struct PhonePanelView: View {
                 }
             }
         } label: {
-            CompatLabel(
-                title: model.isInCall ? "Завершить" : "Позвонить",
-                symbol: model.isInCall ? "phone.down.fill" : "phone.fill"
-            )
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                if model.isInCall {
+                    LucideIcon(name: "phone-off", size: Theme.Icon.large + 2)
+                } else {
+                    LucideIcon(name: "phone", size: Theme.Icon.large + 2)
+                }
+                Text(model.isInCall ? "Завершить" : "Позвонить")
+            }
             .font(Theme.Text.controlLabel)
             .compatForeground(.white)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .compatBackground(
-                model.isInCall ? Theme.Palette.decline : Theme.Palette.answer,
-                cornerRadius: Theme.Radius.control
-            )
+            .graphiteSurface(model.isInCall ? .decline : .answer)
             .contentShape(Rectangle())
         }
         // Высота — кнопке, а не подписи: см. клавишу макроса.
@@ -732,7 +733,7 @@ struct PhonePanelView: View {
         // радиус меньше макетного, а в неактивном окне акцент выцветает в
         // серый — панель висит поверх CRM и активной бывает редко.
         .buttonStyle(.plain)
-        .hoverHighlight(isEnabled: isCallButtonEnabled)
+        .hoverHighlight(cornerRadius: Graphite.cornerRadius, isEnabled: isCallButtonEnabled)
         .disabled(!isCallButtonEnabled)
         // Системное затемнение выключенной кнопки на стеклянном фоне почти не
         // видно, и ярко-зелёная «Позвонить» выглядит рабочей, хотя ещё нет.
@@ -784,7 +785,7 @@ struct CallHeader: View {
             .frame(height: Theme.Metrics.headerHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Theme.Metrics.contentPadding)
-            .themedControlSurface()
+            .graphiteSurface(.call)
     }
 
     @ViewBuilder
@@ -1059,7 +1060,7 @@ struct CallControls: View {
             HStack(spacing: Theme.Metrics.elementSpacing) {
                 controlButton(
                     title: model.isOnHold ? "Вернуть" : "Удержать",
-                    symbol: model.isOnHold ? "play.fill" : "pause.fill",
+                    symbol: model.isOnHold ? "Lucide/play" : "Lucide/pause",
                     isOn: model.isOnHold,
                     isEnabled: model.canHold
                 ) {
@@ -1072,9 +1073,9 @@ struct CallControls: View {
                 // ровно наоборот, и разницу несла одна мелкая иконка.
                 controlButton(
                     title: model.isMicrophoneMuted ? "Микрофон выкл." : "Микрофон",
-                    symbol: model.isMicrophoneMuted ? "mic.slash.fill" : "mic.fill",
+                    symbol: model.isMicrophoneMuted ? "Lucide/mic-off" : "Lucide/mic",
                     isOn: model.isMicrophoneMuted,
-                    onColor: Theme.Palette.microphoneMuted,
+                    isWarning: true,
                     // И в покое: заглушённым микрофон и поднимется на звонке.
                     isEnabled: true
                 ) {
@@ -1085,7 +1086,7 @@ struct CallControls: View {
             HStack(spacing: Theme.Metrics.elementSpacing) {
                 controlButton(
                     title: "Перевести",
-                    symbol: "phone.arrow.right",
+                    symbol: "Lucide/phone-forwarded",
                     isOn: model.isTransferEntryVisible,
                     isEnabled: model.canTransfer && !model.isTransferEntryVisible
                 ) {
@@ -1098,7 +1099,7 @@ struct CallControls: View {
                 // выглядело бы так же, но приложение не знало бы ничего.
                 controlButton(
                     title: "Конференция",
-                    symbol: "person.3.fill",
+                    symbol: "Lucide/users-round",
                     isOn: model.activeLine?.isConferenceCommandSent ?? false,
                     isEnabled: model.canStartConference
                 ) {
@@ -1113,13 +1114,13 @@ struct CallControls: View {
         title: LocalizedStringKey,
         symbol: String,
         isOn: Bool,
-        onColor: Color = Theme.Palette.connecting,
+        isWarning: Bool = false,
         isEnabled: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: Theme.Metrics.tightSpacing) {
-                CompatSymbol(name: symbol, size: Theme.Icon.small)
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                CompatSymbol(name: symbol, size: Theme.Icon.medium + 2)
                 Text(title)
                     .font(Theme.Text.statusDetail)
                     .lineLimit(1)
@@ -1133,15 +1134,11 @@ struct CallControls: View {
         // заперт в `Self.height`, и кнопка, выросшая от поля стиля, растягивала
         // бы не себя, а всё, что под ней.
         .frame(height: Theme.Metrics.controlHeight + rowExtra)
-        .compatForeground(isOn ? Color.white : Color.primary)
-        .compatBackground {
-            if isOn {
-                RoundedRectangle(cornerRadius: Theme.Radius.control)
-                    .fill(onColor)
-            }
-        }
-        .themedControlSurface()
-        .hoverHighlight(isEnabled: isEnabled)
+        // Включённая клавиша — серым, как в Windows; выключенный микрофон —
+        // насыщенным красным с белой надписью: его нельзя не заметить.
+        .compatForeground(isOn && isWarning ? Color.white : Color.primary)
+        .graphiteSurface(isOn ? (isWarning ? .decline : .selected) : .control)
+        .hoverHighlight(cornerRadius: Graphite.cornerRadius, isEnabled: isEnabled)
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : Theme.Metrics.disabledOpacity)
     }
@@ -1298,8 +1295,8 @@ struct MacroGrid: View {
         // между ними. Пришпиленная снаружи высота — это высота всей кнопки,
         // сколько бы стиль ни хотел добавить.
         .frame(height: keyHeight)
-        .themedControlSurface()
-        .hoverHighlight(isEnabled: isEnabled(macro))
+        .graphiteSurface(.macro)
+        .hoverHighlight(cornerRadius: Graphite.cornerRadius, isEnabled: isEnabled(macro))
         .disabled(!isEnabled(macro))
         .opacity(isEnabled(macro) ? 1 : Theme.Metrics.disabledOpacity)
     }
