@@ -7,123 +7,59 @@
 // символов лежит в SVG: знак пересобирается при каждой правке пропорций, и
 // десять PNG, разошедшихся между собой на точку, потом не сведёт никто.
 //
-// **Что рисуется.** Полный фирменный знак: ломаная корона над дайлпадом. В доке
-// места хватает и на девять отрезков короны, и на шесть клавиш, поэтому здесь
-// знак стоит целиком — в отличие от строки меню, где от него остаётся силуэт
-// короны, а место подставки занимает точка состояния (см.
-// `StatusItemController`).
+// **Что рисуется.** Знак «Шампань» (с Windows-клиентом 1.0.1): корона над
+// гарнитурой контуром шампанского цвета на графитовой подложке. В строке меню
+// тот же контур без подложки (см. `StatusItemController`).
 
 import AppKit
 import Foundation
 
-// MARK: - Палитра
+// MARK: - Знак «Шампань»
 
-/// Золото знака: три остановки, а не две. На двух градиент читается пластиком —
-/// у металла светлая кромка сверху и глухой тон в тени.
-let gold = [
-    NSColor(calibratedRed: 0.91, green: 0.79, blue: 0.51, alpha: 1),
-    NSColor(calibratedRed: 0.76, green: 0.57, blue: 0.23, alpha: 1),
-    NSColor(calibratedRed: 0.55, green: 0.38, blue: 0.13, alpha: 1),
-]
+// Тот же вектор, что `EliteSIP/Theme/BrandMark.swift` и `BrandLogo` в
+// Windows-клиенте: контур шампанского цвета (#D8C6A5) на графитовой подложке.
+// Скрипт запускается отдельно от приложения, поэтому геометрия повторена.
 
-/// Подложка тёмная: золото на светлом теряет контраст, а иконка обязана
-/// читаться и на светлых обоях, и в мелком размере переключателя окон.
-let plate = [
-    NSColor(calibratedRed: 0.17, green: 0.17, blue: 0.20, alpha: 1),
-    NSColor(calibratedRed: 0.06, green: 0.06, blue: 0.08, alpha: 1),
-]
-
-// MARK: - Знак
-
-/// Все числа — доли квадрата 1024, поэтому пропорции одинаковы во всех
-/// размерах: масштаб задаётся один раз, снаружи.
 private let canvas: CGFloat = 1024
 
-/// Ломаная короны: три пика и две перекрёстные линии, как в фирменном знаке.
-///
-/// Знак целиком держится внутри безопасной зоны — от 195 до 760 по высоте.
-/// Первый заход этой зоны не имел, и дайлпад уходил под скругление подложки:
-/// нижний ряд отстоял от её края на восемь единиц из тысячи, а угол съедает
-/// больше.
-private func crownPath() -> CGMutablePath {
-    let path = CGMutablePath()
-
-    path.move(to: CGPoint(x: 223, y: 711))
-    path.addLine(to: CGPoint(x: 364, y: 430))
-    path.addLine(to: CGPoint(x: 512, y: 758))
-    path.addLine(to: CGPoint(x: 660, y: 430))
-    path.addLine(to: CGPoint(x: 801, y: 711))
-
-    // Перекрестье — то, что отличает знак от обычной короны: линии уходят от
-    // внешних концов к середине, пересекая соседние лучи.
-    path.move(to: CGPoint(x: 223, y: 711))
-    path.addLine(to: CGPoint(x: 512, y: 499))
-    path.move(to: CGPoint(x: 801, y: 711))
-    path.addLine(to: CGPoint(x: 512, y: 499))
-
-    return path
-}
-
-/// Дайлпад: два ряда по три клавиши. Три ряда в знак не ставим — тогда корона
-/// сжимается, а она в нём главная.
-private func dialpadPath() -> CGMutablePath {
-    let path = CGMutablePath()
-    let radius: CGFloat = 30
-    let columns: [CGFloat] = [372, 512, 652]
-    // Нижний ряд стоит на 225: с радиусом 30 его край приходится на 195, то
-    // есть на сто с лишним единиц выше кромки подложки — там, где скругление
-    // угла уже ничего не отрезает.
-    let rows: [CGFloat] = [320, 225]
-
-    for y in rows {
-        for x in columns {
-            path.addEllipse(in: CGRect(
-                x: x - radius, y: y - radius,
-                width: radius * 2, height: radius * 2
-            ))
-        }
+private func markPath(in rect: CGRect) -> CGPath {
+    let scale = rect.width / 32
+    func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+        CGPoint(x: rect.minX + x * scale, y: rect.minY + (32 - y) * scale)
     }
-    return path
-}
-
-/// Заливает путь золотом сквозь него самого.
-///
-/// Градиент кладётся на весь квадрат и обрезается фигурой, а не рисуется в
-/// каждой детали заново: иначе у каждой клавиши свой переход от светлого к
-/// тёмному, и знак рассыпается на шесть отдельных предметов.
-private func fillWithGold(_ path: CGPath, stroke width: CGFloat?, in context: CGContext) {
-    context.saveGState()
-    context.addPath(path)
-
-    if let width {
-        context.setLineWidth(width)
-        context.setLineJoin(.round)
-        context.setLineCap(.round)
-        // Обводка превращается в заливку: `NSGradient` умеет заполнять область,
-        // но не штрих, и без этой замены золото легло бы мимо линии.
-        context.replacePathWithStrokedPath()
+    let path = CGMutablePath()
+    path.move(to: p(7, 12))
+    for (x, y) in [(5, 5), (11, 8), (16, 3), (21, 8), (27, 5), (25, 12)] as [(CGFloat, CGFloat)] {
+        path.addLine(to: p(x, y))
     }
-
-    context.clip()
-    NSGradient(colors: gold)?.draw(
-        in: NSRect(x: 0, y: 0, width: canvas, height: canvas),
-        angle: -90
-    )
-    context.restoreGState()
+    path.move(to: p(7, 16))
+    path.addCurve(to: p(25, 16), control1: p(7, 12), control2: p(25, 12))
+    path.addLine(to: p(25, 22))
+    path.addQuadCurve(to: p(19, 28), control: p(25, 28))
+    path.addLine(to: p(17, 28))
+    path.move(to: p(7, 16))
+    path.addLine(to: p(7, 21))
+    path.addQuadCurve(to: p(13, 29), control: p(7, 27))
+    path.move(to: p(4, 16))
+    path.addQuadCurve(to: p(1, 20), control: p(1, 16))
+    path.addQuadCurve(to: p(4, 24), control: p(1, 24))
+    path.move(to: p(28, 16))
+    path.addQuadCurve(to: p(31, 20), control: p(31, 16))
+    path.addQuadCurve(to: p(28, 24), control: p(31, 24))
+    return path
 }
 
 func makeIcon(side: CGFloat) -> NSImage {
     NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
         guard let context = NSGraphicsContext.current?.cgContext else { return false }
-
         context.scaleBy(x: side / canvas, y: side / canvas)
 
-        // Поле вокруг подложки — доля, на которую системные иконки не доходят до
-        // края: без него значок в доке выглядит крупнее соседей.
+        // Поле вокруг подложки — сетка иконок macOS: без него значок в доке
+        // выглядит крупнее соседей.
         let inset: CGFloat = 88
         let plateRect = CGRect(x: inset, y: inset, width: canvas - inset * 2, height: canvas - inset * 2)
-        // Скругление 22,37% стороны — системная доля macOS. При другой значок
-        // читается наклейкой поверх чужой формы.
+        let unit = plateRect.width / 32
+        // Скругление 22,37% стороны — системная доля macOS.
         let plateShape = CGPath(
             roundedRect: plateRect,
             cornerWidth: plateRect.width * 0.2237,
@@ -131,18 +67,31 @@ func makeIcon(side: CGFloat) -> NSImage {
             transform: nil
         )
 
+        // Графит: сверху #383C40, снизу #23262A — как у Windows-клиента.
         context.saveGState()
         context.addPath(plateShape)
         context.clip()
-        NSGradient(colors: plate)?.draw(
-            in: NSRect(x: 0, y: 0, width: canvas, height: canvas),
-            angle: -90
-        )
+        NSGradient(colors: [
+            NSColor(srgbRed: 56 / 255, green: 60 / 255, blue: 64 / 255, alpha: 1),
+            NSColor(srgbRed: 35 / 255, green: 38 / 255, blue: 42 / 255, alpha: 1),
+        ])?.draw(in: NSRect(x: 0, y: 0, width: canvas, height: canvas), angle: -90)
         context.restoreGState()
 
-        fillWithGold(crownPath(), stroke: 32, in: context)
-        fillWithGold(dialpadPath(), stroke: nil, in: context)
+        // Тонкая светлая кромка отделяет подложку от тёмных обоев.
+        context.addPath(plateShape)
+        context.setStrokeColor(NSColor(white: 1, alpha: 40 / 255).cgColor)
+        context.setLineWidth(0.35 * unit)
+        context.strokePath()
 
+        // Знак — в квадрате со стороной 3/4 подложки, отступ 4 единицы.
+        let markRect = CGRect(x: plateRect.minX + 4 * unit, y: plateRect.minY + 4 * unit,
+                              width: 24 * unit, height: 24 * unit)
+        context.addPath(markPath(in: markRect))
+        context.setStrokeColor(NSColor(srgbRed: 216 / 255, green: 198 / 255, blue: 165 / 255, alpha: 1).cgColor)
+        context.setLineWidth(2.3 * 0.75 * unit)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        context.strokePath()
         return true
     }
 }

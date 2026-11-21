@@ -92,6 +92,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// разговоре, а начавшийся звонок закрывает уже открытое.
     private var lineWatch: AnyCancellable?
 
+    /// Заголовок панели «ВАШ НОМЕР …» следует за номером активного профиля.
+    private var numberTitleWatch: AnyCancellable?
+
     /// Слежение за открытым «Управлением» — ради отложенной предустановки.
     private var settingsHoldWatch: AnyCancellable?
 
@@ -796,7 +799,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // «Экран вызова», а не «EliteSIP»: имя приложения и так стоит в меню, а
         // окон у него несколько, и заголовок должен отвечать на «какое это
         // окно», а не повторять, чьё оно.
-        window.title = NSLocalizedString("Экран вызова", comment: "заголовок окна панели")
+        //
+        // С Windows-клиентом 1.0.2 — «ВАШ НОМЕР …»: оператор с двумя профилями
+        // или после смены номера в Spark первым делом спрашивает, под каким
+        // номером он сейчас на линии. Без номера — прежнее название окна.
+        numberTitleWatch = model.$settings
+            .map(\.account.username)
+            .removeDuplicates()
+            .sink { [weak window] number in
+                window?.title = number.isEmpty
+                    ? NSLocalizedString("Экран вызова", comment: "заголовок окна панели")
+                    : String(
+                        format: NSLocalizedString("ВАШ НОМЕР %@", comment: "заголовок окна панели с номером"),
+                        number
+                    )
+            }
         window.titlebarAppearsTransparent = true
 
         // Без этой пары никакая прозрачность не работает: под материалом

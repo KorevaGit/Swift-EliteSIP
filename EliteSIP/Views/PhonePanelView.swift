@@ -821,12 +821,20 @@ struct CallHeader: View {
                             .compatMonospacedDigit()
                     }
 
-                    Text(model.callStatus)
+                    // Пока звуковая карта открывается, разговор уже идёт и
+                    // показан, а подпись говорит, почему кнопки ещё серые.
+                    // Без микрофона — красным: клиент слышит тишину, и
+                    // оператор должен узнать об этом сразу.
+                    Text(model.isActiveMediaStarting
+                         ? NSLocalizedString("Звук подключается…", comment: "состояние линии, пока открывается звуковая карта")
+                         : model.callStatus)
                         .font(Theme.Text.callerNumber)
                         .compatForeground(
-                            model.isOnHold || model.isMicrophoneMuted
-                                ? Theme.Palette.connecting
-                                : Theme.Palette.textSecondary
+                            model.activeLine?.isMicrophoneMissing == true
+                                ? Theme.Palette.failure
+                                : model.isOnHold || model.isMicrophoneMuted || model.isActiveMediaStarting
+                                    ? Theme.Palette.connecting
+                                    : Theme.Palette.textSecondary
                         )
                         .lineLimit(1)
 

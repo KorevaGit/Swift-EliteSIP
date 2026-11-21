@@ -18,9 +18,15 @@ struct PanelStatusCard: View {
     var body: some View {
         if model.settings.panel.isActivated {
             SettingsSection("Панель") {
+                // Длинное название сокращается посередине, целиком — в
+                // подсказке: начало и конец у названий предустановок разные
+                // («Офис — менеджеры», «Офис — стажёры»), середина общая.
                 SettingsRow("Предустановка") {
                     Text(verbatim: presetLine)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                         .compatForeground(Theme.Palette.textPrimary)
+                        .compatHelp(verbatim: presetLine)
                 }
 
                 SettingsRow("Обновлена") {
@@ -88,7 +94,11 @@ struct PanelStatusCard: View {
     /// Имя предустановки и применённая ревизия.
     private var presetLine: String {
         let panel = model.settings.panel
-        guard !panel.presetName.isEmpty else { return panel.presetID }
+        guard !panel.presetName.isEmpty else {
+            return panel.presetID.isEmpty
+                ? NSLocalizedString("Не применены", comment: "предустановки на машине нет")
+                : panel.presetID
+        }
         guard panel.appliedRevision > 0 else { return panel.presetName }
         return String(
             format: NSLocalizedString("%1$@, ревизия %2$lld", comment: "предустановка и ревизия в разделе «Панель»"),

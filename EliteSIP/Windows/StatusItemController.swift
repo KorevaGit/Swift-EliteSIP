@@ -180,57 +180,31 @@ final class StatusItemController: NSObject {
     /// Сторона изображения. Восемнадцать точек — системный размер значка в
     /// строке меню: больше — обрезается, меньше — висит в воздухе.
     private static let side: CGFloat = 18
-    /// Корона: шире, чем выше, как и в фирменном знаке.
-    private static let crownSize = NSSize(width: 15, height: 11)
-    /// Диаметр точки. Меньше пяти она перестаёт читаться цветом, больше —
-    /// начинает спорить с короной за место.
-    private static let dotDiameter: CGFloat = 5
 
-    /// Корона, под ней точка состояния.
+    /// Знак «Шампань» контуром, целиком цветом состояния.
     ///
-    /// **Точка стоит на месте подставки.** В фирменном знаке корона опирается
-    /// на горизонтальную черту с ножкой; в значке строки меню эта подставка
-    /// заменена цветной точкой — то есть композиция знака сохранена, а
-    /// состояние занимает место, которое в нём и так было занято. Дайлпад из
-    /// знака здесь не рисуется вовсе: шесть клавиш на восемнадцати точках
-    /// слипаются в серую полосу, и в строке меню его роль исполняет как раз
-    /// точка. Полный знак с дайлпадом живёт в доке.
+    /// С Windows-клиентом 1.0.1 — тот же контур, что в иконке, без подложки, и
+    /// весь символ окрашен по состоянию, как в трее Windows. В покое (не на
+    /// линии) контур берёт цвет строки меню: серая точка рядом с серой короной
+    /// читалась бы как ещё одна неработающая деталь.
     private static func makeImage(glyph glyphColor: NSColor, dot dotColor: NSColor) -> NSImage {
         let size = NSSize(width: side, height: side)
+        let color = dotColor == Theme.Palette.statusOffline ? glyphColor : dotColor
 
         let image = NSImage(size: size, flipped: false) { _ in
-            if let crown = NSImage(named: "crown.fill") {
-                // Корона прижата к верху, точка — ко дну, и обе по центру: знак
-                // читается как одно целое, а не как две фигуры рядом.
-                let box = NSRect(
-                    x: (side - crownSize.width) / 2,
-                    y: side - crownSize.height - 0.5,
-                    width: crownSize.width,
-                    height: crownSize.height
-                )
-                crown.draw(in: box, from: .zero, operation: .sourceOver, fraction: 1)
-                glyphColor.set()
-                box.fill(using: .sourceAtop)
-            }
-
-            // Точка рисуется после заливки короны: `sourceAtop` красит всё, что
-            // уже лежит в прямоугольнике, и точка, нарисованная раньше, ушла бы
-            // в цвет глифа.
-            dotColor.set()
-            NSBezierPath(
-                ovalIn: NSRect(
-                    x: (side - dotDiameter) / 2,
-                    y: 0.5,
-                    width: dotDiameter,
-                    height: dotDiameter
-                )
-            ).fill()
-
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            let box = CGRect(x: 0.5, y: 0.5, width: side - 1, height: side - 1)
+            context.addPath(BrandMark.path(in: box))
+            context.setStrokeColor(color.cgColor)
+            context.setLineWidth(BrandMark.lineWidth * box.width / 32)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+            context.strokePath()
             return true
         }
 
-        // Не template: template система красит целиком, и точка стала бы того
-        // же цвета, что трубка.
+        // Не template: template система красит целиком в свой цвет, а цвет здесь
+        // и есть состояние.
         image.isTemplate = false
         return image
     }
