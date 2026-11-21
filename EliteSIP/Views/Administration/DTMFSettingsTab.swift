@@ -18,7 +18,7 @@ struct DTMFSettingsTab: View {
     }
 
     var body: some View {
-        SettingsSection("Клавиши") {
+        SettingsSection("Клавиши", icon: "panels-top-left") {
             SettingsOrderedList(
                 items: macros,
                 emptyNote: "Клавиш нет. Они появятся на панели во время разговора.",
@@ -43,7 +43,7 @@ struct DTMFSettingsTab: View {
                 MacroRow(macro: macro)
             }
 
-            SettingsNote("""
+            SettingsHint("""
                 Порядок кнопок на панели — этот. Оператор целится в место, а не читает \
                 подписи каждый раз, поэтому менять его стоит один раз при настройке, а не по \
                 ходу работы.
@@ -88,7 +88,7 @@ struct DTMFSettingsTab: View {
                 }
             }
 
-            SettingsNote("""
+            SettingsHint("""
                 Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире \
                 каждая. В режиме «Авто» высота клавиши считается по самой длинной подписи \
                 при нынешней ширине и меняется вместе с ними; «Вручную» нужен там, где важно \
@@ -96,7 +96,7 @@ struct DTMFSettingsTab: View {
                 разных подписях. Каждый лишний ряд растит панель вниз.
                 """)
 
-            SettingsNote("""
+            SettingsHint("""
                 «Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. \
                 Помеченная клавиша оставляет в истории пометку «перевод», и по ней потом \
                 разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: \
@@ -104,11 +104,11 @@ struct DTMFSettingsTab: View {
                 """)
         }
 
-        SettingsSection("Запись") {
+        SettingsSection("Запись", icon: "list-checks") {
             // Формат заказчиком не задан — открытый вопрос 1 в README. Пока
             // принято привычное по телефонам, и об этом честно сказано здесь, а
             // не только в документации.
-            SettingsNote("""
+            SettingsHint("""
                 Цифры, «*», «#» и A–D отправляются как тоны. Запятая — пауза; несколько запятых \
                 подряд складываются. Пробелы и дефисы ни на что не влияют и нужны только для \
                 читаемости.
@@ -124,7 +124,7 @@ struct DTMFSettingsTab: View {
             }
         }
 
-        SettingsSection("Тон") {
+        SettingsSection("Тон", icon: "volume-2") {
             SettingsRow("Длительность") {
                 DelayField(
                     milliseconds: Binding(

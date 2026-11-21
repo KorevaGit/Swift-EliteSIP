@@ -32,7 +32,7 @@ struct DiagnosticsTab: View {
     }
 
     var body: some View {
-        SettingsSection("Сборка") {
+        SettingsSection("Сборка", icon: "package") {
             SettingsRow("Версия") { value(appVersion) }
             SettingsRow("macOS") { value(ProcessInfo.processInfo.operatingSystemVersionString) }
             SettingsRow("Оформление") { value(glassAvailability) }
@@ -51,7 +51,7 @@ struct DiagnosticsTab: View {
             UpdateCheckRow(isChecking: model.isCheckingForUpdates, result: model.updateCheckResult)
         }
 
-        SettingsSection("Журнал") {
+        SettingsSection("Журнал", icon: "file-text") {
             SettingsRow("Показывать от") {
                 Picker("", selection: Binding(
                     get: { model.settings.minimumLogLevel },
@@ -80,7 +80,7 @@ struct DiagnosticsTab: View {
                 .disabled(model.log.isEmpty)
             }
 
-            SettingsNote("""
+            SettingsHint("""
                 Трасса открывается своим окном: её держат открытой во время звонка, а раздел \
                 настроек для этого не годится — он закрывается вместе с «Управлением».
                 """)
@@ -121,7 +121,7 @@ private struct LogFileSection: View {
     @State private var archiveResult: String?
 
     var body: some View {
-        SettingsSection("Журнал в файле") {
+        SettingsSection("Журнал в файле", icon: "file-text") {
             SettingsToggleRow("Вести журнал в файле", isOn: Binding(
                 get: { model.settings.logFile.isEnabled },
                 set: { model.settings.logFile.isEnabled = $0 }
@@ -154,7 +154,7 @@ private struct LogFileSection: View {
                     )
                 }
 
-                SettingsNote("""
+                SettingsHint("""
                     Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. \
                     Номера и SIP-логины остаются — по ним и разбирают звонок.
                     """)
@@ -202,7 +202,7 @@ private struct AudioProbeSection: View {
 
     var body: some View {
         if let route = model.audioRoute {
-            SettingsSection("Текущий разговор") {
+            SettingsSection("Текущий разговор", icon: "headset") {
                 SettingsRow("Маршрут") {
                     Text(route.summary)
                         .compatForeground(Theme.Palette.textSecondary)

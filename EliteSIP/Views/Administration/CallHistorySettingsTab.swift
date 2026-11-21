@@ -17,7 +17,7 @@ struct CallHistorySettingsTab: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        SettingsSection("Локальная история звонков") {
+        SettingsSection("Локальная история звонков", icon: "history") {
             SettingsToggleRow("Вести историю звонков", isOn: Binding(
                 get: { model.settings.history.isEnabled },
                 set: { model.settings.history.isEnabled = $0 }
@@ -35,20 +35,20 @@ struct CallHistorySettingsTab: View {
                     )
                 }
 
-                SettingsNote("""
+                SettingsHint("""
                     Записи старше срока удаляются: при запуске, раз в сутки и сразу после того, \
                     как срок уменьшили. Уменьшение применяется по «Сохранить» — «Отменить» \
                     удалённые записи не вернёт.
                     """)
 
-                SettingsNote("""
+                SettingsHint("""
                     В истории лежат номера лидов и SIP-логины — как пришли, без маскирования. \
                     В архив для поддержки она не попадает: там только журнал.
                     """)
             }
         }
 
-        SettingsSection("Хранилище") {
+        SettingsSection("Хранилище", icon: "archive") {
             // Всего и по всем профилям, а не под отбором окна истории:
             // администратор смотрит сюда, чтобы понять, сколько персональных
             // данных лежит на машине. Окно истории при этом остаётся

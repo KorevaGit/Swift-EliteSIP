@@ -21,7 +21,7 @@ struct AdministrationTab: View {
     @State private var confirmation: String?
 
     var body: some View {
-        SettingsSection("Кто управляет настройками") {
+        SettingsSection("Кто управляет настройками", icon: "cloud") {
             SettingsRow("Режим") {
                 Text(verbatim: mode)
                     .compatForeground(Theme.Palette.textSecondary)
@@ -36,7 +36,7 @@ struct AdministrationTab: View {
             // теперь оттуда, где он и живёт, — из `settings.panel`.
         }
 
-        SettingsSection("Пароль администратора") {
+        SettingsSection("Пароль администратора", icon: "lock-keyhole") {
             SettingsIndented {
                 if model.isAdministrationProtectedIncludingDraft {
                     CompatLabel(title: "Пароль задан, закрытая часть закрыта", symbol: "lock.shield.fill")

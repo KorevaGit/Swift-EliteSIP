@@ -33,7 +33,7 @@ struct QueueSettingsTab: View {
     }
 
     var body: some View {
-        SettingsSection("Названия раздач") {
+        SettingsSection("Названия раздач", icon: "users-round") {
             SettingsOrderedList(
                 items: queues,
                 emptyNote: """
@@ -49,7 +49,7 @@ struct QueueSettingsTab: View {
         }
 
         if !candidates.isEmpty {
-            SettingsSection("Приходили, но не названы") {
+            SettingsSection("Приходили, но не названы", icon: "bell") {
                 SettingsIndented {
                     SettingsColumns(candidates) { sighting in
                         SightingRow(sighting: sighting, onAdopt: adopt)
@@ -58,7 +58,7 @@ struct QueueSettingsTab: View {
             }
         }
 
-        SettingsSection("Как опознаётся входящий") {
+        SettingsSection("Как опознаётся входящий", icon: "fingerprint") {
             RuleTable()
         }
         .onAppear { candidates = model.unnamedIncomingNumbers() }

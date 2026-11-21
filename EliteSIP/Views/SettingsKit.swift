@@ -238,6 +238,33 @@ struct SettingsNote: View {
     }
 }
 
+/// Пояснение одной строкой со значком, целиком — в подсказке.
+///
+/// «Меньше текста, больше визуала» Windows 1.0.4: абзацы «Управления» не
+/// пропадают, а сворачиваются — начало видно, остальное под курсором.
+struct SettingsHint: View {
+
+    private let text: LocalizedStringKey
+
+    init(_ text: LocalizedStringKey) {
+        self.text = text
+    }
+
+    var body: some View {
+        SettingsIndented {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.tightSpacing) {
+                LucideIcon(name: "info", size: Theme.Icon.medium)
+                Text(text)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .font(.footnote)
+            .compatForeground(Theme.Palette.textSecondary)
+            .compatHelp(text)
+        }
+    }
+}
+
 /// Во что обернётся «системное по умолчанию». Не подпись и не пояснение: это
 /// значение, просто вычисленное, — поэтому стоит в колонке контрола.
 struct SettingsResolvedValue: View {

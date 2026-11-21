@@ -30,7 +30,7 @@ struct MaintenanceTab: View {
         // Перенос рабочего места на новый компьютер теперь называется
         // «выпустить ключ» — одно нажатие в панели, и приезжает свежее, а не
         // годичной давности.
-        SettingsSection("Для поддержки") {
+        SettingsSection("Для поддержки", icon: "files") {
             // Кнопка одна, и это правка 27 августа 2026.
             //
             // Их было две — «журнал» и «файл настроек», — и вторую надо было
@@ -43,37 +43,37 @@ struct MaintenanceTab: View {
                 Button("Выгрузить архив для поддержки…") { Task { await exportLog() } }
             }
 
-            SettingsNote("""
+            SettingsHint("""
                 Тот же архив, что и «Собрать логи» у менеджера: журнал, сведения о сборке и \
                 системе, настройки этой машины. Секреты замаскированы, пароли профилей и \
                 административный доступ из настроек убраны.
                 """)
 
-            SettingsNote("""
+            SettingsHint("""
                 Настройки в архиве — те, что видно в этом окне, включая несохранённое. Они для \
                 разбора жалобы, а не для переноса: другая машина их не примет.
                 """)
 
-            SettingsNote("""
+            SettingsHint("""
                 История звонков не выгружается ни тем, ни другим: в ней номера лидов и \
                 SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.
                 """)
         }
 
-        SettingsSection("Чистка") {
+        SettingsSection("Чистка", icon: "refresh-cw") {
             SettingsButtonsRow {
                 Button("Очистить журнал") { model.clearLogFile() }
                 Button("Очистить историю") { isConfirmingHistoryClear = true }
                     .disabled(model.historyStore == nil)
             }
 
-            SettingsNote("""
+            SettingsHint("""
                 Очистка истории стирает записи всех профилей целиком — выборочного удаления нет \
                 намеренно — и пишет в журнал, сколько их было. Стереть можно, бесследно нельзя.
                 """)
         }
 
-        SettingsSection("Сброс") {
+        SettingsSection("Сброс", icon: "unplug") {
             SettingsButtonsRow {
                 Button("Сбросить машину…") { isConfirmingReset = true }
                     .disabled(!model.canResetMachine)

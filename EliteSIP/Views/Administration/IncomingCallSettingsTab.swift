@@ -66,7 +66,7 @@ struct IncomingCallSettingsTab: View {
     }
 
     var body: some View {
-        SettingsSection("Автоподъём") {
+        SettingsSection("Автоподъём", icon: "headset") {
             SettingsRow("Режим") {
                 Picker("", selection: Binding(
                     get: { model.settings.autoAnswer },
@@ -83,7 +83,7 @@ struct IncomingCallSettingsTab: View {
         }
 
         if model.settings.autoAnswer == .list {
-            SettingsSection("Номера для автоподъёма") {
+            SettingsSection("Номера для автоподъёма", icon: "list-checks") {
                 SettingsOrderedList(
                     items: Binding(
                         get: { model.settings.autoAnswerNumbers },
@@ -100,7 +100,7 @@ struct IncomingCallSettingsTab: View {
             }
         }
 
-        SettingsSection("Номера звонящих") {
+        SettingsSection("Номера звонящих", icon: "fingerprint") {
             SettingsToggleRow("Скрывать мобильные номера", isOn: Binding(
                 get: { model.settings.masksMobileNumbers },
                 set: { model.settings.masksMobileNumbers = $0 }
@@ -108,7 +108,7 @@ struct IncomingCallSettingsTab: View {
             if model.settings.panel.isManaged {
                 SettingsNote("Значение приезжает из панели.")
             }
-            SettingsNote("""
+            SettingsHint("""
                 Мобильный номер показывается как +7 и звёздочки — в окне \
                 входящего, в панели во время разговора и в истории. Городские и \
                 внутренние номера видны всегда. Выключайте для отделов, которым \
@@ -116,7 +116,7 @@ struct IncomingCallSettingsTab: View {
                 """)
         }
 
-        SettingsSection("Защита") {
+        SettingsSection("Защита", icon: "shield-check") {
             // Выключатель не запирается, даже когда значение приезжает из
             // панели, — и это отмена решения M9.
             //
@@ -144,7 +144,7 @@ struct IncomingCallSettingsTab: View {
             // выключивший защиту на управляемой машине, должен знать, что
             // следующая выкладка предустановки вернёт её.
             if model.settings.incomingCall.isServerManaged {
-                SettingsNote("""
+                SettingsHint("""
                     Значение приезжает из панели предустановкой \
                     «\(model.settings.panel.presetName)». Правка здесь \
                     действует сразу и держится до следующей выкладки этой \
@@ -161,13 +161,13 @@ struct IncomingCallSettingsTab: View {
                 )
             }
 
-            SettingsNote("""
+            SettingsHint("""
                 Автокликер принимает лид быстрее коллег, не находясь за рабочим местом, \
                 и лид уходит в тишину.
                 """)
         }
 
-        SettingsSection("Случайность") {
+        SettingsSection("Случайность", icon: "sliders-horizontal") {
             SettingsToggleRow("Случайная позиция окна", isOn: policy.isRandomPositionEnabled)
 
             SettingsRow("Расстояния") {
@@ -193,7 +193,7 @@ struct IncomingCallSettingsTab: View {
         }
         .disabled(!isGuardOn)
 
-        SettingsSection("Подтверждение цифрой") {
+        SettingsSection("Подтверждение цифрой", icon: "lock-keyhole") {
             SettingsToggleRow("Цифровое подтверждение", isOn: Binding(
                 get: { model.settings.incomingCall.targetCount > 1 },
                 set: { model.settings.incomingCall.targetCount = $0 ? 3 : 1 }
@@ -211,7 +211,7 @@ struct IncomingCallSettingsTab: View {
                 }
             }
 
-            SettingsNote("""
+            SettingsHint("""
                 Вместо кнопки «Ответить» показывается ряд цифр, и вызов принимает только одна \
                 из них — названная в подписи. Ломает кликер, который ищет кнопку по картинке. \
                 Выключено по умолчанию: это внимание оператора на каждом вызове, а случайная \
@@ -220,7 +220,7 @@ struct IncomingCallSettingsTab: View {
         }
         .disabled(!isGuardOn)
 
-        SettingsSection("Признаки живого человека") {
+        SettingsSection("Признаки живого человека", icon: "activity") {
             SettingsToggleRow("Требовать движения курсора", isOn: policy.requiresCursorMovement)
 
             SettingsRow("Расстояния") {
@@ -235,7 +235,7 @@ struct IncomingCallSettingsTab: View {
                     || !model.settings.incomingCall.tunesLivenessByHand
             )
 
-            SettingsNote("""
+            SettingsHint("""
                 CGEvent.post ставит курсор в точку одним событием — пути у такого движения нет.
                 """)
 
@@ -243,13 +243,13 @@ struct IncomingCallSettingsTab: View {
 
             SettingsToggleRow("Отклонять синтетические нажатия", isOn: policy.rejectsSyntheticEvents)
 
-            SettingsNote("""
+            SettingsHint("""
                 Признак подделывается, поэтому по умолчанию он только пишется в отчёт.
                 """)
         }
         .disabled(!isGuardOn)
 
-        SettingsSection("Проверка") {
+        SettingsSection("Проверка", icon: "play") {
             SettingsButtonsRow {
                 Button {
                     incomingCall.show(
@@ -293,7 +293,7 @@ struct IncomingCallSettingsTab: View {
                 .disabled(model.settings.account.username.isEmpty)
             }
 
-            SettingsNote("""
+            SettingsHint("""
                 Вызов по сделке приходит с номера самого менеджера: Битрикс поднимает его \
                 и только потом набирает клиента. Настройки для этого не нужны — номер берётся \
                 из активного профиля.
