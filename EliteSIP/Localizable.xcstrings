@@ -13269,6 +13269,74 @@
           }
         }
       }
+    },
+    "Нет микрофона — вас не слышно": {
+      "comment": "состояние линии: разговор только на приём",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No microphone — you can't be heard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет микрофона — вас не слышно"
+          }
+        }
+      }
+    },
+    "Звук подключается…": {
+      "comment": "состояние линии, пока открывается звуковая карта",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting audio…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук подключается…"
+          }
+        }
+      }
+    },
+    "ВАШ НОМЕР %@": {
+      "comment": "заголовок окна панели с номером",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YOUR NUMBER %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ВАШ НОМЕР %@"
+          }
+        }
+      }
+    },
+    "Не применены": {
+      "comment": "предустановки на машине нет",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not applied"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не применены"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
