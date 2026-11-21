@@ -35,15 +35,24 @@ struct PresetCheckRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
-            SettingsButtonsRow {
-                Button("Проверить настройки сейчас") {
-                    NSApp.sendAction(#selector(AppDelegate.checkPresetsNow(_:)), to: nil, from: nil)
-                }
-                .disabled(isChecking)
-
+            // Строкой, как «Обновления»: значок и подпись слева, действие справа.
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                LucideIcon(name: "refresh-cw", size: Theme.Icon.large)
+                    .compatForeground(Theme.Palette.textSecondary)
+                Text("Настройки из Spark")
+                Spacer()
                 if isChecking {
                     CompatSpinner()
                 }
+                Button(action: {
+                    NSApp.sendAction(#selector(AppDelegate.checkPresetsNow(_:)), to: nil, from: nil)
+                }) {
+                    HStack(spacing: Theme.Metrics.tightSpacing) {
+                        LucideIcon(name: "refresh-cw", size: Theme.Icon.medium)
+                        Text("Проверить")
+                    }
+                }
+                .disabled(isChecking)
             }
 
             // Итог — строкой ПОД кнопкой, а не рядом с ней, и это правка
