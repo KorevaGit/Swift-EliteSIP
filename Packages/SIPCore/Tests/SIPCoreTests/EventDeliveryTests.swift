@@ -149,12 +149,31 @@ struct EventDeliveryTests {
         #expect(rejected.map(\.callID) == (capacity..<(capacity + 5)).map { "flood-\($0)" })
         #expect(await layer.overloadRejections == 5)
 
-        // BYE прошёл приоритетной полосой и стоит первым; принятые OPTIONS целы.
+        // BYE прошёл сверх предела, но в своём порядке; принятые OPTIONS целы.
         await layer.stop()
         var received: [SIPRequest] = []
         for await request in layer.inboundRequests { received.append(request) }
-        #expect(received.first?.method == .bye)
-        #expect(received.dropFirst().map(\.callID) == (0..<capacity).map { "flood-\($0)" })
+        #expect(received.last?.method == .bye)
+        #expect(received.dropLast().map(\.callID) == (0..<capacity).map { "flood-\($0)" })
+    }
+
+    @Test("CANCEL не обгоняет свой INVITE: входящие запросы идут по порядку")
+    func cancelDoesNotOvertakeInvite() async throws {
+        let server = ScriptedSIPServer { _, _ in nil }
+        let layer = SIPTransactionLayer(channel: server, timers: fastTimers())
+        await layer.start()
+
+        // Читателя нет — оба запроса лежат в очереди разом, как при занятом
+        // агенте. Раньше CANCEL шёл приоритетной полосой и доставался первым:
+        // агенту отменять было нечего, а INVITE следом звонил до конца.
+        server.inject(request: makeRequest(.invite, index: 1))
+        server.inject(request: makeRequest(.cancel, index: 1))
+        #expect(await waitUntil { layer.inboundRequests.pendingCount(.regular) == 2 })
+
+        await layer.stop()
+        var received: [SIPMethod] = []
+        for await request in layer.inboundRequests { received.append(request.method) }
+        #expect(received == [.invite, .cancel])
     }
 
     @Test("Поток 1xx не вытесняет финальный ответ INVITE")

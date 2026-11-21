@@ -20,7 +20,15 @@ import Foundation
 /// завершает чтение.
 public final class SIPEventQueue<Element: Sendable>: AsyncSequence, @unchecked Sendable {
 
-    public enum Lane: Sendable { case priority, regular }
+    public enum Lane: Sendable {
+        case priority
+        case regular
+        /// Обычная полоса и её порядок, но сверх её предела — в запасе
+        /// `priorityCapacity`. Для того, что закрывает уже принятое (ACK,
+        /// CANCEL, BYE): отказывать ему при перегрузке нельзя, а обгонять свой
+        /// INVITE — тем более.
+        case essential
+    }
 
     /// Чем закончилась попытка положить элемент.
     public enum YieldResult: Sendable, Equatable {
@@ -77,6 +85,10 @@ public final class SIPEventQueue<Element: Sendable>: AsyncSequence, @unchecked S
             case .priority:
                 if let priorityCapacity, s.priority.count >= priorityCapacity { return (.rejected, nil) }
                 s.priority.append(element)
+            case .essential:
+                let limit = regularCapacity + (priorityCapacity ?? Int.max - regularCapacity)
+                if s.regular.count >= limit { return (.rejected, nil) }
+                s.regular.append(element)
             case .regular:
                 guard s.regular.count < regularCapacity else {
                     s.pendingDrops += 1

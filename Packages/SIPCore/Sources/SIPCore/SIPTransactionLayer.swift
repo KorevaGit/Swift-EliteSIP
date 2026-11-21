@@ -107,16 +107,19 @@ public actor SIPTransactionLayer {
     private let channel: SIPTransportChannel
     private let timers: Timers
 
-    /// Входящие запросы. ACK, CANCEL и BYE идут приоритетной полосой: они
-    /// закрывают уже принятое. Новые запросы при переполненной очереди не
+    /// Входящие запросы — строго по порядку прихода. ACK, CANCEL и BYE
+    /// закрывают уже принятое и проходят сверх предела, но в общем порядке:
+    /// CANCEL, обогнавший свой INVITE, застал бы агента без звонка, а INVITE
+    /// следом звонил бы до конца — окно «Ответить» висело бы над вызовом,
+    /// который забрал другой. Новые запросы при переполненной очереди не
     /// вытесняют принятые, а получают 503 — см. `enqueue(inbound:)`.
     public nonisolated let inboundRequests: SIPEventQueue<SIPRequest>
 
     /// Предел очереди новых входящих запросов.
     public static let inboundCapacity = 64
 
-    /// Предел приоритетной полосы входящих: ACK/CANCEL/BYE мусором с порта тоже
-    /// можно завалить, и бесконечная полоса стала бы способом съесть память.
+    /// Запас сверх предела для ACK/CANCEL/BYE: их мусором с порта тоже можно
+    /// завалить, и бесконечный запас стал бы способом съесть память.
     public static let inboundPriorityCapacity = 256
 
     /// Сколько новых запросов отклонено ответом 503 из-за переполнения.
@@ -788,7 +791,7 @@ public actor SIPTransactionLayer {
     /// уводит вызов дальше по очереди. На ACK ответа не бывает вовсе.
     private func enqueue(inbound request: SIPRequest) async {
         let lane: SIPEventQueue<SIPRequest>.Lane = switch request.method {
-        case .ack, .cancel, .bye: .priority
+        case .ack, .cancel, .bye: .essential
         default: .regular
         }
         guard inboundRequests.yield(request, lane: lane) == .rejected,
