@@ -106,8 +106,13 @@ fi
 
 # 4. Приложение целиком, оба среза сразу.
 step "Приложение: universal Release"
+# Свой каталог сборки, как у release.sh: общая DerivedData на машине выпуска
+# перенесена настройкой Xcode на внешний диск, и без него сборка падала на
+# разрешении пакетов («нет прав сохранить repositories в SourcePackages»).
+derived="${ELITESIP_COMPAT_DERIVED_DATA:-build/compat-dd}"
 if xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Release \
-    -destination 'generic/platform=macOS' ONLY_ACTIVE_ARCH=NO ARCHS="x86_64 arm64" \
+    -destination 'generic/platform=macOS' -derivedDataPath "$derived" \
+    ONLY_ACTIVE_ARCH=NO ARCHS="x86_64 arm64" \
     build >/dev/null 2>&1; then
     ok "собрался"
 else
@@ -118,7 +123,7 @@ fi
 # настройкой Xcode (на машине выпуска — на внешний диск), и маска по ~/Library
 # её не находит.
 products=$(xcodebuild -project EliteSIP.xcodeproj -scheme EliteSIP -configuration Release \
-    -destination 'generic/platform=macOS' -showBuildSettings 2>/dev/null |
+    -destination 'generic/platform=macOS' -derivedDataPath "$derived" -showBuildSettings 2>/dev/null |
     awk -F' = ' '/ BUILT_PRODUCTS_DIR = / { print $2; exit }')
 app="$products/EliteSIP.app"
 binary="$app/Contents/MacOS/EliteSIP"
