@@ -90,3 +90,37 @@ struct AudioRouteTests {
         #expect(!AudioDevice.Transport.usb.switchesToHeadsetModeWhenCapturing)
     }
 }
+
+@Suite("Выбранная пара и системные умолчания")
+struct SystemPairTests {
+
+    @Test("Гарнитура с раздельными UID, совпавшая с умолчаниями, агрегата не требует")
+    func splitHeadsetMatchingDefaults() {
+        #expect(AudioDeviceCatalog.needsAggregate(inputUID: "AA:input", outputUID: "AA:output"))
+        #expect(AudioDeviceCatalog.matchesSystemDefaults(
+            inputUID: "AA:input", outputUID: "AA:output",
+            defaultInputUID: "AA:input", defaultOutputUID: "AA:output"
+        ))
+    }
+
+    @Test("Пара, отличная от умолчаний хоть одной стороной, не совпадает")
+    func differentPair() {
+        #expect(!AudioDeviceCatalog.matchesSystemDefaults(
+            inputUID: "AA:input", outputUID: "AA:output",
+            defaultInputUID: "BuiltInMic", defaultOutputUID: "AA:output"
+        ))
+        #expect(!AudioDeviceCatalog.matchesSystemDefaults(
+            inputUID: "AA:input", outputUID: "AA:output",
+            defaultInputUID: nil, defaultOutputUID: nil
+        ))
+    }
+
+    @Test("Сторона, отданная системе, совпадением не считается")
+    func unsetSide() {
+        #expect(!AudioDeviceCatalog.matchesSystemDefaults(
+            inputUID: nil, outputUID: "AA:output",
+            defaultInputUID: "AA:input", defaultOutputUID: "AA:output"
+        ))
+    }
+}
+

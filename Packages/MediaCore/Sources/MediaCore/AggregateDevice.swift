@@ -122,4 +122,33 @@ public extension AudioDeviceCatalog {
         guard let inputUID, let outputUID else { return false }
         return inputUID != outputUID
     }
+
+    /// Выбранная пара — это и есть системные умолчания.
+    ///
+    /// Тогда свой агрегат не нужен: пару сведёт сама macOS, и Voice Processing
+    /// с ней работает. Важно это для гарнитур, у которых микрофон и наушники —
+    /// два устройства CoreAudio с разными UID: AirPods (`…:input` и
+    /// `…:output`), встроенные микрофон и динамики. До 21 ноября 2026 явный
+    /// выбор такой гарнитуры в настройках считался «разными устройствами» и
+    /// оставлял разговор без эхоподавления и шумодава, хотя та же гарнитура
+    /// через «системное по умолчанию» шла с ними.
+    static func matchesSystemDefaults(
+        inputUID: String?,
+        outputUID: String?,
+        defaultInputUID: String?,
+        defaultOutputUID: String?
+    ) -> Bool {
+        guard let inputUID, let outputUID else { return false }
+        return inputUID == defaultInputUID && outputUID == defaultOutputUID
+    }
+
+    /// То же по живым умолчаниям системы.
+    static func choiceMatchesSystemDefaults(inputUID: String?, outputUID: String?) -> Bool {
+        matchesSystemDefaults(
+            inputUID: inputUID,
+            outputUID: outputUID,
+            defaultInputUID: defaultInput?.uid,
+            defaultOutputUID: defaultOutput?.uid
+        )
+    }
 }

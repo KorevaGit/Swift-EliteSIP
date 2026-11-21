@@ -911,6 +911,17 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // устройство ВЫВОДА в обе стороны, микрофон не отдаёт ни одного отсчёта,
         // и разговор получается односторонним. Заметить это по звуку нельзя —
         // в наушниках всё в порядке, молчим только мы.
+        followsSystemPair = AudioDeviceCatalog.needsAggregate(
+            inputUID: configuration.inputDeviceUID,
+            outputUID: configuration.outputDeviceUID
+        ) && AudioDeviceCatalog.choiceMatchesSystemDefaults(
+            inputUID: configuration.inputDeviceUID,
+            outputUID: configuration.outputDeviceUID
+        )
+        if followsSystemPair {
+            onDiagnostic?("выбранные микрофон и выход — системные по умолчанию: пару сводит macOS, эхоподавление остаётся")
+        }
+
         if needsAggregateDevice {
             prepareAggregateDevice()
             if aggregate != nil {
@@ -1106,11 +1117,16 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// назначаем его напрямую. Выбраны разные — собираем своё агрегатное, как
     /// это делает и macOS.
     private var needsAggregateDevice: Bool {
-        AudioDeviceCatalog.needsAggregate(
+        !followsSystemPair && AudioDeviceCatalog.needsAggregate(
             inputUID: configuration.inputDeviceUID,
             outputUID: configuration.outputDeviceUID
         )
     }
+
+    /// Выбранная пара совпала с системными умолчаниями, и тракт собран на
+    /// них — с Voice Processing. Решается при сборке графа и держится до
+    /// следующей: умолчания могут смениться посреди разговора.
+    private var followsSystemPair = false
 
     /// Пытается собрать агрегат заранее, до решения об обработке голоса.
     ///
@@ -1142,7 +1158,8 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             return (aggregate.id, aggregate.uid, "агрегатное")
         }
         // Агрегат нужен, но не собрался: системные умолчания сведёт macOS сама.
-        if needsAggregateDevice { return nil }
+        // То же, когда выбранная пара и есть умолчания.
+        if needsAggregateDevice || followsSystemPair { return nil }
 
         // Одно устройство на обе стороны либо задана только одна сторона.
         guard let uid = inputUID ?? outputUID else { return nil }
@@ -1340,6 +1357,15 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             // него нет, и уведомления о конфигурации не будет.
             if self.isMicrophoneUnavailable, Self.isMicrophoneAvailable {
                 self.scheduleRebuild(reason: "появился микрофон", force: true)
+            }
+            // Тракт стоял на умолчаниях, потому что они совпадали с выбором.
+            // Умолчание сменилось — звук ушёл бы за ним, а не остался на
+            // выбранном устройстве: пересобираем по выбору.
+            if self.followsSystemPair, !AudioDeviceCatalog.choiceMatchesSystemDefaults(
+                inputUID: self.configuration.inputDeviceUID,
+                outputUID: self.configuration.outputDeviceUID
+            ) {
+                self.scheduleRebuild(reason: "системное устройство сменилось, возвращаю выбранное", force: true)
             }
         }
     }

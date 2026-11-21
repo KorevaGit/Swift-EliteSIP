@@ -227,11 +227,14 @@ struct AudioTab: View {
         return nil
     }
 
+    /// Пара, совпавшая с системными умолчаниями, идёт с эхоподавлением — см.
+    /// `AudioDeviceCatalog.matchesSystemDefaults`.
     private var needsAggregate: Bool {
-        AudioDeviceCatalog.needsAggregate(
-            inputUID: model.settings.audio.inputDeviceUID,
-            outputUID: model.settings.audio.outputDeviceUID
-        )
+        let audio = model.settings.audio
+        return AudioDeviceCatalog.needsAggregate(inputUID: audio.inputDeviceUID, outputUID: audio.outputDeviceUID)
+            && !AudioDeviceCatalog.choiceMatchesSystemDefaults(
+                inputUID: audio.inputDeviceUID, outputUID: audio.outputDeviceUID
+            )
     }
 }
 
