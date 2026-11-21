@@ -123,7 +123,7 @@ final class UpdateService: NSObject, ObservableObject {
     /// цикла событий: отпущенный таймер некому отменить, если обновления не
     /// поднялись.
     private var firstCheck: Timer?
-    private var offerSheet: NSAlert?
+    private var offerSheet: GraphiteDialogWindow?
 
     /// Общий цикл проверок: обновления и предустановки одним будильником.
     private var cycle: Timer?
@@ -382,17 +382,21 @@ final class UpdateService: NSObject, ObservableObject {
             return
         }
 
-        let alert = NSAlert()
-        alert.messageText = String(
-            format: NSLocalizedString("Доступна версия %@", comment: "предложение обновиться"),
-            version
+        let alert = GraphiteDialogWindow(
+            icon: "cloud-download",
+            title: String(
+                format: NSLocalizedString("Доступна версия %@", comment: "предложение обновиться"),
+                version
+            ),
+            message: NSLocalizedString(
+                "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само.",
+                comment: "предложение обновиться"
+            ),
+            buttons: [
+                .init(title: NSLocalizedString("Обновить", comment: "кнопка в предложении обновиться"), role: .primary),
+                .init(title: NSLocalizedString("Отложить", comment: "кнопка в предложении обновиться"), role: .cancel),
+            ]
         )
-        alert.informativeText = NSLocalizedString(
-            "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само.",
-            comment: "предложение обновиться"
-        )
-        alert.addButton(withTitle: NSLocalizedString("Обновить", comment: "кнопка в предложении обновиться"))
-        alert.addButton(withTitle: NSLocalizedString("Отложить", comment: "кнопка в предложении обновиться"))
         offerSheet = alert
 
         let decide: (NSApplication.ModalResponse) -> Void = { [weak self] response in
@@ -424,7 +428,7 @@ final class UpdateService: NSObject, ObservableObject {
         // упирались в него и молчали, пока оператор сам не откроет панель.
         // Показать окно — дело `hostWindow`, здесь только проверка итога.
         if let window = hostWindow(), window.isVisible {
-            alert.beginSheetModal(for: window, completionHandler: decide)
+            alert.beginSheet(for: window, completion: decide)
         } else {
             decide(alert.runModal())
         }
@@ -433,9 +437,7 @@ final class UpdateService: NSObject, ObservableObject {
     private func dismissOffer() {
         guard let alert = offerSheet else { return }
         offerSheet = nil
-        if let window = alert.window as NSWindow?, let sheetParent = window.sheetParent {
-            sheetParent.endSheet(window, returnCode: .alertSecondButtonReturn)
-        }
+        alert.finish(.alertSecondButtonReturn)
     }
 
     private func scheduleReminder(after delay: TimeInterval) {

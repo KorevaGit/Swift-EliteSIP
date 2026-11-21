@@ -56,7 +56,7 @@ struct AdminUnlockView: View {
             }
         }
         .padding(Theme.Metrics.contentPadding)
-        .frame(width: Theme.Metrics.dialogWidth)
+        .frame(width: GraphiteDialog.width)
         // Порядок проверок здесь и есть решение о том, кого пускать.
         //
         // **Непройденный мастер запирает «Управление» раньше пароля.** Сброс
@@ -149,15 +149,11 @@ struct AdminUnlockView: View {
     /// действие — закончить настройку, и кнопка делает ровно его.
     private var unconfiguredStep: some View {
         Group {
-            CompatLabel(title: "Машина ещё не настроена", symbol: "exclamationmark.triangle")
-                .font(.headline)
-                .compatForeground(.orange)
-
-            Text("""
-                Первоначальная настройка не пройдена: у машины нет ни рабочего места, ни                 административного пароля. Пока это так, «Управление» не открывается — иначе                 настройки ненастроенной машины правил бы кто угодно.
-                """)
-            .font(.footnote)
-            .compatForeground(.secondary)
+            DialogHeader(
+                icon: "triangle-alert",
+                title: "Машина ещё не настроена",
+                subtitle: "Пока не пройдена первоначальная настройка, «Управление» не открывается."
+            )
 
             HStack {
                 Spacer()
@@ -191,9 +187,7 @@ struct AdminUnlockView: View {
 
     private var administrationWarning: some View {
         Group {
-            CompatLabel(title: "Прежде чем открыть «Управление»", symbol: "exclamationmark.triangle")
-                .font(.headline)
-                .compatForeground(.orange)
+            DialogHeader(icon: "triangle-alert", title: "Прежде чем открыть «Управление»")
 
             // Текст заказчика, слово в слово, с одной поправкой по существу:
             // «любая смена настроек» сужена до тех, которыми управляет панель.
@@ -211,8 +205,12 @@ struct AdminUnlockView: View {
 
                 Все настройки применяются после нажатия «Сохранить».
                 """)
-            .font(.footnote)
-            .compatForeground(.secondary)
+            .font(.callout)
+            .compatForeground(Theme.Palette.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(Theme.Metrics.sectionSpacing + 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .graphiteSurface(.control)
 
             HStack {
                 Spacer()
@@ -240,9 +238,7 @@ struct AdminUnlockView: View {
     /// черновика у раздела «Работа» нет, переезд происходит сразу.
     private var workplaceWarning: some View {
         Group {
-            CompatLabel(title: "Прежде чем снять закрепление", symbol: "exclamationmark.triangle")
-                .font(.headline)
-                .compatForeground(.orange)
+            DialogHeader(icon: "triangle-alert", title: "Прежде чем снять закрепление")
 
             Text("""
                 Формат работы закрепил EliteSupport. Переключение офиса и дома переводит \
@@ -255,8 +251,12 @@ struct AdminUnlockView: View {
                 Пока настройки открыты, переключатель доступен. Машина уходит в оффлайн \
                 только если его действительно переключить.
                 """)
-            .font(.footnote)
-            .compatForeground(.secondary)
+            .font(.callout)
+            .compatForeground(Theme.Palette.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(Theme.Metrics.sectionSpacing + 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .graphiteSurface(.control)
 
             HStack {
                 Spacer()

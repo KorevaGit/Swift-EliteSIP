@@ -1115,22 +1115,6 @@
         }
       }
     },
-    "Будут удалены записи всех профилей этой машины. Вернуть их «Отменой» нельзя. В журнал уйдёт строка с числом записей.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Records of every profile on this machine will be deleted. “Cancel” will not bring them back. A line with the record count goes to the log."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Будут удалены записи всех профилей этой машины. Вернуть их «Отменой» нельзя. В журнал уйдёт строка с числом записей."
-          }
-        }
-      }
-    },
     "В вызове есть «X-Autoanswer: TRUE»": {
       "localizations": {
         "en": {
@@ -2923,34 +2907,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Если не подключается"
-          }
-        }
-      }
-    },
-    "Если тронуты настройки, которыми управляет EliteSupport, машина после сохранения уйдёт в оффлайн: обновления конфигураций, клавиш и адресов АТС приходить перестанут, пока не нажать «Вернуться в онлайн» — тогда местные правки заменит панель. Это будет записано в журнал.": {
-      "comment": "вопрос при закрытии «Управления»",
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Если тронуты настройки, которыми управляет EliteSupport, машина после сохранения уйдёт в оффлайн: обновления конфигураций, клавиш и адресов АТС приходить перестанут, пока не нажать «Вернуться в онлайн» — тогда местные правки заменит панель. Это будет записано в журнал."
-          }
-        }
-      }
-    },
-    "Если тронуты настройки, которыми управляет EliteSupport, сохранение разорвёт связку с панелью: обновления конфигураций, клавиш и адресов АТС на эту машину больше не придут, а вернуть её можно будет только новым ключом. Это будет записано в журнал.": {
-      "extractionState": "stale",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "If settings controlled by EliteSupport were touched, saving will break the bond with the panel: configuration, macro and PBX address updates will no longer reach this machine, and only a new key can restore it. This will be recorded in the log."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Если тронуты настройки, которыми управляет EliteSupport, сохранение разорвёт связку с панелью: обновления конфигураций, клавиш и адресов АТС на эту машину больше не придут, а вернуть её можно будет только новым ключом. Это будет записано в журнал."
           }
         }
       }
@@ -5222,22 +5178,6 @@
         }
       }
     },
-    "Настройки этой машины станут локальными: их задаёт администратор, а не файл конфигурации. Сохранение будет записано в журнал.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This machine’s settings become local: set by an administrator rather than by a configuration file. The save will be recorded in the log."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Настройки этой машины станут локальными: их задаёт администратор, а не файл конфигурации. Сохранение будет записано в журнал."
-          }
-        }
-      }
-    },
     "Настройки этой машины: %@.": {
       "extractionState": "stale",
       "localizations": {
@@ -6796,22 +6736,6 @@
         }
       }
     },
-    "Оформление меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The appearance changes for every window at once, and the app restarts to do it: the registration is dropped and raised again. If a call is in progress, it will be cut off."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Оформление меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся."
-          }
-        }
-      }
-    },
     "Очереди": {
       "comment": "раздел «Управления»",
       "localizations": {
@@ -7165,22 +7089,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пауза между тонами"
-          }
-        }
-      }
-    },
-    "Первоначальная настройка не пройдена: у машины нет ни рабочего места, ни                 административного пароля. Пока это так, «Управление» не открывается — иначе                 настройки ненастроенной машины правил бы кто угодно.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Initial setup has not been completed: the machine has neither a workstation nor an administrator password. Until it has, Administration will not open — otherwise anyone could edit the settings of a machine that is not set up."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Первоначальная настройка не пройдена: у машины нет ни рабочего места, ни                 административного пароля. Пока это так, «Управление» не открывается — иначе                 настройки ненастроенной машины правил бы кто угодно."
           }
         }
       }
@@ -11471,22 +11379,6 @@
         }
       }
     },
-    "Язык меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The language changes for every window at once, and the app restarts to do it: the registration is dropped and raised again. If a call is in progress, it will be cut off."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Язык меняется у всех окон сразу, и для этого приложение перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт разговор, он оборвётся."
-          }
-        }
-      }
-    },
     "б": {
       "localizations": {
         "en": {
@@ -13957,6 +13849,118 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пусто — раздачи подписываются общим заголовком."
+          }
+        }
+      }
+    },
+    "Правка настроек EliteSupport уведёт машину в оффлайн до «Вернуться в онлайн».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changing EliteSupport-managed settings takes this Mac offline until “Return online”."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка настроек EliteSupport уведёт машину в оффлайн до «Вернуться в онлайн»."
+          }
+        }
+      }
+    },
+    "Приложение перезапустится, регистрация поднимется заново.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app will restart and register again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение перезапустится, регистрация поднимется заново."
+          }
+        }
+      }
+    },
+    "Идущий разговор оборвётся.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current call will be dropped."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идущий разговор оборвётся."
+          }
+        }
+      }
+    },
+    "Будут удалены записи всех профилей этой машины.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records of all profiles on this Mac will be deleted."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будут удалены записи всех профилей этой машины."
+          }
+        }
+      }
+    },
+    "«Отменой» не вернуть; в журнал уйдёт число записей.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Cancel” won’t restore them; the log records how many there were."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Отменой» не вернуть; в журнал уйдёт число записей."
+          }
+        }
+      }
+    },
+    "Настройки этой машины станут локальными. Сохранение запишется в журнал.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac’s settings become local. Saving is recorded in the log."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки этой машины станут локальными. Сохранение запишется в журнал."
+          }
+        }
+      }
+    },
+    "Пока не пройдена первоначальная настройка, «Управление» не открывается.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administration stays closed until the initial setup is finished."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока не пройдена первоначальная настройка, «Управление» не открывается."
           }
         }
       }

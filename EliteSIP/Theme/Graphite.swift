@@ -198,7 +198,7 @@ struct DialogHeader: View {
                 .frame(width: 40, height: 40)
                 .graphiteSurface(.control, cornerRadius: 20)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
+                Text(title).font(Font.system(size: 17, weight: .semibold))
                 if let subtitle {
                     Text(subtitle)
                         .font(.footnote)

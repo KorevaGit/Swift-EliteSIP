@@ -192,19 +192,16 @@ struct AdministrationContentView: View {
         // Предупреждение дублируется на сохранении — того же содержания, что и
         // на входе. Намеренно: между входом и нажатием проходит вся настройка
         // рабочего места, и к этому моменту прочитанное на входе уже забыто.
-        .alert(isPresented: $isConfirmingSave) {
-            Alert(
-                title: Text("Сохранить настройки?"),
-                message: Text("""
-                    Настройки этой машины станут локальными: их задаёт администратор, \
-                    а не файл конфигурации. Сохранение будет записано в журнал.
-                    """),
-                primaryButton: .default(Text("Сохранить")) {
-                    model.commitAdministration()
-                    closeWindow()
-                },
-                secondaryButton: .cancel(Text("Не сохранять"))
-            )
+        .graphiteConfirmation(
+            isPresented: $isConfirmingSave,
+            icon: "save",
+            title: Text("Сохранить настройки?"),
+            message: Text("Настройки этой машины станут локальными. Сохранение запишется в журнал."),
+            confirm: Text("Сохранить"),
+            cancel: Text("Не сохранять")
+        ) {
+            model.commitAdministration()
+            closeWindow()
         }
     }
 

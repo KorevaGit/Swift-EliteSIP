@@ -210,6 +210,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 administrationRouter?.section = section
             }
         }
+        // Вопрос в графитовом оформлении — для сверки: EliteSIP --dialog
+        if ProcessInfo.processInfo.arguments.contains("--dialog") {
+            let dialog = GraphiteDialogWindow(
+                icon: "save",
+                title: NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»"),
+                message: NSLocalizedString(
+                    "Правка настроек EliteSupport уведёт машину в оффлайн до «Вернуться в онлайн».",
+                    comment: "вопрос при закрытии «Управления»"
+                ),
+                footnote: NSLocalizedString("Идущий разговор оборвётся.", comment: "последствие перезапуска"),
+                buttons: [
+                    .init(title: NSLocalizedString("Сохранить", comment: "кнопка"), role: .primary),
+                    .init(title: NSLocalizedString("Не сохранять", comment: "кнопка"), role: .normal),
+                    .init(title: NSLocalizedString("Отмена", comment: "кнопка"), role: .cancel),
+                ]
+            )
+            debugDialog = dialog
+            dialog.window.center()
+            dialog.window.makeKeyAndOrderFront(nil)
+        }
         // История — для сверки оформления: EliteSIP --history
         if ProcessInfo.processInfo.arguments.contains("--history") {
             showCallHistoryWindow(nil)
@@ -568,15 +588,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if isTearingDown { return .terminateCancel }
 
         if model.isInCall {
-            let alert = NSAlert()
-            alert.messageText = NSLocalizedString("Идёт разговор", comment: "вопрос при выходе во время разговора")
-            alert.informativeText = NSLocalizedString(
-                "Выход завершит его и снимет регистрацию.",
-                comment: "вопрос при выходе во время разговора"
+            let dialog = GraphiteDialogWindow(
+                icon: "phone-off",
+                title: NSLocalizedString("Идёт разговор", comment: "вопрос при выходе во время разговора"),
+                message: NSLocalizedString(
+                    "Выход завершит его и снимет регистрацию.",
+                    comment: "вопрос при выходе во время разговора"
+                ),
+                buttons: [
+                    .init(title: NSLocalizedString("Завершить и выйти", comment: "кнопка выхода во время разговора"), role: .destructive),
+                    .init(title: NSLocalizedString("Отмена", comment: "кнопка"), role: .cancel),
+                ]
             )
-            alert.addButton(withTitle: NSLocalizedString("Завершить и выйти", comment: "кнопка выхода во время разговора"))
-            alert.addButton(withTitle: NSLocalizedString("Отмена", comment: "кнопка"))
-            guard alert.runModal() == .alertFirstButtonReturn else {
+            guard dialog.runModal() == .alertFirstButtonReturn else {
                 // Признак не поднимаем: передумали — значит выхода не было
                 // вовсе, и следующий `⌘Q` обязан спросить заново.
                 return .terminateCancel
@@ -1540,6 +1564,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// SwiftUI. Общее состояние им негде держать, кроме как снаружи.
     private var administrationRouter: AdministrationRouter?
 
+    #if DEBUG
+    /// Держит окно `--dialog`, пока оно на экране.
+    private var debugDialog: GraphiteDialogWindow?
+    #endif
+
     /// Открывает «Управление». Вызывается кнопкой уже после проверки пароля.
     @objc func showAdministrationWindow(_ sender: Any?) {
         // Форма приложения пересчитывается на выходе, на всех путях сразу:
@@ -1806,19 +1835,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return true
         }
 
-        let alert = NSAlert()
-        alert.messageText = NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»")
-        alert.informativeText = NSLocalizedString("""
-            Если тронуты настройки, которыми управляет EliteSupport, машина \
-            после сохранения уйдёт в оффлайн: обновления конфигураций, клавиш и \
-            адресов АТС приходить перестанут, пока не нажать «Вернуться в онлайн» \
-            — тогда местные правки заменит панель. Это будет записано в журнал.
-            """, comment: "вопрос при закрытии «Управления»")
-        alert.addButton(withTitle: NSLocalizedString("Сохранить", comment: "кнопка"))
-        alert.addButton(withTitle: NSLocalizedString("Не сохранять", comment: "кнопка"))
-        alert.addButton(withTitle: NSLocalizedString("Отмена", comment: "кнопка"))
+        let dialog = GraphiteDialogWindow(
+            icon: "save",
+            title: NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»"),
+            message: NSLocalizedString(
+                "Правка настроек EliteSupport уведёт машину в оффлайн до «Вернуться в онлайн».",
+                comment: "вопрос при закрытии «Управления»"
+            ),
+            buttons: [
+                .init(title: NSLocalizedString("Сохранить", comment: "кнопка"), role: .primary),
+                .init(title: NSLocalizedString("Не сохранять", comment: "кнопка"), role: .normal),
+                .init(title: NSLocalizedString("Отмена", comment: "кнопка"), role: .cancel),
+            ]
+        )
 
-        switch alert.runModal() {
+        switch dialog.runModal() {
         case .alertFirstButtonReturn:
             model.commitAdministration()
             administrationWindow = nil

@@ -29,46 +29,30 @@ struct ResetConfirmation: View {
     }
 
     private var sheet: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                CompatSymbol(name: "exclamationmark.triangle.fill", size: Theme.Icon.large)
-                    .compatForeground(Theme.Palette.failure)
-                Text("Сбросить машину?")
-                    .font(Font.subheadline.weight(.semibold))
-            }
-
-            Text("""
+        GraphiteDialog(
+            icon: "triangle-alert",
+            title: Text("Сбросить машину?"),
+            message: Text("""
                 Будут стёрты настройки, история звонков и журнал. Профили, пароли, клавиши, \
                 очереди и последовательность стука исчезнут; пароля администратора на машине \
                 не останется, и закрытые настройки будут открыты всем.
-                """)
-                .font(.callout)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("""
+                """),
+            footnote: Text("""
                 Вернуть это нельзя ни «Отменой», ни из архива для поддержки: он собирается из \
                 журнала, а журнал стирается вместе со всем остальным.
-                """)
-                .font(.footnote)
-                .compatForeground(Theme.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                Spacer()
-
-                Button("Отмена") { close() }
-                    .compatCancelShortcut()
-
-                Button(remaining > 0 ? "Сбросить (\(remaining))" : "Сбросить") {
+                """),
+            actions: [
+                .init(Text("Отмена"), role: .cancel) { close() },
+                .init(
+                    Text(remaining > 0 ? "Сбросить (\(remaining))" : "Сбросить"),
+                    role: .destructive,
+                    isDisabled: remaining > 0
+                ) {
                     onConfirm()
                     close()
-                }
-                .disabled(remaining > 0)
-                .compatForeground(remaining > 0 ? Theme.Palette.textSecondary : Theme.Palette.failure)
-            }
-        }
-        .padding(Theme.Metrics.contentPadding)
-        .frame(width: Theme.Metrics.dialogWidth)
+                },
+            ]
+        )
         .onAppear { countDown() }
     }
 

@@ -71,15 +71,15 @@ struct ProfileCard: View {
         // — это не предупреждение, а отчёт. Само удаление откладывается до
         // «Сохранить» вместе со всеми правками окна, но «Отменить» историю уже
         // не вернёт, и об этом сказано прямо.
-        .alert(isPresented: $isConfirmingRemoval) {
-            Alert(
-                title: Text("Удалить профиль «\(profile.title)»?"),
-                message: Text(removalWarning),
-                primaryButton: .destructive(Text("Удалить")) {
-                    Task { await model.removeProfile(profileID) }
-                },
-                secondaryButton: .cancel(Text("Отмена"))
-            )
+        .graphiteConfirmation(
+            isPresented: $isConfirmingRemoval,
+            icon: "trash-2",
+            title: Text("Удалить профиль «\(profile.title)»?"),
+            message: Text(removalWarning),
+            confirm: Text("Удалить"),
+            role: .destructive
+        ) {
+            Task { await model.removeProfile(profileID) }
         }
     }
 

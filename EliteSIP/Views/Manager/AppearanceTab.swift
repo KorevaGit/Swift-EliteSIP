@@ -153,33 +153,37 @@ struct AppearanceTab: View {
         //
         // Висит на последнем разделе, а обслуживает оба: диалог показывается
         // окну целиком, и место, к которому он привязан, на вид не влияет.
-        .alert(item: $pendingRestart) { pending in
+        .sheet(item: $pendingRestart) { pending in
             switch pending {
             case .chrome:
-                return Alert(
-                    title: Text(model.settings.plainChrome ? "Вернуть стекло?" : "Выключить стекло?"),
-                    message: Text("""
-                        Оформление меняется у всех окон сразу, и для этого приложение \
-                        перезапустится: регистрация снимется и поднимется заново. Если сейчас идёт \
-                        разговор, он оборвётся.
-                        """),
-                    primaryButton: .default(Text("Перезапустить")) { switchChrome() },
-                    secondaryButton: .cancel(Text("Оставить как есть"))
-                )
+                restartDialog(
+                    icon: "panels-top-left",
+                    title: Text(model.settings.plainChrome ? "Вернуть стекло?" : "Выключить стекло?")
+                ) { switchChrome() }
 
             case .language(let language):
-                return Alert(
-                    title: Text("Сменить язык?"),
-                    message: Text("""
-                        Язык меняется у всех окон сразу, и для этого приложение перезапустится: \
-                        регистрация снимется и поднимется заново. Если сейчас идёт разговор, он \
-                        оборвётся.
-                        """),
-                    primaryButton: .default(Text("Перезапустить")) { switchLanguage(to: language) },
-                    secondaryButton: .cancel(Text("Оставить как есть"))
-                )
+                restartDialog(icon: "languages", title: Text("Сменить язык?")) {
+                    switchLanguage(to: language)
+                }
             }
         }
+    }
+
+    /// Вопрос перед перезапуском — один на оформление и язык.
+    private func restartDialog(icon: String, title: Text, perform: @escaping () -> Void) -> some View {
+        GraphiteDialog(
+            icon: icon,
+            title: title,
+            message: Text("Приложение перезапустится, регистрация поднимется заново."),
+            footnote: model.isInCall ? Text("Идущий разговор оборвётся.") : nil,
+            actions: [
+                .init(Text("Оставить как есть"), role: .cancel) { pendingRestart = nil },
+                .init(Text("Перезапустить"), role: .primary) {
+                    pendingRestart = nil
+                    perform()
+                },
+            ]
+        )
     }
 
     /// Переключить оформление: правка и перезапуск.

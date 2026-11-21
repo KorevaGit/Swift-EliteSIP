@@ -91,22 +91,20 @@ struct MaintenanceTab: View {
         // последний. Поэтому каждый висит на своём носителе.
         Color.clear
             .frame(height: 0)
-            .alert(isPresented: $isConfirmingHistoryClear) {
-                Alert(
-                    title: Text("Очистить историю звонков?"),
-                    message: Text("""
-                        Будут удалены записи всех профилей этой машины. Вернуть их \
-                        «Отменой» нельзя. В журнал уйдёт строка с числом записей.
-                        """),
-                    primaryButton: .destructive(Text("Очистить")) {
-                        let removed = model.clearHistory()
-                        show(String.localizedStringWithFormat(
-                            NSLocalizedString("История очищена: записей — %lld.", comment: "итог очистки истории"),
-                            removed
-                        ))
-                    },
-                    secondaryButton: .cancel(Text("Отмена"))
-                )
+            .graphiteConfirmation(
+                isPresented: $isConfirmingHistoryClear,
+                icon: "trash-2",
+                title: Text("Очистить историю звонков?"),
+                message: Text("Будут удалены записи всех профилей этой машины."),
+                footnote: Text("«Отменой» не вернуть; в журнал уйдёт число записей."),
+                confirm: Text("Очистить"),
+                role: .destructive
+            ) {
+                let removed = model.clearHistory()
+                show(String.localizedStringWithFormat(
+                    NSLocalizedString("История очищена: записей — %lld.", comment: "итог очистки истории"),
+                    removed
+                ))
             }
 
         ResetConfirmation(isPresented: $isConfirmingReset) {
