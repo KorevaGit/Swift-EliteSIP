@@ -35,18 +35,18 @@ enum AdministrationSection: String, CaseIterable, Identifiable {
     /// этапа 7 по дорисовке от него не растёт.
     var symbol: String {
         switch self {
-        case .account: "person.crop.circle"
+        case .account: "Lucide/users-round"
         // Своего значка у предустановок в комплекте нет, и новый этап не
         // рисует (долг этапа 7). `person.badge.plus` ближе прочего по смыслу:
         // предустановкой заводят рабочее место.
-        case .pbx: "phone.arrow.right"
-        case .incoming: "bell"
-        case .macros: "square.grid.3x3"
-        case .queues: "person.3.fill"
-        case .history: "clock"
-        case .diagnostics: "stethoscope"
-        case .access: "lock.shield.fill"
-        case .maintenance: "hammer.fill"
+        case .pbx: "Lucide/server"
+        case .incoming: "Lucide/bell"
+        case .macros: "Lucide/grid-3x3"
+        case .queues: "Lucide/list-checks"
+        case .history: "Lucide/history"
+        case .diagnostics: "Lucide/activity"
+        case .access: "Lucide/shield-check"
+        case .maintenance: "Lucide/wrench"
         }
     }
 
