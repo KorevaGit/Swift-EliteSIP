@@ -88,17 +88,23 @@ final class HistoryWriteJournal: @unchecked Sendable {
             data.append(try encoder.encode(operation))
             data.append(0x0A)
         }
+        // POSIX, а не `FileHandle`: его бросающие `write(contentsOf:)` и
+        // `synchronize()` появились только в 10.15.4, а старые на ошибке диска
+        // возбуждают `NSException`, которую Swift не ловит.
         try lock.withLock {
-            let manager = FileManager.default
-            if !manager.fileExists(atPath: url.path) {
-                guard manager.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o600])
-                else { throw CocoaError(.fileWriteUnknown) }
+            let descriptor = open(url.path, O_WRONLY | O_CREAT | O_APPEND, 0o600)
+            guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+            defer { close(descriptor) }
+            try data.withUnsafeBytes { buffer in
+                guard let base = buffer.baseAddress else { return }
+                var written = 0
+                while written < buffer.count {
+                    let count = write(descriptor, base + written, buffer.count - written)
+                    guard count > 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+                    written += count
+                }
             }
-            let handle = try FileHandle(forWritingTo: url)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-            try handle.synchronize()
+            guard fsync(descriptor) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         }
     }
 
