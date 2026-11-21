@@ -204,6 +204,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if ProcessInfo.processInfo.arguments.contains("--administration") {
             showAdministrationWindow(nil)
         }
+        // Настройки на нужном разделе — для сверки оформления:
+        //   EliteSIP.app/Contents/MacOS/EliteSIP --settings audio
+        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--settings") {
+            showSettingsWindow(nil)
+            let arguments = ProcessInfo.processInfo.arguments
+            if index + 1 < arguments.count, let section = ManagerSection(rawValue: arguments[index + 1]) {
+                settingsRouter?.section = section
+            }
+        }
         #endif
         #if DEBUG
         // До автоподключения: сетка макросов должна быть на экране с первого

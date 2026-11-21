@@ -45,12 +45,32 @@ struct ManagerSidebarView: View {
     /// раскладку плавающей вставки. Замер и последствия — в
     /// `AdministrationSidebarView`.
     var body: some View {
-        if usesGlass {
-            list
-        } else {
-            list
-                .compatHiddenScrollBackground()
-                .compatBackground { Color(NSColor.controlBackgroundColor) }
+        // «Управление» — отдельной кнопкой внизу сайдбара, как в Windows 1.0.4:
+        // это не раздел настроек, а вход в другое окно под паролем.
+        VStack(spacing: 0) {
+            if usesGlass {
+                list
+            } else {
+                list
+                    .compatHiddenScrollBackground()
+                    .compatBackground { Color(NSColor.controlBackgroundColor) }
+            }
+            Button { router.isAskingForPassword = true } label: {
+                HStack(spacing: Theme.Metrics.elementSpacing) {
+                    LucideIcon(name: "shield-check", size: Theme.Icon.sidebar)
+                        .compatForeground(Color.accentColor)
+                    Text("Управление")
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, Theme.Metrics.contentPadding + 2)
+                .frame(height: 30)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .hoverHighlight(cornerRadius: Theme.Radius.control)
+            .padding(.horizontal, Theme.Metrics.tightSpacing)
+            .padding(.bottom, Theme.Metrics.sectionSpacing)
         }
     }
 

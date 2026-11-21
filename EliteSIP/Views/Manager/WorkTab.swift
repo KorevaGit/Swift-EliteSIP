@@ -33,7 +33,7 @@ struct WorkTab: View {
     @State private var isAskingForPassword = false
 
     var body: some View {
-        SettingsSection("Рабочее место") {
+        SettingsSection("Рабочее место", icon: "map-pin") {
             SettingsRow("Работа") {
                 Picker("", selection: Binding(
                     get: { model.workplaceSite },
@@ -89,7 +89,7 @@ struct WorkTab: View {
                 .environmentObject(model)
         }
 
-        SettingsSection("Если не подключается") {
+        SettingsSection("Если не подключается", icon: "wrench") {
             SettingsButtonsRow {
                 Button("Исправить сеть") {
                     Task { await model.repairNetwork() }

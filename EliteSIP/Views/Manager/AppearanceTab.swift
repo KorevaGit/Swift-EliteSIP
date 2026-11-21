@@ -46,7 +46,7 @@ struct AppearanceTab: View {
     private var isGlassAvailable: Bool { Theme.Chrome.isGlassAvailable }
 
     var body: some View {
-        SettingsSection("Оформление") {
+        SettingsSection("Тема", icon: "panels-top-left") {
             SettingsRow("Тема") {
                 Picker("", selection: Binding(
                     get: { model.settings.appearance },
@@ -112,7 +112,7 @@ struct AppearanceTab: View {
         // и меняют его один раз при заведении рабочего места, а не по
         // настроению. Стоит после стекла, потому что перезапуска стоят обе
         // настройки, и о нём человек прочитает уже в соседней строке выше.
-        SettingsSection("Язык") {
+        SettingsSection("Язык", icon: "languages") {
             // Как и «Без стекла», выбор не применяется на месте: язык берётся
             // при запуске, и сменить его у открытых окон нельзя. Поэтому
             // переключатель показывает выбранное, а щелчок открывает вопрос —
@@ -223,7 +223,7 @@ private struct BackgroundSection: View {
     }
 
     var body: some View {
-        SettingsSection("Фон") {
+        SettingsSection("Фон", icon: "image") {
             SettingsRow("") {
                 HStack(spacing: Theme.Metrics.sectionSpacing) {
                     preview

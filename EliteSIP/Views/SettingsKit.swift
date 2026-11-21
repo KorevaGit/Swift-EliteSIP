@@ -75,10 +75,13 @@ extension EnvironmentValues {
 struct SettingsSection<Content: View>: View {
 
     private let title: Text
+    /// Значок Lucide у заголовка — как у групп настроек Windows 1.0.4.
+    private var icon: String?
     @ViewBuilder let content: Content
 
-    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey, icon: String? = nil, @ViewBuilder content: () -> Content) {
         self.title = Text(title)
+        self.icon = icon
         self.content = content()
     }
 
@@ -90,8 +93,14 @@ struct SettingsSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
-            title
-                .font(Font.subheadline.weight(.semibold))
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                if let icon {
+                    LucideIcon(name: icon, size: Theme.Icon.large)
+                        .compatForeground(Theme.Palette.textSecondary)
+                }
+                title
+                    .font(Font.subheadline.weight(.semibold))
+            }
 
             VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
                 content
@@ -102,10 +111,9 @@ struct SettingsSection<Content: View>: View {
             .font(.callout)
             .padding(Theme.Metrics.sectionSpacing)
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Тот же слабый слой, что у клавиш панели: он полупрозрачен, и
-            // материал под ним остаётся виден — иначе окно было бы стеклянным
-            // только по краям.
-            .themedControlSurface(cornerRadius: Theme.Radius.surface)
+            // Графитовая карточка, как у групп настроек Windows 1.0.4; в стекле
+            // она полупрозрачна, и материал под ней остаётся виден.
+            .graphiteSurface(.control, cornerRadius: Theme.Radius.surface)
         }
     }
 }
@@ -149,9 +157,15 @@ struct SettingsToggleRow: View {
 
     private let title: Text
     @Binding var isOn: Bool
+    /// Значок Lucide перед подписью и пояснение в подсказке вместо абзаца —
+    /// «меньше текста, больше визуала» Windows 1.0.4.
+    private var icon: String?
+    private var hint: String?
 
-    init(_ title: LocalizedStringKey, isOn: Binding<Bool>) {
+    init(_ title: LocalizedStringKey, icon: String? = nil, hint: String? = nil, isOn: Binding<Bool>) {
         self.title = Text(title)
+        self.icon = icon
+        self.hint = hint
         self._isOn = isOn
     }
 
@@ -174,9 +188,16 @@ struct SettingsToggleRow: View {
                 // Ширину забирает подпись, а не тумблер: иначе у переносящейся
                 // подписи тумблер прижимается к ней вплотную и уезжает с той
                 // вертикали, на которой стоят остальные.
-                title
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: Theme.Metrics.elementSpacing) {
+                    if let icon {
+                        LucideIcon(name: icon, size: Theme.Icon.large)
+                            .compatForeground(Theme.Palette.textSecondary)
+                    }
+                    title
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .compatHelp(verbatim: hint ?? "")
             }
             .compatSwitchToggle()
         }

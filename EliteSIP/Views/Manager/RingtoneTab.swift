@@ -14,7 +14,7 @@ struct RingtoneTab: View {
     @State private var soundProblem: String?
 
     var body: some View {
-        SettingsSection("Звонок") {
+        SettingsSection("Мелодия вызова", icon: "bell") {
             SettingsToggleRow("Проигрывать рингтон", isOn: Binding(
                 get: { model.settings.ringtone.isEnabled },
                 set: { model.settings.ringtone.isEnabled = $0 }
@@ -82,7 +82,7 @@ struct RingtoneTab: View {
 
         // Своим разделом, а не строкой выше: тот гаснет вместе с рингтоном, а
         // тоны клавиш от рингтона не зависят.
-        SettingsSection("Звуки набора и разговора") {
+        SettingsSection("Звуки набора и разговора", icon: "volume-2") {
             SettingsToggleRow("Тоны клавиш и сигналы разговора", isOn: Binding(
                 get: { model.settings.ringtone.callSoundsEnabled },
                 set: { model.settings.ringtone.callSoundsEnabled = $0 }

@@ -13561,6 +13561,166 @@
           }
         }
       }
+    },
+    "Система": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Система"
+          }
+        }
+      }
+    },
+    "Обработка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processing"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обработка"
+          }
+        }
+      }
+    },
+    "Самопроверка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Self-test"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Самопроверка"
+          }
+        }
+      }
+    },
+    "Мелодия вызова": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ringtone"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мелодия вызова"
+          }
+        }
+      }
+    },
+    "Без системного эхоподавления": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No system echo cancellation"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без системного эхоподавления"
+          }
+        }
+      }
+    },
+    "Разные устройства: на колонках собеседник услышит себя, в наушниках — нет.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Different devices: on speakers the other party will hear themselves, on headphones they won't."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разные устройства: на колонках собеседник услышит себя, в наушниках — нет."
+          }
+        }
+      }
+    },
+    "Усиление считает система; ползунок «Усиление» при этом заперт.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The system sets the gain; the Gain slider is locked."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Усиление считает система; ползунок «Усиление» при этом заперт."
+          }
+        }
+      }
+    },
+    "Всё, что заметно тише вашего голоса, — коллеги рядом, телевизор — в паузах приглушается. Если у вас пропадают начала или концы фраз, выключите.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anything much quieter than your voice — colleagues nearby, a TV — is muted in pauses. If the starts or ends of your phrases get cut, turn it off."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё, что заметно тише вашего голоса, — коллеги рядом, телевизор — в паузах приглушается. Если у вас пропадают начала или концы фраз, выключите."
+          }
+        }
+      }
+    },
+    "Тихого собеседника подтягивает, громкого — приглушает.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raises a quiet caller, lowers a loud one."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тихого собеседника подтягивает, громкого — приглушает."
+          }
+        }
+      }
+    },
+    "Пять секунд записи, затем запись прозвучит в наушниках.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Five seconds of recording, then it plays back in your headphones."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пять секунд записи, затем запись прозвучит в наушниках."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

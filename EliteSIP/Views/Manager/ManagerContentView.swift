@@ -25,7 +25,6 @@ struct ManagerContentView: View {
     @EnvironmentObject private var router: ManagerRouter
 
     /// Показывать ли окно ввода административного пароля.
-    @State private var isAskingForPassword = false
 
     /// Корпус, в котором собрана эта половина. Не `Theme.Chrome`: см.
     /// `windowUsesGlass`.
@@ -52,10 +51,7 @@ struct ManagerContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            content
-            footer
-        }
+        content
         // Низ — по вставке сайдбара: поля вставки достаются только ему, и без
         // этого правая половина кончается ниже левой. Сверху половина
         // равняется не на вставку, а на светофор (`contentTopInset`): вставки
@@ -78,8 +74,8 @@ struct ManagerContentView: View {
         // выбранную строку сайдбара в полутора сантиметрах левее. Нужен он в
         // переключателе окон и в Mission Control — там сайдбара не видно.
         .compatBackground { WindowTitle(title: router.section.title) }
-        .sheet(isPresented: $isAskingForPassword) {
-            AdminUnlockView(isPresented: $isAskingForPassword)
+        .sheet(isPresented: $router.isAskingForPassword) {
+            AdminUnlockView(isPresented: $router.isAskingForPassword)
                 .environmentObject(model)
         }
     }
@@ -91,10 +87,11 @@ struct ManagerContentView: View {
             VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
                 switch router.section {
                 case .work: WorkTab()
-                case .audio: AudioTab()
-                case .ringtone: RingtoneTab()
+                case .audio:
+                    AudioTab()
+                    RingtoneTab()
                 case .appearance: AppearanceTab()
-                case .support: SupportTab()
+                case .system: SupportTab()
                 }
             }
             .padding(.horizontal, Theme.Metrics.contentPadding)
@@ -128,30 +125,4 @@ struct ManagerContentView: View {
     /// раздела, а не с одного места внизу страницы. Заметной она от этого не
     /// становится — кнопка обычная, а не акцентная, и подпись предупреждает о
     /// пароле до нажатия, а не после.
-    private var footer: some View {
-        HStack(spacing: Theme.Metrics.sectionSpacing) {
-            CompatSymbol(name: "lock.shield.fill")
-                .compatForeground(Theme.Palette.textSecondary)
-
-            VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
-                Text("Режим администратора")
-                // Предупреждение, а не объяснение: перечислять, что лежит за
-                // дверью, менеджеру незачем — он туда не идёт; а вот знать, что
-                // дверь заперта, надо до нажатия, иначе запрос пароля выглядит
-                // отказом.
-                Text("Требуется пароль")
-                    .font(.footnote)
-                    .compatForeground(.secondary)
-            }
-
-            Spacer()
-
-            // Шеврон — потому что кнопка ведёт в другое окно. Оно и заменяет
-            // собой это: «Управление» закрывает настройки, а не встаёт рядом.
-            Button("Управление \u{203A}") { isAskingForPassword = true }
-        }
-        .controlSize(.small)
-        .padding(.horizontal, Theme.Metrics.contentPadding)
-        .padding(.vertical, Theme.Metrics.sectionSpacing)
-    }
 }

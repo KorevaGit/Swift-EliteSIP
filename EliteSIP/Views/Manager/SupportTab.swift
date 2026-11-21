@@ -29,7 +29,7 @@ struct SupportTab: View {
     }
 
     var body: some View {
-        SettingsSection("Техподдержка") {
+        SettingsSection("Техподдержка", icon: "files") {
             SettingsNote("""
                 Архив с журналом и сведениями о системе: по нему в поддержке \
                 разбирают, что случилось со звонком.

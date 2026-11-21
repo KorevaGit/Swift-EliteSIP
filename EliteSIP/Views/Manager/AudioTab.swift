@@ -35,7 +35,7 @@ struct AudioTab: View {
     private var showsLevels: Bool { model.isInCall || model.isSelfTestRunning }
 
     var body: some View {
-        SettingsSection("Звук") {
+        SettingsSection("Разговор", icon: "headset") {
             AudioDeviceRow(
                 title: "Микрофон",
                 systemTitle: "Системный по умолчанию",
@@ -86,9 +86,6 @@ struct AudioTab: View {
             // подсказок в интерфейсе нет, и «контрол серый и молчит» —
             // худший вид отказа. Строка появляется только тогда, когда
             // объяснять есть что.
-            if model.settings.audio.automaticGainControl {
-                SettingsNote("Усиление считает система: чтобы поставить его руками, выключите автоматическую регулировку ниже.")
-            }
 
             AudioDeviceRow(
                 title: "Наушники",
@@ -132,57 +129,72 @@ struct AudioTab: View {
             // формулировка пугала им всегда, то есть чаще всего впустую, и
             // набрана была красным.
             if needsAggregate {
-                SettingsNote("""
-                    Разные устройства: системного эхоподавления не будет. \
-                    На колонках собеседник услышит себя, в наушниках — нет.
-                    """)
+                // Одной строкой со значком: подробность — в подсказке.
+                HStack(spacing: Theme.Metrics.elementSpacing) {
+                    LucideIcon(name: "speaker", size: Theme.Icon.medium)
+                    Text("Без системного эхоподавления")
+                        .font(.footnote)
+                }
+                .compatForeground(Theme.Palette.caution)
+                .compatHelp("Разные устройства: на колонках собеседник услышит себя, в наушниках — нет.")
             }
+        }
 
-            SettingsToggleRow("Автоматическая регулировка усиления", isOn: Binding(
-                get: { model.settings.audio.automaticGainControl },
-                set: { model.settings.audio.automaticGainControl = $0 }
-            ))
+        // «Обработка» — как в Windows 1.0.4: значок у каждого обработчика,
+        // пояснения в подсказках, а не абзацами.
+        SettingsSection("Обработка", icon: "sliders-horizontal") {
+            SettingsToggleRow(
+                "Автоматическая регулировка усиления",
+                icon: "mic",
+                hint: NSLocalizedString("Усиление считает система; ползунок «Усиление» при этом заперт.", comment: "подсказка обработки"),
+                isOn: Binding(
+                    get: { model.settings.audio.automaticGainControl },
+                    set: { model.settings.audio.automaticGainControl = $0 }
+                )
+            )
 
-            // Шумодав Voice Processing вычитает ровный фон и пропускает любую
-            // речь — чужую тоже. Для неё отдельный блок; меняется посреди
-            // разговора.
-            SettingsToggleRow("Приглушать голоса вокруг", isOn: Binding(
-                get: { model.settings.audio.backgroundVoiceSuppression },
-                set: { model.settings.audio.backgroundVoiceSuppression = $0 }
-            ))
-            SettingsNote("""
-                Системный шумодав убирает ровный фон, а чужую речь не трогает: \
-                для неё этот переключатель. Всё, что заметно тише вашего голоса, — \
-                коллеги рядом, телевизор — в паузах приглушается. Лучше всего \
-                работает на гарнитуре с микрофоном у рта; на микрофоне ноутбука \
-                громкий сосед рядом всё равно будет слышен. Если собеседник \
-                жалуется, что у вас пропадают начала или концы фраз, выключите.
-                """)
+            SettingsToggleRow(
+                "Приглушать голоса вокруг",
+                icon: "users-round",
+                hint: NSLocalizedString(
+                    "Всё, что заметно тише вашего голоса, — коллеги рядом, телевизор — в паузах приглушается. Если у вас пропадают начала или концы фраз, выключите.",
+                    comment: "подсказка обработки"
+                ),
+                isOn: Binding(
+                    get: { model.settings.audio.backgroundVoiceSuppression },
+                    set: { model.settings.audio.backgroundVoiceSuppression = $0 }
+                )
+            )
 
-            SettingsToggleRow("Выравнивать громкость собеседника", isOn: Binding(
-                get: { model.settings.audio.receiveLeveling },
-                set: { model.settings.audio.receiveLeveling = $0 }
-            ))
+            SettingsToggleRow(
+                "Выравнивать громкость собеседника",
+                icon: "audio-lines",
+                hint: NSLocalizedString("Тихого собеседника подтягивает, громкого — приглушает.", comment: "подсказка обработки"),
+                isOn: Binding(
+                    get: { model.settings.audio.receiveLeveling },
+                    set: { model.settings.audio.receiveLeveling = $0 }
+                )
+            )
+        }
 
-            SettingsDivider()
-
-            // Проверка и шкалы — один блок. Шкалы нужны ровно затем, чтобы
-            // видеть, как звучишь и слышишь, а это видно, только пока тракт
-            // открыт: проверкой или разговором. Отдельно от проверки они либо
-            // лежали бы на нуле, либо держали бы микрофон сами — и второе
-            // оказалось хуже первого (см. `showsLevels`).
-            SettingsNote("""
-                Скажите фразу — шкала «Голос» покажет, как вас слышно. \
-                Через пять секунд запись прозвучит в наушниках, и отзовётся шкала «Звук». \
-                Микрофон занят только на время проверки.
-                """)
-
+        SettingsSection("Самопроверка", icon: "mic-vocal") {
             SettingsButtonsRow {
                 if model.isSelfTestRunning {
-                    Button("Остановить") { model.cancelVoiceSelfTest() }
+                    Button(action: { model.cancelVoiceSelfTest() }) {
+                        HStack(spacing: Theme.Metrics.tightSpacing) {
+                            LucideIcon(name: "square", size: Theme.Icon.medium)
+                            Text("Остановить")
+                        }
+                    }
                 } else {
-                    Button("Проверить микрофон и звук") { model.startVoiceSelfTest() }
-                        .disabled(!model.canStartSelfTest)
+                    Button(action: { model.startVoiceSelfTest() }) {
+                        HStack(spacing: Theme.Metrics.tightSpacing) {
+                            LucideIcon(name: "mic", size: Theme.Icon.medium)
+                            Text("Проверить микрофон и звук")
+                        }
+                    }
+                    .disabled(!model.canStartSelfTest)
+                    .compatHelp("Пять секунд записи, затем запись прозвучит в наушниках.")
                 }
             }
 
