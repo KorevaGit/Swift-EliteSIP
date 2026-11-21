@@ -81,6 +81,8 @@ struct CallHistoryWindowView: View {
             }
         }
         .compatBackground { WindowTitle(title: windowTitle) }
+        // Тот же уровень, что у экрана вызова, — см. `AppModel.windowLevel`.
+        .compatBackground { WindowLevel(level: model.windowLevel) }
         // Флаг маски — при открытии и до закрытия; список это не трогает.
         .onAppear { masksMobileNumbers = model.settings.masksMobileNumbers }
         .onDisappear { masksMobileNumbers = nil }

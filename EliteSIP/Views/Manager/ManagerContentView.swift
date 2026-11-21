@@ -74,6 +74,8 @@ struct ManagerContentView: View {
         // выбранную строку сайдбара в полутора сантиметрах левее. Нужен он в
         // переключателе окон и в Mission Control — там сайдбара не видно.
         .compatBackground { WindowTitle(title: router.section.title) }
+        // Тот же уровень, что у экрана вызова, — см. `AppModel.windowLevel`.
+        .compatBackground { WindowLevel(level: model.windowLevel) }
         .sheet(isPresented: $router.isAskingForPassword) {
             AdminUnlockView(isPresented: $router.isAskingForPassword)
                 .environmentObject(model)

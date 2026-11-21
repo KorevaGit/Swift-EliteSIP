@@ -86,6 +86,8 @@ struct AdministrationContentView: View {
         // полутора сантиметрах левее. Здесь оно ставится ради переключателя
         // окон — там сайдбара не видно.
         .compatBackground { WindowTitle(title: router.section.title) }
+        // Тот же уровень, что у экрана вызова, — см. `AppModel.windowLevel`.
+        .compatBackground { WindowLevel(level: model.windowLevel) }
     }
 
     /// Единственный порог перестроения списков в два столбца.

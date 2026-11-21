@@ -139,9 +139,7 @@ struct PhonePanelView: View {
         }
         // Поверх чужих окон — в разговоре всегда: там до «Завершить» тянутся не
         // глядя. В покое — по выбору «Поверх всех окон» в «Работе».
-        .compatBackground {
-            WindowLevel(level: model.isInCall || model.settings.panelAlwaysOnTop ? .floating : .normal)
-        }
+        .compatBackground { WindowLevel(level: model.windowLevel) }
         // Наименьшая высота — вместе с полосой заголовка: при
         // `.fullSizeContentView` содержимое и рамка окна это одно и то же.
         .compatBackground { PanelHeight(minimumHeight: minimumPanelHeight) }

@@ -1079,6 +1079,17 @@ final class AppModel: ObservableObject {
     var callPhase: CallPhase { activeLine?.phase ?? .idle }
     var callPeer: String { activeLine?.peer ?? "" }
     var isInCall: Bool { !lines.isEmpty }
+
+    /// Уровень окон приложения: поверх чужих — в разговоре всегда, в покое по
+    /// выбору «Поверх всех окон».
+    ///
+    /// Один на все окна, а не только на экран вызова: иначе поднятая панель
+    /// перекрывала свои же историю и настройки, и достать их из-под неё было
+    /// нечем. На одном уровне окна ведут себя между собой как обычно — сверху
+    /// то, по которому щёлкнули.
+    var windowLevel: NSWindow.Level {
+        isInCall || settings.panelAlwaysOnTop ? .floating : .normal
+    }
     var isOnHold: Bool { activeLine?.isOnHold ?? false }
     var isRemotelyHeld: Bool { activeLine?.isRemotelyHeld ?? false }
     /// Кнопка микрофона — общая для всех линий и для покоя, см.

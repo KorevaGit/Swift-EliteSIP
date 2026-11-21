@@ -64,6 +64,8 @@ struct SIPTraceWindowView: View {
                 .themedPanelSurface(cornerRadius: 0)
                 .compatIgnoreSafeArea()
         }
+        // Тот же уровень, что у экрана вызова, — см. `AppModel.windowLevel`.
+        .compatBackground { WindowLevel(level: model.windowLevel) }
     }
 
     /// Ветка по версии здесь не косметическая, а по наличию API:
