@@ -210,6 +210,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 administrationRouter?.section = section
             }
         }
+        // Меню значка — для сверки значков: EliteSIP --menu
+        if ProcessInfo.processInfo.arguments.contains("--menu"), let menu = phoneMenuInStatusItem?.menu {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                menu.popUp(positioning: nil, at: NSPoint(x: 400, y: 700), in: nil)
+            }
+        }
         // Вопрос в графитовом оформлении — для сверки: EliteSIP --dialog
         if ProcessInfo.processInfo.arguments.contains("--dialog") {
             let dialog = GraphiteDialogWindow(

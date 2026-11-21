@@ -9,3 +9,4 @@
 - Debug для запуска: добавить `ONLY_ACTIVE_ARCH=NO ARCHS="x86_64 arm64" CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=""` и скопировать `.app` в `build/debug/`.
 - Скрипты `Tools/check-strings.py`/`sync-strings.py` ищут DerivedData по умолчанию (`/Volumes/EliteDev`); без него ключи вносятся в `EliteSIP/Localizable.xcstrings` вручную, без пересортировки.
 - Иконка: `swift Tools/makeAppIcon.swift` из корня; геометрия знака повторена в `EliteSIP/Theme/BrandMark.swift`.
+- Отладочные ключи Debug для снимков без мыши: `--appearance light|dark`, `--settings <раздел>`, `--administration connection|macros|incoming|system|spark`, `--history`, `--first-run welcome|user|appearance|finale`, `--demo-incoming`, `--dialog` (графитовый вопрос), `--menu` (меню значка). Снимок окна: `screencapture -x -o -l <windowID>`; ID — через `CGWindowListCopyWindowInfo`.

@@ -79,6 +79,7 @@ final class PhoneMenuController: NSObject, NSMenuDelegate {
 
         let status = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         status.isEnabled = false
+        status.image = Self.icon("crown-split")
         menu.addItem(status)
 
         menu.addItem(.separator())
@@ -89,23 +90,24 @@ final class PhoneMenuController: NSObject, NSMenuDelegate {
             title: actions.isPanelVisible()
                 ? NSLocalizedString("Скрыть панель", comment: "пункт меню значка")
                 : NSLocalizedString("Показать панель", comment: "пункт меню значка"),
-            key: "0"
+            key: "0",
+            icon: "monitor"
         ) { [weak self] in self?.actions.togglePanel() }
 
-        add(title: NSLocalizedString("История звонков", comment: "пункт меню значка"), key: "y") { [weak self] in self?.actions.showHistory() }
+        add(title: NSLocalizedString("История звонков", comment: "пункт меню значка"), key: "y", icon: "history") { [weak self] in self?.actions.showHistory() }
 
         // Без клавиши: ⌘, стоит на «Настройках…» в меню приложения, где их и
         // ищут по системной привычке. Две одинаковые клавиши в одной строке
         // меню — это не два входа, а один: система находит первый и до второго
         // не доходит.
-        add(title: NSLocalizedString("Настройки…", comment: "пункт меню значка"), key: "") { [weak self] in self?.actions.showSettings() }
+        add(title: NSLocalizedString("Настройки…", comment: "пункт меню значка"), key: "", icon: "sliders-horizontal") { [weak self] in self?.actions.showSettings() }
 
         menu.addItem(.separator())
 
         // Уход с линии — единственное здесь, что меняет состояние телефона.
         // Держится в меню потому, что сняться на обед надо каждый день, а ради
         // этого иначе приходится разворачивать панель.
-        let offline = add(title: NSLocalizedString("Не беспокоить", comment: "пункт меню значка"), key: "") { [weak self] in
+        let offline = add(title: NSLocalizedString("Не беспокоить", comment: "пункт меню значка"), key: "", icon: "power") { [weak self] in
             self?.actions.toggleOffline()
         }
         offline.state = model.isOfflineByChoice ? .on : .off
@@ -116,12 +118,13 @@ final class PhoneMenuController: NSObject, NSMenuDelegate {
         guard showsQuit else { return }
 
         menu.addItem(.separator())
-        add(title: NSLocalizedString("Завершить EliteSIP", comment: "пункт меню значка"), key: "") { NSApp.terminate(nil) }
+        add(title: NSLocalizedString("Завершить EliteSIP", comment: "пункт меню значка"), key: "", icon: "unplug") { NSApp.terminate(nil) }
     }
 
     @discardableResult
-    private func add(title: String, key: String, action: @escaping () -> Void) -> NSMenuItem {
+    private func add(title: String, key: String, icon: String, action: @escaping () -> Void) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: #selector(MenuAction.run), keyEquivalent: key)
+        item.image = Self.icon(icon)
         let target = MenuAction(action)
         item.target = target
         // Цель у `NSMenuItem` слабая, поэтому обёртку держит сам пункт: иначе
@@ -131,6 +134,15 @@ final class PhoneMenuController: NSObject, NSMenuDelegate {
         item.isEnabled = true
         menu.addItem(item)
         return item
+    }
+
+    /// Значок пункта — тот же Lucide, что у меню значка в Windows 1.0.4.
+    /// Шаблонный: цвет и подсветку пункта рисует сама система.
+    private static func icon(_ name: String) -> NSImage? {
+        guard let source = NSImage(named: "Lucide/\(name)"), let image = source.copy() as? NSImage else { return nil }
+        image.size = NSSize(width: 16, height: 16)
+        image.isTemplate = true
+        return image
     }
 }
 
