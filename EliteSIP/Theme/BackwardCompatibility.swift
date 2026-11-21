@@ -661,9 +661,10 @@ extension Binding {
     /// Та же привязка, но запись уходит после прохода обновления — см.
     /// `afterViewUpdate`. Для привязок, за которыми стоит `@Published`.
     func deferred() -> Binding<Value> {
-        Binding(
-            get: { wrappedValue },
-            set: { value in afterViewUpdate { wrappedValue = value } }
+        let source = UncheckedSendable(value: self)
+        return Binding(
+            get: { source.value.wrappedValue },
+            set: { value in afterViewUpdate { source.value.wrappedValue = value } }
         )
     }
 }

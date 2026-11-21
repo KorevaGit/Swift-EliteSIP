@@ -66,7 +66,6 @@ struct DiagnosticsTab: View {
         }
 
         LogFileSection()
-        AudioProbeSection()
     }
 
     private func value(_ text: String) -> some View {
@@ -161,23 +160,6 @@ private struct LogFileSection: View {
                 format: NSLocalizedString("Не удалось собрать архив: %@", comment: "архив для поддержки не собрался"),
                 error.localizedDescription
             )
-        }
-    }
-}
-
-// MARK: - Прибор
-
-/// Что происходит в звуковом тракте прямо сейчас.
-///
-/// Переехало из упразднённого раздела «Звук» вместе с индикаторами уровня.
-/// Показывается только в разговоре: вне его тракта нет, и пустые строки
-/// «маршрут — нет» отвечали бы на незаданный вопрос.
-private struct AudioProbeSection: View {
-
-    @EnvironmentObject private var model: AppModel
-
-    var body: some View {
-        if let route = model.audioRoute {
         }
     }
 }

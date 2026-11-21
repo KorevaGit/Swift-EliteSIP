@@ -15,7 +15,9 @@ struct GraphiteDialog: View {
     enum Role {
         /// Главное действие: акцентная кнопка и Enter.
         case primary
-        /// Главное действие, которое что-то стирает или обрывает.
+        /// Главное действие, которое что-то стирает или обрывает. Enter его
+        /// не нажимает: стереть историю или оборвать разговор случайным
+        /// нажатием нельзя, для этого тянутся мышью.
         case destructive
         /// Отказ: Esc.
         case cancel
@@ -38,11 +40,32 @@ struct GraphiteDialog: View {
         }
     }
 
+    /// Список на карточке — «Что нового» в предложении обновиться.
+    struct Listing {
+        let icon: String
+        let heading: Text
+        let items: [String]
+    }
+
+    /// Строка под карточкой: значок и короткий факт.
+    struct Remark: Identifiable {
+        let id = UUID()
+        let icon: String
+        let text: Text
+        var isPositive = false
+    }
+
     let icon: String
     let title: Text
+    /// Вторая строка шапки: «EliteSIP 0.1.71 → 0.1.72».
+    var subtitle: Text?
     var message: Text?
+    var listing: Listing?
     /// То, что надо прочесть, но что не сам вопрос: «вернуть нельзя».
     var footnote: Text?
+    var remarks: [Remark] = []
+    /// Слева от кнопок, вторым планом: «Напомним через 4 часа».
+    var caption: Text?
     /// Слева направо, как стоят на экране.
     let actions: [Action]
 
@@ -52,16 +75,29 @@ struct GraphiteDialog: View {
                 LucideIcon(name: icon, size: 20)
                     .frame(width: 40, height: 40)
                     .graphiteSurface(.control, cornerRadius: 20)
-                title
-                    .font(Font.system(size: 17, weight: .semibold))
+                VStack(alignment: .leading, spacing: 2) {
+                    title
+                        .font(Font.system(size: 17, weight: .semibold))
+                    if let subtitle {
+                        subtitle
+                            .font(.footnote)
+                            .compatForeground(Theme.Palette.textSecondary)
+                    }
+                }
             }
 
-            if message != nil || footnote != nil {
+            if message != nil || footnote != nil || listing != nil {
                 VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
                     if let message {
                         message
                             .font(.callout)
                             .compatForeground(Theme.Palette.textSecondary)
+                            // Не сжимается в одну строку с многоточием, если
+                            // окну досталось меньше высоты, чем нужно.
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let listing {
+                        self.list(listing)
                     }
                     if let footnote {
                         HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.tightSpacing) {
@@ -77,7 +113,32 @@ struct GraphiteDialog: View {
                 .graphiteSurface(.control)
             }
 
+            if !remarks.isEmpty {
+                VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing + 2) {
+                    ForEach(remarks) { remark in
+                        HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
+                            LucideIcon(name: remark.icon, size: Theme.Icon.medium)
+                                .compatForeground(
+                                    remark.isPositive ? Theme.Palette.registered : Theme.Palette.textSecondary
+                                )
+                            remark.text
+                                .compatForeground(
+                                    remark.isPositive ? Theme.Palette.textPrimary : Theme.Palette.textSecondary
+                                )
+                        }
+                        .font(.footnote)
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+
             HStack(spacing: Theme.Metrics.elementSpacing) {
+                if let caption {
+                    caption
+                        .font(.footnote)
+                        .compatForeground(Theme.Palette.textSecondary)
+                        .lineLimit(1)
+                }
                 Spacer()
                 ForEach(actions) { action in
                     button(for: action)
@@ -87,6 +148,35 @@ struct GraphiteDialog: View {
         .padding(Theme.Metrics.contentPadding)
         .frame(width: Self.width)
     }
+
+    /// Пункты списка. Короткий список стоит как есть, длинный прокручивается:
+    /// окно не должно вырастать выше экрана из-за подробных заметок.
+    @ViewBuilder
+    private func list(_ listing: Listing) -> some View {
+        HStack(spacing: Theme.Metrics.elementSpacing) {
+            LucideIcon(name: listing.icon, size: Theme.Icon.medium)
+            listing.heading.font(Font.callout.weight(.semibold))
+        }
+        let rows = VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
+            ForEach(Array(listing.items.enumerated()), id: \.offset) { _, item in
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Metrics.elementSpacing) {
+                    Text(verbatim: "•").compatForeground(Theme.Palette.textSecondary)
+                    Text(verbatim: item).fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.callout)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        if listing.items.count > Self.listingRowsBeforeScroll {
+            ScrollView { rows }.frame(height: Self.listingScrollHeight)
+        } else {
+            rows
+        }
+    }
+
+    private static let listingRowsBeforeScroll = 6
+    /// `MaxHeight="224"` у списка заметок в окне обновления Windows.
+    private static let listingScrollHeight: CGFloat = 224
 
     /// 420, как у Windows без полей окна: у коротких вопросов не остаётся
     /// пустого поля, а длинные не растягиваются в строку на весь экран.
@@ -104,7 +194,6 @@ struct GraphiteDialog: View {
         case .destructive:
             button
                 .compatForeground(action.isDisabled ? Theme.Palette.textSecondary : Theme.Palette.failure)
-                .compatKeyboardShortcut("\r", modifiers: [])
         case .cancel:
             button.compatCancelShortcut()
         case .normal:
@@ -162,13 +251,24 @@ final class GraphiteDialogWindow {
 
     /// - Parameter buttons: в порядке `NSAlert`: первая — главное действие.
     ///   На экране они встают справа налево, как у системного вопроса.
-    init(icon: String, title: String, message: String?, footnote: String? = nil, buttons: [Button]) {
-        window = NSPanel(
+    init(
+        icon: String,
+        title: String,
+        subtitle: String? = nil,
+        message: String?,
+        listing: GraphiteDialog.Listing? = nil,
+        footnote: String? = nil,
+        remarks: [GraphiteDialog.Remark] = [],
+        caption: String? = nil,
+        buttons: [Button]
+    ) {
+        let panel = DialogPanel(
             contentRect: .zero,
             styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: true
         )
+        window = panel
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
@@ -179,27 +279,44 @@ final class GraphiteDialogWindow {
         window.standardWindowButton(.zoomButton)?.isHidden = true
         window.backgroundColor = Graphite.windowBackground
 
+        func response(_ index: Int) -> NSApplication.ModalResponse {
+            NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.alertFirstButtonReturn.rawValue + index)
+        }
         let actions = buttons.enumerated().reversed().map { index, button in
             GraphiteDialog.Action(Text(verbatim: button.title), role: button.role) { [weak self] in
-                self?.finish(NSApplication.ModalResponse(
-                    rawValue: NSApplication.ModalResponse.alertFirstButtonReturn.rawValue + index
-                ))
+                self?.finish(response(index))
             }
+        }
+        // Клавиши и там, где SwiftUI их не умеет (Catalina): Esc — отказ,
+        // Enter — главное действие, но не разрушающее.
+        if let index = buttons.firstIndex(where: { $0.role == .cancel }) {
+            panel.onCancel = { [weak self] in self?.finish(response(index)) }
+        }
+        if let index = buttons.firstIndex(where: { $0.role == .primary }) {
+            panel.onDefault = { [weak self] in self?.finish(response(index)) }
         }
         let view = GraphiteDialog(
             icon: icon,
             title: Text(verbatim: title),
+            subtitle: subtitle.map { Text(verbatim: $0) },
             message: message.map { Text(verbatim: $0) },
+            listing: listing,
             footnote: footnote.map { Text(verbatim: $0) },
+            remarks: remarks,
+            caption: caption.map { Text(verbatim: $0) },
             actions: actions
         )
         // Полоса заголовка прозрачна и пуста — содержимое заходит под неё,
         // иначе над значком остаётся пустая строка высотой с заголовок.
-        // Вид, а не `NSHostingController`: контроллер сам подгоняет окно под
-        // содержимое вместе с полосой заголовка и оставляет снизу пустое поле.
-        window.contentView = NSHostingView(rootView: view.edgesIgnoringSafeArea(.top))
-        // Размер — по содержимому вне окна: внутри окна в него входит и
-        // полоса заголовка, и снизу оставалось пустое поле той же высоты.
+        let host = FullBleedHostingView(rootView: view.edgesIgnoringSafeArea(.all))
+        if #available(macOS 13.0, *) {
+            // Вид не диктует окну размер: свой он считает вместе с полосой
+            // заголовка, и окно выходило выше содержимого — под кнопками
+            // оставалось лишнее поле.
+            host.sizingOptions = []
+        }
+        window.contentView = host
+        // Размер — по содержимому вне окна, без полосы заголовка.
         let size = NSHostingController(rootView: view)
             .sizeThatFits(in: NSSize(width: GraphiteDialog.width, height: 2000))
         window.setFrame(NSRect(origin: .zero, size: size), display: false)
@@ -234,6 +351,39 @@ final class GraphiteDialogWindow {
             window.orderOut(nil)
             completion?(response)
             completion = nil
+        }
+    }
+}
+
+/// Содержимое на всю панель, включая место под прозрачной полосой заголовка.
+///
+/// `edgesIgnoringSafeArea` одного мало: SwiftUI всё равно предлагает содержимому
+/// высоту за вычетом полосы, сообщение сжималось в строку с многоточием, а под
+/// кнопками оставалось поле на высоту полосы.
+private final class FullBleedHostingView<Content: View>: NSHostingView<Content> {
+
+    @available(macOS 11.0, *)
+    override var safeAreaInsets: NSEdgeInsets { NSEdgeInsets() }
+}
+
+/// Панель вопроса: клавиши Esc и Enter без помощи SwiftUI.
+private final class DialogPanel: NSPanel {
+
+    var onCancel: (() -> Void)?
+    var onDefault: (() -> Void)?
+
+    override var canBecomeKey: Bool { true }
+
+    override func cancelOperation(_ sender: Any?) {
+        onCancel?()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        // 36 — Return, 76 — Enter цифрового блока.
+        if event.keyCode == 36 || event.keyCode == 76, let onDefault {
+            onDefault()
+        } else {
+            super.keyDown(with: event)
         }
     }
 }

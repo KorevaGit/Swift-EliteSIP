@@ -368,8 +368,16 @@ private struct BackgroundSection: View {
         }
     }
 
+    /// «Без обоев»: тема «Цвета обоев» без картинки не существует и
+    /// возвращается к системной — как `ResetBackground` в Windows.
     private func reset() {
         Wallpaper.remove()
-        model.settings.background.isEnabled = false
+        var settings = model.settings
+        if settings.background.tintsInterface {
+            settings.background.tintsInterface = false
+            settings.appearance = .system
+        }
+        settings.background.isEnabled = false
+        model.settings = settings
     }
 }

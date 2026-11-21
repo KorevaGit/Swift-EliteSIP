@@ -163,6 +163,9 @@ extension AppModel {
 
         try? FileManager.default.removeItem(at: AppSettings.CallHistorySettings.fileURL)
         try? FileManager.default.removeItem(at: SettingsStore.fileURL)
+        // Картинка обоев лежит рядом с настройками и уходит вместе с ними:
+        // иначе на сброшенной машине остался бы файл прежнего оператора.
+        Wallpaper.remove()
         // Привязка — вместе с настройками, а не отдельным решением: в ней
         // ключ машины и пароль SIP, и пережить стирание настроек она не имеет
         // права. Сброшенная машина покажет новый код, и её привяжут заново.
