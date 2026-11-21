@@ -29,74 +29,115 @@ struct SupportTab: View {
     }
 
     var body: some View {
-        SettingsSection("Техподдержка", icon: "files") {
-            SettingsNote("""
-                Архив с журналом и сведениями о системе: по нему в поддержке \
-                разбирают, что случилось со звонком.
-                """)
+        // «Система» Windows 1.0.4: «Приложение» — версия, обновления, архив;
+        // «Spark» — схема связи, машина и предустановка. Строки со значками и
+        // действиями справа, а не абзацы.
+        SettingsSection("Приложение", icon: "package") {
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                LucideIcon(name: "crown-split", size: 20)
+                Text(verbatim: "EliteSIP").font(.callout.weight(.semibold))
+                Spacer()
+                Text(verbatim: appVersion)
+                    .compatMonospacedDigit()
+                    .compatForeground(Theme.Palette.textSecondary)
+            }
 
-            SettingsButtonsRow {
-                Button("Собрать логи") { Task { await makeArchive() } }
-                    .disabled(!model.settings.logFile.isEnabled)
+            SettingsDivider()
+
+            UpdateCheckRow(isChecking: model.isCheckingForUpdates, result: model.updateCheckResult)
+
+            SettingsDivider()
+
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                LucideIcon(name: "archive", size: Theme.Icon.large + 2)
+                    .compatForeground(Theme.Palette.textSecondary)
+                Text("Архив для поддержки")
+                Spacer()
+                Button(action: { Task { await makeArchive() } }) {
+                    HStack(spacing: Theme.Metrics.tightSpacing) {
+                        LucideIcon(name: "files", size: Theme.Icon.medium)
+                        Text("Собрать")
+                    }
+                }
+                .disabled(!model.settings.logFile.isEnabled)
+                .compatHelp("Журнал и сведения о системе одним файлом — по нему поддержка разбирает звонок.")
             }
 
             if !model.settings.logFile.isEnabled {
-                SettingsNote("Журнал в файл выключен — собирать нечего. Включается в «Управлении».")
+                SettingsNote("Журнал в файл выключен — включается в «Управлении».")
             }
 
             if let archiveResult {
                 SettingsNote(verbatim: archiveResult)
             }
+        }
 
-            // Кнопка проверки обновлений (M7h). Не рядом со сбором логов
-            // случайно: это тот же раздел «раз что-то не так — я это делаю
-            // сам, не дожидаясь администратора», и «у меня старая версия» сюда
-            // укладывается ровно так же, как «соберите мне архив».
-            // Версия — прямо над кнопкой проверки, а не в отдельном разделе.
-            //
-            // Первое, что просит поддержка по телефону, — «какая у вас версия»,
-            // и до этой правки менеджеру было нечего ответить: строка стояла
-            // только в «Диагностике», за административным паролем. Соседство с
-            // «Проверить обновления сейчас» тоже не случайное: человек видит
-            // номер и тут же может выяснить, не устарел ли он.
-            SettingsRow("Версия") {
-                Text(verbatim: appVersion)
-                    .compatForeground(Theme.Palette.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        if model.settings.panel.hasChannelKey || model.settings.panel.isManaged || model.isPanelOffline {
+            SettingsSection("Spark", icon: "cloud") {
+                HStack(spacing: Theme.Metrics.sectionSpacing) {
+                    sparkNode("monitor", title: "Этот компьютер")
+                    LucideIcon(name: "arrow-left-right", size: Theme.Icon.medium)
+                        .compatForeground(model.isPanelOffline ? Theme.Palette.failure : Theme.Palette.registered)
+                    sparkNode("cloud", title: "Spark")
+                }
+                .frame(maxWidth: .infinity)
 
-            UpdateCheckRow(isChecking: model.isCheckingForUpdates, result: model.updateCheckResult)
+                if model.settings.panel.hasChannelKey {
+                    HStack(spacing: Theme.Metrics.sectionSpacing) {
+                        LucideIcon(name: "fingerprint", size: Theme.Icon.large)
+                            .compatForeground(Theme.Palette.textSecondary)
+                        Text(verbatim: machineSummary)
+                            .font(.system(.callout, design: .monospaced))
+                            .compatForeground(Theme.Palette.textSecondary)
+                            .lineLimit(1)
+                        Spacer()
+                        Button(action: copyMachineID) {
+                            HStack(spacing: Theme.Metrics.tightSpacing) {
+                                LucideIcon(name: "copy", size: Theme.Icon.medium)
+                                Text("Копировать ID")
+                            }
+                        }
+                    }
+                }
 
-            // Настройки — вторая линия того же канала, и спрашивают о ней тем
-            // же вопросом: «у меня точно свежее?». Показывается только у
-            // машины, которой управляет панель: на ручной проверять нечего, и
-            // кнопка, отвечающая «ничего не происходит», хуже её отсутствия.
-            // Машине в оффлайне вместо проверки — «Вернуться в онлайн».
-            if model.settings.panel.isManaged || model.isPanelOffline {
-                PanelSyncRow()
-            }
-
-            // Какая это машина для Spark и какие настройки из него стоят —
-            // первое, что спрашивает поддержка, когда «номер не сменился».
-            // Ключа здесь больше нет: номер и настройки Spark присылает сам.
-            if model.settings.panel.hasChannelKey {
-                SettingsRow("Машина") {
-                    Text(verbatim: machineSummary)
-                        .font(.system(.body, design: .monospaced))
+                HStack(spacing: Theme.Metrics.sectionSpacing) {
+                    LucideIcon(name: "list-checks", size: Theme.Icon.large)
                         .compatForeground(Theme.Palette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text(verbatim: presetLine)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .compatHelp(verbatim: presetLine)
+                    Spacer()
+                }
+
+                if model.settings.panel.isManaged || model.isPanelOffline {
+                    PanelSyncRow()
                 }
             }
-
-            // Строки «Площадка» здесь нет. Она была задумана как «есть что
-            // назвать в поддержке», но поддержка эти же сведения получает
-            // архивом по соседней кнопке — и получает полнее. Строка на
-            // чтение, которую оператор не понимает и не может изменить,
-            // занимала место и объясняла себя только сама себе.
         }
     }
 
-    /// «4def1c28 · настройки: ревизия 3».
+    private var presetLine: String {
+        let panel = model.settings.panel
+        if !panel.presetName.isEmpty { return panel.presetName }
+        if !panel.presetID.isEmpty { return panel.presetID }
+        return NSLocalizedString("Не применены", comment: "предустановки на машине нет")
+    }
+
+    private func sparkNode(_ icon: String, title: LocalizedStringKey) -> some View {
+        VStack(spacing: Theme.Metrics.tightSpacing) {
+            LucideIcon(name: icon, size: 22)
+            Text(title).font(.caption).lineLimit(1)
+        }
+        .compatForeground(Theme.Palette.textSecondary)
+        .frame(minWidth: 96)
+    }
+
+    private func copyMachineID() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(model.settings.panel.installationID, forType: .string)
+    }
+
     private var machineSummary: String {
         let panel = model.settings.panel
         let id = String(panel.installationID.prefix(8))

@@ -13817,6 +13817,102 @@
           }
         }
       }
+    },
+    "Приложение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Application"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение"
+          }
+        }
+      }
+    },
+    "Архив для поддержки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support archive"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив для поддержки"
+          }
+        }
+      }
+    },
+    "Собрать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collect"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собрать"
+          }
+        }
+      }
+    },
+    "Копировать ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy ID"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать ID"
+          }
+        }
+      }
+    },
+    "Журнал и сведения о системе одним файлом — по нему поддержка разбирает звонок.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The log and system details in one file — support uses it to investigate a call."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал и сведения о системе одним файлом — по нему поддержка разбирает звонок."
+          }
+        }
+      }
+    },
+    "Журнал в файл выключен — включается в «Управлении».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File logging is off — turn it on in Management."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал в файл выключен — включается в «Управлении»."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
