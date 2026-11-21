@@ -110,6 +110,28 @@ enum PairService {
         _ = try? await send(request, expecting: 204)
     }
 
+    /// Формат работы, выбранный менеджером: `office` или `remote`.
+    ///
+    /// Вход — помашинная пара. Код ответа отдаётся как есть: 2xx и 409 разбирает
+    /// вызывающий, ошибка сети бросается.
+    static func sendWorkFormat(_ format: String, installationID: String, channelKey: String) async throws -> Int {
+        let url = baseURL.appendingPathComponent("api/pair/work-format")
+        guard url.scheme == "https" else { throw URLError(.secureConnectionFailed) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let encoded = "\(installationID):\(channelKey)".data(using: .utf8)?.base64EncodedString() {
+            request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["work_format": format])
+        return try await withCheckedThrowingContinuation { continuation in
+            session.dataTask(with: request) { _, response, error in
+                if let error { continuation.resume(throwing: error); return }
+                continuation.resume(returning: (response as? HTTPURLResponse)?.statusCode ?? 0)
+            }.resume()
+        }
+    }
+
     /// Машина, поднятая ещё ключом активации, регистрирует свой открытый ключ.
     /// Вход — её installation_id и ключ канала: их Spark знает по хешу.
     static func registerLegacy(installationID: String, channelKey: String, keyPair: MachineKeyPair) async throws {

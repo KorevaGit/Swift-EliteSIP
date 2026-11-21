@@ -68,6 +68,64 @@ extension AppModel {
                 "Закреплённый формат работы сменён на месте по административному паролю — машина в оффлайне")
         }
         await setProfileSite(site, for: settings.profiles.activeID)
+        if settings.profiles.active.site == site { noteWorkFormatChosen(site) }
+    }
+
+    /// Запомнить выбор «Работы» для Spark и отправить его.
+    ///
+    /// Только под панелью и без закрепления: в оффлайне Spark о выборе знать
+    /// незачем, а закреплённый формат решает он сам.
+    func noteWorkFormatChosen(_ site: SIPProfileSite) {
+        guard settings.panel.isManaged, !settings.panel.isWorkFormatLocked else { return }
+        settings.panel.pendingWorkFormat = site == .remote ? "remote" : "office"
+        persistSettings()
+        Task { await syncWorkFormat() }
+    }
+
+    /// Отправляет последний выбор, по одному запросу за раз (с Windows 1.0.2).
+    ///
+    /// 2xx и 409 снимают выбор, если он не сменился, пока ждали ответа; 409 —
+    /// формат закреплён в Spark, и конфигурацию надо перечитать. Нет связи или
+    /// другой ответ — выбор остаётся и уйдёт при следующей синхронизации.
+    func syncWorkFormat() async {
+        guard !isSyncingWorkFormat else { return }
+        isSyncingWorkFormat = true
+        defer { isSyncingWorkFormat = false }
+
+        while settings.panel.isManaged, !settings.panel.isWorkFormatLocked,
+              settings.panel.hasChannelKey,
+              ["office", "remote"].contains(settings.panel.pendingWorkFormat) {
+            let installationID = settings.panel.installationID
+            let channelKey = settings.panel.channelKey
+            let format = settings.panel.pendingWorkFormat
+            let status: Int
+            do {
+                status = try await PairService.sendWorkFormat(
+                    format, installationID: installationID, channelKey: channelKey
+                )
+            } catch {
+                append(level: .info, message: "формат работы: отправка в Spark отложена до восстановления связи")
+                return
+            }
+            // Ответ старой привязки не меняет новую привязку либо ручной режим.
+            guard settings.panel.isManaged, settings.panel.installationID == installationID,
+                  settings.panel.channelKey == channelKey
+            else { return }
+            guard (200...299).contains(status) || status == 409 else {
+                append(level: .warning, message: "формат работы: Spark ответил \(status); повтор при следующей синхронизации")
+                return
+            }
+            if settings.panel.pendingWorkFormat == format {
+                settings.panel.pendingWorkFormat = ""
+                persistSettings()
+            }
+            if status == 409 {
+                append(level: .info, message: "формат работы закреплён в Spark; перечитываем конфигурацию")
+                onWorkFormatConflict?()
+                return
+            }
+            // Пока ждали ответ, выбор мог смениться: сразу отправляем последний.
+        }
     }
 
     /// Возвращает площадку туда, куда её закрепил Spark.

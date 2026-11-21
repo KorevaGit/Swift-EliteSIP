@@ -97,7 +97,10 @@ extension AppModel {
         role: CallRecord.Role = .primary,
         wasDistribution: Bool = false
     ) {
-        ClientEventLog.shared.callStarted(lineID: lineID, incoming: direction == .incoming)
+        // Номер и имя — те же, что уходят в историю.
+        ClientEventLog.shared.callStarted(
+            lineID: lineID, incoming: direction == .incoming, number: number, name: displayName
+        )
         guard let historyStore else { return }
         let record = CallRecord(
             callID: lineID,

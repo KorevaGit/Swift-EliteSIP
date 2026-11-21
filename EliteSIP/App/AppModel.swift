@@ -296,6 +296,12 @@ final class AppModel: ObservableObject {
     var serverAddresses: [String] = []
     var serverAddressIndex = 0
 
+    /// Отправка формата работы в Spark идёт — см. `syncWorkFormat`.
+    var isSyncingWorkFormat = false
+
+    /// Spark ответил, что формат закреплён: конфигурацию надо перечитать.
+    var onWorkFormatConflict: (() -> Void)?
+
     /// Подключение уже идёт: между проверкой `agent == nil` и его заведением
     /// теперь есть ожидание DNS, и второй вызов не должен завести второго.
     private var isConnecting = false
@@ -778,6 +784,7 @@ final class AppModel: ObservableObject {
         serverAddressIndex = (serverAddressIndex + 1) % serverAddresses.count
         consecutiveRegistrationFailures = 0
         append(level: .warning, message: "сервер не ответил — пробую следующий адрес из DNS")
+        ClientEventLog.shared.noteConnection("Переподключение: сервер не ответил, следующий адрес из DNS")
         await reconnect()
     }
 

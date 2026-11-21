@@ -99,6 +99,12 @@ extension AppSettings {
         /// с остальными управляемыми полями.
         var lockedWorkFormat: String = ""
 
+        /// Формат работы, выбранный менеджером в «Работе» и ещё не принятый
+        /// Spark: `office`, `remote` или пусто. Живёт в настройках — выбор,
+        /// сделанный без связи, уходит при следующей синхронизации, а до тех пор
+        /// конфигурация из Spark не возвращает прежнюю площадку.
+        var pendingWorkFormat: String = ""
+
         /// Режим машины — решение этапа 5 работ по панели.
         ///
         /// Действует на машину целиком, а не на отдельные настройки: половинчатый
@@ -162,6 +168,7 @@ extension AppSettings {
             mode = (try? c.decodeIfPresent(Mode.self, forKey: .mode)) ?? .manual
             wantsResync = try c.decodeIfPresent(Bool.self, forKey: .wantsResync) ?? false
             lockedWorkFormat = try c.decodeIfPresent(String.self, forKey: .lockedWorkFormat) ?? ""
+            pendingWorkFormat = try c.decodeIfPresent(String.self, forKey: .pendingWorkFormat) ?? ""
         }
     }
 }

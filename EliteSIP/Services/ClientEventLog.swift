@@ -2,20 +2,23 @@ import Diagnostics
 import Foundation
 import SIPCore
 
-/// Журнал машины для Spark: регистрация, звонки и критические ошибки.
+/// Журнал машины для Spark: регистрация, звонки, подключение и критические ошибки.
 ///
 /// Не путать с журналом приложения: тот подробный и живёт на машине, этот —
 /// десяток строк в час, которые администратор видит в карточке места в Spark.
 /// События копятся в файле рядом с настройками и раз в пять минут уходят
 /// пачкой на сервер обновлений (`POST /logs`), откуда их забирает Spark.
-/// Номеров телефонов здесь нет намеренно: журнал читает не только тот, кому
+///
+/// С Windows-клиентом 1.0.2 события звонка несут номер и имя собеседника
+/// (`peer_number`, `peer_name`) — по запросу поддержки, из той же записи, что
+/// история. Spark принимает их с миграции 0063 и показывает только тем, кому
 /// положено видеть историю звонков.
 @MainActor
 final class ClientEventLog {
 
     static let shared = ClientEventLog()
 
-    enum Kind: String, Codable { case registration, call, config, error }
+    enum Kind: String, Codable { case registration, call, config, error, connection }
     enum Level: String, Codable { case info, warning, error }
 
     struct Event: Codable, Equatable {
@@ -27,6 +30,8 @@ final class ClientEventLog {
         var sip_code: Int?
         var direction: String?
         var duration_s: Int?
+        var peer_number: String?
+        var peer_name: String?
     }
 
     /// Сколько событий держим, пока сервер недоступен. Старые вытесняются.
@@ -67,7 +72,7 @@ final class ClientEventLog {
     private var log: ((SIPLogLevel, String) -> Void)?
     private var sending = false
     private var lastErrors: [String: Date] = [:]
-    private var calls: [String: (direction: String, answeredAt: Date?)] = [:]
+    private var calls: [String: (direction: String, number: String?, name: String?, answeredAt: Date?)] = [:]
     private var wasRegistered = false
     /// Почему приложение само снимает регистрацию: обновление или выход.
     /// Без подписи такое снятие выглядело в Spark как сбой.
@@ -127,8 +132,16 @@ final class ClientEventLog {
         }
     }
 
-    func callStarted(lineID: String, incoming: Bool) {
-        calls[lineID] = (incoming ? "in" : "out", nil)
+    func callStarted(lineID: String, incoming: Bool, number: String? = nil, name: String? = nil) {
+        calls[lineID] = (incoming ? "in" : "out", Self.cleanPeer(number, limit: 128), Self.cleanPeer(name, limit: 256), nil)
+    }
+
+    private static func cleanPeer(_ value: String?, limit: Int) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+        let text = LogRedaction.redact(value)
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+        return String(text.prefix(limit))
     }
 
     func callAnswered(lineID: String) {
@@ -140,10 +153,11 @@ final class ClientEventLog {
         let title = call.direction == "in" ? "Входящий звонок" : "Исходящий звонок"
         if let answered = call.answeredAt {
             record(.call, .info, "\(title) завершён", direction: call.direction,
-                   duration: max(0, Int(now().timeIntervalSince(answered))))
+                   duration: max(0, Int(now().timeIntervalSince(answered))),
+                   peerNumber: call.number, peerName: call.name)
         } else {
             record(.call, failed ? .warning : .info, "\(title) без ответа: \(reason)",
-                   direction: call.direction)
+                   direction: call.direction, peerNumber: call.number, peerName: call.name)
         }
     }
 
@@ -157,13 +171,81 @@ final class ClientEventLog {
         record(.error, .error, message)
     }
 
+    /// Переподключение и его причина — то, что раньше было видно только в
+    /// журнале приложения на самой машине.
+    func noteConnection(_ reason: String) {
+        record(.connection, .warning, reason)
+    }
+
+    // MARK: - Сеанс
+
+    private var isSessionStarted = false
+    private var isForgotten = false
+    private var isFinishing = false
+
+    private var sessionMarker: URL? {
+        fileURL.map { URL(fileURLWithPath: $0.path + ".session") }
+    }
+
+    /// Маркер сеанса переживает принудительное завершение, при котором
+    /// обработчики не выполняются. Это свидетельство, не диагноз.
+    func beginSession() {
+        guard !isSessionStarted, !isForgotten else { return }
+        isSessionStarted = true
+        if let marker = sessionMarker {
+            if FileManager.default.fileExists(atPath: marker.path) {
+                record(.connection, .warning,
+                       "Предыдущий запуск завершился без штатного выхода: возможны сбой, принудительное закрытие или выключение компьютера")
+            }
+            try? Data(ISO8601DateFormatter().string(from: now()).utf8).write(to: marker)
+        }
+        record(.connection, .info, "Приложение запущено")
+    }
+
+    /// Штатный выход: событие о нём и отправка не дольше 750 мс. Не успело —
+    /// буфер на диске, уйдёт при следующем запуске.
+    func finishSession() async {
+        guard !isFinishing else { return }
+        isFinishing = true
+        if isSessionStarted, !isForgotten {
+            isSessionStarted = false
+            record(.connection, .info, "Приложение закрыто: \(shutdownReason ?? "штатный выход")")
+            if let marker = sessionMarker { try? FileManager.default.removeItem(at: marker) }
+        }
+        flushTask?.cancel()
+        flushTask = nil
+        send()
+        for _ in 0..<15 where sending {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+    }
+
+    /// Сброс машины: забыть всё и больше не писать файл — иначе события
+    /// прежней машины ушли бы от имени новой.
+    func forget() {
+        timer?.invalidate()
+        timer = nil
+        flushTask?.cancel()
+        flushTask = nil
+        endActivity()
+        pending.removeAll()
+        calls.removeAll()
+        settings = nil
+        isForgotten = true
+        if let fileURL { try? FileManager.default.removeItem(at: fileURL) }
+        if let marker = sessionMarker { try? FileManager.default.removeItem(at: marker) }
+    }
+
     func record(_ kind: Kind, _ level: Level, _ message: String,
-                sipCode: Int? = nil, direction: String? = nil, duration: Int? = nil) {
+                sipCode: Int? = nil, direction: String? = nil, duration: Int? = nil,
+                peerNumber: String? = nil, peerName: String? = nil) {
+        guard !isForgotten else { return }
         let text = String(LogRedaction.redact(message).prefix(500))
         pending.append(Event(
             ts: ISO8601DateFormatter().string(from: now()), kind: kind, level: level,
             message: text, line: settings?().profiles.active.title,
-            sip_code: sipCode, direction: direction, duration_s: duration))
+            sip_code: sipCode, direction: direction, duration_s: duration,
+            peer_number: peerNumber, peer_name: peerName))
         if pending.count > Self.capacity {
             pending.removeFirst(pending.count - Self.capacity)
         }
@@ -174,7 +256,7 @@ final class ClientEventLog {
     // MARK: - Отправка
 
     private func scheduleFlush(after delay: TimeInterval = ClientEventLog.flushDelay) {
-        guard flushTask == nil else { return }
+        guard flushTask == nil, !isFinishing else { return }
         if activity == nil {
             activity = ProcessInfo.processInfo.beginActivity(
                 options: .userInitiatedAllowingIdleSystemSleep, reason: "отправка журнала машины")
@@ -285,7 +367,7 @@ final class ClientEventLog {
     }
 
     private func persist() {
-        guard let fileURL else { return }
+        guard let fileURL, !isForgotten else { return }
         try? JSONEncoder().encode(pending).write(to: fileURL, options: .atomic)
     }
 }

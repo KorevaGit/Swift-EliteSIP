@@ -38,7 +38,13 @@ extension AppModel {
         }
         reportedStaleConfigRevision = nil
 
-        let site = siteFor(workFormat: config.workFormat) ?? settings.profiles.active.site
+        // Выбор менеджера, ещё не принятый Spark, главнее присланного: иначе
+        // конфигурация, выпущенная до него, вернула бы прежнюю площадку.
+        // Закрепление снимает выбор — площадку тогда решает Spark.
+        if config.workFormatLocked { settings.panel.pendingWorkFormat = "" }
+        let site = settings.panel.pendingWorkFormat.isEmpty
+            ? siteFor(workFormat: config.workFormat) ?? settings.profiles.active.site
+            : settings.profiles.active.site
         let before = settings.profiles
         let planned = plannedProfiles(for: config, site: site)
         let oldActive = before.active

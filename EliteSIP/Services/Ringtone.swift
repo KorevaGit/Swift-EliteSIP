@@ -53,6 +53,9 @@ final class Ringtone {
     static func isPlayable(url: URL) -> Bool {
         RingtonePlayer.makeFileBuffer(url: url) != nil
     }
+
+    static var defaultSoundURL: URL? { RingtonePlayer.defaultSoundURL }
+    static var supportedFileExtensions: [String] { RingtonePlayer.supportedFileExtensions }
 }
 
 /// Устройство рингтона. Живёт на своей очереди целиком.
@@ -132,7 +135,7 @@ private final class RingtonePlayer: @unchecked Sendable {
         let buffer: AVAudioPCMBuffer
         if let url = settings.customSoundURL, let fileBuffer = Self.makeFileBuffer(url: url) {
             buffer = fileBuffer
-        } else if let url = Ringtone.defaultSoundURL, let fileBuffer = Ringtone.makeFileBuffer(url: url) {
+        } else if let url = Self.defaultSoundURL, let fileBuffer = Self.makeFileBuffer(url: url) {
             buffer = fileBuffer
         } else {
             let format = engine.outputNode.outputFormat(forBus: 0)

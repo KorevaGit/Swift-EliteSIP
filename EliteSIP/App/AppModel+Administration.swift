@@ -163,6 +163,8 @@ extension AppModel {
         func online(_ value: inout AppSettings) {
             value.panel.mode = .managed
             value.panel.wantsResync = true
+            // Местный выбор формата работы заменит Spark вместе с остальным.
+            value.panel.pendingWorkFormat = ""
             value.incomingCall.isServerManaged = value.panel.isManaged
         }
 

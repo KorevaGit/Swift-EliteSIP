@@ -108,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Первым делом: отметка сеанса для `X-EliteSIP-Unclean-Exit`.
         SessionHealth.noteLaunch()
+        ClientEventLog.shared.beginSession()
         appNapOptOut = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
             reason: "SIP-регистрация и входящие вызовы"
@@ -252,15 +253,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         revocationTimer?.invalidate()
         revocationTimer = Timer.scheduledTimer(
             withTimeInterval: MachineService.revocationInterval, repeats: true
-        ) { _ in
-            Task { @MainActor in
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
                 machines.checkRevocation()
+                await self?.model.syncWorkFormat()
                 machines.checkConfig()
                 presets.check()
             }
         }
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
             machines.checkRevocation()
+            await self?.model.syncWorkFormat()
             machines.checkConfig()
         }
 
@@ -342,6 +345,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
         machineService = machines
+        model.onWorkFormatConflict = { [weak machines] in machines?.checkConfig() }
         ClientEventLog.shared.start(
             settings: { [weak self] in self?.model.settings ?? AppSettings.default },
             log: { [weak self] level, message in self?.model.append(level: level, message: message) })
@@ -488,6 +492,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         Task { @MainActor in
             await self.disconnectAtMost(seconds: 2)
             self.model.append(level: .info, message: "обновление: регистрация снята, ставим")
+            await ClientEventLog.shared.finishSession()
             UserDefaults.standard.synchronize()
             SessionHealth.noteCleanExit()
             done()
@@ -584,6 +589,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         await self.disconnectAtMost(seconds: 2)
 
         model.append(level: .info, message: "выход")
+        await ClientEventLog.shared.finishSession()
         UserDefaults.standard.synchronize()
         SessionHealth.noteCleanExit()
         exit(0)
