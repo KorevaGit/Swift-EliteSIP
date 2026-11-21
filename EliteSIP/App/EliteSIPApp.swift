@@ -233,8 +233,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let isUpdate = ProcessInfo.processInfo.arguments.contains("update")
             let dialog = isUpdate ? UpdateService.makeOffer(
                 installed: "0.1.71",
-                available: "0.1.72",
-                notes: (try? String(contentsOfFile: "docs/releases/0.1.72.md", encoding: .utf8))
+                available: "1.0.0",
+                notes: (try? String(contentsOfFile: "docs/releases/1.0.0.md", encoding: .utf8))
             ) : GraphiteDialogWindow(
                 icon: "save",
                 title: NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»"),
