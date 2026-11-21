@@ -174,7 +174,7 @@ struct FirstRunWelcomeScreen: View {
                 isCentered: true
             )
 
-            Picker("", selection: $flow.language) {
+            Picker("", selection: $flow.language.deferred()) {
                 ForEach(LanguageSetting.allCases) { option in
                     Text(option.title).tag(option)
                 }
@@ -448,7 +448,7 @@ struct FirstRunAppearanceScreen: View {
                         flow.appearance = value
                         NSApp.appearance = value.appKitAppearance
                     }
-                )
+                ).deferred()
             ) {
                 ForEach(AppearanceSetting.allCases) { option in
                     Text(option.title).tag(option)

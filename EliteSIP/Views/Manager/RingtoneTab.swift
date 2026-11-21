@@ -37,7 +37,7 @@ struct RingtoneTab: View {
                 Picker("", selection: Binding(
                     get: { model.settings.ringtone.usesSystemOutput },
                     set: { model.settings.ringtone.usesSystemOutput = $0 }
-                )) {
+                ).deferred()) {
                     Text("Системное устройство").tag(true)
                     Text("Устройство разговора").tag(false)
                 }

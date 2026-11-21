@@ -38,7 +38,7 @@ struct DiagnosticsTab: View {
                 Picker("", selection: Binding(
                     get: { model.settings.minimumLogLevel },
                     set: { model.settings.minimumLogLevel = $0 }
-                )) {
+                ).deferred()) {
                     ForEach(SIPLogLevel.allCases, id: \.self) { level in
                         Text(level.rawValue).tag(level)
                     }
@@ -111,7 +111,7 @@ private struct LogFileSection: View {
                     Picker("", selection: Binding(
                         get: { model.settings.logFile.minimumLevel },
                         set: { model.settings.logFile.minimumLevel = $0 }
-                    )) {
+                    ).deferred()) {
                         ForEach(SIPLogLevel.allCases, id: \.self) { level in
                             Text(level.rawValue).tag(level)
                         }

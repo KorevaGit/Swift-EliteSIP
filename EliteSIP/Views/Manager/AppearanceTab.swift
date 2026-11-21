@@ -90,7 +90,7 @@ struct AppearanceTab: View {
                 Picker("", selection: Binding(
                     get: { themeChoice },
                     set: { choose($0) }
-                )) {
+                ).deferred()) {
                     ForEach(ThemeChoice.allCases.filter { $0 != .wallpaper || hasWallpaper }) { option in
                         Text(option.title).tag(option)
                     }
@@ -164,7 +164,7 @@ struct AppearanceTab: View {
                 Picker("", selection: Binding(
                     get: { LanguageSetting.current },
                     set: { pendingRestart = .language($0) }
-                )) {
+                ).deferred()) {
                     ForEach(LanguageSetting.allCases) { option in
                         Text(option.title).tag(option)
                     }
@@ -299,7 +299,7 @@ private struct BackgroundSection: View {
                 slider("Яркость", value: \.brightness, range: BackgroundSettings.brightnessRange, unit: "%")
 
                 SettingsRow("Прозрачность") {
-                    Picker("", selection: background.transparency) {
+                    Picker("", selection: background.transparency.deferred()) {
                         Text("Нет").tag(BackgroundSettings.Transparency.off)
                         Text("Слабая").tag(BackgroundSettings.Transparency.light)
                         Text("Средняя").tag(BackgroundSettings.Transparency.medium)
@@ -338,20 +338,15 @@ private struct BackgroundSection: View {
         unit: String
     ) -> some View {
         SettingsRow(title) {
-            HStack {
-                Slider(
-                    value: Binding(
-                        get: { Double(model.settings.background[keyPath: key]) },
-                        set: { model.settings.background[keyPath: key] = Int($0.rounded()) }
-                    ),
-                    in: Double(range.lowerBound)...Double(range.upperBound),
-                    step: 1
-                )
-                Text(verbatim: "\(model.settings.background[keyPath: key]) \(unit)")
-                    .compatMonospacedDigit()
-                    .compatForeground(.secondary)
-                    .frame(width: 52, alignment: .trailing)
-            }
+            SettingSlider(
+                value: Binding(
+                    get: { Double(model.settings.background[keyPath: key]) },
+                    set: { model.settings.background[keyPath: key] = Int($0.rounded()) }
+                ),
+                range: Double(range.lowerBound)...Double(range.upperBound),
+                step: 1,
+                unit: unit
+            )
         }
     }
 

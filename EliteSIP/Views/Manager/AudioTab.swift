@@ -314,7 +314,7 @@ struct AudioDeviceRow: View {
                             devices.first { $0.uid == picked }?.name
                         } ?? ""
                     }
-                )) {
+                ).deferred()) {
                     Text(systemTitle).tag(String?.none)
                     ForEach(devices) { device in
                         Text(device.name).tag(String?.some(device.uid))

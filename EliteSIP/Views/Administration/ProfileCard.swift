@@ -265,7 +265,7 @@ struct ProfileCard: View {
         }
 
         SettingsRow("Транспорт") {
-            Picker("", selection: field(\.account.transport)) {
+            Picker("", selection: field(\.account.transport).deferred()) {
                 Text("TLS").tag(SIPTransport.tls)
                 Text("UDP").tag(SIPTransport.udp)
             }

@@ -637,3 +637,33 @@ struct ScrollOverlayScrollers: NSViewRepresentable {
         }
     }
 }
+
+// MARK: - Запись после прохода обновления
+
+private struct UncheckedSendable<Value>: @unchecked Sendable { let value: Value }
+
+/// Выполнить следующим проходом цикла событий — после того, как SwiftUI
+/// закончит текущее обновление.
+///
+/// Системные контролы macOS — сегментированный переключатель, список сайдбара,
+/// тумблер — пишут в привязку прямо посреди прохода обновления. Если за
+/// привязкой стоит `@Published`, SwiftUI пишет в журнал «Publishing changes
+/// from within view updates is not allowed, this will cause undefined
+/// behavior»: аудит 21 ноября 2026 насчитал три тысячи таких строк за вечер,
+/// по девять на один щелчок по сегменту.
+func afterViewUpdate(_ work: @escaping () -> Void) {
+    let boxed = UncheckedSendable(value: work)
+    DispatchQueue.main.async { boxed.value() }
+}
+
+extension Binding {
+
+    /// Та же привязка, но запись уходит после прохода обновления — см.
+    /// `afterViewUpdate`. Для привязок, за которыми стоит `@Published`.
+    func deferred() -> Binding<Value> {
+        Binding(
+            get: { wrappedValue },
+            set: { value in afterViewUpdate { wrappedValue = value } }
+        )
+    }
+}

@@ -98,7 +98,13 @@ struct ManagerSidebarView: View {
     private var selection: Binding<ManagerSection?> {
         Binding(
             get: { router.section },
-            set: { if let new = $0 { router.section = new } }
+            // Список пишет сюда посреди прохода обновления и повторяет запись
+            // того же раздела при каждой перерисовке: без сравнения это
+            // публикация на каждый кадр, без отсрочки — предупреждение SwiftUI.
+            set: { selected in
+                guard let selected, selected != router.section else { return }
+                afterViewUpdate { router.section = selected }
+            }
         )
     }
 

@@ -61,7 +61,7 @@ struct DTMFSettingsTab: View {
                 Picker("", selection: Binding(
                     get: { model.settings.dtmf.macroHeightIsManual },
                     set: { model.settings.dtmf.macroHeightIsManual = $0 }
-                )) {
+                ).deferred()) {
                     Text("Авто").tag(false)
                     Text("Вручную").tag(true)
                 }

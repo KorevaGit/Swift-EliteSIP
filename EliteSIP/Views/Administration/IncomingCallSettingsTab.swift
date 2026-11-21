@@ -71,7 +71,7 @@ struct IncomingCallSettingsTab: View {
                 Picker("", selection: Binding(
                     get: { model.settings.autoAnswer },
                     set: { model.settings.autoAnswer = $0 }
-                )) {
+                ).deferred()) {
                     ForEach(AutoAnswerMode.allCases) { mode in
                         Text(verbatim: mode.title).tag(mode)
                     }
@@ -186,7 +186,7 @@ struct IncomingCallSettingsTab: View {
 
             if model.settings.incomingCall.targetCount > 1 {
                 SettingsRow("Целей на выбор") {
-                    Picker("", selection: policy.targetCount) {
+                    Picker("", selection: policy.targetCount.deferred()) {
                         ForEach(2...5, id: \.self) { count in
                             Text("\(count)").tag(count)
                         }
@@ -298,7 +298,7 @@ private struct TuningPicker: View {
     @Binding var isByHand: Bool
 
     var body: some View {
-        Picker("", selection: $isByHand) {
+        Picker("", selection: $isByHand.deferred()) {
             Text("Авто").tag(false)
             Text("Вручную").tag(true)
         }

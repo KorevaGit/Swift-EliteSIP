@@ -246,10 +246,30 @@ struct SettingSlider: View {
     let step: Double
     let unit: String?
 
+    /// Положение под рукой. Настройка получает его после прохода обновления
+    /// (см. `afterViewUpdate`), а ползунок и подпись читают отсюда — иначе на
+    /// один кадр они возвращались бы к прежнему значению.
+    @State private var draft: Double?
+
+    private var shown: Double { draft ?? value }
+
     var body: some View {
         HStack {
-            Slider(value: $value, in: range, step: step)
-            Text(unit == nil ? String(format: "%.0f %%", value * 100) : "\(Int(value)) \(unit!)")
+            Slider(
+                value: Binding(
+                    get: { shown },
+                    set: { new in
+                        draft = new
+                        afterViewUpdate {
+                            value = new
+                            if draft == new { draft = nil }
+                        }
+                    }
+                ),
+                in: range,
+                step: step
+            )
+            Text(unit == nil ? String(format: "%.0f %%", shown * 100) : "\(Int(shown)) \(unit!)")
                 .compatMonospacedDigit()
                 .compatForeground(.secondary)
                 .frame(width: 60, alignment: .trailing)
