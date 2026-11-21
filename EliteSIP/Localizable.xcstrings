@@ -13964,6 +13964,23 @@
           }
         }
       }
+    },
+    "Цвета обоев": {
+      "comment": "тема оформления",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wallpaper colors"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета обоев"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

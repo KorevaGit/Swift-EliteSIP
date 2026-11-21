@@ -61,13 +61,16 @@ enum Graphite {
         /// непрозрачной — полупрозрачный зелёный над пёстрой CRM не читается.
         var isFilled: Bool { self == .answer || self == .decline }
 
-        func gradient(dark: Bool) -> LinearGradient {
+        func gradient(dark: Bool, tint: NSColor? = nil) -> LinearGradient {
             let hex = dark ? stops.dark : stops.light
-            return LinearGradient(
-                gradient: Gradient(colors: hex.map(Graphite.color)),
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            // Смысловые цвета — звонок, отбой, выключенный микрофон — тема
+            // обоев не трогает, как и в Windows.
+            let tintable = !isFilled && self != .muted
+            let colors = hex.map { value in
+                guard tintable, let tint else { return Graphite.color(value) }
+                return Color(Graphite.wallpaperColor(value, hue: tint))
+            }
+            return LinearGradient(gradient: Gradient(colors: colors), startPoint: .top, endPoint: .bottom)
         }
     }
 
@@ -107,6 +110,18 @@ enum Graphite {
         }
     }
 
+    /// Нейтральный тон в цвет обоев — `WallpaperColor` Windows 1.0.4: яркость
+    /// исходного графита сохраняется, оттенок берётся у картинки.
+    static func wallpaperColor(_ hex: UInt32, hue: NSColor) -> NSColor {
+        let r = Double((hex >> 16) & 0xff), g = Double((hex >> 8) & 0xff), b = Double(hex & 0xff)
+        let level = min(max((r + g + b) / 3, 28), 90)
+        let rgb = hue.usingColorSpace(.sRGB) ?? hue
+        let hues = [rgb.redComponent, rgb.greenComponent, rgb.blueComponent].map { Double($0) * 255 }
+        let peak = max(1, hues.max() ?? 1)
+        let channel = { (value: Double) in CGFloat(min(max(level * (0.35 + 1.1 * value / peak), 0), 150) / 255) }
+        return NSColor(srgbRed: channel(hues[0]), green: channel(hues[1]), blue: channel(hues[2]), alpha: 1)
+    }
+
     static func isDark(_ appearance: NSAppearance) -> Bool {
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
     }
@@ -121,13 +136,15 @@ private struct GraphiteSurface: ViewModifier {
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.graphiteSurfaceOpacity) private var wallpaperOpacity
+    @Environment(\.graphiteTint) private var tint
 
     /// В стекле графит полупрозрачный: тон и объём Windows, а под ними —
     /// материал macOS. Поверх обоев — по выбору прозрачности. Насыщенные
     /// кнопки всегда непрозрачны: под ними белая надпись.
     private var opacity: Double {
         if surface.isFilled { return 1 }
-        if wallpaperOpacity < 1 { return wallpaperOpacity }
+        // Под обоями решает выбор прозрачности: «Нет» — непрозрачно и в стекле.
+        if let wallpaperOpacity { return wallpaperOpacity }
         return Theme.Chrome.usesLiquidGlass ? 0.62 : 1
     }
 
@@ -135,7 +152,7 @@ private struct GraphiteSurface: ViewModifier {
         content.compatBackground {
             ZStack {
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(surface.gradient(dark: scheme == .dark))
+                    .fill(surface.gradient(dark: scheme == .dark, tint: tint))
                     .opacity(opacity)
                 // Светлый край только сверху — `BorderThickness="0,1,0,0"`.
                 RoundedRectangle(cornerRadius: cornerRadius)

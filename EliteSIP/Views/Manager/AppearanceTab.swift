@@ -40,6 +40,45 @@ struct AppearanceTab: View {
 
     @State private var pendingRestart: PendingRestart?
 
+    /// Темы в переключателе: три системные и «Цвета обоев», как в Windows 1.0.4.
+    /// Последняя видна, только когда обои выбраны: красить интерфейс не во что.
+    private enum ThemeChoice: String, CaseIterable, Identifiable {
+        case system, light, dark, wallpaper
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .system: AppearanceSetting.system.title
+            case .light: AppearanceSetting.light.title
+            case .dark: AppearanceSetting.dark.title
+            case .wallpaper: NSLocalizedString("Цвета обоев", comment: "тема оформления")
+            }
+        }
+    }
+
+    private var hasWallpaper: Bool { model.settings.background.isEnabled }
+
+    private var themeChoice: ThemeChoice {
+        if hasWallpaper && model.settings.background.tintsInterface { return .wallpaper }
+        switch model.settings.appearance {
+        case .system: return .system
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+
+    /// Тема обоев — тёмная палитра плюс перекраска поверхностей, как в Windows.
+    private func choose(_ choice: ThemeChoice) {
+        var settings = model.settings
+        settings.background.tintsInterface = choice == .wallpaper
+        switch choice {
+        case .system: settings.appearance = .system
+        case .light: settings.appearance = .light
+        case .dark, .wallpaper: settings.appearance = .dark
+        }
+        model.settings = settings
+    }
+
     /// Есть ли стекло в самой системе. Ниже macOS 26 переключать нечего:
     /// приложение и так показано обычным, и включить стекло там, где его нет,
     /// выключатель не может.
@@ -49,10 +88,10 @@ struct AppearanceTab: View {
         SettingsSection("Тема", icon: "panels-top-left") {
             SettingsRow("Тема") {
                 Picker("", selection: Binding(
-                    get: { model.settings.appearance },
-                    set: { model.settings.appearance = $0 }
+                    get: { themeChoice },
+                    set: { choose($0) }
                 )) {
-                    ForEach(AppearanceSetting.allCases) { option in
+                    ForEach(ThemeChoice.allCases.filter { $0 != .wallpaper || hasWallpaper }) { option in
                         Text(option.title).tag(option)
                     }
                 }
@@ -61,7 +100,7 @@ struct AppearanceTab: View {
                 // По левому краю — та же правка, что у уровней журнала в
                 // «Диагностике»: по центру сегменты уезжают правее колонки
                 // контролов.
-                .frame(maxWidth: 220, alignment: .leading)
+                .frame(maxWidth: hasWallpaper ? 340 : 220, alignment: .leading)
             }
 
             SettingsDivider()

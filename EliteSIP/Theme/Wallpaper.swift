@@ -36,6 +36,13 @@ struct BackgroundSettings: Codable, Sendable, Equatable {
     /// Яркость, %: 30–170.
     var brightness: Int = 100
     var transparency: Transparency = .off
+    /// Тема «Цвета обоев», как в Windows 1.0.4: нейтральные поверхности
+    /// перекрашиваются в преобладающий цвет картинки, палитра — тёмная.
+    ///
+    /// Флагом здесь, а не значением `AppearanceSetting`: прежние версии
+    /// читают тот же файл и на незнакомой теме теряли бы настройки целиком,
+    /// а неизвестное поле этого блока они просто пропускают.
+    var tintsInterface: Bool = false
 
     static let scaleRange = 50...200
     static let blurRange = 0...24
@@ -50,6 +57,7 @@ struct BackgroundSettings: Codable, Sendable, Equatable {
         blur = (try c.decodeIfPresent(Int.self, forKey: .blur) ?? 8).clamped(to: Self.blurRange)
         brightness = (try c.decodeIfPresent(Int.self, forKey: .brightness) ?? 100).clamped(to: Self.brightnessRange)
         transparency = (try? c.decodeIfPresent(Transparency.self, forKey: .transparency)).flatMap { $0 } ?? .off
+        tintsInterface = (try? c.decodeIfPresent(Bool.self, forKey: .tintsInterface)).flatMap { $0 } ?? false
     }
 
     /// Где лежит сохранённая копия.
@@ -107,12 +115,59 @@ enum Wallpaper {
         try png.write(to: destination, options: .atomic)
         cache.removeAll()
         original = nil
+        dominant = nil
     }
 
     static func remove() {
         try? FileManager.default.removeItem(at: BackgroundSettings.storedURL)
         cache.removeAll()
         original = nil
+        dominant = nil
+    }
+
+    private static var dominant: NSColor??
+
+    /// Преобладающий цвет картинки — `SampleColor` Windows: кадр ужимается до
+    /// 16×16, пиксели раскладываются по корзинам 8×8×8, побеждает самая тяжёлая.
+    static func dominantColor() -> NSColor? {
+        if let dominant { return dominant }
+        let result = sampleDominantColor()
+        dominant = .some(result)
+        return result
+    }
+
+    private static func sampleDominantColor() -> NSColor? {
+        guard let source = CIImage(contentsOf: BackgroundSettings.storedURL),
+              source.extent.width > 0, source.extent.height > 0
+        else { return nil }
+        let side = 16
+        let tiny = source.transformed(by: CGAffineTransform(
+            scaleX: CGFloat(side) / source.extent.width,
+            y: CGFloat(side) / source.extent.height
+        ))
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        context.render(
+            tiny,
+            toBitmap: &pixels,
+            rowBytes: side * 4,
+            bounds: CGRect(x: tiny.extent.minX, y: tiny.extent.minY, width: CGFloat(side), height: CGFloat(side)),
+            format: .RGBA8,
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
+        )
+        var groups: [Int: (r: Int, g: Int, b: Int, weight: Int)] = [:]
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            let (r, g, b, a) = (Int(pixels[i]), Int(pixels[i + 1]), Int(pixels[i + 2]), Int(pixels[i + 3]))
+            let key = (r / 32) << 6 | (g / 32) << 3 | b / 32
+            let group = groups[key] ?? (0, 0, 0, 0)
+            groups[key] = (group.r + r * a, group.g + g * a, group.b + b * a, group.weight + a)
+        }
+        guard let top = groups.values.max(by: { $0.weight < $1.weight }), top.weight > 0 else { return nil }
+        return NSColor(
+            srgbRed: CGFloat(top.r / top.weight) / 255,
+            green: CGFloat(top.g / top.weight) / 255,
+            blue: CGFloat(top.b / top.weight) / 255,
+            alpha: 1
+        )
     }
 
     private static let context = CIContext(options: [.useSoftwareRenderer: false])
@@ -151,12 +206,23 @@ enum Wallpaper {
 }
 
 /// Непрозрачность графитовых поверхностей поверх обоев — см. `BackgroundSettings.Transparency`.
+/// `nil` — обоев нет, поверхности следуют оформлению окна (стекло или нет).
 private struct SurfaceOpacityKey: EnvironmentKey {
-    static let defaultValue: Double = 1
+    static let defaultValue: Double? = nil
+}
+
+/// Цвет темы «Цвета обоев»; `nil` — поверхности обычного графита.
+private struct GraphiteTintKey: EnvironmentKey {
+    static let defaultValue: NSColor? = nil
 }
 
 extension EnvironmentValues {
-    var graphiteSurfaceOpacity: Double {
+    var graphiteTint: NSColor? {
+        get { self[GraphiteTintKey.self] }
+        set { self[GraphiteTintKey.self] = newValue }
+    }
+
+    var graphiteSurfaceOpacity: Double? {
         get { self[SurfaceOpacityKey.self] }
         set { self[SurfaceOpacityKey.self] = newValue }
     }
@@ -201,6 +267,7 @@ extension View {
         if settings.isEnabled {
             self
                 .environment(\.graphiteSurfaceOpacity, settings.transparency.surfaceOpacity)
+                .environment(\.graphiteTint, settings.tintsInterface ? Wallpaper.dominantColor() : nil)
                 .compatBackground { WallpaperLayer(settings: settings).compatIgnoreSafeArea() }
         } else {
             self
