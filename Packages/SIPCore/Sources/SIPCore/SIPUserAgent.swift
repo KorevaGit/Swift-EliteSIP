@@ -338,6 +338,10 @@ public actor SIPUserAgent {
         isStopping = false
         isChannelClosed = false
 
+        let events = events
+        await transactions.setTrace { text in
+            events.yield(.log(level: .debug, message: text), lane: .regular)
+        }
         await transactions.start()
 
         let inbound = transactions.inboundRequests

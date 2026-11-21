@@ -45,7 +45,10 @@ struct AppSettings: Codable, Sendable, Equatable {
     ///
     /// 1 — штатный повтор стука 600 с становится 3600 с, нестандартные
     /// значения остаются.
-    static let currentSettingsRevision = 1
+    /// 2 — файл журнала включается, а уровень в файле опускается до debug, где
+    /// идёт SIP-трасса: без неё разбор инцидента 724 упёрся в пустоту. Явное
+    /// выключение после этой ревизии сохраняется.
+    static let currentSettingsRevision = 2
 
     var settingsRevision: Int = AppSettings.currentSettingsRevision
 
@@ -381,6 +384,10 @@ struct AppSettings: Codable, Sendable, Equatable {
     private mutating func applyRevisions(from stored: Int) {
         if stored < 1, portKnock.repeatIntervalSeconds == PortKnockSequence.legacyRepeatIntervalSeconds {
             portKnock.repeatIntervalSeconds = PortKnockSequence.defaultRepeatIntervalSeconds
+        }
+        if stored < 2 {
+            logFile.isEnabled = true
+            logFile.minimumLevel = .debug
         }
     }
 

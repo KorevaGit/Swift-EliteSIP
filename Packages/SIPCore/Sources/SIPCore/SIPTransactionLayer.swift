@@ -419,7 +419,7 @@ public actor SIPTransactionLayer {
         if let branch = request.topVia?.branch {
             remember(response: response, branch: branch)
         }
-        try await channel.send(response.encoded())
+        try await sendTraced(response.encoded())
     }
 
     /// Отправляет ответ на входящий INVITE и ведёт серверную транзакцию.
@@ -452,7 +452,7 @@ public actor SIPTransactionLayer {
             if let key = Self.acknowledgementKey(for: request) {
                 serverInviteKeys[key] = branch
             }
-            try await channel.send(response.encoded())
+            try await sendTraced(response.encoded())
             return
         }
 
@@ -462,7 +462,7 @@ public actor SIPTransactionLayer {
             serverInviteKeys[key] = branch
         }
 
-        try await channel.send(response.encoded())
+        try await sendTraced(response.encoded())
 
         // На надёжном транспорте повторять нечего: TLS сам гарантирует доставку.
         // Ждать ACK всё равно надо — он подтверждает не доставку, а согласие.
@@ -507,7 +507,7 @@ public actor SIPTransactionLayer {
             return false
         }
         guard let cached = sentResponses[branch] else { return false }
-        try? await channel.send(cached.response.encoded())
+        try? await sendTraced(cached.response.encoded())
         return true
     }
 
@@ -595,7 +595,7 @@ public actor SIPTransactionLayer {
     /// Нужно ровно для одного случая: ACK на 2xx. Он идёт вне транзакции, и
     /// ответа на него не бывает.
     public func sendWithoutTransaction(_ request: SIPRequest) async throws {
-        try await channel.send(request.encoded())
+        try await sendTraced(request.encoded())
     }
 
     /// Пустой пакет, удерживающий привязку NAT (RFC 5626 §4.4.1).
@@ -610,7 +610,7 @@ public actor SIPTransactionLayer {
     /// `SIPRequest`, а здесь отправлять нечего — именно отсутствие сообщения и
     /// делает пакет безопасным для любого сервера.
     public func sendKeepAlive() async throws {
-        try await channel.send(Self.keepAlivePing)
+        try await channel.send(Self.keepAlivePing) // без трассы: это не сообщение
     }
 
     /// CRLFCRLF. Константой, чтобы не собирать четыре байта на каждый тик.
@@ -620,7 +620,7 @@ public actor SIPTransactionLayer {
 
     private func transmit(key: String, data: Data) async {
         do {
-            try await channel.send(data)
+            try await sendTraced(data)
         } catch {
             finish(key: key, with: .failure(TransactionError.transportFailed("\(error)")))
             return
@@ -644,7 +644,7 @@ public actor SIPTransactionLayer {
 
     private func transmitInvite(key: String, data: Data) async {
         do {
-            try await channel.send(data)
+            try await sendTraced(data)
         } catch {
             failInvite(key: key, reason: "\(error)")
             return
@@ -677,12 +677,12 @@ public actor SIPTransactionLayer {
 
     private func resend(key: String) async throws {
         guard let data = clientTransactions[key]?.data else { return }
-        try await channel.send(data)
+        try await sendTraced(data)
     }
 
     private func resendInvite(key: String) async throws {
         guard let data = inviteTransactions[key]?.data else { return }
-        try await channel.send(data)
+        try await sendTraced(data)
     }
 
     // MARK: - Приём
@@ -727,7 +727,23 @@ public actor SIPTransactionLayer {
         }
     }
 
+    /// Полная SIP-трасса — каждое сообщение целиком, в обе стороны.
+    ///
+    /// Одних строк «<- 200 OK» для разбора инцидента не хватает: нужны Call-ID,
+    /// Via и SDP. Маскирование авторизации делает файл журнала на своём пути.
+    private var trace: (@Sendable (String) -> Void)?
+
+    public func setTrace(_ sink: (@Sendable (String) -> Void)?) {
+        trace = sink
+    }
+
+    private func sendTraced(_ data: Data) async throws {
+        if let trace { trace("-> \(channel.remote)\n" + String(decoding: data, as: UTF8.self)) }
+        try await channel.send(data)
+    }
+
     private func handleReceived(_ data: Data) async {
+        if let trace { trace("<- \(channel.remote)\n" + String(decoding: data, as: UTF8.self)) }
         let message: SIPMessage
         do {
             message = try SIPParser.parse(data)
@@ -758,7 +774,7 @@ public actor SIPTransactionLayer {
             if let branch = request.topVia?.branch,
                let previous = sentResponses[branch],
                previous.response.cseq?.method == request.method {
-                try? await channel.send(previous.response.encoded())
+                try? await sendTraced(previous.response.encoded())
                 return
             }
             await enqueue(inbound: request)
@@ -867,7 +883,7 @@ public actor SIPTransactionLayer {
 
         // Неуспешный финальный ответ: ACK — наша обязанность и часть транзакции.
         let ack = Self.makeFailureACK(for: transaction.request, response: response)
-        try? await channel.send(ack.encoded())
+        try? await sendTraced(ack.encoded())
 
         // Таймер D: держим состояние, чтобы поглощать ретрансмиссии ответа и
         // отвечать на них тем же ACK.

@@ -421,14 +421,24 @@ final class AppModel: ObservableObject {
             ?? logDirectory.appendingPathComponent(SupportArchive.suggestedName())
         let logFile = logFile
         let summary = supportSummary
+        let historyStatus = historyStore?.writeStatus
+        let historyFile = historyStore?.fileURL
         // Настройки снимаются здесь, на главном потоке, а не внутри очереди:
         // они читаются из модели, а модель живёт только тут.
-        let extras = portableSettingsJSON.map { ["settings.json": $0] } ?? [:]
+        let settingsExtras = portableSettingsJSON.map { ["settings.json": $0] } ?? [:]
 
         return try await withCheckedThrowingContinuation { continuation in
             Self.archiveQueue.async {
                 continuation.resume(with: Result {
-                    logFile?.flush()
+                    let flushed = logFile?.flush() ?? true
+                    let extras = settingsExtras.merging(
+                        Self.supportExtras(
+                            logFile: logFile,
+                            logFlushed: flushed,
+                            historyStatus: historyStatus,
+                            historyFile: historyFile
+                        )
+                    ) { current, _ in current }
                     return try SupportArchive.make(
                         logs: logFile?.files() ?? [],
                         summary: summary,
@@ -1588,6 +1598,7 @@ final class AppModel: ObservableObject {
         applyAudioOwnership()
         startLevelPolling()
         refreshRingback()
+        startMediaSummaries()
     }
 
     private func reportMediaFailure(_ error: Error, on lineID: String, early: Bool) {
@@ -2768,6 +2779,11 @@ final class AppModel: ObservableObject {
 
     private var levelTask: Task<Void, Never>?
 
+    /// Сводки звука раз в 30 с и наблюдение за главным потоком — см.
+    /// `AppModel+Diagnostics`.
+    var mediaSummaryTask: Task<Void, Never>?
+    var mainThreadWatch: Task<Void, Never>?
+
     /// Опрос уровней для индикатора.
     ///
     /// Опрос, а не поток событий: индикатор рисуется двадцать раз в секунду, а
@@ -3038,6 +3054,7 @@ final class AppModel: ObservableObject {
     /// обязан быть готов **до** первой отрисовки, а значит не может заводиться
     /// вместе с ней.
     func startWatchingAudioDevices() {
+        startMainThreadWatch()
         guard audioCatalogObservation == nil else { return }
         refreshAudioCatalog()
         audioCatalogObservation = AudioDeviceCatalog.observe { _ in
