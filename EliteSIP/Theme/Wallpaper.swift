@@ -199,3 +199,20 @@ extension View {
         }
     }
 }
+
+/// Обои под окном по настройкам модели — для окон, которые рисует SwiftUI
+/// целиком (история). Нативный сайдбар обоями не накрывается: его материал
+/// рисует система.
+struct WallpaperHost<Content: View>: View {
+
+    @EnvironmentObject private var model: AppModel
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content.wallpaperBackground(model.settings.background)
+    }
+}

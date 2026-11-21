@@ -129,16 +129,10 @@ struct CallHistoryWindowView: View {
                 // Высота у всех кнопок ряда одна, независимо от того, подпись
                 // внутри или один значок: иначе значковые сидят ниже соседей.
                 .frame(minHeight: Theme.Metrics.filterChipHeight)
-                .compatForeground(isSelected ? Color.white : Color.primary)
-                .compatBackground {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: Theme.Radius.control)
-                            .fill(Theme.Palette.connecting)
-                    }
-                }
-                // Невыбранная — та же поверхность, что у любой кнопки
-                // приложения; выбранная получает акцент поверх неё.
-                .themedControlSurface()
+                .compatForeground(Color.primary)
+                // Мягкие фильтры графита Windows 1.0.4: выбранный — серым
+                // «включённым», а не цветной плашкой.
+                .graphiteSurface(isSelected ? .selected : .control, cornerRadius: Theme.Radius.control, shadow: !isSelected)
                 .opacity(configuration.isPressed ? 0.7 : 1)
                 .contentShape(Rectangle())
         }
@@ -220,7 +214,7 @@ struct CallHistoryWindowView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .themedControlSurface(cornerRadius: Theme.Radius.surface)
+        .graphiteSurface(.macro, cornerRadius: Theme.Radius.surface)
         // Якорь снимка — фоном плашки, потому что снимается ровно она.
         .compatBackground { HistorySnapshotArea(anchor: snapshot) }
         // Сообщение о снимке — поверх списка и снизу, где его не закроет рука с

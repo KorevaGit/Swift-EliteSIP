@@ -204,6 +204,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if ProcessInfo.processInfo.arguments.contains("--administration") {
             showAdministrationWindow(nil)
         }
+        // История — для сверки оформления: EliteSIP --history
+        if ProcessInfo.processInfo.arguments.contains("--history") {
+            showCallHistoryWindow(nil)
+        }
         // Настройки на нужном разделе — для сверки оформления:
         //   EliteSIP.app/Contents/MacOS/EliteSIP --settings audio
         if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--settings") {
@@ -1507,7 +1511,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.backgroundColor = isGlass ? .clear : .windowBackgroundColor
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
-            rootView: withEnvironment(CallHistoryWindowView())
+            rootView: withEnvironment(WallpaperHost { CallHistoryWindowView() })
         )
         // Слой у вью окна нужен снимку списка: он снимается отрисовкой слоя, а
         // не `cacheDisplay` — тот теряет весь текст SwiftUI.
