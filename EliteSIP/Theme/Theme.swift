@@ -540,7 +540,10 @@ enum Theme {
         /// 186 и 244 точки, но зафиксировать их значит получить пустую полосу
         /// между именем звонящего и кнопками всякий раз, когда содержимого
         /// меньше расчётного — например когда сервер не прислал имя.
-        static let incomingCallPanelWidth: CGFloat = 320
+        /// 360, как в Windows 1.0.4: имя в 25 точек и две строки не помещались в 320.
+        static let incomingCallPanelWidth: CGFloat = 360
+        /// Высота «Ответить» / «Отклонить» — 50, как в Windows.
+        static let incomingCallButtonHeight: CGFloat = 50
 
         /// Подкраска поверхности окна входящего.
         ///
@@ -743,7 +746,8 @@ enum Theme {
         /// Начертание без `rounded`: 24 pt подбирались под цифры, а на главном
         /// месте теперь чаще текст — «Горячий лид» скруглённым читается как
         /// подпись к игре, а не как имя рабочей задачи.
-        static let incomingTitle = Font.system(size: 24, weight: .medium)
+        static let incomingTitle = Font.system(size: 25, weight: .medium)
+        static let incomingNumber = Font.system(size: 18, design: .rounded)
         /// Строка: имя звонящего, номер под названием раздачи, подсказка.
         static let incomingLine = Font.system(size: 13)
         /// Мелкое: подпись «Входящий вызов» и причина отказа на её месте.
@@ -1054,8 +1058,9 @@ private struct IncomingSurface: ViewModifier {
         // чужим интерфейсом ещё хуже, чем панель, — у него нет ни рамки, ни
         // полосы заголовка, только текст.
         if reducesTransparency || !Theme.Chrome.usesLiquidGlass {
+            // Графитовая карточка Windows 1.0.4 — градиент шапки звонка.
             RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(Color(NSColor.windowBackgroundColor))
+                .fill(Graphite.Surface.call.gradient(dark: scheme == .dark))
         } else {
             material.compatOverlay {
                 RoundedRectangle(cornerRadius: cornerRadius)

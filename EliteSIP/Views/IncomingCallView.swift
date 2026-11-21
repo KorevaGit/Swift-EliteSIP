@@ -506,14 +506,16 @@ struct IncomingCallView: View {
         // нужно вспомнить. Имени нет — главным становится номер: пустого
         // главного места не бывает.
         VStack(spacing: Theme.Metrics.hairSpacing) {
+            // Имя крупно и в две строки, номер — 18, как в Windows 1.0.4.
             Text(subject.headline)
                 .font(Theme.Text.incomingTitle)
-                .lineLimit(1)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.6)
 
             if let number = subject.secondaryNumber {
                 Text(number)
-                    .font(Theme.Text.incomingLine)
+                    .font(Theme.Text.incomingNumber)
                     .compatForeground(.secondary)
                     .lineLimit(1)
             }
@@ -622,8 +624,9 @@ struct IncomingCallView: View {
             // Кнопка активна с первого кадра: локальной задержки активации нет.
             FilledCallButton(
                 title: NSLocalizedString("Ответить", comment: "кнопка в окне входящего"),
-                icon: "phone.fill",
-                fill: Theme.Palette.answer
+                icon: "Lucide/phone",
+                surface: .answer,
+                pulses: true
             ) {
                 onAttempt(challenge.answer)
             }
@@ -637,8 +640,8 @@ struct IncomingCallView: View {
 
             FilledCallButton(
                 title: NSLocalizedString("Отклонить", comment: "кнопка в окне входящего"),
-                icon: "phone.down.fill",
-                fill: Theme.Palette.decline,
+                icon: "Lucide/phone-off",
+                surface: .decline,
                 action: onDecline
             )
             .compatCancelShortcut()
@@ -663,8 +666,8 @@ private struct DigitTargetButton: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .themedControlSurface()
-        .hoverHighlight()
+        .graphiteSurface(.control)
+        .hoverHighlight(cornerRadius: Graphite.cornerRadius)
         // Нажать через Accessibility API нельзя — см. пояснение у «Ответить».
         .compatAccessibilityHidden(true)
     }
@@ -679,24 +682,38 @@ private struct FilledCallButton: View {
 
     let title: String
     let icon: String
-    let fill: Color
+    let surface: Graphite.Surface
+    /// Плавная пульсация «Ответить» — 1 → 0,87 → 1 за 2,4 с, как в Windows:
+    /// геометрия не меняется, на наведении пульсация снимается.
+    var pulses = false
     let action: @MainActor () -> Void
+
+    @State private var isDimmed = false
+    @State private var isHovered = false
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                CompatSymbol(name: icon)
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                CompatSymbol(name: icon, size: 18)
                 Text(title)
             }
             .font(Theme.Text.controlLabel)
             .compatForeground(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, Theme.Metrics.incomingButtonPadding)
-            .compatBackground(fill, cornerRadius: Theme.Radius.control)
+            .frame(height: Theme.Metrics.incomingCallButtonHeight)
+            .graphiteSurface(surface)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .hoverHighlight()
+        .hoverHighlight(cornerRadius: Graphite.cornerRadius)
+        .opacity(pulses && isDimmed && !isHovered ? 0.87 : 1)
+        .onHover { isHovered = $0 }
+        .onAppear {
+            guard pulses else { return }
+            withAnimation(Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                isDimmed = true
+            }
+        }
     }
 }
 
