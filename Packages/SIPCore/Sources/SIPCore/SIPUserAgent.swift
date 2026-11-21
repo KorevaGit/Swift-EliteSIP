@@ -42,8 +42,15 @@ public actor SIPUserAgent {
     /// не проверить: тест не станет ждать три минуты.
     private let ringingLimit: Interval
 
-    public nonisolated let events: AsyncStream<Event>
-    private nonisolated let eventContinuation: AsyncStream<Event>.Continuation
+    /// События агента. Управляющие (регистрация, вызов, закрытие канала) не
+    /// вытесняются журналом: у них своя полоса, см. `SIPEventQueue`.
+    public nonisolated let events: SIPEventQueue<Event>
+
+    /// Сколько строк журнала агента пропущено из-за переполнения.
+    public nonisolated var droppedDiagnosticCount: Int { events.droppedCount }
+
+    /// Предел диагностической полосы событий агента.
+    public static let diagnosticEventCapacity = 256
 
     // Идентификаторы серии регистраций: Call-ID и tag постоянны, пока агент жив.
     private let registrationCallID = SIPToken.callID()
@@ -150,6 +157,11 @@ public actor SIPUserAgent {
 
         /// Последний SDP раннего медиа, отданный наверх. См. `emitEarlyMedia`.
         var earlyMediaBody: Data?
+
+        /// Сколько разных SDP раннего медиа уже отдано наверх. Поток событий
+        /// звонка не вытесняет ничего, поэтому поток 183 с меняющимся телом
+        /// обрезается здесь, а не в буфере — финал звонка остаётся на месте.
+        var earlyMediaUpdates = 0
     }
 
     // MARK: - Линии
@@ -299,9 +311,9 @@ public actor SIPUserAgent {
         self.sessionTimerPolicy = sessionTimerPolicy
         self.pathOpener = pathOpener
 
-        let (stream, continuation) = AsyncStream<Event>.makeStream(bufferingPolicy: .bufferingNewest(256))
-        events = stream
-        eventContinuation = continuation
+        events = SIPEventQueue(regularCapacity: Self.diagnosticEventCapacity) { count in
+            .log(level: .warning, message: "журнал агента переполнен: пропущено строк — \(count)")
+        }
     }
 
     public var registrationState: SIPRegistrationState { state }
@@ -374,7 +386,7 @@ public actor SIPUserAgent {
         keepAliveTask = nil
         log(.error, "канал закрыт: \(reason)")
         set(state: .failed(reason: reason, retryAt: nil))
-        eventContinuation.yield(.channelClosed(reason: reason))
+        events.yield(.channelClosed(reason: reason), lane: .priority)
     }
 
     /// Немедленно перерегистрироваться, не дожидаясь планового обновления.
@@ -429,7 +441,7 @@ public actor SIPUserAgent {
         channelClosurePumpTask = nil
         await transactions.stop()
         set(state: .idle)
-        eventContinuation.finish()
+        events.finish()
     }
 
     // MARK: - Регистрация
@@ -825,7 +837,7 @@ public actor SIPUserAgent {
         contentType: String = "application/sdp"
     ) -> SIPOutgoingCall {
         let callID = SIPToken.callID()
-        let (stream, continuation) = AsyncStream<SIPCallEvent>.makeStream(bufferingPolicy: .bufferingNewest(32))
+        let (stream, continuation) = AsyncStream<SIPCallEvent>.makeStream(bufferingPolicy: .unbounded)
 
         func reject(_ error: SIPCallError) -> SIPOutgoingCall {
             continuation.yield(.failed(status: 0, reason: error.description))
@@ -1421,7 +1433,7 @@ public actor SIPUserAgent {
         replacing: SIPDialogIdentifier? = nil
     ) -> AsyncStream<SIPTransferEvent> {
         let (stream, continuation) = AsyncStream<SIPTransferEvent>.makeStream(
-            bufferingPolicy: .bufferingNewest(16)
+            bufferingPolicy: .unbounded
         )
 
         func reject(_ error: SIPTransferError) -> AsyncStream<SIPTransferEvent> {
@@ -1846,12 +1858,25 @@ public actor SIPUserAgent {
     ///
     /// Повтор того же тела не пересылается: 180 и 183 станция шлёт по
     /// нескольку раз, и каждый повтор перезапускал бы звук посреди гудка.
+    /// Предел смен раннего медиа за звонок. Живая станция меняет SDP в 1xx
+    /// раз-другой; десятки смен — это уже поток, а не гудок.
+    static let maximumEarlyMediaUpdates = 16
+
     private func emitEarlyMedia(from response: SIPResponse, of callID: String) {
         guard !response.body.isEmpty,
               response.contentType.map({ $0.lowercased().hasPrefix("application/sdp") }) ?? true,
               var call = calls[callID],
               call.earlyMediaBody != response.body
         else { return }
+        guard call.earlyMediaUpdates < Self.maximumEarlyMediaUpdates else {
+            if call.earlyMediaUpdates == Self.maximumEarlyMediaUpdates {
+                log(.warning, "раннее медиа меняется слишком часто, дальнейшие 1xx с SDP не применяются")
+                call.earlyMediaUpdates += 1
+                calls[callID] = call
+            }
+            return
+        }
+        call.earlyMediaUpdates += 1
         call.earlyMediaBody = response.body
         calls[callID] = call
         call.continuation.yield(.earlyMedia(body: response.body, contentType: response.contentType))
@@ -1958,7 +1983,7 @@ public actor SIPUserAgent {
         }
 
         let callTag = SIPToken.tag()
-        let (stream, continuation) = AsyncStream<SIPCallEvent>.makeStream(bufferingPolicy: .bufferingNewest(32))
+        let (stream, continuation) = AsyncStream<SIPCallEvent>.makeStream(bufferingPolicy: .unbounded)
         let from = request.from
 
         add(ActiveCall(
@@ -1997,7 +2022,7 @@ public actor SIPUserAgent {
 
         log(.info, "<- INVITE от \(call.displayNumber), ответили 180")
         continuation.yield(.state(.incoming))
-        eventContinuation.yield(.incomingCall(call))
+        events.yield(.incomingCall(call), lane: .priority)
     }
 
     /// Просит ли сервер снять трубку сам.
@@ -2388,13 +2413,13 @@ public actor SIPUserAgent {
             var response = SIPResponse(statusCode: 501, headers: responseHeaders(for: request))
             response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
             try? await transactions.respond(to: request, with: response)
-            eventContinuation.yield(.unsupportedRequest(method: request.method))
+            events.yield(.unsupportedRequest(method: request.method), lane: .regular)
 
         default:
             var response = SIPResponse(statusCode: 405, headers: responseHeaders(for: request))
             response.headers.append(SIPHeaderName.allow, Self.allowedMethods)
             try? await transactions.respond(to: request, with: response)
-            eventContinuation.yield(.unsupportedRequest(method: request.method))
+            events.yield(.unsupportedRequest(method: request.method), lane: .regular)
         }
     }
 
@@ -2524,11 +2549,11 @@ public actor SIPUserAgent {
     private func set(state newState: SIPRegistrationState) {
         guard state != newState else { return }
         state = newState
-        eventContinuation.yield(.registration(newState))
+        events.yield(.registration(newState), lane: .priority)
     }
 
     private func log(_ level: SIPLogLevel, _ message: String) {
-        eventContinuation.yield(.log(level: level, message: message))
+        events.yield(.log(level: level, message: message), lane: .regular)
     }
 
     public enum RegistrationError: Error, Sendable, Equatable, CustomStringConvertible {

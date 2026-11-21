@@ -72,7 +72,15 @@ public actor SIPTransactionLayer {
         ///
         /// Поэтому просьба запоминается и исполняется на первом же 1xx.
         var cancelsWhenProceeding = false
+
+        /// Сколько 1xx отдано наверх. Поток событий INVITE не вытесняет
+        /// ничего — иначе поток 180 выталкивал финальный ответ, — поэтому
+        /// лишние 1xx отсекаются здесь, а финал проходит всегда.
+        var provisionalsDelivered = 0
     }
+
+    /// Предел 1xx на одну транзакцию INVITE, отдаваемых наверх.
+    static let maximumDeliveredProvisionals = 32
 
     /// Серверная сторона INVITE: RFC 3261 §17.2.1 плюс §13.3.1.4 для 2xx.
     ///
@@ -99,8 +107,20 @@ public actor SIPTransactionLayer {
     private let channel: SIPTransportChannel
     private let timers: Timers
 
-    public nonisolated let inboundRequests: AsyncStream<SIPRequest>
-    private nonisolated let inboundContinuation: AsyncStream<SIPRequest>.Continuation
+    /// Входящие запросы. ACK, CANCEL и BYE идут приоритетной полосой: они
+    /// закрывают уже принятое. Новые запросы при переполненной очереди не
+    /// вытесняют принятые, а получают 503 — см. `enqueue(inbound:)`.
+    public nonisolated let inboundRequests: SIPEventQueue<SIPRequest>
+
+    /// Предел очереди новых входящих запросов.
+    public static let inboundCapacity = 64
+
+    /// Предел приоритетной полосы входящих: ACK/CANCEL/BYE мусором с порта тоже
+    /// можно завалить, и бесконечная полоса стала бы способом съесть память.
+    public static let inboundPriorityCapacity = 256
+
+    /// Сколько новых запросов отклонено ответом 503 из-за переполнения.
+    public private(set) var overloadRejections = 0
 
     /// Судьба финальных ответов на входящие INVITE: дошли или нет.
     public nonisolated let serverInviteEvents: AsyncStream<SIPServerInviteEvent>
@@ -171,17 +191,18 @@ public actor SIPTransactionLayer {
     public init(channel: SIPTransportChannel, timers: Timers = Timers()) {
         self.channel = channel
         self.timers = timers
-        let (stream, continuation) = AsyncStream<SIPRequest>.makeStream(bufferingPolicy: .bufferingNewest(64))
-        inboundRequests = stream
-        inboundContinuation = continuation
+        inboundRequests = SIPEventQueue(
+            regularCapacity: Self.inboundCapacity,
+            priorityCapacity: Self.inboundPriorityCapacity
+        )
 
         let (serverStream, serverContinuation) =
-            AsyncStream<SIPServerInviteEvent>.makeStream(bufferingPolicy: .bufferingNewest(16))
+            AsyncStream<SIPServerInviteEvent>.makeStream(bufferingPolicy: .unbounded)
         serverInviteEvents = serverStream
         serverInviteContinuation = serverContinuation
 
         let (closureStream, closureContinuation) =
-            AsyncStream<String>.makeStream(bufferingPolicy: .bufferingNewest(4))
+            AsyncStream<String>.makeStream(bufferingPolicy: .unbounded)
         channelClosures = closureStream
         channelClosureContinuation = closureContinuation
     }
@@ -210,7 +231,7 @@ public actor SIPTransactionLayer {
         for key in Array(serverInvites.keys) {
             forgetServerInvite(branch: key)
         }
-        inboundContinuation.finish()
+        inboundRequests.finish()
         serverInviteContinuation.finish()
         channelClosureContinuation.finish()
         await channel.stop()
@@ -282,7 +303,7 @@ public actor SIPTransactionLayer {
             branchValue = via.branch
         }
 
-        let (stream, continuation) = AsyncStream<SIPInviteEvent>.makeStream(bufferingPolicy: .bufferingNewest(32))
+        let (stream, continuation) = AsyncStream<SIPInviteEvent>.makeStream(bufferingPolicy: .unbounded)
 
         guard let branch = branchValue else {
             continuation.yield(.transportFailed(reason: "в запросе нет Via"))
@@ -706,7 +727,7 @@ public actor SIPTransactionLayer {
             // повтор нашего же 486 — собеседник читал бы это как новый отказ.
             if request.method == .ack {
                 if absorbAcknowledgement(request) { return }
-                inboundContinuation.yield(request)
+                await enqueue(inbound: request)
                 return
             }
 
@@ -719,8 +740,37 @@ public actor SIPTransactionLayer {
                 try? await channel.send(previous.response.encoded())
                 return
             }
-            inboundContinuation.yield(request)
+            await enqueue(inbound: request)
         }
+    }
+
+    /// Кладёт запрос наверх; при переполнении отвечает 503 сам.
+    ///
+    /// Отказ явный, а не молчаливый: на UDP молчание означает ретрансмиссии
+    /// того же запроса ещё десять раз, а 503 с Retry-After станция понимает и
+    /// уводит вызов дальше по очереди. На ACK ответа не бывает вовсе.
+    private func enqueue(inbound request: SIPRequest) async {
+        let lane: SIPEventQueue<SIPRequest>.Lane = switch request.method {
+        case .ack, .cancel, .bye: .priority
+        default: .regular
+        }
+        guard inboundRequests.yield(request, lane: lane) == .rejected,
+              request.method != .ack
+        else { return }
+        overloadRejections += 1
+        try? await respond(to: request, with: Self.makeOverloadResponse(to: request))
+    }
+
+    static func makeOverloadResponse(to request: SIPRequest) -> SIPResponse {
+        var headers = SIPHeaders()
+        for via in request.headers.values(SIPHeaderName.via) {
+            headers.append(SIPHeaderName.via, via)
+        }
+        for name in [SIPHeaderName.from, SIPHeaderName.to, SIPHeaderName.callID, SIPHeaderName.cseq] {
+            if let value = request.headers[name] { headers.append(name, value) }
+        }
+        headers.append(SIPHeaderName.retryAfter, "5")
+        return SIPResponse(statusCode: 503, headers: headers)
     }
 
     private func handle(response: SIPResponse) async {
@@ -756,8 +806,10 @@ public actor SIPTransactionLayer {
             transaction.timeoutTask?.cancel()
             transaction.timeoutTask = nil
             transaction.state = .proceeding
+            let delivers = transaction.provisionalsDelivered < Self.maximumDeliveredProvisionals
+            if delivers { transaction.provisionalsDelivered += 1 }
             inviteTransactions[key] = transaction
-            transaction.continuation.yield(.provisional(response))
+            if delivers { transaction.continuation.yield(.provisional(response)) }
 
             // Отмену просили раньше, чем сервер отозвался. Вот он отозвался —
             // теперь CANCEL законен. Наверх про этот 1xx уже сказано, и это
