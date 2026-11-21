@@ -160,7 +160,11 @@ struct CallHistoryWindowView: View {
                 get: { model.historyFilter },
                 set: { model.historyFilter = $0 }
             ))
-            .fixedSize()
+            // Высота задана явно, а не взята у AppKit: собственный размер
+            // переключателя менялся посреди раскладки, и ряд временами вставал
+            // ниже нужного — список наезжал на фильтры.
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(height: Theme.Metrics.filterChipHeight)
             Spacer()
             HistoryDayButton()
             HistorySnapshotButton(
@@ -1723,13 +1727,15 @@ private struct HistoryFilterSegments: NSViewRepresentable {
     private let filters = CallHistoryStore.Filter.allCases
 
     func makeNSView(context: Context) -> NSSegmentedControl {
-        let control = NSSegmentedControl(
+        let control = FixedSizeSegmentedControl(
             labels: filters.map(\.title),
             trackingMode: .selectOne,
             target: context.coordinator,
             action: #selector(Coordinator.changed(_:))
         )
-        if #available(macOS 11.0, *) { control.controlSize = .large }
+        control.font = .systemFont(ofSize: NSFont.systemFontSize)
+        // Выбранный сегмент — графитом интерфейса, а не системным синим.
+        control.selectedSegmentBezelColor = Graphite.dynamic(light: 0xc6c6c6, dark: 0x505050)
         for (index, filter) in filters.enumerated() {
             control.setImage(Self.badge(for: filter), forSegment: index)
             control.setImageScaling(.scaleNone, forSegment: index)
@@ -1737,18 +1743,35 @@ private struct HistoryFilterSegments: NSViewRepresentable {
         return control
     }
 
+    /// Здесь только выбор. Размер, шрифт и цвет задаются один раз при
+    /// создании: их повторная установка на каждом обновлении меняла
+    /// собственный размер переключателя посреди раскладки SwiftUI.
     func updateNSView(_ control: NSSegmentedControl, context: Context) {
-        // Размер — каждый раз: окружение SwiftUI (`controlSize(.small)` у ряда)
-        // иначе ужимает сегменты ниже кнопок календаря и снимка.
-        if #available(macOS 11.0, *) { control.controlSize = .large }
-        control.font = .systemFont(ofSize: NSFont.systemFontSize)
-        // Выбранный сегмент — графитом интерфейса, а не системным синим.
-        control.selectedSegmentBezelColor = Graphite.dynamic(light: 0xc6c6c6, dark: 0x505050)
         context.coordinator.selection = $selection
-        control.selectedSegment = filters.firstIndex(of: selection) ?? 0
+        let index = filters.firstIndex(of: selection) ?? 0
+        if control.selectedSegment != index { control.selectedSegment = index }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
+
+    /// Размер сегментов не уступает окружению: `controlSize(.small)` у ряда
+    /// иначе ужимает их ниже кнопок календаря и снимка.
+    final class FixedSizeSegmentedControl: NSSegmentedControl {
+        private static var fixedSize: NSControl.ControlSize {
+            if #available(macOS 11.0, *) { return .large }
+            return .regular
+        }
+
+        override var controlSize: NSControl.ControlSize {
+            get { super.controlSize }
+            set { if super.controlSize != Self.fixedSize { super.controlSize = Self.fixedSize } }
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            controlSize = Self.fixedSize
+        }
+    }
 
     final class Coordinator: NSObject {
         var selection: Binding<CallHistoryStore.Filter>
