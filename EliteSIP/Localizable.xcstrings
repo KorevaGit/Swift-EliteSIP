@@ -2845,23 +2845,6 @@
         }
       }
     },
-    "Доступна версия %@": {
-      "comment": "предложение обновиться",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Version %@ is available"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Доступна версия %@"
-          }
-        }
-      }
-    },
     "Если АТС просит автоответ заголовком, как в MicroSIP.": {
       "localizations": {
         "en": {
@@ -6154,23 +6137,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Обновление найдено, скачивается…"
-          }
-        }
-      }
-    },
-    "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само.": {
-      "comment": "предложение обновиться",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The update is downloaded and verified. Installing takes a few seconds, and the app restarts itself."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само."
           }
         }
       }
@@ -14026,6 +13992,102 @@
           "stringUnit": {
             "state": "translated",
             "value": "Восстановить"
+          }
+        }
+      }
+    },
+    "Доступно обновление": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update available"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступно обновление"
+          }
+        }
+      }
+    },
+    "Что нового": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s new"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что нового"
+          }
+        }
+      }
+    },
+    "Новая версия скачана и готова к установке.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The new version is downloaded and ready to install."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая версия скачана и готова к установке."
+          }
+        }
+      }
+    },
+    "EliteSIP закроется на время установки и запустится снова.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EliteSIP will close during installation and reopen."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EliteSIP закроется на время установки и запустится снова."
+          }
+        }
+      }
+    },
+    "Напомним через 4 часа": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We’ll remind you in 4 hours"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напомним через 4 часа"
+          }
+        }
+      }
+    },
+    "Описание изменений для этого выпуска не добавлено.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No release notes were added for this version."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Описание изменений для этого выпуска не добавлено."
           }
         }
       }

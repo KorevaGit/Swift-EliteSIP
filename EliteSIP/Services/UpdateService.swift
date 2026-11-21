@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Sparkle
+import SwiftUI
 
 /// Автообновление рабочего места (M7h).
 ///
@@ -12,7 +13,7 @@ import Sparkle
 ///
 /// **Что здесь происходит по порядку.**
 ///
-/// 1. Раз в два часа с небольшим разбросом приложение спрашивает канал и, если
+/// 1. Раз в четыре часа с небольшим разбросом приложение спрашивает канал и, если
 ///    там новее, молча качает архив в фоне. Оператор об этом не знает и знать не должен: качать
 ///    нечего решать. Интервал короткий не из любви к частым проверкам, а
 ///    потому что нет ещё синхронизации настроек через `elitesip.vip` (M9) —
@@ -25,12 +26,15 @@ import Sparkle
 ///    «Отложить». Нажатие «Обновить» ничего не начинает, а завершает — файл уже
 ///    лежит проверенный, поэтому и выглядит мгновенным.
 ///
-/// **Отсрочка — ровно полчаса, и предела ей нет.** Так решено сознательно:
-/// настойчивость напоминания заменяет принуждение, а рабочее место, которое
-/// неделю жмёт «Отложить», — это вопрос настойчивости, а не политики.
+/// **Отсрочка — четыре часа, и предела ей нет.** Сценарий Windows-клиента
+/// 1.0.4: проверка и напоминание — раз в четыре часа, вместо получаса и двух
+/// часов до 0.1.72. Напоминание каждые полчаса мешало работать, а не
+/// обновляло: оператор жал «Отложить» не читая. Отсрочка записывается и
+/// переживает перезапуск — иначе закрыть и открыть приложение значило бы
+/// получить вопрос заново.
 ///
-/// Полчаса отсрочки и два часа между проверками канала — разные сроки, и путать
-/// их не надо: первое про уже скачанное, второе про поход в сеть.
+/// Отсрочка и такт проверки канала — разные сроки, хотя числа совпали:
+/// первое про уже скачанное, второе про поход в сеть.
 ///
 /// **Предложение не показывается в разговоре.** Проверка та же, что запрещает
 /// отключение профиля (M6b): непустой список линий. Входящий звонок закрывает
@@ -48,7 +52,45 @@ import Sparkle
 final class UpdateService: NSObject, ObservableObject {
 
     /// Через сколько предложение возвращается после «Отложить».
-    private static let reminderInterval: TimeInterval = 30 * 60
+    private static let reminderInterval: TimeInterval = 4 * 60 * 60
+
+    /// До какого момента оператор отложил предложение. В `UserDefaults`, а не
+    /// в памяти: отсрочка обязана пережить перезапуск.
+    private static let deferredUntilKey = "EliteSIPUpdateDeferredUntil"
+    private static let lastRunVersionKey = "EliteSIPLastRunVersion"
+
+    private var deferredUntil: Date? {
+        get { UserDefaults.standard.object(forKey: Self.deferredUntilKey) as? Date }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue, forKey: Self.deferredUntilKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.deferredUntilKey)
+            }
+        }
+    }
+
+    private static var installedVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
+    /// Подтверждение установки в журнал машины Spark — как в Windows 1.0.4.
+    ///
+    /// Зовётся при запуске: версия сменилась с прошлого запуска — значит,
+    /// обновление встало. Заодно снимается отсрочка: она была про прежний
+    /// выпуск. Не в Debug: у отладочной сборки те же `UserDefaults`, и запуск
+    /// её рядом с установленной отправил бы в Spark «установку», которой не было.
+    static func reportInstalledVersionIfChanged() {
+        #if !DEBUG
+        let defaults = UserDefaults.standard
+        let current = installedVersion
+        let previous = defaults.string(forKey: lastRunVersionKey)
+        defaults.set(current, forKey: lastRunVersionKey)
+        guard let previous, !previous.isEmpty, previous != current else { return }
+        defaults.removeObject(forKey: deferredUntilKey)
+        ClientEventLog.shared.record(.update, .info, "Установлено \(previous) → \(current)")
+        #endif
+    }
 
     /// Как часто спрашивать канал — **и обновления, и предустановки**.
     ///
@@ -57,8 +99,8 @@ final class UpdateService: NSObject, ObservableObject {
     /// ошибиться со сроком. Отсюда же и то, что таймер здесь один и заводится
     /// ниже вручную, а Sparkle своим расписанием больше не пользуется.
     ///
-    /// **Два часа с разбросом до десяти минут — это и есть верхняя граница
-    /// ожидания.** Приложение обязано ещё и спросить канал при каждом запуске
+    /// **Четыре часа с разбросом до десяти минут — это и есть верхняя граница
+    /// ожидания** (два часа до 0.1.72; четыре — с Windows-клиентом 1.0.4). Приложение обязано ещё и спросить канал при каждом запуске
     /// (`startCycle`), и на машине, которую выключают на ночь, именно запуск, а
     /// не такт, доставляет вчерашний выпуск и вчерашнюю правку макроса.
     ///
@@ -69,7 +111,7 @@ final class UpdateService: NSObject, ObservableObject {
     ///
     /// С `reminderInterval` это разные сроки и разные решения: тот говорит,
     /// когда напомнить про уже скачанное, этот — когда идти в сеть.
-    private static let checkInterval: TimeInterval = 2 * 60 * 60
+    private static let checkInterval: TimeInterval = 4 * 60 * 60
 
     /// Разброс вокруг такта.
     ///
@@ -85,6 +127,9 @@ final class UpdateService: NSObject, ObservableObject {
     @Published private(set) var readyVersion: String? {
         didSet { announce(readyVersion) }
     }
+
+    /// Заметки готового выпуска — `<description>` записи appcast, текстом.
+    private var readyNotes: String?
 
     /// Идёт ли ручная проверка «сейчас» — кнопка в «Диагностике» → «Сборка».
     ///
@@ -261,7 +306,7 @@ final class UpdateService: NSObject, ObservableObject {
         // В обычном режиме таймер не срабатывает, пока человек держит открытым
         // меню или тащит окно, — а первые пять секунд после запуска это ровно
         // то, чем человек и занят. Пропущенный такт «при запуске» означает, что
-        // вчерашний выпуск доедет не утром, а через два часа: ради этого такт и
+        // вчерашний выпуск доедет не утром, а через четыре часа: ради этого такт и
         // заведён. Найдено аудитом 27 августа 2026.
         let first = Timer(timeInterval: Self.firstCheckDelay, target: self,
                           selector: #selector(firstCheckFired), userInfo: nil, repeats: false)
@@ -305,7 +350,7 @@ final class UpdateService: NSObject, ObservableObject {
         dismissOffer()
         // не переводится: строка журнала
         log("обновление: предложение убрано на время разговора")
-        // Полчаса, а не «сразу»: вернуть предложение должен конец разговора
+        // Срок отсрочки, а не «сразу»: вернуть предложение должен конец разговора
         // (`hostBecameIdle`), а этот таймер — запасной путь на случай, если тот
         // сигнал потеряется. Ноль здесь давал срабатывание вхолостую через
         // секунду, пока разговор ещё идёт.
@@ -382,25 +427,24 @@ final class UpdateService: NSObject, ObservableObject {
             return
         }
 
-        let alert = GraphiteDialogWindow(
-            icon: "cloud-download",
-            title: String(
-                format: NSLocalizedString("Доступна версия %@", comment: "предложение обновиться"),
-                version
-            ),
-            message: NSLocalizedString(
-                "Обновление уже загружено и проверено. Установка займёт несколько секунд, приложение перезапустится само.",
-                comment: "предложение обновиться"
-            ),
-            buttons: [
-                .init(title: NSLocalizedString("Обновить", comment: "кнопка в предложении обновиться"), role: .primary),
-                .init(title: NSLocalizedString("Отложить", comment: "кнопка в предложении обновиться"), role: .cancel),
-            ]
-        )
+        // Отсрочка оператора — в том числе с прошлого запуска. Кнопка
+        // «Обновить» в панели и ручная проверка её не ждут. Верхняя граница —
+        // на случай переведённых часов: дольше одной отсрочки не ждём.
+        if !force, let until = deferredUntil {
+            let remaining = until.timeIntervalSinceNow
+            if remaining > 0, remaining <= Self.reminderInterval {
+                scheduleReminder(after: remaining)
+                return
+            }
+        }
+
+        let alert = Self.makeOffer(installed: Self.installedVersion, available: version, notes: readyNotes)
         offerSheet = alert
 
         let decide: (NSApplication.ModalResponse) -> Void = { [weak self] response in
-            guard let self else { return }
+            // Окно убрано не оператором, а разговором или концом сессии
+            // обновления: это не «Отложить», и отсрочку оно не заводит.
+            guard let self, self.offerSheet === alert else { return }
             self.offerSheet = nil
             if response == .alertFirstButtonReturn {
                 guard !self.isBusy() else {
@@ -415,10 +459,12 @@ final class UpdateService: NSObject, ObservableObject {
                 self.reminder?.invalidate()
                 self.reminder = nil
                 self.installAction = nil
+                self.deferredUntil = nil
                 install()
             } else {
+                self.deferredUntil = Date().addingTimeInterval(Self.reminderInterval)
                 // не переводится: строка журнала
-                self.log("обновление: отложено на полчаса")
+                self.log("обновление: отложено на 4 часа")
                 self.scheduleReminder(after: Self.reminderInterval)
             }
         }
@@ -431,6 +477,56 @@ final class UpdateService: NSObject, ObservableObject {
             alert.beginSheet(for: window, completion: decide)
         } else {
             decide(alert.runModal())
+        }
+    }
+
+    /// Окно предложения — как `UpdateOffer` Windows 1.0.4: переход версий,
+    /// «Что нового», готовность, предупреждение о перезапуске и срок напоминания.
+    static func makeOffer(installed: String, available: String, notes: String?) -> GraphiteDialogWindow {
+        var changes = Self.changes(from: notes)
+        if changes.isEmpty {
+            changes = [NSLocalizedString(
+                "Описание изменений для этого выпуска не добавлено.",
+                comment: "предложение обновиться без заметок"
+            )]
+        }
+        return GraphiteDialogWindow(
+            icon: "cloud-download",
+            title: NSLocalizedString("Доступно обновление", comment: "предложение обновиться"),
+            subtitle: installed.isEmpty ? "EliteSIP \(available)" : "EliteSIP \(installed) → \(available)",
+            message: nil,
+            listing: .init(
+                icon: "list-checks",
+                heading: Text("Что нового"),
+                items: changes
+            ),
+            remarks: [
+                .init(icon: "check", text: Text("Новая версия скачана и готова к установке."), isPositive: true),
+                .init(icon: "rotate-cw", text: Text("EliteSIP закроется на время установки и запустится снова.")),
+            ],
+            caption: NSLocalizedString("Напомним через 4 часа", comment: "предложение обновиться"),
+            buttons: [
+                .init(title: NSLocalizedString("Обновить", comment: "кнопка в предложении обновиться"), role: .primary),
+                .init(title: NSLocalizedString("Отложить", comment: "кнопка в предложении обновиться"), role: .cancel),
+            ]
+        )
+    }
+
+    /// Заметки выпуска строками, без HTML: текст приходит из подписанного
+    /// appcast, но показывается всё равно как текст. Если в заметках есть
+    /// пункты списка, берутся только они — заголовок «Что нового в EliteSIP …»
+    /// повторял бы заголовок карточки.
+    static func changes(from notes: String?) -> [String] {
+        guard let notes else { return [] }
+        let markers: Set<Character> = ["-", "*", "•"]
+        let lines = notes
+            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        let bulleted = lines.filter { $0.first.map(markers.contains) == true }
+        return (bulleted.isEmpty ? lines : bulleted).map { line in
+            String(line.drop(while: { markers.contains($0) || $0 == " " }))
         }
     }
 
@@ -508,6 +604,7 @@ extension UpdateService: SPUUpdaterDelegate {
                  immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
         // не переводится: строка журнала
         log("обновление \(item.displayVersionString) скачано и проверено")
+        readyNotes = item.itemDescription
         readyVersion = item.displayVersionString
         installAction = { [weak self] in
             guard let self else { immediateInstallHandler(); return }
@@ -566,6 +663,7 @@ extension UpdateService: SPUUserDriver {
             reply(.install)
         case .installing:
             // А вот это уже готовое к установке — спрашиваем.
+            readyNotes = appcastItem.itemDescription
             readyVersion = appcastItem.displayVersionString
             installAction = { reply(.install) }
             offerIfPossible()
@@ -638,6 +736,7 @@ extension UpdateService: SPUUserDriver {
         reminder = nil
         installAction = nil
         readyVersion = nil
+        readyNotes = nil
         dismissOffer()
         // Подстраховка: если сессия оборвалась, не дойдя ни до одного из мест
         // выше, «идёт проверка» не должно застрять навсегда и запереть кнопку.

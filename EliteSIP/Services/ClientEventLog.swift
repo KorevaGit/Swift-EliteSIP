@@ -18,7 +18,7 @@ final class ClientEventLog {
 
     static let shared = ClientEventLog()
 
-    enum Kind: String, Codable { case registration, call, config, error, connection }
+    enum Kind: String, Codable { case registration, call, config, error, connection, update }
     enum Level: String, Codable { case info, warning, error }
 
     struct Event: Codable, Equatable {

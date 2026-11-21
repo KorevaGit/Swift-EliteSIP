@@ -559,9 +559,26 @@ release_one() {
     local item="$output_dir/EliteSIP-$version-$label$suffix.item.xml"
     local zip_size
     zip_size=$(stat -f%z "$zip")
+
+    # Заметки выпуска — docs/releases/<версия>.md, текстом: их показывает окно
+    # «Что нового» в предложении обновиться (сценарий Windows-клиента 1.0.4).
+    # Файла нет — окно скажет, что описание не добавлено; выпуск это не держит.
+    local notes_file="docs/releases/$version.md"
+    local description=""
+    if [[ -f "$notes_file" ]]; then
+        if grep -q ']]>' "$notes_file"; then
+            fail "[$label] в $notes_file есть «]]>» — в CDATA такое не положить"
+        fi
+        description="            <description><![CDATA[$(cat "$notes_file")]]></description>"
+        ok "заметки выпуска: $notes_file"
+    else
+        printf '  внимание: нет %s — окно обновления покажет «описание не добавлено»\n' "$notes_file"
+    fi
+
     cat > "$item" <<ITEM
         <item>
             <title>$version</title>
+${description}
             <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
             <sparkle:version>$build_number</sparkle:version>
             <sparkle:shortVersionString>$version</sparkle:shortVersionString>

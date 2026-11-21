@@ -116,6 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         SessionHealth.noteLaunch()
         WallpaperStore.shared.settings = model.settings.background
         ClientEventLog.shared.beginSession()
+        UpdateService.reportInstalledVersionIfChanged()
         LoginItem.applyDefaultIfNeeded { [model] message in model.append(level: .warning, message: message) }
         appNapOptOut = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
@@ -229,7 +230,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         // Вопрос в графитовом оформлении — для сверки: EliteSIP --dialog
         if ProcessInfo.processInfo.arguments.contains("--dialog") {
-            let dialog = GraphiteDialogWindow(
+            let isUpdate = ProcessInfo.processInfo.arguments.contains("update")
+            let dialog = isUpdate ? UpdateService.makeOffer(
+                installed: "0.1.71",
+                available: "0.1.72",
+                notes: (try? String(contentsOfFile: "docs/releases/0.1.72.md", encoding: .utf8))
+            ) : GraphiteDialogWindow(
                 icon: "save",
                 title: NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»"),
                 message: NSLocalizedString(
@@ -303,7 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// отзыв, выложенный вечером, должен сработать при первом же включении, а
     /// не через четверть часа после начала рабочего дня.
     ///
-    /// Предустановки ходят тем же тактом, а не двухчасовым тактом обновлений
+    /// Предустановки ходят тем же тактом, а не четырёхчасовым тактом обновлений
     /// программы (тот остался как был): номер, пароль и кнопки, правленные в
     /// панели, должны доезжать за четверть часа. После сна — отдельная проверка:
     /// `Timer` не считает время сна, и кнопка, удалённая в панели днём, висела
@@ -493,8 +499,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Спросить канал про настройки прямо сейчас.
     ///
-    /// Отдельно от проверки обновлений: при двухчасовом такте администратор,
-    /// сменивший адрес АТС, не должен ждать два часа, чтобы убедиться, что
+    /// Отдельно от проверки обновлений: при четырёхчасовом такте администратор,
+    /// сменивший адрес АТС, не должен ждать четыре часа, чтобы убедиться, что
     /// правка доехала. Раньше, на получасовом такте, это было удобством.
     @objc func checkPresetsNow(_ sender: Any?) {
         presetService?.check()
