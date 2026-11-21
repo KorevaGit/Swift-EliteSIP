@@ -520,6 +520,15 @@ struct IncomingCallView: View {
                     .lineLimit(1)
             }
         }
+        // Своя рамка у имени и номера — как внутренняя карточка Windows:
+        // под ней обои, а текст читается на графите.
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Metrics.sectionSpacing)
+        .padding(.horizontal, Theme.Metrics.contentPadding)
+        .graphiteSurface(.call, shadow: true)
+        // Рамка непрозрачна при любой прозрачности обоев: имя не должно
+        // спорить с картинкой.
+        .environment(\.graphiteSurfaceOpacity, 1)
         // По центру окна, а не по левому краю (решение 27 августа 2026).
         //
         // Ярус вызова — единственное в окне, что читают с расстояния и в
@@ -706,7 +715,8 @@ private struct FilledCallButton: View {
         }
         .buttonStyle(.plain)
         .hoverHighlight(cornerRadius: Graphite.cornerRadius)
-        .opacity(pulses && isDimmed && !isHovered ? 0.87 : 1)
+        // Заметнее прежних 0,87 — как живой пульс кнопки в Windows.
+        .opacity(pulses && isDimmed && !isHovered ? 0.7 : 1)
         .onHover { isHovered = $0 }
         .onAppear {
             guard pulses else { return }

@@ -1060,11 +1060,16 @@ private struct IncomingSurface: ViewModifier {
         // панели: окно входящего borderless, и полупрозрачное оно висит над
         // чужим интерфейсом ещё хуже, чем панель, — у него нет ни рамки, ни
         // полосы заголовка, только текст.
-        // Графитовая карточка Windows 1.0.4 — всегда, и в стекле тоже:
-        // входящий читается одинаково над любой CRM, а не по тону того,
-        // что под окном.
-        RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(Graphite.Surface.call.gradient(dark: scheme == .dark))
+        // Как в Windows 1.0.4: под карточкой обои, если выбраны, иначе
+        // графитовый градиент — и в стекле тоже, чтобы входящий читался
+        // одинаково над любой CRM. Имя и номер лежат в своей рамке поверх.
+        if WallpaperStore.shared.settings.isEnabled {
+            WallpaperLayer(settings: WallpaperStore.shared.settings)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Graphite.Surface.call.gradient(dark: scheme == .dark))
+        }
     }
 
     @ViewBuilder
