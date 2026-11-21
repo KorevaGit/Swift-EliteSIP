@@ -120,15 +120,23 @@ private struct GraphiteSurface: ViewModifier {
     let shadow: Bool
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.graphiteSurfaceOpacity) private var wallpaperOpacity
+
+    /// В стекле графит полупрозрачный: тон и объём Windows, а под ними —
+    /// материал macOS. Поверх обоев — по выбору прозрачности. Насыщенные
+    /// кнопки всегда непрозрачны: под ними белая надпись.
+    private var opacity: Double {
+        if surface.isFilled { return 1 }
+        if wallpaperOpacity < 1 { return wallpaperOpacity }
+        return Theme.Chrome.usesLiquidGlass ? 0.62 : 1
+    }
 
     func body(content: Content) -> some View {
         content.compatBackground {
             ZStack {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(surface.gradient(dark: scheme == .dark))
-                    // В стекле графит полупрозрачный: тон и объём Windows,
-                    // а под ними — материал macOS. Насыщенные кнопки — нет.
-                    .opacity(Theme.Chrome.usesLiquidGlass && !surface.isFilled ? 0.62 : 1)
+                    .opacity(opacity)
                 // Светлый край только сверху — `BorderThickness="0,1,0,0"`.
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(

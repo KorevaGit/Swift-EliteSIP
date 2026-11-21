@@ -105,6 +105,8 @@ struct AppearanceTab: View {
             }
         }
 
+        BackgroundSection()
+
         // Свой раздел, а не строка рядом с темой. Язык не оформление: тема
         // решает, как приложение выглядит, а язык — на чём оно разговаривает,
         // и меняют его один раз при заведении рабочего места, а не по
@@ -136,16 +138,14 @@ struct AppearanceTab: View {
                 .frame(maxWidth: 220, alignment: .leading)
             }
 
-            SettingsNote("""
-                «Системный» — как у macOS: русский там, где в системе есть русский, \
-                английский во всех остальных случаях.
-                """)
-
-            SettingsNote("""
-                Переключение перезапускает приложение: язык выбирается при запуске, и \
-                поменять его у открытых окон нельзя. Регистрация снимется и поднимется \
-                заново, а звонок в этот момент оборвётся.
-                """)
+            // Меньше текста, как в Windows 1.0.4: последствия — одной строкой
+            // со значком, подробности — в вопросе перед перезапуском.
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                LucideIcon(name: "rotate-cw", size: Theme.Icon.medium)
+                Text("Требуется перезапуск")
+                    .font(.footnote)
+            }
+            .compatForeground(Theme.Palette.textSecondary)
         }
         // Вопрос задаётся до правки, а не после: согласие здесь дают не на
         // оформление, а на перезапуск со снятием регистрации, и узнавать о нём
@@ -206,5 +206,132 @@ struct AppearanceTab: View {
         model.append(level: .info, message: "язык интерфейса переключён на «\(language.rawValue)»")
         language.apply()
         NSApp.sendAction(#selector(AppDelegate.relaunchApplication(_:)), to: nil, from: nil)
+    }
+}
+
+/// «Фон»: свои обои под окнами — с Windows-клиентом 1.0.4.
+///
+/// Меньше текста, больше видимого: миниатюра вместо описания, ползунки вместо
+/// пояснений — результат виден в самой панели сразу.
+private struct BackgroundSection: View {
+
+    @EnvironmentObject private var model: AppModel
+    @State private var failure: String?
+
+    private var background: Binding<BackgroundSettings> {
+        Binding(get: { model.settings.background }, set: { model.settings.background = $0 })
+    }
+
+    var body: some View {
+        SettingsSection("Фон") {
+            SettingsRow("") {
+                HStack(spacing: Theme.Metrics.sectionSpacing) {
+                    preview
+                    VStack(alignment: .leading, spacing: Theme.Metrics.elementSpacing) {
+                        Button(action: choose) {
+                            HStack(spacing: Theme.Metrics.tightSpacing) {
+                                LucideIcon(name: "image", size: Theme.Icon.medium)
+                                Text("Выбрать картинку…")
+                            }
+                        }
+                        if model.settings.background.isEnabled {
+                            Button(action: reset) {
+                                HStack(spacing: Theme.Metrics.tightSpacing) {
+                                    LucideIcon(name: "undo-2", size: Theme.Icon.medium)
+                                    Text("Без обоев")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let failure {
+                SettingsNote(verbatim: failure, isAlarming: true)
+            }
+
+            if model.settings.background.isEnabled {
+                slider("Масштаб", value: \.scale, range: BackgroundSettings.scaleRange, unit: "%")
+                slider("Размытие", value: \.blur, range: BackgroundSettings.blurRange, unit: "pt")
+                slider("Яркость", value: \.brightness, range: BackgroundSettings.brightnessRange, unit: "%")
+
+                SettingsRow("Прозрачность") {
+                    Picker("", selection: background.transparency) {
+                        Text("Нет").tag(BackgroundSettings.Transparency.off)
+                        Text("Слабая").tag(BackgroundSettings.Transparency.light)
+                        Text("Средняя").tag(BackgroundSettings.Transparency.medium)
+                        Text("Сильная").tag(BackgroundSettings.Transparency.strong)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
+            }
+        }
+    }
+
+    /// Миниатюра того, что сейчас под окном.
+    private var preview: some View {
+        ZStack {
+            if model.settings.background.isEnabled {
+                WallpaperLayer(settings: model.settings.background)
+            } else {
+                Color(Graphite.windowBackground)
+                LucideIcon(name: "image", size: 18)
+                    .compatForeground(Theme.Palette.textTertiary)
+            }
+        }
+        .frame(width: 96, height: 60)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+        .compatOverlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.control)
+                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+        }
+    }
+
+    private func slider(
+        _ title: LocalizedStringKey,
+        value key: WritableKeyPath<BackgroundSettings, Int>,
+        range: ClosedRange<Int>,
+        unit: String
+    ) -> some View {
+        SettingsRow(title) {
+            HStack {
+                Slider(
+                    value: Binding(
+                        get: { Double(model.settings.background[keyPath: key]) },
+                        set: { model.settings.background[keyPath: key] = Int($0.rounded()) }
+                    ),
+                    in: Double(range.lowerBound)...Double(range.upperBound),
+                    step: 1
+                )
+                Text(verbatim: "\(model.settings.background[keyPath: key]) \(unit)")
+                    .compatMonospacedDigit()
+                    .compatForeground(.secondary)
+                    .frame(width: 52, alignment: .trailing)
+            }
+        }
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.allowedFileTypes = ["png", "jpg", "jpeg", "heic", "tiff", "bmp", "gif", "webp"]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try Wallpaper.importImage(from: url)
+            failure = nil
+            model.settings.background.isEnabled = true
+            // Новая картинка — пересчёт кэша; правка поля заставит панель
+            // перерисоваться, даже если обои уже были включены.
+            model.settings.background.scale = model.settings.background.scale
+            model.append(level: .info, message: "оформление: выбраны обои")
+        } catch {
+            failure = error.localizedDescription
+        }
+    }
+
+    private func reset() {
+        Wallpaper.remove()
+        model.settings.background.isEnabled = false
     }
 }

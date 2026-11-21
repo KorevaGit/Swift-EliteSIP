@@ -111,7 +111,7 @@ struct PhonePanelView: View {
         // Окно прямоугольное, поэтому и подкраска без скругления: своего
         // скругления у содержимого быть не должно, иначе по углам проступят
         // углы окна.
-        .themedPanelSurface(cornerRadius: 0)
+        .panelBackground(model.settings.background)
         // Нижние углы скругляем сами — там, где система этого не делает.
         //
         // На macOS 26 окно скругляет своё содержимое само. На Big Sur система
@@ -1417,5 +1417,18 @@ struct BottomRoundedRectangle: Shape {
         )
         path.closeSubpath()
         return path
+    }
+}
+
+private extension View {
+
+    /// Обои, если выбраны; иначе прежний фон панели — стекло или графит.
+    @ViewBuilder
+    func panelBackground(_ background: BackgroundSettings) -> some View {
+        if background.isEnabled {
+            wallpaperBackground(background)
+        } else {
+            themedPanelSurface(cornerRadius: 0)
+        }
     }
 }

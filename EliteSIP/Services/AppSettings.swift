@@ -143,6 +143,10 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// `false` — ровно прежнее поведение, когда вариант выбирала только версия.
     var plainChrome: Bool = false
 
+    /// Фоновые обои окон — с Windows-клиентом 1.0.4. Старый файл без поля
+    /// получает «без обоев».
+    var background = BackgroundSettings()
+
     /// Предустановки — сохранённые копии настроек рабочего места.
     ///
     /// Схема не выросла: старый файл читается терпимым декодером и получает
@@ -348,6 +352,8 @@ struct AppSettings: Codable, Sendable, Equatable {
             AppearanceSetting.self, forKey: .appearance
         ) ?? .system
         plainChrome = try container.decodeIfPresent(Bool.self, forKey: .plainChrome) ?? false
+        background = (try? container.decodeIfPresent(BackgroundSettings.self, forKey: .background)).flatMap { $0 }
+            ?? BackgroundSettings()
         // Испорченная предустановка читается как «их нет», а не роняет весь
         // файл: по той же причине, что и блок доступа. Потерять шаблон обидно,
         // потерять из-за него учётную запись — несоизмеримо хуже.
