@@ -200,12 +200,19 @@ extension View {
     }
 }
 
-/// Обои под окном по настройкам модели — для окон, которые рисует SwiftUI
-/// целиком (история). Нативный сайдбар обоями не накрывается: его материал
-/// рисует система.
+/// Текущие обои для всех окон. Зеркало `settings.background`: окна вроде
+/// входящего не знают о модели, а обои обязаны быть одинаковыми везде.
+@MainActor
+final class WallpaperStore: ObservableObject {
+    static let shared = WallpaperStore()
+    @Published var settings = BackgroundSettings()
+}
+
+/// Обои под содержимым окна — на всех экранах, как в Windows 1.0.4.
+/// Нативный сайдбар обоями не накрывается: его материал рисует система.
 struct WallpaperHost<Content: View>: View {
 
-    @EnvironmentObject private var model: AppModel
+    @ObservedObject private var store = WallpaperStore.shared
     let content: Content
 
     init(@ViewBuilder content: () -> Content) {
@@ -213,6 +220,6 @@ struct WallpaperHost<Content: View>: View {
     }
 
     var body: some View {
-        content.wallpaperBackground(model.settings.background)
+        content.wallpaperBackground(store.settings)
     }
 }

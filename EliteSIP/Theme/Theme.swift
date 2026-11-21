@@ -1057,7 +1057,11 @@ private struct IncomingSurface: ViewModifier {
         // панели: окно входящего borderless, и полупрозрачное оно висит над
         // чужим интерфейсом ещё хуже, чем панель, — у него нет ни рамки, ни
         // полосы заголовка, только текст.
-        if reducesTransparency || !Theme.Chrome.usesLiquidGlass {
+        if WallpaperStore.shared.settings.isEnabled {
+            // Обои — и на карточке входящего, как на всех окнах.
+            WallpaperLayer(settings: WallpaperStore.shared.settings)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        } else if reducesTransparency || !Theme.Chrome.usesLiquidGlass {
             // Графитовая карточка Windows 1.0.4 — градиент шапки звонка.
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(Graphite.Surface.call.gradient(dark: scheme == .dark))

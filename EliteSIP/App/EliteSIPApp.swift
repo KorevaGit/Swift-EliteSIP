@@ -111,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Первым делом: отметка сеанса для `X-EliteSIP-Unclean-Exit`.
         SessionHealth.noteLaunch()
+        WallpaperStore.shared.settings = model.settings.background
         ClientEventLog.shared.beginSession()
         appNapOptOut = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
@@ -954,7 +955,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
-            rootView: withEnvironment(FirstRunWindowView(flow: flow))
+            rootView: withEnvironment(WallpaperHost { FirstRunWindowView(flow: flow) })
         )
         // Размер — **до** восстановления кадра, а не после.
         //
@@ -1414,7 +1415,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ),
             sidebar: withEnvironment(ManagerSidebarView().environmentObject(router))
                 .environment(\.windowUsesGlass, isGlass),
-            content: withEnvironment(ManagerContentView().environmentObject(router))
+            content: withEnvironment(WallpaperHost { ManagerContentView().environmentObject(router) })
                 .environment(\.windowUsesGlass, isGlass)
         )
 
@@ -1573,7 +1574,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             ),
             sidebar: withEnvironment(AdministrationSidebarView().environmentObject(router))
                 .environment(\.windowUsesGlass, isGlass),
-            content: withEnvironment(AdministrationContentView().environmentObject(router))
+            content: withEnvironment(WallpaperHost { AdministrationContentView().environmentObject(router) })
                 .environment(\.windowUsesGlass, isGlass)
         )
 
@@ -1623,7 +1624,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
-            rootView: withEnvironment(SIPTraceWindowView())
+            rootView: withEnvironment(WallpaperHost { SIPTraceWindowView() })
         )
         window.center()
         window.delegate = self

@@ -35,6 +35,9 @@ final class AppModel: ObservableObject {
     @Published var settings: AppSettings {
         didSet {
             guard settings != oldValue else { return }
+            if settings.background != oldValue.background {
+                WallpaperStore.shared.settings = settings.background
+            }
             // Тема применяется ко всему приложению разом: окон несколько, и
             // расходиться по оформлению им нельзя.
             if settings.appearance != oldValue.appearance {
