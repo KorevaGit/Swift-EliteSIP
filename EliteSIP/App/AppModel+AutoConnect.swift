@@ -145,6 +145,7 @@ extension AppModel {
         // Помогает только переоткрыть транспорт целиком.
         guard wasSatisfied, previousInterfaces != interfaces, !previousInterfaces.isEmpty else { return }
         append(level: .info, message: "сеть сменилась — переподключаемся")
+        // не переводится: событие журнала машины Spark
         ClientEventLog.shared.noteConnection("Переподключение: сменилась сеть")
         await reconnectIfIdle()
     }
@@ -155,6 +156,7 @@ extension AppModel {
             return
         }
         append(level: .info, message: "пробуждение — переподключаемся")
+        // не переводится: событие журнала машины Spark
         ClientEventLog.shared.noteConnection("Переподключение: пробуждение компьютера")
         await reconnectIfIdle()
     }
@@ -194,6 +196,7 @@ extension AppModel {
     /// кто его создавал, — то есть мы.
     func handleChannelClosed(reason: String) async {
         append(level: .error, message: "соединение с сервером закрыто: \(reason)")
+        // не переводится: событие журнала машины Spark
         ClientEventLog.shared.noteConnection("Соединение с АТС закрыто: \(reason)")
 
         // Решение оператора уйти с линии сильнее любой автоматики — тот же
@@ -272,6 +275,7 @@ extension AppModel {
             message: "регистрация не поднимается \(Self.failuresBeforeRebuild) раз подряд —"
                 + " пересобираем соединение"
         )
+        // не переводится: событие журнала машины Spark
         ClientEventLog.shared.noteConnection("Переподключение: регистрация не поднимается \(Self.failuresBeforeRebuild) раз подряд")
         Task { [weak self] in await self?.reconnect() }
     }

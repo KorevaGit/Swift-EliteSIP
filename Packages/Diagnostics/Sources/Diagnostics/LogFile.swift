@@ -152,6 +152,7 @@ public final class LogFile: @unchecked Sendable {
                 return backlogState.droppedSinceLastWrite
             }
             if dropped > 0 {
+                // не переводится: строка журнала
                 append(Self.line(date: Date(), level: "warning", message: "журнал переполнен: пропущено строк — \(dropped)"))
             }
             append(line)

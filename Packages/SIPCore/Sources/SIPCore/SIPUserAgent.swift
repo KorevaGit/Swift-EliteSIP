@@ -312,6 +312,7 @@ public actor SIPUserAgent {
         self.pathOpener = pathOpener
 
         events = SIPEventQueue(regularCapacity: Self.diagnosticEventCapacity) { count in
+            // не переводится: строка журнала
             .log(level: .warning, message: "журнал агента переполнен: пропущено строк — \(count)")
         }
     }

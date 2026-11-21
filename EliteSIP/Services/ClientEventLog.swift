@@ -194,11 +194,13 @@ final class ClientEventLog {
         isSessionStarted = true
         if let marker = sessionMarker {
             if FileManager.default.fileExists(atPath: marker.path) {
+                // не переводится: событие журнала машины Spark
                 record(.connection, .warning,
                        "Предыдущий запуск завершился без штатного выхода: возможны сбой, принудительное закрытие или выключение компьютера")
             }
             try? Data(ISO8601DateFormatter().string(from: now()).utf8).write(to: marker)
         }
+        // не переводится: событие журнала машины Spark
         record(.connection, .info, "Приложение запущено")
     }
 
@@ -209,6 +211,7 @@ final class ClientEventLog {
         isFinishing = true
         if isSessionStarted, !isForgotten {
             isSessionStarted = false
+            // не переводится: событие журнала машины Spark
             record(.connection, .info, "Приложение закрыто: \(shutdownReason ?? "штатный выход")")
             if let marker = sessionMarker { try? FileManager.default.removeItem(at: marker) }
         }

@@ -88,6 +88,7 @@ final class UpdateService: NSObject, ObservableObject {
         defaults.set(current, forKey: lastRunVersionKey)
         guard let previous, !previous.isEmpty, previous != current else { return }
         defaults.removeObject(forKey: deferredUntilKey)
+        // не переводится: событие журнала машины Spark
         ClientEventLog.shared.record(.update, .info, "Установлено \(previous) → \(current)")
         #endif
     }

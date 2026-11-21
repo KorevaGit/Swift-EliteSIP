@@ -787,6 +787,7 @@ final class AppModel: ObservableObject {
         serverAddressIndex = (serverAddressIndex + 1) % serverAddresses.count
         consecutiveRegistrationFailures = 0
         append(level: .warning, message: "сервер не ответил — пробую следующий адрес из DNS")
+        // не переводится: событие журнала машины Spark
         ClientEventLog.shared.noteConnection("Переподключение: сервер не ответил, следующий адрес из DNS")
         await reconnect()
     }
