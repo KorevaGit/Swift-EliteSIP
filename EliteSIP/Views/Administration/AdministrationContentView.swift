@@ -109,7 +109,9 @@ struct AdministrationContentView: View {
                 case .connection:
                     AccountSettingsTab()
                     PBXSettingsTab()
-                case .macros: DTMFSettingsTab()
+                case .macros:
+                    DTMFSettingsTab()
+                    ConferenceSettingsSection()
                 case .incoming:
                     QueueSettingsTab()
                     IncomingCallSettingsTab()

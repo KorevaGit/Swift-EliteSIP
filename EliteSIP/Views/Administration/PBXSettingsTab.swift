@@ -16,51 +16,6 @@ struct PBXSettingsTab: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        SettingsSection("Конференция", icon: "headset") {
-            SettingsRow("Feature-code") {
-                TextField("", text: Binding(
-                    get: { model.settings.conference.featureCode },
-                    set: { model.settings.conference.featureCode = $0 }
-                ))
-                .labelsHidden()
-                .font(.system(.body, design: .monospaced))
-                .frame(width: 90)
-            }
-
-            SettingsRow("Номер комнаты") {
-                TextField("", text: Binding(
-                    get: { model.settings.conference.roomExtension },
-                    set: { model.settings.conference.roomExtension = $0 }
-                ))
-                .labelsHidden()
-                .font(.system(.body, design: .monospaced))
-                .frame(width: 90)
-            }
-
-            if model.settings.conference.featureCode.isEmpty {
-                SettingsHint("""
-                    Код не задан — кнопка «Конференция» у оператора недоступна.
-                    """)
-            } else if !model.settings.conference.isUsable {
-                SettingsNote(
-                    "Код должен содержать только DTMF-символы и хотя бы один тон.",
-                    isAlarming: true
-                )
-            }
-
-            SettingsHint("""
-                Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое \
-                делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. \
-                Подтвердить результат клиент не может: сервер о входе в комнату не сообщает.
-                """)
-
-            SettingsHint("""
-                Расхождение, о котором стоит знать: в «core show features» с боевого сервера \
-                конференции нет — там перехват *8, слепой перевод ##, консультационный *02, \
-                отбой **, запись *1 и отмена перевода *77. Как при этом работает *3 в MicroSIP, \
-                неизвестно. Разбор — docs/conference.md.
-                """)
-        }
 
 
         SettingsSection("Адреса площадок", icon: "map-pin") {
@@ -250,6 +205,61 @@ private struct PortKnockStepRow: View {
 
             Text("шт")
                 .compatForeground(Theme.Palette.textSecondary)
+        }
+    }
+}
+
+/// «Конференция» — в «Клавишах», как функции АТС в «Управлении» Windows 1.0.4:
+/// это та же команда тонами в разговор, что и макросы.
+struct ConferenceSettingsSection: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        SettingsSection("Конференция", icon: "headset") {
+            SettingsRow("Feature-code") {
+                TextField("", text: Binding(
+                    get: { model.settings.conference.featureCode },
+                    set: { model.settings.conference.featureCode = $0 }
+                ))
+                .labelsHidden()
+                .font(.system(.body, design: .monospaced))
+                .frame(width: 90)
+            }
+
+            SettingsRow("Номер комнаты") {
+                TextField("", text: Binding(
+                    get: { model.settings.conference.roomExtension },
+                    set: { model.settings.conference.roomExtension = $0 }
+                ))
+                .labelsHidden()
+                .font(.system(.body, design: .monospaced))
+                .frame(width: 90)
+            }
+
+            if model.settings.conference.featureCode.isEmpty {
+                SettingsHint("""
+                    Код не задан — кнопка «Конференция» у оператора недоступна.
+                    """)
+            } else if !model.settings.conference.isUsable {
+                SettingsNote(
+                    "Код должен содержать только DTMF-символы и хотя бы один тон.",
+                    isAlarming: true
+                )
+            }
+
+            SettingsHint("""
+                Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое \
+                делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. \
+                Подтвердить результат клиент не может: сервер о входе в комнату не сообщает.
+                """)
+
+            SettingsHint("""
+                Расхождение, о котором стоит знать: в «core show features» с боевого сервера \
+                конференции нет — там перехват *8, слепой перевод ##, консультационный *02, \
+                отбой **, запись *1 и отмена перевода *77. Как при этом работает *3 в MicroSIP, \
+                неизвестно. Разбор — docs/conference.md.
+                """)
         }
     }
 }
