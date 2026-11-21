@@ -16,9 +16,9 @@ struct PBXSettingsTab: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
+        SettingsSection("Адреса АТС", icon: "server") {
+            WorkplaceRoute(isRemote: model.workplaceSite == .remote)
 
-
-        SettingsSection("Адреса площадок", icon: "map-pin") {
             SettingsRow("Из офиса") {
                 TextField("", text: Binding(
                     get: { model.settings.siteAddresses.office },
@@ -37,18 +37,6 @@ struct PBXSettingsTab: View {
                 .frame(width: 220)
             }
 
-            SettingsHint("""
-                Два адреса одной и той же АТС. По этой паре менеджер переключает себя между \
-                офисом и домом в своих настройках, разделом «Работа»: адрес АТС в профиле \
-                меняется на парный, регистрация поднимается заново, а стук уходит сам.
-                """)
-
-            SettingsHint("""
-                Профиль, у которого адрес АТС не из этой пары — лаборатория, чужой сервер, — \
-                переключение не трогает: он получает только пометку, а адрес остаётся как \
-                вписан. Пустая половина пары выключает переезд целиком.
-                """)
-
             if model.settings.siteAddresses.isEmpty {
                 SettingsNote(
                     "Половина пары пуста — переключение «Работы» адрес не поменяет.",
@@ -59,6 +47,8 @@ struct PBXSettingsTab: View {
                     "Адрес АТС активного профиля не из этой пары — переезд ему не достанется.",
                     isAlarming: true
                 )
+            } else {
+                SettingsHint("Между этими адресами профиль переключает «Работа» в настройках.")
             }
         }
 
@@ -87,7 +77,7 @@ private struct PortKnockSection: View {
     }
 
     var body: some View {
-        SettingsSection("Стук", icon: "shield-check") {
+        SettingsSection("Стук по портам", icon: "shield-check") {
             SettingsOrderedList(
                 items: sequence.steps,
                 emptyNote: "Шагов нет: стучать нечем, и удалённое место не подключится.",
@@ -97,8 +87,6 @@ private struct PortKnockSection: View {
             ) { step in
                 PortKnockStepRow(step: step)
             }
-
-            SettingsDivider()
 
             SettingsRow("Пауза") {
                 Stepper(
@@ -136,11 +124,7 @@ private struct PortKnockSection: View {
                 )
             )
 
-            SettingsHint("""
-                Размер — это подпись: правило на шлюзе смотрит на длину пакета, а не на его \
-                содержимое. Пустой хост означает «сервер из профиля»; заполненный — стучать \
-                именно по нему.
-                """)
+            SettingsHint("Размер пакета — подпись для шлюза. Пустой хост — АТС из профиля.")
 
             SettingsButtonsRow {
                 Button("Проверить стук") {
@@ -248,18 +232,9 @@ struct ConferenceSettingsSection: View {
                 )
             }
 
-            SettingsHint("""
-                Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое \
-                делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. \
-                Подтвердить результат клиент не может: сервер о входе в комнату не сообщает.
-                """)
+            SettingsHint("Код уходит тонами в разговор; вход в комнату сервер не подтверждает.")
 
-            SettingsHint("""
-                Расхождение, о котором стоит знать: в «core show features» с боевого сервера \
-                конференции нет — там перехват *8, слепой перевод ##, консультационный *02, \
-                отбой **, запись *1 и отмена перевода *77. Как при этом работает *3 в MicroSIP, \
-                неизвестно. Разбор — docs/conference.md.
-                """)
+            SettingsHint("В «core show features» боевого сервера кода конференции нет — сверьте с АТС.")
         }
     }
 }

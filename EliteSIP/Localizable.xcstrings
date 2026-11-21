@@ -573,22 +573,6 @@
         }
       }
     },
-    "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченная клавиша оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set “Transfers the call” on transfer codes — the app cannot recognise them on its own. A marked key leaves a “transfer” mark in the history, and that is what people go by later when working out where the client went. The line state is still driven by the PBX: the screen keeps showing the previous party."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченная клавиша оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник."
-          }
-        }
-      }
-    },
     "«Переводит звонок» ставьте у кодов перевода — приложение само их не узнаёт. Помеченный макрос оставляет в истории пометку «перевод», и по ней потом разбирают, куда делся клиент. Состояние линии при этом всё равно ведёт АТС: на экране останется прежний собеседник.": {
       "comment": "пояснение к признаку перевода у макроса",
       "extractionState": "stale",
@@ -702,22 +686,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Авто"
-          }
-        }
-      }
-    },
-    "Автокликер принимает лид быстрее коллег, не находясь за рабочим местом, и лид уходит в тишину.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An auto-clicker takes a lead faster than colleagues without anyone at the desk, and the lead goes to silence."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Автокликер принимает лид быстрее коллег, не находясь за рабочим местом, и лид уходит в тишину."
           }
         }
       }
@@ -951,22 +919,6 @@
         }
       }
     },
-    "Адреса площадок": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Site addresses"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Адреса площадок"
-          }
-        }
-      }
-    },
     "Аккаунт": {
       "comment": "раздел «Управления»",
       "localizations": {
@@ -1191,22 +1143,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "В вызове есть «X-Autoanswer: TRUE»"
-          }
-        }
-      }
-    },
-    "В истории лежат номера лидов и SIP-логины — как пришли, без маскирования. В архив для поддержки она не попадает: там только журнал.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The history holds lead numbers and SIP logins exactly as they arrived, unmasked. It is not included in the support archive: that contains only the log."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В истории лежат номера лидов и SIP-логины — как пришли, без маскирования. В архив для поддержки она не попадает: там только журнал."
           }
         }
       }
@@ -1557,22 +1493,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "Вместо кнопки «Ответить» показывается ряд цифр, и вызов принимает только одна из них — названная в подписи. Ломает кликер, который ищет кнопку по картинке. Выключено по умолчанию: это внимание оператора на каждом вызове, а случайная позиция окна обходится ему бесплатно.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Instead of an Answer button, a row of digits is shown, and only one of them — the one named in the caption — accepts the call. This breaks a clicker that finds the button by its image. Off by default: it costs the operator attention on every call, whereas a random window position costs nothing."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вместо кнопки «Ответить» показывается ряд цифр, и вызов принимает только одна из них — названная в подписи. Ломает кликер, который ищет кнопку по картинке. Выключено по умолчанию: это внимание оператора на каждом вызове, а случайная позиция окна обходится ему бесплатно."
           }
         }
       }
@@ -2168,22 +2088,6 @@
         }
       }
     },
-    "Вызов по сделке приходит с номера самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A deal call arrives from the manager’s own number: Bitrix picks it up first and only then dials the client. No setup is needed — the number comes from the active profile."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вызов по сделке приходит с номера самого менеджера: Битрикс поднимает его и только потом набирает клиента. Настройки для этого не нужны — номер берётся из активного профиля."
-          }
-        }
-      }
-    },
     "Вызов принимает оператор.": {
       "localizations": {
         "en": {
@@ -2228,22 +2132,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выключен"
-          }
-        }
-      }
-    },
-    "Выключение фиксируется в журнале: каждый вызов помечается как принятый без защиты.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Turning it off is recorded in the log: every call is marked as answered without the guard."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выключение фиксируется в журнале: каждый вызов помечается как принятый без защиты."
           }
         }
       }
@@ -3549,22 +3437,6 @@
         }
       }
     },
-    "Записи старше срока удаляются: при запуске, раз в сутки и сразу после того, как срок уменьшили. Уменьшение применяется по «Сохранить» — «Отменить» удалённые записи не вернёт.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Records older than the retention period are deleted: at launch, once a day, and immediately after the period is shortened. Shortening takes effect on Save — “Cancel” will not bring deleted records back."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Записи старше срока удаляются: при запуске, раз в сутки и сразу после того, как срок уменьшили. Уменьшение применяется по «Сохранить» — «Отменить» удалённые записи не вернёт."
-          }
-        }
-      }
-    },
     "Запись": {
       "localizations": {
         "en": {
@@ -3577,22 +3449,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запись"
-          }
-        }
-      }
-    },
-    "Зарегистрирован всегда ровно один профиль — отмеченный «рабочий». У каждого свой пароль; удаление профиля стирает и его. Настройки открываются нажатием на карточку и правятся у любого профиля, а не только у рабочего.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exactly one profile is registered at a time — the one marked active. Each has its own password; deleting a profile erases it too. Settings open by clicking the card and can be edited for any profile, not just the active one."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Зарегистрирован всегда ровно один профиль — отмеченный «рабочий». У каждого свой пароль; удаление профиля стирает и его. Настройки открываются нажатием на карточку и правятся у любого профиля, а не только у рабочего."
           }
         }
       }
@@ -3845,22 +3701,6 @@
         }
       }
     },
-    "Значение приезжает из панели предустановкой «%@». Правка здесь действует сразу и держится до следующей выкладки этой предустановки — потом вернётся то, что задано в панели. Чтобы правка осталась навсегда, снимите «Слушать панель» в разделе «Аккаунт» или поменяйте значение в самой панели.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The value arrives from the panel with preset “%@”. An edit here takes effect at once and holds until that preset is published again — after which the panel's value returns. To make an edit permanent, turn off “Follow the panel” in the “Account” section, or change the value in the panel itself."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Значение приезжает из панели предустановкой «%@». Правка здесь действует сразу и держится до следующей выкладки этой предустановки — потом вернётся то, что задано в панели. Чтобы правка осталась навсегда, снимите «Слушать панель» в разделе «Аккаунт» или поменяйте значение в самой панели."
-          }
-        }
-      }
-    },
     "Значение приезжает из панели.": {
       "localizations": {
         "en": {
@@ -4071,22 +3911,6 @@
         }
       }
     },
-    "История звонков не выгружается ни тем, ни другим: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Call history is not exported by either of them: it holds lead numbers and SIP logins unmasked. That was decided in stage 4 and still stands."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "История звонков не выгружается ни тем, ни другим: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе."
-          }
-        }
-      }
-    },
     "История звонков не выгружается: в ней номера лидов и SIP-логины без маскирования. Это решение этапа 4, и оно осталось в силе.": {
       "extractionState": "stale",
       "localizations": {
@@ -4167,22 +3991,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Как опознаётся входящий"
-          }
-        }
-      }
-    },
-    "Канал не отвечал больше суток. Пока связи нет, правки из панели не доезжают — включая смену адреса АТС. Звонить это не мешает: машина работает тем, что применила раньше.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The channel has been silent for over a day. While there is no contact, edits from the panel do not arrive — including a change of PBX address. Calling still works: the machine runs on what it applied earlier."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Канал не отвечал больше суток. Пока связи нет, правки из панели не доезжают — включая смену адреса АТС. Звонить это не мешает: машина работает тем, что применила раньше."
           }
         }
       }
@@ -4285,22 +4093,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ключ получен из EliteGuard"
-          }
-        }
-      }
-    },
-    "Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. Подтвердить результат клиент не может: сервер о входе в комнату не сообщает.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The button sends this code as tones into the current call — exactly what the “CONFERENCE” hot key does in the production MicroSIP, where it is set to *3. The client cannot confirm the result: the server does not report joining a room."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Кнопка отправляет этот код тонами в текущий разговор — ровно то же самое делает горячая клавиша «КОНФЕРЕНЦИЯ» в боевом MicroSIP, где стоит *3. Подтвердить результат клиент не может: сервер о входе в комнату не сообщает."
           }
         }
       }
@@ -4849,55 +4641,6 @@
         }
       }
     },
-    "Машина живёт своим умом: файл предустановок не применяется ни в чём — ни адреса АТС, ни клавиши, ни защита сюда больше не доезжают. Вернуть её под панель можно только новым ключом: выпустите его и введите в «Техподдержке».": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The machine is on its own: the preset file is not applied at all — PBX addresses, macros and the guard no longer reach it. Only a new key can put it back under the panel: issue one and enter it in “Support”."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Машина живёт своим умом: файл предустановок не применяется ни в чём — ни адреса АТС, ни клавиши, ни защита сюда больше не доезжают. Вернуть её под панель можно только новым ключом: выпустите его и введите в «Техподдержке»."
-          }
-        }
-      }
-    },
-    "Машина живёт своим умом: файл предустановок не применяется ни в чём. Это же состояние у машины, которую поднимали не ключом. Штатный способ починить разъехавшееся рабочее место — вернуть её под предустановку.": {
-      "extractionState": "stale",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The machine runs on its own: the preset file is not applied at all. This is also the state of a machine that was not set up with a key. The regular way to fix a workplace that has drifted is to put it back under the preset."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Машина живёт своим умом: файл предустановок не применяется ни в чём. Это же состояние у машины, которую поднимали не ключом. Штатный способ починить разъехавшееся рабочее место — вернуть её под предустановку."
-          }
-        }
-      }
-    },
-    "Машина применяет файл предустановок с сервера. Управляемые поля показываются, но не правятся здесь: локально остаются номер, метка профиля и пароль SIP. Обновление обязательное — отложить его нельзя, оно ждёт только конца разговора.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The machine applies the preset file from the server. Managed fields are shown but not edited here: the number, profile label and SIP password stay local. The update is mandatory — it cannot be postponed, it only waits for the end of a call."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Машина применяет файл предустановок с сервера. Управляемые поля показываются, но не правятся здесь: локально остаются номер, метка профиля и пароль SIP. Обновление обязательное — отложить его нельзя, оно ждёт только конца разговора."
-          }
-        }
-      }
-    },
     "Машина сброшена.": {
       "comment": "итог сброса машины",
       "localizations": {
@@ -5042,22 +4785,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Минимум по RFC 4733 — 40 мс. Глухие голосовые меню лучше слышат 120."
-          }
-        }
-      }
-    },
-    "Мобильный номер показывается как +7 и звёздочки — в окне входящего, в панели во время разговора и в истории. Городские и внутренние номера видны всегда. Выключайте для отделов, которым номер клиента нужен открытым.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A mobile number is shown as +7 and asterisks — in the incoming call window, in the panel during a call and in the history. Landline and internal numbers are always visible. Turn this off for departments that need the client’s number in full."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Мобильный номер показывается как +7 и звёздочки — в окне входящего, в панели во время разговора и в истории. Городские и внутренние номера видны всегда. Выключайте для отделов, которым номер клиента нужен открытым."
           }
         }
       }
@@ -5372,22 +5099,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Настройки EliteSIP"
-          }
-        }
-      }
-    },
-    "Настройки в архиве — те, что видно в этом окне, включая несохранённое. Они для разбора жалобы, а не для переноса: другая машина их не примет.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The settings in the archive are the ones shown in this window, unsaved edits included. They are meant for looking into a complaint, not for moving a setup: another machine will not accept them."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Настройки в архиве — те, что видно в этом окне, включая несохранённое. Они для разбора жалобы, а не для переноса: другая машина их не примет."
           }
         }
       }
@@ -7198,22 +6909,6 @@
         }
       }
     },
-    "Очистка истории стирает записи всех профилей целиком — выборочного удаления нет намеренно — и пишет в журнал, сколько их было. Стереть можно, бесследно нельзя.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clearing the history erases the records of every profile at once — selective deletion is deliberately absent — and writes to the log how many there were. You can erase, but not without a trace."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Очистка истории стирает записи всех профилей целиком — выборочного удаления нет намеренно — и пишет в журнал, сколько их было. Стереть можно, бесследно нельзя."
-          }
-        }
-      }
-    },
     "Ошибка звука": {
       "comment": "состояние линии",
       "localizations": {
@@ -8223,22 +7918,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Порт"
-          }
-        }
-      }
-    },
-    "Порядок кнопок на панели — этот. Оператор целится в место, а не читает подписи каждый раз, поэтому менять его стоит один раз при настройке, а не по ходу работы.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This is the order of the buttons on the panel. The operator aims at a position rather than reading the labels every time, so it is worth changing once during setup, not while working."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Порядок кнопок на панели — этот. Оператор целится в место, а не читает подписи каждый раз, поэтому менять его стоит один раз при настройке, а не по ходу работы."
           }
         }
       }
@@ -9263,22 +8942,6 @@
         }
       }
     },
-    "Пусто — и это рабочее состояние: раздачи подписываются общим заголовком. Записи нужны, только если ваш диалплан подставляет номер очереди в вызов.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Empty — and that is a working state: distributions are labelled with the shared heading. Entries are only needed if your dialplan puts the queue number into the call."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пусто — и это рабочее состояние: раздачи подписываются общим заголовком. Записи нужны, только если ваш диалплан подставляет номер очереди в вызов."
-          }
-        }
-      }
-    },
     "Пусто. Нажмите «Подключить».": {
       "localizations": {
         "en": {
@@ -9411,22 +9074,6 @@
         }
       }
     },
-    "Размер — это подпись: правило на шлюзе смотрит на длину пакета, а не на его содержимое. Пустой хост означает «сервер из профиля»; заполненный — стучать именно по нему.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The size is the signature: the rule on the gateway looks at the packet length, not at its contents. An empty host means “the server from the profile”; a filled-in one means knock on that host."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Размер — это подпись: правило на шлюзе смотрит на длину пакета, а не на его содержимое. Пустой хост означает «сервер из профиля»; заполненный — стучать именно по нему."
-          }
-        }
-      }
-    },
     "Разные устройства: системного эхоподавления не будет. На колонках собеседник услышит себя, в наушниках — нет.": {
       "localizations": {
         "en": {
@@ -9455,22 +9102,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Расстояния"
-          }
-        }
-      }
-    },
-    "Расхождение, о котором стоит знать: в «core show features» с боевого сервера конференции нет — там перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмена перевода *77. Как при этом работает *3 в MicroSIP, неизвестно. Разбор — docs/conference.md.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A discrepancy worth knowing about: “core show features” from the production server lists no conferencing — only pickup *8, blind transfer ##, attended transfer *02, disconnect **, recording *1 and cancel-transfer *77. How *3 works in MicroSIP is unknown. See docs/conference.md."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Расхождение, о котором стоит знать: в «core show features» с боевого сервера конференции нет — там перехват *8, слепой перевод ##, консультационный *02, отбой **, запись *1 и отмена перевода *77. Как при этом работает *3 в MicroSIP, неизвестно. Разбор — docs/conference.md."
           }
         }
       }
@@ -9686,22 +9317,6 @@
         }
       }
     },
-    "Связь с каналом": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Channel contact"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Связь с каналом"
-          }
-        }
-      }
-    },
     "Сделать рабочим": {
       "localizations": {
         "en": {
@@ -9748,22 +9363,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сейчас позвонить нельзя"
-          }
-        }
-      }
-    },
-    "Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. Номера и SIP-логины остаются — по ним и разбирают звонок.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Secrets do not reach the file: the Digest response and SRTP keys are masked as they are written. Numbers and SIP logins remain — that is what a call is traced by."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. Номера и SIP-логины остаются — по ним и разбирают звонок."
           }
         }
       }
@@ -10821,22 +10420,6 @@
         }
       }
     },
-    "Тот же архив, что и «Собрать логи» у менеджера: журнал, сведения о сборке и системе, настройки этой машины. Секреты замаскированы, пароли профилей и административный доступ из настроек убраны.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The same archive as “Collect logs” on the operator’s page: the log, build and system details, and this machine’s settings. Secrets are masked; profile passwords and administrative access are stripped from the settings."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Тот же архив, что и «Собрать логи» у менеджера: журнал, сведения о сборке и системе, настройки этой машины. Секреты замаскированы, пароли профилей и административный доступ из настроек убраны."
-          }
-        }
-      }
-    },
     "Транспорт": {
       "localizations": {
         "en": {
@@ -10866,22 +10449,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Трасса SIP"
-          }
-        }
-      }
-    },
-    "Трасса открывается своим окном: её держат открытой во время звонка, а раздел настроек для этого не годится — он закрывается вместе с «Управлением».": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The trace opens in its own window: it is kept open during a call, and a settings section is no good for that — it closes together with Administration."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Трасса открывается своим окном: её держат открытой во время звонка, а раздел настроек для этого не годится — он закрывается вместе с «Управлением»."
           }
         }
       }
@@ -11533,22 +11100,6 @@
         }
       }
     },
-    "Цифры, «*», «#» и A–D отправляются как тоны. Запятая — пауза; несколько запятых подряд складываются. Пробелы и дефисы ни на что не влияют и нужны только для читаемости.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Digits, “*”, “#” and A–D are sent as tones. A comma is a pause; several commas in a row add up. Spaces and hyphens affect nothing and are there only for readability."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Цифры, «*», «#» и A–D отправляются как тоны. Запятая — пауза; несколько запятых подряд складываются. Пробелы и дефисы ни на что не влияют и нужны только для читаемости."
-          }
-        }
-      }
-    },
     "Чистка": {
       "localizations": {
         "en": {
@@ -11610,22 +11161,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Шагов нет: стучать нечем, и удалённое место не подключится."
-          }
-        }
-      }
-    },
-    "Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире каждая. В режиме «Авто» высота клавиши считается по самой длинной подписи при нынешней ширине и меняется вместе с ними; «Вручную» нужен там, где важно именно заданное число — например чтобы две машины выглядели одинаково при разных подписях. Каждый лишний ряд растит панель вниз.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The panel width is fixed, so the trade-off is simple: fewer keys per row means each one is wider. In “Auto” the key height is worked out from the longest label at the current width and follows it as labels change; “By hand” is for when the exact number matters — for example so that two machines look the same with different labels. Every extra row grows the panel downwards."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ширина панели задана, поэтому выбор простой: меньше клавиш в ряду — шире каждая. В режиме «Авто» высота клавиши считается по самой длинной подписи при нынешней ширине и меняется вместе с ними; «Вручную» нужен там, где важно именно заданное число — например чтобы две машины выглядели одинаково при разных подписях. Каждый лишний ряд растит панель вниз."
           }
         }
       }
@@ -13926,6 +13461,502 @@
           "stringUnit": {
             "state": "translated",
             "value": "Подключение"
+          }
+        }
+      }
+    },
+    "Адреса АТС": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PBX addresses"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адреса АТС"
+          }
+        }
+      }
+    },
+    "Стук по портам": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Port knocking"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стук по портам"
+          }
+        }
+      }
+    },
+    "Между этими адресами профиль переключает «Работа» в настройках.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Work” in settings switches the profile between these addresses."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Между этими адресами профиль переключает «Работа» в настройках."
+          }
+        }
+      }
+    },
+    "Регистрируется только рабочий профиль; удаление стирает и его пароль.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the working profile registers; deleting a profile erases its password too."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регистрируется только рабочий профиль; удаление стирает и его пароль."
+          }
+        }
+      }
+    },
+    "Номера в истории не маскируются и в архив поддержки не попадают.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numbers in history are not masked and are never included in the support archive."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номера в истории не маскируются и в архив поддержки не попадают."
+          }
+        }
+      }
+    },
+    "Порядок здесь — порядок клавиш на панели.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The order here is the order of keys on the panel."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порядок здесь — порядок клавиш на панели."
+          }
+        }
+      }
+    },
+    "«Переводит звонок» → пометка «перевод» в истории.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Transfers the call” → marked as a transfer in history."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Переводит звонок» → пометка «перевод» в истории."
+          }
+        }
+      }
+    },
+    "Тоны: 0–9, *, #, A–D. Запятая — пауза, пробелы и дефисы не набираются.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tones: 0–9, *, #, A–D. A comma is a pause; spaces and dashes are not dialled."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тоны: 0–9, *, #, A–D. Запятая — пауза, пробелы и дефисы не набираются."
+          }
+        }
+      }
+    },
+    "Трасса открывается отдельным окном — её держат открытой во время звонка.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The trace opens in its own window so it can stay open during a call."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Трасса открывается отдельным окном — её держат открытой во время звонка."
+          }
+        }
+      }
+    },
+    "Digest и ключи SRTP маскируются; номера и логины остаются.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Digest responses and SRTP keys are masked; numbers and logins remain."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Digest и ключи SRTP маскируются; номера и логины остаются."
+          }
+        }
+      }
+    },
+    "Мобильные — как +7 и звёздочки; городские и внутренние видны полностью.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mobile numbers show as +7 and asterisks; landline and internal numbers stay visible."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мобильные — как +7 и звёздочки; городские и внутренние видны полностью."
+          }
+        }
+      }
+    },
+    "Вместо «Ответить» — ряд цифр, принимает только названная. Ломает кликеры по картинке.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A row of digits replaces “Answer”; only the named one answers. Breaks image-matching clickers."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вместо «Ответить» — ряд цифр, принимает только названная. Ломает кликеры по картинке."
+          }
+        }
+      }
+    },
+    "Вызов по сделке Битрикса приходит с номера менеджера — номер берётся из профиля.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A Bitrix deal call comes from the manager’s own number — taken from the profile."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вызов по сделке Битрикса приходит с номера менеджера — номер берётся из профиля."
+          }
+        }
+      }
+    },
+    "Журнал, сборка, система и настройки; секреты и пароли убраны.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log, build, system and settings; secrets and passwords removed."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал, сборка, система и настройки; секреты и пароли убраны."
+          }
+        }
+      }
+    },
+    "Настройки в архиве — для разбора; другая машина их не примет.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings in the archive are for analysis; another machine won’t accept them."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки в архиве — для разбора; другая машина их не примет."
+          }
+        }
+      }
+    },
+    "История звонков в архив не попадает: номера в ней не маскируются.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call history is not included: numbers in it are not masked."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История звонков в архив не попадает: номера в ней не маскируются."
+          }
+        }
+      }
+    },
+    "Очистка стирает историю всех профилей; в журнал пишется, сколько было записей.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clearing erases history of all profiles; the log records how many entries there were."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистка стирает историю всех профилей; в журнал пишется, сколько было записей."
+          }
+        }
+      }
+    },
+    "Размер пакета — подпись для шлюза. Пустой хост — АТС из профиля.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Packet size is the gateway’s signature. Empty host means the profile’s PBX."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер пакета — подпись для шлюза. Пустой хост — АТС из профиля."
+          }
+        }
+      }
+    },
+    "Код уходит тонами в разговор; вход в комнату сервер не подтверждает.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code is sent as tones into the call; the server doesn’t confirm joining the room."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код уходит тонами в разговор; вход в комнату сервер не подтверждает."
+          }
+        }
+      }
+    },
+    "В «core show features» боевого сервера кода конференции нет — сверьте с АТС.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The production server’s “core show features” has no conference code — check with the PBX."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В «core show features» боевого сервера кода конференции нет — сверьте с АТС."
+          }
+        }
+      }
+    },
+    "Связь с панелью": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panel link"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связь с панелью"
+          }
+        }
+      }
+    },
+    "Канал отвечал": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Channel replied"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Канал отвечал"
+          }
+        }
+      }
+    },
+    "Связь": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связь"
+          }
+        }
+      }
+    },
+    "Предустановки не применяются — вернуть под панель можно только новым ключом.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presets are not applied — only a new key returns this Mac to the panel."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предустановки не применяются — вернуть под панель можно только новым ключом."
+          }
+        }
+      }
+    },
+    "Канал молчит больше суток: правки из панели не доезжают, звонить это не мешает.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The channel has been silent for over a day: panel changes don’t arrive, calls still work."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Канал молчит больше суток: правки из панели не доезжают, звонить это не мешает."
+          }
+        }
+      }
+    },
+    "«Авто» подбирает высоту по самой длинной подписи.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Auto” sizes height to the longest label."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Авто» подбирает высоту по самой длинной подписи."
+          }
+        }
+      }
+    },
+    "Старые записи удаляются при запуске и раз в сутки.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Old records are removed at launch and once a day."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Старые записи удаляются при запуске и раз в сутки."
+          }
+        }
+      }
+    },
+    "Из предустановки «%@» — вернётся при выкладке.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the “%@” preset — it returns with the next rollout."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из предустановки «%@» — вернётся при выкладке."
+          }
+        }
+      }
+    },
+    "Приём без защиты отмечается в журнале.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answering without protection is noted in the log."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приём без защиты отмечается в журнале."
+          }
+        }
+      }
+    },
+    "Автокликер берёт лид за оператора, которого нет на месте.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An autoclicker takes the lead for an operator who isn’t there."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автокликер берёт лид за оператора, которого нет на месте."
+          }
+        }
+      }
+    },
+    "Пусто — раздачи подписываются общим заголовком.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty — distributions use a common title."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто — раздачи подписываются общим заголовком."
           }
         }
       }

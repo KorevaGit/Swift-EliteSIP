@@ -202,8 +202,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // настройки и предупреждение на входе. Сверять вид сайдбара приходится
         // каждый раз в обеих темах, и путь до окна дороже самой сверки.
         //   EliteSIP.app/Contents/MacOS/EliteSIP --administration
-        if ProcessInfo.processInfo.arguments.contains("--administration") {
+        //   EliteSIP.app/Contents/MacOS/EliteSIP --administration incoming
+        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--administration") {
             showAdministrationWindow(nil)
+            let arguments = ProcessInfo.processInfo.arguments
+            if index + 1 < arguments.count, let section = AdministrationSection(rawValue: arguments[index + 1]) {
+                administrationRouter?.section = section
+            }
         }
         // История — для сверки оформления: EliteSIP --history
         if ProcessInfo.processInfo.arguments.contains("--history") {

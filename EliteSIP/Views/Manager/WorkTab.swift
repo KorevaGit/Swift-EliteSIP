@@ -45,7 +45,7 @@ struct WorkTab: View {
             // отказывают: отказ после нажатия оператор читает как поломку.
             .disabled(!model.canSwitchProfile || model.isWorkplaceSwitchLocked)
 
-            route
+            WorkplaceRoute(isRemote: model.workplaceSite == .remote)
 
             SettingsRow("Адрес АТС") {
                 HStack(spacing: Theme.Metrics.tightSpacing) {
@@ -125,25 +125,43 @@ struct WorkTab: View {
         }
         .hoverHighlight(cornerRadius: Graphite.cornerRadius, isEnabled: !isSelected)
     }
+}
 
-    /// Маршрут до АТС: этот компьютер → офисная сеть или интернет со шлюзом → АТС.
-    private var route: some View {
-        let remote = model.workplaceSite == .remote
-        return HStack(spacing: Theme.Metrics.sectionSpacing) {
-            routeNode("monitor", title: "Этот компьютер")
-            LucideIcon(name: "arrow-right", size: Theme.Icon.medium)
-                .compatForeground(Theme.Palette.textTertiary)
-            routeNode(remote ? "cloud" : "router", title: remote ? "Интернет" : "Офисная сеть")
-            LucideIcon(name: "arrow-right", size: Theme.Icon.medium)
-                .compatForeground(Theme.Palette.textTertiary)
-            routeNode("server", title: "АТС")
+/// Маршрут до АТС: этот компьютер → офисная сеть или интернет со шлюзом → АТС.
+///
+/// Общий для «Работы» и «Адресов АТС» в «Управлении», как схема в обоих окнах
+/// Windows 1.0.4: средний узел показывает площадку, выбранную сейчас.
+struct WorkplaceRoute: View {
+
+    let isRemote: Bool
+
+    var body: some View {
+        HStack(spacing: Theme.Metrics.sectionSpacing) {
+            RouteNode(icon: "monitor", title: "Этот компьютер")
+            arrow
+            RouteNode(icon: isRemote ? "cloud" : "router", title: isRemote ? "Интернет" : "Офисная сеть")
+            arrow
+            RouteNode(icon: "server", title: "АТС")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Metrics.tightSpacing)
-        .compatAccessibilityLabel(remote ? "Маршрут: компьютер, интернет, АТС" : "Маршрут: компьютер, офисная сеть, АТС")
+        .compatAccessibilityLabel(isRemote ? "Маршрут: компьютер, интернет, АТС" : "Маршрут: компьютер, офисная сеть, АТС")
     }
 
-    private func routeNode(_ icon: String, title: LocalizedStringKey) -> some View {
+    private var arrow: some View {
+        LucideIcon(name: "arrow-right", size: Theme.Icon.medium)
+            .compatForeground(Theme.Palette.textTertiary)
+    }
+
+}
+
+/// Узел схемы: значок и подпись под ним — как в схемах Windows 1.0.4.
+struct RouteNode: View {
+
+    let icon: String
+    let title: LocalizedStringKey
+
+    var body: some View {
         VStack(spacing: Theme.Metrics.tightSpacing) {
             LucideIcon(name: icon, size: 20)
             Text(title)

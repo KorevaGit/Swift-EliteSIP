@@ -17,7 +17,20 @@ struct PanelStatusCard: View {
 
     var body: some View {
         if model.settings.panel.isActivated {
-            SettingsSection("Панель") {
+            SettingsSection("Связь с панелью", icon: "cloud") {
+                HStack(spacing: Theme.Metrics.sectionSpacing) {
+                    RouteNode(icon: "monitor", title: "Этот компьютер")
+                    LucideIcon(name: "arrow-left-right", size: Theme.Icon.medium)
+                        .compatForeground(
+                            model.settings.panel.mode == .managed && !isOutOfTouch
+                                ? Theme.Palette.registered
+                                : Theme.Palette.failure
+                        )
+                    RouteNode(icon: "cloud", title: "Spark")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Theme.Metrics.tightSpacing)
+
                 // Длинное название сокращается посередине, целиком — в
                 // подсказке: начало и конец у названий предустановок разные
                 // («Офис — менеджеры», «Офис — стажёры»), середина общая.
@@ -34,7 +47,7 @@ struct PanelStatusCard: View {
                         .compatForeground(Theme.Palette.textSecondary)
                 }
 
-                SettingsRow("Связь с каналом") {
+                SettingsRow("Канал отвечал") {
                     Text(verbatim: contactLine)
                         .compatForeground(
                             isOutOfTouch ? Theme.Palette.textPrimary : Theme.Palette.textSecondary
@@ -45,7 +58,7 @@ struct PanelStatusCard: View {
                 // так сказано в предупреждении при входе в это окно. Обратно —
                 // явной кнопкой «Вернуться в онлайн» ниже (решение 25 сентября
                 // 2026); машина без ключа канала вернуться не может, ей — ключ.
-                SettingsRow("Управление") {
+                SettingsRow("Связь") {
                     Text(model.settings.panel.mode == .managed
                          ? "панель, онлайн"
                          : model.isPanelOffline ? "оффлайн, вручную" : "вручную, связь разорвана")
@@ -64,28 +77,15 @@ struct PanelStatusCard: View {
                 // должны и отвечать одинаково.
                 PanelSyncRow()
 
-                if model.settings.panel.mode == .managed {
-                    SettingsNote("""
-                        Машина применяет файл предустановок с сервера. Управляемые поля \
-                        показываются, но не правятся здесь: локально остаются номер, метка \
-                        профиля и пароль SIP. Обновление обязательное — отложить его нельзя, \
-                        оно ждёт только конца разговора.
-                        """)
-                } else if !model.isPanelOffline {
-                    SettingsNote("""
-                        Машина живёт своим умом: файл предустановок не применяется ни в чём — \
-                        ни адреса АТС, ни клавиши, ни защита сюда больше не доезжают. \
-                        Вернуть её под панель можно только новым ключом: выпустите его \
-                        и введите в «Техподдержке».
-                        """, isAlarming: true)
+                if model.settings.panel.mode != .managed && !model.isPanelOffline {
+                    SettingsNote(
+                        "Предустановки не применяются — вернуть под панель можно только новым ключом.",
+                        isAlarming: true
+                    )
                 }
 
                 if isOutOfTouch {
-                    SettingsNote("""
-                        Канал не отвечал больше суток. Пока связи нет, правки из панели \
-                        не доезжают — включая смену адреса АТС. Звонить это не мешает: \
-                        машина работает тем, что применила раньше.
-                        """)
+                    SettingsNote("Канал молчит больше суток: правки из панели не доезжают, звонить это не мешает.")
                 }
             }
         }

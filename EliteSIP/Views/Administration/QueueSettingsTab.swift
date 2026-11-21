@@ -36,11 +36,7 @@ struct QueueSettingsTab: View {
         SettingsSection("Названия раздач", icon: "users-round") {
             SettingsOrderedList(
                 items: queues,
-                emptyNote: """
-                    Пусто — и это рабочее состояние: раздачи подписываются общим \
-                    заголовком. Записи нужны, только если ваш диалплан подставляет \
-                    номер очереди в вызов.
-                    """,
+                emptyNote: "Пусто — раздачи подписываются общим заголовком.",
                 addTitle: "Добавить очередь",
                 makeElement: { .init() }
             ) { queue in

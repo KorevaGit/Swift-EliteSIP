@@ -62,10 +62,7 @@ struct DiagnosticsTab: View {
                 .disabled(model.log.isEmpty)
             }
 
-            SettingsHint("""
-                Трасса открывается своим окном: её держат открытой во время звонка, а раздел \
-                настроек для этого не годится — он закрывается вместе с «Управлением».
-                """)
+            SettingsHint("Трасса открывается отдельным окном — её держат открытой во время звонка.")
         }
 
         LogFileSection()
@@ -136,10 +133,7 @@ private struct LogFileSection: View {
                     )
                 }
 
-                SettingsHint("""
-                    Секреты в файл не попадают: ответ Digest и ключи SRTP маскируются на записи. \
-                    Номера и SIP-логины остаются — по ним и разбирают звонок.
-                    """)
+                SettingsHint("Digest и ключи SRTP маскируются; номера и логины остаются.")
 
                 SettingsButtonsRow {
                     Button("Собрать архив для поддержки") { Task { await makeArchive() } }
