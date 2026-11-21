@@ -373,12 +373,29 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     private let control = DispatchQueue(label: "com.elite.EliteSIP.audio-control")
 
     // MARK: - Состояние захвата
-    // `converter`, `captureRemainder` и форматы трогает только поток
-    // кодирования. Кольцо делят поток реального времени и он же — под замком.
+    // Пересчёт микрофона собирает и разбирает очередь `control`, а пользуется
+    // им поток кодирования — и при пересборке тракта (смена устройства) этот
+    // поток не останавливается. Поэтому конвертер и форматы лежат под замком,
+    // а поток берёт их снимком на каждый заход.
+    //
+    // До 21 ноября 2026 это были обычные поля: `teardownGraph` обнулял
+    // конвертер и чистил `captureRemainder` из-под работающего потока. Окно
+    // узкое — поток досчитывает последнюю пачку за доли миллисекунды, — но
+    // попадание в него на загруженной машине означало порчу массива и падение
+    // посреди разговора, ровно в момент смены гарнитуры.
+    //
+    // `captureRemainder` теперь трогает только поток кодирования: о пересборке
+    // он узнаёт по номеру поколения и сам выбрасывает хвост прежнего формата.
 
-    private var converter: AVAudioConverter?
+    private struct CaptureConversion: @unchecked Sendable {
+        var converter: AVAudioConverter?
+        var formats: (source: AVAudioFormat, destination: AVAudioFormat)?
+        var generation = 0
+    }
+
+    private let captureConversion = UnfairLock(initialState: CaptureConversion())
     private var captureRemainder: [Int16] = []
-    private var captureConversionFormats: (source: AVAudioFormat, destination: AVAudioFormat)?
+    private var captureRemainderGeneration = 0
     private var sinkNode: AVAudioSinkNode?
 
     /// Форматы, на которых собран текущий граф. Нужны, чтобы не пересобирать
@@ -1153,9 +1170,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             engine.detach(sinkNode)
             self.sinkNode = nil
         }
-        converter = nil
-        captureConversionFormats = nil
-        captureRemainder.removeAll()
+        captureConversion.withLock { state in
+            state.converter = nil
+            state.formats = nil
+            state.generation += 1
+        }
         builtFormats = nil
         builtPlaybackFormat = nil
 
@@ -1769,8 +1788,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // неизмеримо мала. Ставить нужно ДО первого `convert`: потом настройка
         // не подхватится.
         converter.sampleRateConverterQuality = Int(AVAudioQuality.max.rawValue)
-        self.converter = converter
-        captureConversionFormats = (source: monoInputFormat, destination: captureFormat)
+        captureConversion.withLock { state in
+            state.converter = converter
+            state.formats = (source: monoInputFormat, destination: captureFormat)
+            state.generation += 1
+        }
 
         if inputFormat.channelCount > 1 {
             onDiagnostic?("вход многоканальный (\(inputFormat.channelCount)), беру канал 0")
@@ -1906,7 +1928,13 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     }
 
     private func encodePendingCapture() {
-        guard let converter, let formats = captureConversionFormats else { return }
+        let conversion = captureConversion.withLock { $0 }
+        if conversion.generation != captureRemainderGeneration {
+            // Тракт пересобран: хвост посчитан прежним конвертером.
+            captureRemainderGeneration = conversion.generation
+            captureRemainder.removeAll(keepingCapacity: true)
+        }
+        guard let converter = conversion.converter, let formats = conversion.formats else { return }
 
         // Не больше четверти секунды за раз: если поток кодирования проспал,
         // выгребать всё разом значит отправить в сеть пачку пакетов, ради

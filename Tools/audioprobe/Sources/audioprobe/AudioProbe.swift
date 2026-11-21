@@ -526,6 +526,8 @@ struct AudioProbe {
                 print("[\(stamp())] пересобираю тракт, попытка \(attempt): \(reason)")
             case .broken(let reason): print("[\(stamp())] тракт сломан: \(reason)")
             case .routeChanged(let route): print("[\(stamp())] маршрут: \(route.summary)")
+            case .microphoneUnavailable(let reason): print("[\(stamp())] без микрофона: \(reason)")
+            case .microphoneRestored: print("[\(stamp())] микрофон вернулся")
             }
         }
 
