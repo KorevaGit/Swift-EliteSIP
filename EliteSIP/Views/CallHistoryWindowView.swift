@@ -131,7 +131,9 @@ struct CallHistoryWindowView: View {
                 .padding(.horizontal, Theme.Metrics.elementSpacing)
                 // Высота у всех кнопок ряда одна, независимо от того, подпись
                 // внутри или один значок: иначе значковые сидят ниже соседей.
-                .frame(minHeight: Theme.Metrics.filterChipHeight)
+                // Квадратные значковые кнопки вровень с фильтрами: ширина не
+                // меньше высоты.
+                .frame(minWidth: Theme.Metrics.filterChipHeight, minHeight: Theme.Metrics.filterChipHeight)
                 .compatForeground(Color.primary)
                 // Мягкие фильтры графита Windows 1.0.4: выбранный — серым
                 // «включённым», а не цветной плашкой.
@@ -1740,6 +1742,8 @@ private struct HistoryFilterSegments: NSViewRepresentable {
         // иначе ужимает сегменты ниже кнопок календаря и снимка.
         if #available(macOS 11.0, *) { control.controlSize = .large }
         control.font = .systemFont(ofSize: NSFont.systemFontSize)
+        // Выбранный сегмент — графитом интерфейса, а не системным синим.
+        control.selectedSegmentBezelColor = Graphite.dynamic(light: 0xc6c6c6, dark: 0x505050)
         context.coordinator.selection = $selection
         control.selectedSegment = filters.firstIndex(of: selection) ?? 0
     }

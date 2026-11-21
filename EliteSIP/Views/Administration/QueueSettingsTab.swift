@@ -58,10 +58,6 @@ struct QueueSettingsTab: View {
             }
         }
 
-        SettingsSection("Как опознаётся входящий", icon: "fingerprint") {
-            RuleTable()
-        }
-        .onAppear { candidates = model.unnamedIncomingNumbers() }
     }
 
     /// Заводит строку с уже правильным номером. Название вписывает человек:

@@ -114,17 +114,26 @@ struct UpdateCheckRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.tightSpacing) {
-            SettingsButtonsRow {
-                Button("Проверить обновления сейчас") {
-                    NSApp.sendAction(#selector(AppDelegate.checkForUpdatesNow(_:)), to: nil, from: nil)
-                }
-                .disabled(isChecking)
-
+            // Строка как у архива: значок и подпись слева, действие справа.
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                LucideIcon(name: "cloud-download", size: Theme.Icon.large + 2)
+                    .compatForeground(Theme.Palette.textSecondary)
+                Text("Обновления")
+                Spacer()
                 if isChecking {
                     // `ProgressView` — macOS 11, а x86_64 держит планку 10.15;
                     // CompatSpinner уже решает это в проекте, см. BackwardCompatibility.swift.
                     CompatSpinner()
                 }
+                Button(action: {
+                    NSApp.sendAction(#selector(AppDelegate.checkForUpdatesNow(_:)), to: nil, from: nil)
+                }) {
+                    HStack(spacing: Theme.Metrics.tightSpacing) {
+                        LucideIcon(name: "refresh-cw", size: Theme.Icon.medium)
+                        Text("Проверить")
+                    }
+                }
+                .disabled(isChecking)
             }
 
             // Та же строка под кнопкой, что и у `PresetCheckRow`, и по той же

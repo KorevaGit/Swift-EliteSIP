@@ -62,17 +62,6 @@ struct PBXSettingsTab: View {
                 """)
         }
 
-        SettingsSection("Кодеки", icon: "audio-lines") {
-            SettingsToggleRow("Предлагать широкую полосу (G.722)", isOn: Binding(
-                get: { model.settings.audio.prefersWideband },
-                set: { model.settings.audio.prefersWideband = $0 }
-            ))
-
-            SettingsHint("""
-                Предложение, а не требование: сервер выбирает из предложенного сам. Сверяется \
-                со списком кодеков номера на АТС, а не с наушниками оператора.
-                """)
-        }
 
         SettingsSection("Адреса площадок", icon: "map-pin") {
             SettingsRow("Из офиса") {

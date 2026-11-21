@@ -131,37 +131,6 @@ struct AccountSettingsTab: View {
                 """)
         }
 
-        SettingsSection("Регистрация", icon: "server") {
-            SettingsButtonsRow {
-                if model.isConnected || model.isBusy {
-                    // Оба действия закрывают активные диалоги, поэтому в
-                    // разговоре недоступны — как и на панели.
-                    Button("Отключить") { Task { await model.disconnect() } }
-                        .disabled(!model.canDisconnect)
-                    Button("Переподключить") { Task { await model.reconnect() } }
-                        .disabled(!model.canDisconnect)
-                    if !model.canDisconnect {
-                        Text("недоступно в разговоре")
-                            .font(.footnote)
-                            .compatForeground(Theme.Palette.textSecondary)
-                    }
-                } else {
-                    Button("Подключить") { Task { await model.connect() } }
-                        .disabled(!model.canConnect)
-                }
-            }
-
-            SettingsResolvedValue(verbatim: model.registrationTitle)
-
-            // Единственное место раздела, которое действует немедленно, и
-            // сказать об этом надо: остальное окно копит правки до «Сохранить»,
-            // и «Переподключить» применит домен с диска, а не тот, что вписан
-            // строкой выше.
-            SettingsHint("""
-                Действует сразу, в обход «Сохранить»: переподключение берёт настройки с диска. \
-                Правки профиля дойдут до АТС после сохранения.
-                """)
-        }
 
         // «Лаборатория» из раздела убрана: стендовые пиры заводятся профилем, а
         // отдельная плашка с их паролями открытым текстом висела над рабочим

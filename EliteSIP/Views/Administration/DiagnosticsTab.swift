@@ -32,24 +32,6 @@ struct DiagnosticsTab: View {
     }
 
     var body: some View {
-        SettingsSection("Сборка", icon: "package") {
-            SettingsRow("Версия") { value(appVersion) }
-            SettingsRow("macOS") { value(ProcessInfo.processInfo.operatingSystemVersionString) }
-            SettingsRow("Оформление") { value(glassAvailability) }
-
-            // Сам выключатель «Без стекла» стоит у менеджера, в «Оформлении»
-            // рядом с темой. Строка выше от этого не лишняя: она отвечает на
-            // «почему выключатель серый» — стекла может не быть в самой
-            // системе, — и это сведения о сборке, которым здесь и место.
-            //
-            // Дубля здесь не будет: одна настройка в двух окнах — это два
-            // текста про один выключатель, и разойдутся они на первой же
-            // правке. Разбор, почему выбран менеджер, а не администратор, — в
-            // `AppearanceTab`.
-            SettingsNote("Выключается в «Настройках», раздел «Оформление»: там же, где тема.")
-
-            UpdateCheckRow(isChecking: model.isCheckingForUpdates, result: model.updateCheckResult)
-        }
 
         SettingsSection("Журнал", icon: "file-text") {
             SettingsRow("Показывать от") {
@@ -202,43 +184,6 @@ private struct AudioProbeSection: View {
 
     var body: some View {
         if let route = model.audioRoute {
-            SettingsSection("Текущий разговор", icon: "headset") {
-                SettingsRow("Маршрут") {
-                    Text(route.summary)
-                        .compatForeground(Theme.Palette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if let codec = model.negotiatedCodec {
-                    SettingsRow("Кодек") {
-                        Text(codec.sdpName + (codec.isWideband ? NSLocalizedString(" — широкая полоса", comment: "пометка у широкополосного кодека") : ""))
-                            .compatForeground(Theme.Palette.textSecondary)
-                    }
-                }
-
-                // Эхоподавление отпадает молча: при разных устройствах на вход
-                // и выход VoiceProcessingIO не запускается вовсе, а при отказе
-                // движка тракт поднимается откатом. Через колонки в таком
-                // разговоре собеседник услышит себя.
-                if let active = model.echoCancellationActive {
-                    SettingsRow("Эхоподавление") {
-                        Text(active ? "работает" : "выключено")
-                            .compatForeground(
-                                active ? Theme.Palette.textSecondary : Theme.Palette.failure
-                            )
-                    }
-                }
-
-                LevelMeters(levels: model.audioLevels)
-
-                if let remote = model.remoteAudioView {
-                    SettingsRow("У собеседника") {
-                        Text(remote.summary)
-                            .compatForeground(Theme.Palette.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
         }
     }
 }

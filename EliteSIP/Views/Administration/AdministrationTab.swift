@@ -21,20 +21,6 @@ struct AdministrationTab: View {
     @State private var confirmation: String?
 
     var body: some View {
-        SettingsSection("Кто управляет настройками", icon: "cloud") {
-            SettingsRow("Режим") {
-                Text(verbatim: mode)
-                    .compatForeground(Theme.Palette.textSecondary)
-            }
-
-            SettingsNote(verbatim: explanation)
-
-            // Раньше здесь стояло `AdminManagement` — «локально или из файла
-            // конфигурации». Файла нет с 25 августа 2026, и перечисление
-            // убрано: с одним оставшимся значением оно начало врать — машина
-            // под панелью показывала бы «Локальный режим». Ответ читается
-            // теперь оттуда, где он и живёт, — из `settings.panel`.
-        }
 
         SettingsSection("Пароль администратора", icon: "lock-keyhole") {
             SettingsIndented {
