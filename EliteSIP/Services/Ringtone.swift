@@ -1,4 +1,5 @@
 import AVFoundation
+import Compat
 import MediaCore
 
 /// Звонок входящего вызова.
@@ -16,8 +17,51 @@ import MediaCore
 /// `VoiceProcessingIO`, и любой звук через него уводит AirPods в режим
 /// гарнитуры — то есть приглушает всю систему ещё до того, как оператор
 /// решил ответить.
+///
+/// Открытие устройства уведено с главного актора: `AVAudioEngine.start` на
+/// капризном драйвере ждёт до секунд, и всё это время окно входящего не
+/// отвечало бы. Команды идут в одну последовательную очередь, и ждёт в ней
+/// только последняя: «звони» и сразу «замолчи» до того, как очередь до них
+/// дошла, — это просто «замолчи», и запоздалое открытие после отмены звонить
+/// не начинает.
 @MainActor
 final class Ringtone {
+
+    /// Что просили последним. Это состояние для интерфейса, а не устройства:
+    /// устройство догонит его на своей очереди.
+    private(set) var isPlaying = false
+
+    private let player = RingtonePlayer()
+
+    /// Начинает звонить. Повторный вызов ничего не меняет.
+    ///
+    /// Ошибки не выбрасываются наверх: беззвучный рингтон — досадно, но окно
+    /// входящего видно и без него, а звонок ронять из-за звуковой карты нельзя.
+    func start(settings: AppSettings.RingtoneSettings, outputDeviceUID: String?) {
+        guard settings.isEnabled, !isPlaying else { return }
+        isPlaying = true
+        player.request(.start(settings: settings, outputDeviceUID: outputDeviceUID))
+    }
+
+    func stop() {
+        guard isPlaying else { return }
+        isPlaying = false
+        player.request(.stop)
+    }
+
+    /// Годится ли файл в рингтоны — до того, как его записали в настройки.
+    static func isPlayable(url: URL) -> Bool {
+        RingtonePlayer.makeFileBuffer(url: url) != nil
+    }
+}
+
+/// Устройство рингтона. Живёт на своей очереди целиком.
+private final class RingtonePlayer: @unchecked Sendable {
+
+    enum Command: Sendable {
+        case start(settings: AppSettings.RingtoneSettings, outputDeviceUID: String?)
+        case stop
+    }
 
     /// Цикл: два коротких тона и пауза. Пауза длинная намеренно — рингтон
     /// звучит на фоне работы в CRM, и непрерывная трель мешает думать.
@@ -32,17 +76,42 @@ final class Ringtone {
         (880.00, 0.4),  // ля пятой октавы
     ]
 
+    private let queue = DispatchQueue(label: "com.elite.EliteSIP.ringtone", qos: .userInitiated)
+
+    /// Ожидающая команда — одна, последняя. `isDraining` — очередь уже идёт.
+    private let pending = UnfairLock<(command: Command?, isDraining: Bool)>(initialState: (nil, false))
+
+    // Только на `queue`.
     private var engine: AVAudioEngine?
     private var player: AVAudioPlayerNode?
 
-    var isPlaying: Bool { player?.isPlaying ?? false }
+    func request(_ command: Command) {
+        let schedule = pending.withLock { state in
+            state.command = command
+            defer { state.isDraining = true }
+            return !state.isDraining
+        }
+        if schedule { queue.async { [self] in drain() } }
+    }
 
-    /// Начинает звонить. Повторный вызов ничего не меняет.
-    ///
-    /// Ошибки не выбрасываются наверх: беззвучный рингтон — досадно, но окно
-    /// входящего видно и без него, а звонок ронять из-за звуковой карты нельзя.
-    func start(settings: AppSettings.RingtoneSettings, outputDeviceUID: String?) {
-        guard settings.isEnabled, engine == nil else { return }
+    private func drain() {
+        while true {
+            let command: Command? = pending.withLock { state in
+                defer { state.command = nil }
+                if state.command == nil { state.isDraining = false }
+                return state.command
+            }
+            switch command {
+            case nil: return
+            case .stop: stop()
+            case .start(let settings, let outputDeviceUID):
+                start(settings: settings, outputDeviceUID: outputDeviceUID)
+            }
+        }
+    }
+
+    private func start(settings: AppSettings.RingtoneSettings, outputDeviceUID: String?) {
+        guard engine == nil else { return }
 
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
@@ -61,13 +130,13 @@ final class Ringtone {
         // молчаливый откат к стандартному звонку лучше, чем тишина из-за
         // переименованного файла.
         let buffer: AVAudioPCMBuffer
-        if let url = settings.customSoundURL, let fileBuffer = Ringtone.makeFileBuffer(url: url) {
+        if let url = settings.customSoundURL, let fileBuffer = Self.makeFileBuffer(url: url) {
             buffer = fileBuffer
         } else if let url = Ringtone.defaultSoundURL, let fileBuffer = Ringtone.makeFileBuffer(url: url) {
             buffer = fileBuffer
         } else {
             let format = engine.outputNode.outputFormat(forBus: 0)
-            guard format.sampleRate > 0, let cycle = makeCycleBuffer(format: format) else { return }
+            guard format.sampleRate > 0, let cycle = Self.makeCycleBuffer(format: format) else { return }
             buffer = cycle
         }
 
@@ -88,7 +157,7 @@ final class Ringtone {
         self.player = player
     }
 
-    func stop() {
+    private func stop() {
         player?.stop()
         engine?.stop()
         player = nil
@@ -123,17 +192,12 @@ final class Ringtone {
         return buffer
     }
 
-    /// Годится ли файл в рингтоны — до того, как его записали в настройки.
-    static func isPlayable(url: URL) -> Bool {
-        makeFileBuffer(url: url) != nil
-    }
-
     /// Один полный цикл звонка одним буфером.
     ///
     /// Целиком, а не по кусочкам с планировщиком: зацикленный буфер играет
     /// ровно, а цепочка запланированных отрезков рано или поздно даёт щелчок
     /// на стыке.
-    private func makeCycleBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
+    private static func makeCycleBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
         let sampleRate = format.sampleRate
         let cycle = Self.toneDuration * 2 + Self.gapDuration + Self.silenceDuration
         let frameCount = AVAudioFrameCount(cycle * sampleRate)

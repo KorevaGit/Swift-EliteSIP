@@ -176,7 +176,10 @@ public final class VoiceSelfTest: @unchecked Sendable {
             $0.playbackIndex = 0
             return active
         }
-        bus.release(token)
+        // Отпускание ждёт драйвер — пусть ждёт не интерфейс. Опоздавшее
+        // отпускание чужой разговор не заглушит: тракт отпускается по ключу.
+        let bus = bus, token = token
+        DispatchQueue.global(qos: .userInitiated).async { bus.release(token) }
         if wasActive { report(.idle) }
     }
 

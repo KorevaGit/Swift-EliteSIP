@@ -223,7 +223,8 @@ public final class MediaSession: @unchecked Sendable {
             microphoneGain: microphoneGain,
             playbackVolume: playbackVolume,
             suppressesBackgroundVoices: suppressesBackgroundVoices,
-            levelsReceive: levelsReceive
+            levelsReceive: levelsReceive,
+            allowsPlaybackOnly: true
         )
         self.bus = try bus ?? VoiceAudioBus(configuration: audioConfiguration)
         transport = UnfairLock(
@@ -310,6 +311,11 @@ public final class MediaSession: @unchecked Sendable {
     /// Пока звук наш — спрашиваем тракт, иначе отдаём последнее известное:
     /// фоновая линия про эхоподавление ответить не может, а показать «нет» ей
     /// значит соврать оператору, что разговор идёт через колонки без защиты.
+    /// Разговор идёт без микрофона: только приём, в линию уходит тишина.
+    public var isMicrophoneUnavailable: Bool {
+        bus.withEngine(token) { $0.isMicrophoneUnavailable } ?? false
+    }
+
     public var usesEchoCancellation: Bool {
         bus.withEngine(token) { $0.usesEchoCancellation }
             ?? audio.withLock { $0.usesEchoCancellation }

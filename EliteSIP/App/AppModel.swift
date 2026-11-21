@@ -874,6 +874,9 @@ final class AppModel: ObservableObject {
         /// время недоступны — им нечем звучать.
         var isMediaStarting = false
 
+        /// Разговор идёт без микрофона: клиента слышно, а оператора — нет.
+        var isMicrophoneMissing = false
+
         /// Последнее описание медиа, которое мы отправили по этой линии —
         /// предложение или ответ. Из него строится повторное предложение: порт,
         /// кодеки и ключ SRTP обязаны в нём остаться прежними.
@@ -1535,8 +1538,11 @@ final class AppModel: ObservableObject {
             $0.isMediaStarting = false
             $0.audioRoute = session.route
             $0.echoCancellationActive = session.usesEchoCancellation
+            $0.isMicrophoneMissing = session.isMicrophoneUnavailable
         }
-        if !session.usesEchoCancellation {
+        if session.isMicrophoneUnavailable {
+            setStatus(Self.microphoneMissingStatus, on: lineID)
+        } else if !session.usesEchoCancellation {
             append(level: .warning, message: "звук без эхоподавления — через колонки собеседник услышит себя")
         }
         applyAudioOwnership()
@@ -2608,17 +2614,16 @@ final class AppModel: ObservableObject {
         ringtone.stop()
         setStatus(NSLocalizedString("Соединение…", comment: "состояние линии"), on: lineID)
 
-        guard await VoiceAudioEngine.requestMicrophoneAccess() else {
-            append(level: .error, message: "нет доступа к микрофону — вызов отклонён")
-            setStatus(NSLocalizedString("Нет доступа к микрофону", comment: "состояние линии"), on: lineID)
-            await agent.rejectIncomingCall(callID: lineID, status: 486)
-            return
+        // Без микрофона вызов принимается на приём: клиента слышно, оператор
+        // видит предупреждение. Отклонять его хуже — лид из очереди уходит.
+        if !(await VoiceAudioEngine.requestMicrophoneAccess()) {
+            append(level: .warning, message: "нет доступа к микрофону — принимаю без микрофона")
         }
 
-        // То же, что и на исходящем: разговаривать не на чем — вызов не берём.
-        // 480 «Temporarily Unavailable», а не 486 «Busy»: занято означает «этот
-        // человек говорит», а он не говорит — ему нечем.
-        if let reason = missingAudioDeviceReason() {
+        // Не на чем слушать — вызов не берём. 480 «Temporarily Unavailable», а
+        // не 486 «Busy»: занято означает «этот человек говорит», а он не
+        // говорит — ему нечем.
+        if let reason = missingAudioOutputReason() {
             append(level: .error, message: "вызов отклонён: \(reason.lowercased())")
             setStatus(reason, on: lineID)
             await agent.rejectIncomingCall(callID: lineID, status: 480)
@@ -2833,8 +2838,29 @@ final class AppModel: ObservableObject {
         comment: "состояние линии, пока пересобирается звуковой тракт"
     )
 
+    /// Подпись линии, пока разговор идёт без микрофона.
+    static let microphoneMissingStatus = NSLocalizedString(
+        "Нет микрофона — вас не слышно",
+        comment: "состояние линии: разговор только на приём"
+    )
+
     private func handle(audio event: VoiceAudioEngine.Event, on lineID: String) {
         switch event {
+        case .microphoneUnavailable(let reason):
+            // Трубку не вешаем: клиента слышно, а оператор видит, что его — нет,
+            // и может переключить гарнитуру или перезвонить. Отклонённый вызов
+            // из очереди раздачи ушёл бы коллеге, а лид — в тишину.
+            append(level: .warning, message: "разговор без микрофона: \(reason)")
+            mutate(lineID) { $0.isMicrophoneMissing = true }
+            setStatus(Self.microphoneMissingStatus, on: lineID)
+
+        case .microphoneRestored:
+            append(level: .info, message: "микрофон вернулся")
+            mutate(lineID) { $0.isMicrophoneMissing = false }
+            if let line = line(lineID), line.status == Self.microphoneMissingStatus {
+                setStatus(line.isOnHold ? NSLocalizedString("На удержании", comment: "состояние линии") : NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
+            }
+
         case .routeChanged(let route):
             mutate(lineID) { $0.audioRoute = route }
             append(level: .info, message: "звук: \(route.summary)")
@@ -2939,6 +2965,15 @@ final class AppModel: ObservableObject {
     /// Каталог перечитывается на месте: между наблюдением за устройствами и
     /// нажатием «Позвонить» гарнитуру могли и подключить, и вынуть, а отказ по
     /// устаревшему снимку — это отказ на ровном месте.
+    /// Нет выхода — принимать разговор не на чем. Без микрофона принять можно.
+    func missingAudioOutputReason() -> String? {
+        refreshAudioCatalog()
+        guard audioCatalog.outputs.isEmpty else { return nil }
+        return audioCatalog.inputs.isEmpty
+            ? NSLocalizedString("Нет звуковых устройств", comment: "состояние линии: ни микрофона, ни выхода")
+            : NSLocalizedString("Нет звукового выхода", comment: "состояние линии")
+    }
+
     func missingAudioDeviceReason() -> String? {
         refreshAudioCatalog()
         switch (audioCatalog.inputs.isEmpty, audioCatalog.outputs.isEmpty) {

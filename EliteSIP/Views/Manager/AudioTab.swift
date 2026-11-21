@@ -164,11 +164,6 @@ struct AudioTab: View {
                 set: { model.settings.audio.receiveLeveling = $0 }
             ))
 
-            SettingsToggleRow("Отпускать наушники между звонками", isOn: Binding(
-                get: { model.settings.audio.releasesDeviceWhenIdle },
-                set: { model.settings.audio.releasesDeviceWhenIdle = $0 }
-            ))
-
             SettingsDivider()
 
             // Проверка и шкалы — один блок. Шкалы нужны ровно затем, чтобы

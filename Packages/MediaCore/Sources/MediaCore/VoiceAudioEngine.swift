@@ -113,6 +113,13 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         /// заканчиваться обрывом разговора.
         public var restartPolicy: AudioRestartPolicy
 
+        /// Можно ли вести разговор без микрофона, если его нет или он не открылся.
+        ///
+        /// Принимать разговор с рабочим выходом лучше, чем отклонять его: оператор
+        /// слышит клиента и видит предупреждение. Самопроверке так нельзя — она
+        /// проверяет именно микрофон, — поэтому по умолчанию выключено.
+        public var allowsPlaybackOnly: Bool
+
         public init(
             codec: AudioCodec = .pcmu,
             packetTimeMilliseconds: Int = defaultPacketTimeMilliseconds,
@@ -126,9 +133,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             playbackVolume: Float = 1,
             suppressesBackgroundVoices: Bool = false,
             levelsReceive: Bool = false,
-            restartPolicy: AudioRestartPolicy = AudioRestartPolicy()
+            restartPolicy: AudioRestartPolicy = AudioRestartPolicy(),
+            allowsPlaybackOnly: Bool = false
         ) {
             self.restartPolicy = restartPolicy
+            self.allowsPlaybackOnly = allowsPlaybackOnly
             self.codec = codec
             self.packetTimeMilliseconds = packetTimeMilliseconds
             self.maximumPlaybackFrames = maximumPlaybackFrames
@@ -219,6 +228,11 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         case broken(reason: String)
         /// Маршрут изменился: другое устройство или другой режим.
         case routeChanged(AudioRoute)
+        /// Микрофона нет или он не открылся: разговор идёт только на приём,
+        /// в линию уходит тишина. Возвращение микрофона пересобирает тракт сам.
+        case microphoneUnavailable(reason: String)
+        /// Микрофон вернулся, тракт снова двусторонний.
+        case microphoneRestored
     }
 
     /// Обработчики разговора — все под одним замком.
@@ -301,7 +315,33 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// приложение вместо объекта на звонок — см. `reconfigure(to:)`. Трогается
     /// только на `control`.
     private var configuration: Configuration
-    private let engine = AVAudioEngine()
+    private let voiceEngine = AVAudioEngine()
+
+    /// Движок разговора без микрофона.
+    ///
+    /// Отдельный, потому что на macOS у `AVAudioEngine` один AUHAL на оба
+    /// направления, и стоит хоть раз тронуть `inputNode` — вход включён у него
+    /// навсегда. Без устройства ввода такой движок не стартует. У этого
+    /// `inputNode` не трогается никогда. Оба живут столько же, сколько объект:
+    /// освобождать движок посреди работы нельзя — см. `deinit`.
+    private let playbackEngine = AVAudioEngine()
+
+    private let playbackOnlyFlag = UnfairLock(initialState: false)
+
+    /// Текущий движок. Режим меняется только на `control` и только при
+    /// разобранном графе.
+    private var engine: AVAudioEngine {
+        playbackOnlyFlag.withLock { $0 } ? playbackEngine : voiceEngine
+    }
+
+    /// Разговор идёт без микрофона.
+    public var isMicrophoneUnavailable: Bool { playbackOnlyFlag.withLock { $0 } }
+
+    /// Формат выхода, на котором собран граф без микрофона.
+    private var builtPlaybackFormat: AVAudioFormat?
+
+    /// Такт тишины в линию, пока микрофона нет. Только поток кодирования.
+    private var silenceClock: (start: UInt64, sent: Int)?
     private var sourceNode: AVAudioSourceNode?
     private var cueNode: AVAudioSourceNode?
 
@@ -677,7 +717,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         try control.sync {
             guard !isRunning else { return }
 
-            guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            guard configuration.allowsPlaybackOnly
+                || AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+            else {
                 throw AudioError.microphoneDenied
             }
 
@@ -691,15 +733,47 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             // отсутствие устройств — не исключительный случай, а обычное
             // состояние ноутбука без наушников, и человеку надо сказать
             // словами, что подключить.
-            let devices = AudioDeviceCatalog.devices()
-            let hasInput = devices.contains(where: \.isInput)
-            let hasOutput = devices.contains(where: \.isOutput)
-            guard hasInput, hasOutput else {
-                throw AudioError.noAudioDevices(hasInput: hasInput, hasOutput: hasOutput)
-            }
+            try startGraph(announcesMode: true)
 
+            startFeeding()
+            startEncoding()
+            subscribeToConfigurationChanges()
+            subscribeToRouteChanges()
+            runningFlag.withLock { $0 = true }
+            reportRoute()
+        }
+    }
+
+    /// Есть ли чем говорить: устройство ввода и разрешение на него.
+    private static var isMicrophoneAvailable: Bool {
+        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+            && AudioDeviceCatalog.devices().contains(where: \.isInput)
+    }
+
+    /// Собирает граф под устройства, какие есть сейчас. Вызывается на `control`.
+    ///
+    /// Двусторонний тракт, если есть микрофон; иначе — или если он не
+    /// открылся — только приём, когда это разрешено настройкой. Без выхода
+    /// не поможет ничего, и это отказ.
+    private func startGraph(announcesMode: Bool) throws {
+        let devices = AudioDeviceCatalog.devices()
+        let hasInput = devices.contains(where: \.isInput)
+        let hasOutput = devices.contains(where: \.isOutput)
+        guard hasOutput, hasInput || configuration.allowsPlaybackOnly else {
+            throw AudioError.noAudioDevices(hasInput: hasInput, hasOutput: hasOutput)
+        }
+
+        let wasPlaybackOnly = isMicrophoneUnavailable
+        let reason: String
+        if hasInput, Self.isMicrophoneAvailable {
+            setPlaybackOnly(false)
             do {
                 try buildAndStart()
+                if wasPlaybackOnly {
+                    onDiagnostic?("микрофон вернулся — тракт снова двусторонний")
+                    onEvent?(.microphoneRestored)
+                }
+                return
             } catch {
                 // Убрать за собой обязательно. Неудачный запуск оставляет граф
                 // наполовину собранным, а обработку голоса — включённой, то
@@ -709,16 +783,90 @@ public final class VoiceAudioEngine: @unchecked Sendable {
                 // состоялся.
                 teardownGraph()
                 releaseDeviceIfNeeded()
-                throw error
+                guard configuration.allowsPlaybackOnly else { throw error }
+                reason = "микрофон не открылся: \(error.localizedDescription)"
             }
-
-            startFeeding()
-            startEncoding()
-            subscribeToConfigurationChanges()
-            subscribeToRouteChanges()
-            runningFlag.withLock { $0 = true }
-            reportRoute()
+        } else {
+            reason = hasInput ? "нет доступа к микрофону" : "микрофон не подключён"
         }
+
+        setPlaybackOnly(true)
+        do {
+            try startPlaybackGraph()
+        } catch {
+            teardownGraph()
+            setPlaybackOnly(false)
+            throw error
+        }
+        usesVoiceProcessing = false
+        if announcesMode || !wasPlaybackOnly {
+            onDiagnostic?("разговор без микрофона: \(reason)")
+            onEvent?(.microphoneUnavailable(reason: reason))
+        }
+    }
+
+    /// Меняет движок. Только при разобранном графе и только на `control`.
+    private func setPlaybackOnly(_ value: Bool) {
+        let changed = playbackOnlyFlag.withLock { flag in
+            defer { flag = value }
+            return flag != value
+        }
+        guard changed else { return }
+        // Уведомления о конфигурации подписаны на конкретный движок.
+        if configurationObserver != nil { subscribeToConfigurationChanges() }
+        // Поток кодирования мог уснуть на семафоре захвата навсегда: в режиме
+        // без микрофона захват его больше не разбудит.
+        captureSignal.signal()
+    }
+
+    /// Граф без входа: источник → микшер → выход. Вызывается на `control`.
+    private func startPlaybackGraph() throws {
+        var node: AVAudioOutputNode?
+        try AudioObjCException.trap(step: "получение узла выхода") {
+            node = engine.outputNode
+        }
+        guard let output = node else {
+            throw AudioError.engineFailed(step: "получение узла выхода", reason: "движок не отдал узел")
+        }
+        if let uid = configuration.outputDeviceUID {
+            if let device = AudioDeviceCatalog.device(uid: uid), let unit = output.audioUnit {
+                var id = device.id
+                let status = AudioUnitSetProperty(
+                    unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                    &id, UInt32(MemoryLayout<AudioDeviceID>.size)
+                )
+                if status == noErr {
+                    onDiagnostic?("выход без микрофона: \(device.summary)")
+                } else {
+                    onDiagnostic?("выход «\(device.name)» не назначен (\(status)), беру системный")
+                }
+            } else {
+                onDiagnostic?("устройство \(uid) недоступно, беру системный выход")
+            }
+        }
+
+        let outputFormat = output.inputFormat(forBus: 0)
+        onDiagnostic?("выход: \(Self.describe(outputFormat))")
+        try AudioObjCException.trap(step: "создание микшера") {
+            _ = engine.mainMixerNode
+        }
+        if outputFormat.sampleRate > 0 {
+            engine.disconnectNodeOutput(engine.mainMixerNode)
+            try AudioObjCException.trap(step: "подключение микшера к выходу") {
+                engine.connect(engine.mainMixerNode, to: output, format: outputFormat)
+            }
+        }
+        applyPlaybackVolume()
+        try startPlayback()
+        try AudioObjCException.trap(step: "подготовка движка") {
+            engine.prepare()
+        }
+        do {
+            try engine.start()
+        } catch {
+            throw AudioError.engineFailed(step: "запуск движка", reason: error.localizedDescription)
+        }
+        builtPlaybackFormat = output.inputFormat(forBus: 0)
     }
 
     /// Собирает граф и запускает движок. Вызывается на `control`.
@@ -1009,6 +1157,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         captureConversionFormats = nil
         captureRemainder.removeAll()
         builtFormats = nil
+        builtPlaybackFormat = nil
 
         // Кольцо захвата чистится вместе с конвертером, и это не уборка ради
         // порядка. В нём лежат отсчёты, записанные на ПРЕЖНЕЙ частоте
@@ -1087,6 +1236,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         }
         processingLock.withLock { $0 = VoiceProcessingStatistics() }
         lastRoute = nil
+        setPlaybackOnly(false)
     }
 
     /// Движок не может быть освобождён работающим.
@@ -1120,7 +1270,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// разбирает и заново создаёт узел ввода-вывода, а вместе с ним закрывает
     /// устройство.
     private func releaseDeviceIfNeeded() {
-        guard configuration.releasesDeviceWhenIdle, usesVoiceProcessing else { return }
+        guard configuration.releasesDeviceWhenIdle, usesVoiceProcessing, !isMicrophoneUnavailable else { return }
         // Один вызов на оба узла: «disabling this mode on either of the IO nodes
         // automatically disabled it on the other IO node» (AVAudioIONode.h).
         // Второй вызов не бесплатен — каждый пересобирает узел ввода-вывода, а
@@ -1148,6 +1298,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     }
 
     private func subscribeToConfigurationChanges() {
+        if let configurationObserver {
+            NotificationCenter.default.removeObserver(configurationObserver)
+        }
         configurationObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange,
             object: engine,
@@ -1162,7 +1315,13 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // получит своё уведомление. Но пользователю надо сказать, куда ушёл
         // звук, и заметить переход гарнитуры в двусторонний режим.
         routeObservation = AudioDeviceCatalog.observe(queue: control) { [weak self] _ in
-            self?.reportRoute()
+            guard let self else { return }
+            self.reportRoute()
+            // Без микрофона движок о новом устройстве ввода не узнает: входа у
+            // него нет, и уведомления о конфигурации не будет.
+            if self.isMicrophoneUnavailable, Self.isMicrophoneAvailable {
+                self.scheduleRebuild(reason: "появился микрофон", force: true)
+            }
         }
     }
 
@@ -1172,6 +1331,9 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// уведомлений подряд (появляется агрегатное устройство обработки голоса,
     /// потом меняется частота), и перестройка на каждом успевает столкнуться со
     /// следующим.
+    /// Принудительна ли ожидающая пересборка. Только на `control`.
+    private var pendingRebuildIsForced = false
+
     private func scheduleRebuild(
         reason: String,
         force: Bool,
@@ -1180,9 +1342,19 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         control.async { [weak self] in
             guard let self, self.isRunning else { return }
 
-            self.pendingRebuild?.cancel()
+            // Срок первой пересборки поток уведомлений не сдвигает: раньше
+            // каждое новое отменяло прежнее окно, и серия уведомлений от
+            // капризного драйвера откладывала пересборку бесконечно. Пришедшее
+            // за время ожидания склеивается в то же окно, а явная просьба
+            // делает его принудительным.
+            if let pending = self.pendingRebuild, !pending.isCancelled {
+                self.pendingRebuildIsForced = self.pendingRebuildIsForced || force
+                return
+            }
+            self.pendingRebuildIsForced = force
             let work = DispatchWorkItem { [weak self] in
-                self?.rebuild(reason: reason, force: force)
+                guard let self else { return }
+                self.rebuild(reason: reason, force: self.pendingRebuildIsForced)
             }
             self.pendingRebuild = work
             self.control.asyncAfter(deadline: .now() + delay, execute: work)
@@ -1207,7 +1379,7 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         // накопленное в нём — обычный звук, и выбрасывать его значит добавить
         // слышимую дыру там, где её могло не быть.
         do {
-            try buildAndStart()
+            try startGraph(announcesMode: false)
             if restartPolicy.isRecovering {
                 onDiagnostic?("тракт восстановлен с \(restartPolicy.attemptCount)-й попытки")
             }
@@ -1244,6 +1416,14 @@ public final class VoiceAudioEngine: @unchecked Sendable {
     /// маршрутом, а `isRunning` у самого движка — это защита от случая, когда
     /// AVFAudio остановил его сам: тогда пересобирать надо обязательно.
     private func isGraphStillValid() -> Bool {
+        if isMicrophoneUnavailable {
+            // Без микрофона граф годен, пока микрофон не появился: тогда его
+            // надо пересобрать двусторонним.
+            guard engine.isRunning, sourceNode != nil, let built = builtPlaybackFormat,
+                  route == lastRoute, !Self.isMicrophoneAvailable
+            else { return false }
+            return Self.matches(engine.outputNode.inputFormat(forBus: 0), built)
+        }
         guard engine.isRunning, sourceNode != nil, sinkNode != nil else { return false }
         guard let built = builtFormats else { return false }
         guard route == lastRoute else { return false }
@@ -1681,6 +1861,13 @@ public final class VoiceAudioEngine: @unchecked Sendable {
             defer { encodeExited.signal() }
             while true {
                 guard let self else { return }
+                if self.isMicrophoneUnavailable {
+                    _ = self.captureSignal.wait(timeout: .now() + .milliseconds(10))
+                    guard self.isEncoding.withLock({ $0 }) else { return }
+                    self.encodeSilenceIfDue()
+                    continue
+                }
+                self.silenceClock = nil
                 self.captureSignal.wait()
                 guard self.isEncoding.withLock({ $0 }) else { return }
                 self.encodePendingCapture()
@@ -1696,6 +1883,26 @@ public final class VoiceAudioEngine: @unchecked Sendable {
         isEncoding.withLock { $0 = false }
         captureSignal.signal()
         waitForExit(of: &encodeThread, signalled: encodeExited, name: "кодирования")
+    }
+
+    /// Шлёт в линию тишину по часам, пока микрофона нет.
+    ///
+    /// Молчать в RTP нельзя: за NAT станция узнаёт наш адрес по нашим же
+    /// пакетам, и без них не пришлёт и свои — разговор «без микрофона»
+    /// оказался бы ещё и без звука. Такт задают часы, а не захват: захвата нет.
+    private func encodeSilenceIfDue() {
+        let samplesPerFrame = configuration.samplesPerFrame
+        let frameNanoseconds = UInt64(max(1, configuration.packetTimeMilliseconds)) * 1_000_000
+        let now = DispatchTime.now().uptimeNanoseconds
+        var clock = silenceClock ?? (start: now, sent: 0)
+        let due = Int((now - clock.start) / frameNanoseconds) + 1 - clock.sent
+        guard due > 0 else { return }
+        // Не больше пяти кадров за раз: проспавший поток не должен слать пачку.
+        let silence = [Int16](repeating: 0, count: samplesPerFrame)
+        for _ in 0..<min(due, 5) { onEncodedFrame?(encoder.encode(silence)) }
+        clock.sent += due
+        silenceClock = clock
+        levelLock.withLock { $0.inputPeak = 0 }
     }
 
     private func encodePendingCapture() {

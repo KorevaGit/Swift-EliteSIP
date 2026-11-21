@@ -575,13 +575,14 @@ struct AppSettings: Codable, Sendable, Equatable {
         var inputDeviceName: String = ""
         var outputDeviceName: String = ""
 
-        /// Отпускать звуковое устройство между звонками.
+        /// Отпускать звуковое устройство между звонками — всегда.
         ///
         /// Ради Bluetooth-гарнитур: пока микрофон открыт, AirPods работают в
-        /// двустороннем режиме, и у всей системы приглушён звук. Выключать это
-        /// имеет смысл только на проводной гарнитуре, где переключать нечего, а
-        /// открыть устройство заново — лишние доли секунды в начале звонка.
-        var releasesDeviceWhenIdle: Bool = true
+        /// двустороннем режиме, и у всей системы приглушён звук. Переключатель
+        /// убран, как и в Windows-клиенте 1.0.2: выигрыш от выключения — доли
+        /// секунды на проводной гарнитуре, а забытая выключенной галочка
+        /// держала устройство занятым. Старое `false` в файле не читается.
+        var releasesDeviceWhenIdle: Bool { true }
 
         /// Предлагать широкую полосу (G.722).
         ///
@@ -647,7 +648,6 @@ struct AppSettings: Codable, Sendable, Equatable {
             outputDeviceUID: String? = nil,
             inputDeviceName: String = "",
             outputDeviceName: String = "",
-            releasesDeviceWhenIdle: Bool = true,
             prefersWideband: Bool = true,
             automaticGainControl: Bool = false,
             microphoneGain: Double = 1,
@@ -660,7 +660,6 @@ struct AppSettings: Codable, Sendable, Equatable {
             self.outputDeviceUID = outputDeviceUID
             self.inputDeviceName = inputDeviceName
             self.outputDeviceName = outputDeviceName
-            self.releasesDeviceWhenIdle = releasesDeviceWhenIdle
             self.prefersWideband = prefersWideband
             self.automaticGainControl = automaticGainControl
             self.microphoneGain = microphoneGain.clamped(to: Self.microphoneGainRange)
@@ -676,8 +675,6 @@ struct AppSettings: Codable, Sendable, Equatable {
             outputDeviceUID = try container.decodeIfPresent(String.self, forKey: .outputDeviceUID)
             inputDeviceName = try container.decodeIfPresent(String.self, forKey: .inputDeviceName) ?? ""
             outputDeviceName = try container.decodeIfPresent(String.self, forKey: .outputDeviceName) ?? ""
-            releasesDeviceWhenIdle =
-                try container.decodeIfPresent(Bool.self, forKey: .releasesDeviceWhenIdle) ?? true
             prefersWideband = try container.decodeIfPresent(Bool.self, forKey: .prefersWideband) ?? true
             // Отсутствие ключа — это файл, записанный до продуктового решения
             // «AGC по умолчанию выключено». Возвращать там `true` значило бы
@@ -708,7 +705,11 @@ struct AppSettings: Codable, Sendable, Equatable {
         /// Смысл в гарнитуре: пока она лежит на столе, звонок нужно слышать
         /// колонками. А вот отдать рингтон в ту же гарнитуру полезно, когда она
         /// на голове, — поэтому это выбор, а не решение за пользователя.
-        var usesSystemOutput: Bool = true
+        ///
+        /// По умолчанию — устройство разговора (с Windows-клиентом 1.0.2):
+        /// звонок там, где оператор его ждёт. Явно сохранённый выбор не
+        /// трогается; файл без этого поля получает новое умолчание.
+        var usesSystemOutput: Bool = false
 
         /// Свой звук вместо синтезированного. nil — стандартный.
         ///
@@ -728,7 +729,7 @@ struct AppSettings: Codable, Sendable, Equatable {
         init(
             isEnabled: Bool = true,
             volume: Double = 0.5,
-            usesSystemOutput: Bool = true,
+            usesSystemOutput: Bool = false,
             customSoundPath: String? = nil,
             callSoundsEnabled: Bool = true
         ) {
@@ -743,7 +744,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
             volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? 0.5
-            usesSystemOutput = try container.decodeIfPresent(Bool.self, forKey: .usesSystemOutput) ?? true
+            usesSystemOutput = try container.decodeIfPresent(Bool.self, forKey: .usesSystemOutput) ?? false
             customSoundPath = try container.decodeIfPresent(String.self, forKey: .customSoundPath)
             // Файлы до 0.1.38 поля не знают — звуки у них включены, как у новых.
             callSoundsEnabled = try container.decodeIfPresent(Bool.self, forKey: .callSoundsEnabled) ?? true
