@@ -120,6 +120,42 @@ public final class CallHistoryStore: @unchecked Sendable {
     private let settings: Settings
     private let queue = DispatchQueue(label: "com.elite.EliteSIP.history", qos: .utility)
 
+    /// Операции, которые не легли в базу: воспроизводятся по порядку, как
+    /// только база снова принимает запись. Пока файл не пуст, новые операции
+    /// идут за ними следом, а не вперёд — иначе конец звонка лёг бы раньше
+    /// его начала.
+    private let pendingJournal: HistoryWriteJournal
+
+    /// Аварийная копия начала звонка, записанная мимо очереди, когда очередь
+    /// не ответила вовремя. Независимый путь: зависший `INSERT` держит очередь,
+    /// но не этот файл.
+    private let emergencyJournal: HistoryWriteJournal
+
+    /// Состояние записи — для диагностики. Под своим замком, а не на очереди:
+    /// спрашивать его надо как раз тогда, когда очередь стоит.
+    public struct WriteStatus: Sendable, Equatable {
+        /// Последняя ошибка: действие и код SQLite, без параметров.
+        public var lastFailure: String?
+        public var failureCount = 0
+        /// Сколько операций ждёт в журнале воспроизведения.
+        public var pendingCount = 0
+        /// Сколько начал звонков записано аварийной копией.
+        public var emergencyCount = 0
+        /// Сколько начал звонков не подтверждено ни одним путём.
+        public var unconfirmedCount = 0
+    }
+
+    private let statusLock = NSLock()
+    private var status = WriteStatus()
+    private var inFlightBegins: [UUID: HistoryOperation] = [:]
+    private var unconfirmedBegins: Set<UUID> = []
+
+    public var writeStatus: WriteStatus { statusLock.withLock { status } }
+
+    /// Куда сообщать об ошибках записи. Зовётся с очереди истории; сбой самого
+    /// приёмника на запись не влияет.
+    public var onWriteFailure: (@Sendable (String) -> Void)?
+
     /// Трогается только на `queue`. nil — база недоступна, и тогда весь
     /// остальной код превращается в набор пустых действий: софтфон, упавший
     /// из-за собственной истории, — исход хуже, чем софтфон без истории.
@@ -130,6 +166,12 @@ public final class CallHistoryStore: @unchecked Sendable {
 
     public init(settings: Settings) {
         self.settings = settings
+        pendingJournal = HistoryWriteJournal(
+            url: URL(fileURLWithPath: settings.fileURL.path + ".pending.jsonl")
+        )
+        emergencyJournal = HistoryWriteJournal(
+            url: URL(fileURLWithPath: settings.fileURL.path + ".emergency.jsonl")
+        )
         // Синхронно, а не в фоне: приложение сразу после создания спрашивает
         // исход, чтобы написать о нём в журнал, а незакрытые записи прошлого
         // запуска обязаны закрыться до того, как заведётся первая новая.
@@ -169,12 +211,14 @@ public final class CallHistoryStore: @unchecked Sendable {
                 let damaged = try quarantine()
                 database = try SQLiteDatabase(url: settings.fileURL)
                 try prepare(database)
+                try recover(database)
                 self.database = database
                 outcome = .replacedDamaged(damaged)
                 return
             }
 
             try prepare(database)
+            try recover(database)
             // Повторно: журнал упреждающей записи и разделяемую память SQLite
             // заводит сам, и заводит их первой же транзакцией — то есть внутри
             // `prepare`, а не раньше. В них лежит то же, что и в базе.
@@ -258,6 +302,22 @@ public final class CallHistoryStore: @unchecked Sendable {
             "CREATE INDEX IF NOT EXISTS calls_profile_started_at ON calls(profile_id, started_at DESC);"
         )
 
+    }
+
+    /// Возвращает в базу то, что не доехало в прошлый раз, и закрывает
+    /// оборванные записи.
+    ///
+    /// Порядок обязателен: сначала аварийные начала звонков, потом журнал по
+    /// порядку, и только потом «приложение завершилось». Наоборот — и конец
+    /// звонка из журнала не лёг бы: его `UPDATE` ждёт незакрытую запись.
+    private func recover(_ database: SQLiteDatabase) throws {
+        let emergency = emergencyJournal.readAll()
+        for operation in emergency {
+            let copy = operation.preservingExisting
+            try database.run(copy.effectiveSQL, copy.values)
+        }
+        try emergencyJournal.replace(with: [])
+        replayPending(database)
         try closeInterrupted(database)
         try deleteExpired(database, now: Date())
     }
@@ -327,14 +387,13 @@ public final class CallHistoryStore: @unchecked Sendable {
 
     /// Заводит запись о начавшемся звонке.
     public func begin(_ record: CallRecord) {
-        queue.async { [weak self] in
-            guard let self, let database else { return }
-            try? database.run(
-                """
+        let operation = HistoryOperation(
+            kind: "begin",
+            sql: """
                 INSERT OR REPLACE INTO calls (\(Self.recordColumns))
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
-                [
+            parameters: [
                     .text(record.id.uuidString),
                     .text(record.callID),
                     .text(record.serverCallID),
@@ -354,7 +413,48 @@ public final class CallHistoryStore: @unchecked Sendable {
                     .flag(record.wasConference),
                     .flag(record.wasDistribution),
                 ]
-            )
+        )
+        statusLock.withLock { inFlightBegins[record.id] = operation }
+        let id = record.id
+        queue.async { [weak self] in
+            guard let self else { return }
+            let durable = perform(operation)
+            statusLock.withLock {
+                inFlightBegins.removeValue(forKey: id)
+                if !durable {
+                    unconfirmedBegins.insert(id)
+                    status.unconfirmedCount = unconfirmedBegins.count
+                }
+            }
+        }
+    }
+
+    /// Ждёт, пока начало звонка ляжет на диск, — перед ответом и открытием звука.
+    ///
+    /// Очередь, не ответившая за `timeout`, не держит звонок: начало пишется
+    /// аварийной копией мимо неё, и это тоже подтверждение. `false` — запись
+    /// не легла ни одним путём; звонок всё равно идёт, но диагностика это
+    /// покажет.
+    public func confirmWritten(_ id: UUID, timeout: TimeInterval = 0.5) async -> Bool {
+        let operation = statusLock.withLock { inFlightBegins[id] }
+        guard let operation else {
+            return statusLock.withLock { !unconfirmedBegins.contains(id) }
+        }
+        let drained = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            let once = ResumeOnce(continuation)
+            queue.async { once.resume(true) }
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + timeout) {
+                once.resume(false)
+            }
+        }
+        if drained { return statusLock.withLock { !unconfirmedBegins.contains(id) } }
+        do {
+            try emergencyJournal.append(operation)
+            statusLock.withLock { status.emergencyCount += 1 }
+            return true
+        } catch {
+            recordFailure("begin: аварийная копия не записана (\(Self.describe(error)))")
+            return false
         }
     }
 
@@ -363,17 +463,17 @@ public final class CallHistoryStore: @unchecked Sendable {
     public func markAnswered(_ id: UUID, at date: Date = Date()) {
         update("UPDATE calls SET answered_at = ? WHERE id = ? AND answered_at IS NULL;", [
             .date(date), .text(id.uuidString),
-        ])
+        ], kind: "answered")
     }
 
     /// Отмечает, что по звонку был перевод.
     public func markTransferred(_ id: UUID) {
-        update("UPDATE calls SET was_transferred = 1 WHERE id = ?;", [.text(id.uuidString)])
+        update("UPDATE calls SET was_transferred = 1 WHERE id = ?;", [.text(id.uuidString)], kind: "transferred")
     }
 
     /// Отмечает, что звонок стал конференцией.
     public func markConference(_ id: UUID) {
-        update("UPDATE calls SET was_conference = 1 WHERE id = ?;", [.text(id.uuidString)])
+        update("UPDATE calls SET was_conference = 1 WHERE id = ?;", [.text(id.uuidString)], kind: "conference")
     }
 
     /// Закрывает запись.
@@ -396,7 +496,7 @@ public final class CallHistoryStore: @unchecked Sendable {
             WHERE id = ? AND ended_at IS NULL;
             """,
             [.date(date), .text(reason), Self.code(outcome), .text(id.uuidString)]
-        )
+        , kind: "finish")
     }
 
     private static func code(_ outcome: CallRecord.Outcome?) -> SQLiteDatabase.Value {
@@ -407,7 +507,7 @@ public final class CallHistoryStore: @unchecked Sendable {
     public func attachServerCallID(_ serverCallID: String, to id: UUID) {
         update("UPDATE calls SET server_call_id = ? WHERE id = ?;", [
             .text(serverCallID), .text(id.uuidString),
-        ])
+        ], kind: "server-call-id")
     }
 
     /// Переопределяет отображаемое имя для всех записей с этим номером.
@@ -418,13 +518,82 @@ public final class CallHistoryStore: @unchecked Sendable {
     public func overrideDisplayName(_ displayName: String?, forNumber number: String) {
         update("UPDATE calls SET display_name = ? WHERE number = ?;", [
             .text(displayName), .text(number),
-        ])
+        ], kind: "display-name")
     }
 
-    private func update(_ sql: String, _ parameters: [SQLiteDatabase.Value]) {
+    private func update(_ sql: String, _ parameters: [SQLiteDatabase.Value], kind: String) {
+        let operation = HistoryOperation(kind: kind, sql: sql, parameters: parameters)
         queue.async { [weak self] in
-            try? self?.database?.run(sql, parameters)
+            _ = self?.perform(operation)
         }
+    }
+
+    /// Выполняет операцию или откладывает её в журнал. Только на `queue`.
+    ///
+    /// Возвращает, легла ли она на диск хоть как-то: в базу или в журнал.
+    /// Ошибка записи раньше глоталась `try?` — история молча переставала
+    /// помнить, и выглядело это так же, как «звонков не было».
+    @discardableResult
+    private func perform(_ operation: HistoryOperation) -> Bool {
+        if let database, pendingJournal.isEmpty {
+            do {
+                try database.run(operation.effectiveSQL, operation.values)
+                return true
+            } catch {
+                recordFailure("\(operation.kind): \(Self.describe(error))")
+            }
+        }
+        do {
+            try pendingJournal.append(operation)
+        } catch {
+            recordFailure("\(operation.kind): журнал не записан (\(Self.describe(error)))")
+            return false
+        }
+        if let database { replayPending(database) }
+        refreshPendingCount()
+        return true
+    }
+
+    /// Воспроизводит журнал по порядку до первой неудачи. Только на `queue`.
+    private func replayPending(_ database: SQLiteDatabase) {
+        let operations = pendingJournal.readAll()
+        guard !operations.isEmpty else { return }
+        var done = 0
+        for operation in operations {
+            do {
+                try database.run(operation.effectiveSQL, operation.values)
+                done += 1
+            } catch {
+                break
+            }
+        }
+        guard done > 0 else { return }
+        do {
+            try pendingJournal.replace(with: Array(operations.dropFirst(done)))
+        } catch {
+            recordFailure("журнал истории не переписан (\(Self.describe(error)))")
+        }
+        refreshPendingCount()
+    }
+
+    private func refreshPendingCount() {
+        let count = pendingJournal.readAll().count
+        statusLock.withLock { status.pendingCount = count }
+    }
+
+    private func recordFailure(_ message: String) {
+        statusLock.withLock {
+            status.lastFailure = message
+            status.failureCount += 1
+        }
+        onWriteFailure?(message)
+    }
+
+    /// Ошибка без параметров: код SQLite или тип ошибки файла.
+    private static func describe(_ error: Error) -> String {
+        if let failure = error as? SQLiteDatabase.Failure { return "SQLite \(failure.code)" }
+        let error = error as NSError
+        return "\(error.domain) \(error.code)"
     }
 
     /// Дожидается, пока всё записанное окажется в базе.
@@ -690,5 +859,23 @@ public final class CallHistoryStore: @unchecked Sendable {
         let horizon = now.addingTimeInterval(-Double(days) * 24 * 60 * 60)
         try database.run("DELETE FROM calls WHERE started_at < ?;", [.date(horizon)])
         return database.changes
+    }
+}
+
+/// Продолжение, которое можно возобновить из двух мест, но сработает первое.
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    init(_ continuation: CheckedContinuation<Bool, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ value: Bool) {
+        let continuation = lock.withLock {
+            defer { self.continuation = nil }
+            return self.continuation
+        }
+        continuation?.resume(returning: value)
     }
 }

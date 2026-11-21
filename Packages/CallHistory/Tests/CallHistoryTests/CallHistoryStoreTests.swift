@@ -687,3 +687,106 @@ struct CallHistoryPermissionsTests {
         }
     }
 }
+
+extension CallHistoryStoreTests {
+
+    // MARK: - Сохранность записи
+
+    @Test("Запись, не легшая в базу, ждёт в журнале и доезжает следом по порядку")
+    func failedWriteIsJournaledAndReplayed() throws {
+        let settings = makeSettings()
+        defer { remove(settings) }
+        let store = CallHistoryStore(settings: settings)
+        let failures = LockedMessages()
+        store.onWriteFailure = { failures.append($0) }
+
+        let blocker = try SQLiteDatabase(url: settings.fileURL)
+        try blocker.execute("BEGIN EXCLUSIVE;")
+        let call = record()
+        store.begin(call)
+        store.flush()
+        #expect(store.writeStatus.failureCount >= 1)
+        #expect(store.writeStatus.pendingCount == 1)
+        #expect(store.writeStatus.lastFailure?.hasPrefix("begin: SQLite") == true)
+        #expect(failures.values.first?.contains("601") == false, "номер в сообщение об ошибке не попадает")
+        try blocker.execute("COMMIT;")
+
+        store.markAnswered(call.id)
+        store.finish(call.id, reason: "завершён")
+        store.flush()
+        #expect(store.writeStatus.pendingCount == 0)
+        let saved = try #require(store.records(scope: scope).first)
+        #expect(saved.id == call.id)
+        #expect(saved.answeredAt != nil)
+        #expect(saved.endReason == "завершён")
+    }
+
+    @Test("Журнал воспроизводится при следующем открытии раньше «приложение завершилось»")
+    func journalReplaysOnReopen() throws {
+        let settings = makeSettings()
+        defer { remove(settings) }
+        let call = record()
+        do {
+            let store = CallHistoryStore(settings: settings)
+            store.begin(call)
+            store.flush()
+            let blocker = try SQLiteDatabase(url: settings.fileURL)
+            try blocker.execute("BEGIN EXCLUSIVE;")
+            store.finish(call.id, reason: "завершён")
+            store.flush()
+            #expect(store.writeStatus.pendingCount == 1)
+            try blocker.execute("COMMIT;")
+        }
+        let reopened = CallHistoryStore(settings: settings)
+        let saved = try #require(reopened.records(scope: scope).first)
+        #expect(saved.endReason == "завершён")
+    }
+
+    @Test("Аварийная копия начала не затирает уже записанный конец")
+    func emergencyCopyPreservesExisting() throws {
+        let settings = makeSettings()
+        defer { remove(settings) }
+        let call = record()
+        let begin = HistoryOperation(
+            kind: "begin",
+            sql: "INSERT OR REPLACE INTO calls (id) VALUES (?);",
+            parameters: [.text(call.id.uuidString)]
+        )
+        #expect(begin.preservingExisting.effectiveSQL.hasPrefix("INSERT OR IGNORE"))
+        do {
+            let store = CallHistoryStore(settings: settings)
+            store.begin(call)
+            store.finish(call.id, reason: "завершён")
+            store.flush()
+        }
+        var started = call
+        started.endReason = nil
+        let journal = HistoryWriteJournal(url: URL(fileURLWithPath: settings.fileURL.path + ".emergency.jsonl"))
+        try journal.append(HistoryOperation(
+            kind: "begin",
+            sql: "INSERT OR REPLACE INTO calls (id, call_id, direction, role, number, profile_id, started_at) VALUES (?, ?, 1, 0, ?, ?, ?);",
+            parameters: [.text(call.id.uuidString), .text(call.callID), .text(call.number), .text(profile.uuidString), .real(call.startedAt.timeIntervalSince1970)]
+        ))
+        let reopened = CallHistoryStore(settings: settings)
+        #expect(try #require(reopened.records(scope: scope).first).endReason == "завершён")
+        #expect(journal.readAll().isEmpty)
+    }
+
+    @Test("Подтверждение записи начала звонка")
+    func confirmsBegin() async {
+        let settings = makeSettings()
+        defer { remove(settings) }
+        let store = CallHistoryStore(settings: settings)
+        let call = record()
+        store.begin(call)
+        #expect(await store.confirmWritten(call.id))
+        #expect(store.writeStatus.unconfirmedCount == 0)
+    }
+}
+
+private final class LockedMessages: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [String] = []
+    func append(_ value: String) { lock.withLock { storage.append(value) } }
+    var values: [String] { lock.withLock { storage } }
+}

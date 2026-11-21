@@ -66,6 +66,33 @@ public final class LogFile: @unchecked Sendable {
     private var descriptor: Int32 = -1
     private var writtenBytes = 0
 
+    /// Потолок очереди строк, ещё не дошедших до файла.
+    ///
+    /// Без потолка зависший диск копил бы строки в памяти весь рабочий день:
+    /// SIP-трасса на активном звонке — десятки строк в секунду. Лишние строки
+    /// отбрасываются и считаются, а в файл потом ложится строка о пропуске.
+    public static let maximumQueuedLines = 4_000
+    public static let maximumQueuedBytes = 4 * 1024 * 1024
+
+    /// Что видно о журнале снаружи — для диагностики и архива.
+    public struct Status: Sendable, Equatable {
+        public var droppedLines = 0
+        public var writeFailures = 0
+        public var lastWriteError: String?
+    }
+
+    private struct Backlog {
+        var lines = 0
+        var bytes = 0
+        var droppedSinceLastWrite = 0
+        var status = Status()
+    }
+
+    private let backlog = NSLock()
+    private var backlogState = Backlog()
+
+    public var status: Status { backlog.withLock { backlogState.status } }
+
     public init(settings: Settings) {
         self.settings = settings
         queue.async { [weak self] in
@@ -102,8 +129,32 @@ public final class LogFile: @unchecked Sendable {
         // Маскирование делается здесь, а не на очереди, ровно по одной причине:
         // так его нельзя обойти, добавив второй путь записи.
         let line = Self.line(date: date, level: level, message: LogRedaction.redact(message))
+        let size = line.utf8.count + 1
+        let accepted = backlog.withLock {
+            guard backlogState.lines < Self.maximumQueuedLines,
+                  backlogState.bytes + size <= Self.maximumQueuedBytes
+            else {
+                backlogState.droppedSinceLastWrite += 1
+                backlogState.status.droppedLines += 1
+                return false
+            }
+            backlogState.lines += 1
+            backlogState.bytes += size
+            return true
+        }
+        guard accepted else { return }
         queue.async { [weak self] in
-            self?.append(line)
+            guard let self else { return }
+            let dropped = backlog.withLock {
+                backlogState.lines -= 1
+                backlogState.bytes -= size
+                defer { backlogState.droppedSinceLastWrite = 0 }
+                return backlogState.droppedSinceLastWrite
+            }
+            if dropped > 0 {
+                append(Self.line(date: Date(), level: "warning", message: "журнал переполнен: пропущено строк — \(dropped)"))
+            }
+            append(line)
         }
     }
 
@@ -111,10 +162,19 @@ public final class LogFile: @unchecked Sendable {
     ///
     /// Нужен ровно двум вызывающим: сборке архива для поддержки и проверкам.
     /// В обычной работе ждать журнал незачем.
-    public func flush() {
-        queue.sync {
-            if descriptor >= 0 { fsync(descriptor) }
+    ///
+    /// Ограничен по времени: зависший диск не должен подвесить и архив.
+    /// `false` — за отведённое время запись не подтвердилась.
+    @discardableResult
+    public func flush(timeout: TimeInterval = 5) -> Bool {
+        let done = DispatchSemaphore(value: 0)
+        queue.async { [weak self] in
+            if let self, descriptor >= 0, fsync(descriptor) != 0 {
+                noteWriteFailure(errno)
+            }
+            done.signal()
         }
+        return done.wait(timeout: .now() + timeout) == .success
     }
 
     /// Стирает журнал целиком, включая отложенные файлы.
@@ -163,7 +223,10 @@ public final class LogFile: @unchecked Sendable {
             guard let base = buffer.baseAddress else { return }
             while written < buffer.count {
                 let count = Darwin.write(descriptor, base + written, buffer.count - written)
-                guard count > 0 else { return }
+                guard count > 0 else {
+                    noteWriteFailure(errno)
+                    return
+                }
                 written += count
             }
         }
@@ -171,6 +234,20 @@ public final class LogFile: @unchecked Sendable {
 
         if writtenBytes >= settings.maximumFileBytes {
             rotate()
+        }
+    }
+
+    /// Останавливает очередь записи на время `body` — для проверок переполнения.
+    func withQueueSuspended(_ body: () -> Void) {
+        queue.suspend()
+        body()
+        queue.resume()
+    }
+
+    private func noteWriteFailure(_ code: Int32) {
+        backlog.withLock {
+            backlogState.status.writeFailures += 1
+            backlogState.status.lastWriteError = String(cString: strerror(code))
         }
     }
 

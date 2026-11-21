@@ -36,6 +36,30 @@ struct LogFileTests {
         #expect(text.contains("скрыто"))
     }
 
+    @Test("Переполненная очередь отбрасывает новое, считает и пишет о пропуске")
+    func boundedQueueCountsDrops() throws {
+        let directory = makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let log = LogFile(settings: .init(directory: directory))
+        #expect(log.flush())
+        let extra = 25
+        log.withQueueSuspended {
+            for index in 0..<(LogFile.maximumQueuedLines + extra) {
+                log.write("строка \(index)", level: "debug")
+            }
+        }
+        #expect(log.flush())
+        #expect(log.status.droppedLines == extra)
+        log.write("после", level: "info")
+        #expect(log.flush())
+        let text = read(log.currentFileURL)
+        #expect(text.contains("строка 0\n") || text.contains("строка 0"))
+        #expect(text.contains("пропущено строк — \(extra)"))
+        #expect(!text.contains("строка \(LogFile.maximumQueuedLines)\n"))
+        #expect(log.status.writeFailures == 0)
+    }
+
     @Test("Перезапуск дописывает, а не начинает сначала")
     func appendsAcrossSessions() throws {
         let directory = makeDirectory()

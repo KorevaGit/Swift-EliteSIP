@@ -31,6 +31,10 @@ extension AppModel {
         }
 
         let store = CallHistoryStore(settings: settings.history.storage)
+        // Операция и код SQLite, без номеров: строка уходит в общий журнал.
+        store.onWriteFailure = { [weak self] message in
+            Task { @MainActor in self?.append(level: .error, message: "история: запись не легла — \(message)") }
+        }
         historyStore = store
 
         switch store.openOutcome {
@@ -113,6 +117,18 @@ extension AppModel {
         )
         historyRecordIDs[lineID] = record.id
         historyStore.begin(record)
+    }
+
+    /// Ждёт, пока начало звонка ляжет на диск, — перед ответом и звуком.
+    ///
+    /// Не дольше полусекунды: очередь, не ответившая вовремя, заменяется
+    /// аварийной копией, и звонок не ждёт историю. Неподтверждённая запись
+    /// звонок не останавливает, а остаётся в журнале и в диагностике.
+    func confirmHistoryWritten(lineID: String) async {
+        guard let historyStore, let id = historyRecordIDs[lineID] else { return }
+        if !(await historyStore.confirmWritten(id)) {
+            append(level: .error, message: "история: начало звонка не подтверждено ни базой, ни аварийной копией")
+        }
     }
 
     /// Замечает перемены на линии и дописывает их в историю.

@@ -2672,6 +2672,8 @@ final class AppModel: ObservableObject {
         // Asterisk начинает слать RTP по 200 OK, и в зазоре между ответом и
         // подъёмом тракта первые кадры уходят в закрытый порт, а сам порт в это
         // время может занять кто угодно ещё.
+        await confirmHistoryWritten(lineID: lineID)
+        guard line(lineID) != nil else { return }
         mutate(lineID) { $0.localDescription = prepared.answer }
         startMedia(negotiated: prepared.media, reservation: prepared.reservation, on: lineID)
         guard line(lineID)?.media != nil else { return }
