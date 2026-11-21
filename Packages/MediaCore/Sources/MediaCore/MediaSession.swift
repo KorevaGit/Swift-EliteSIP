@@ -402,9 +402,29 @@ public final class MediaSession: @unchecked Sendable {
     }
 
     public func start() throws {
+        openTransport()
+        try startAudio()
+    }
+
+    /// Поднимает RTP и RTCP на зарезервированном порту, не трогая звуковую карту.
+    ///
+    /// Дёшево и без устройства, поэтому зовётся с главного актора до 200 OK:
+    /// порт обязан слушать раньше, чем Asterisk начнёт слать RTP. Пришедшее до
+    /// звука ложится в джиттер-буфер. Повторный вызов ничего не делает.
+    public func openTransport() {
+        guard !isTransportOpen.withLock({ opened in
+            defer { opened = true }
+            return opened
+        }) else { return }
         // `wireTransport` здесь больше нет: обработчики уже висят с `init`.
         portReservation.activate()
         startTransport()
+    }
+
+    private let isTransportOpen = UnfairLock(initialState: false)
+
+    /// Забирает звуковую карту. При отказе сессия останавливается целиком.
+    private func startAudio() throws {
         do {
             try claimAudio()
         } catch {
@@ -412,6 +432,28 @@ public final class MediaSession: @unchecked Sendable {
             throw error
         }
         isAudioRunning.withLock { $0 = true }
+    }
+
+    /// Открывает порт сразу, а звуковую карту — на очереди подъёма.
+    ///
+    /// Разговор не ждёт драйвера: сигнализация и экран идут своим чередом,
+    /// а звук догоняет. Зависшее открытие устройства держит только эту
+    /// задачу, а не 200 OK и не отбой.
+    public func startAudioWithoutBlocking() async throws {
+        openTransport()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            Self.lifecycle.async { [self] in
+                continuation.resume(with: Result { try startAudio() })
+            }
+        }
+    }
+
+    /// `stop()`, дождавшийся подъёма, который мог быть ещё в пути.
+    ///
+    /// Для замены сессии на том же порту: новая обязана встать после того,
+    /// как прежняя закрыла сокет, а прежняя могла ещё открывать устройство.
+    public func stopAfterPendingStart() {
+        Self.lifecycle.sync { stop() }
     }
 
     /// Очередь, на которой тракт поднимается и снимается.
@@ -504,8 +546,7 @@ public final class MediaSession: @unchecked Sendable {
     /// Прикладному коду не нужен и потому не `public`: ему нужен разговор
     /// целиком, а разговор без звука разговором не является.
     func startWithoutAudio() {
-        portReservation.activate()
-        startTransport()
+        openTransport()
     }
 
     /// Вешает обработчики на текущий поток RTP и RTCP.

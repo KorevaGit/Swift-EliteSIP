@@ -199,4 +199,20 @@ struct RemoteSourceTests {
             }
         }
     }
+
+    @Test("Порт открывается до звука и повторно не переоткрывается")
+    func openTransportIsIdempotent() throws {
+        let reservation = try RTPSession.reservePortPair()
+        defer { reservation.release() }
+        let session = try MediaSession(
+            negotiated: NegotiatedMedia(
+                codec: .pcmu, payloadType: 0, remoteAddress: "127.0.0.1", remotePort: 40320
+            ),
+            reservation: reservation
+        )
+        session.openTransport()
+        session.openTransport()
+        #expect(!session.isAudioActive, "открытие порта звуковую карту не трогает")
+        session.stop()
+    }
 }

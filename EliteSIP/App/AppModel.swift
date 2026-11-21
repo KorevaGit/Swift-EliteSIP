@@ -867,6 +867,13 @@ final class AppModel: ObservableObject {
 
         var media: MediaSession?
 
+        /// Звуковая карта для этой линии ещё открывается.
+        ///
+        /// Разговор при этом уже идёт и показан: время ответа, отбой и экран
+        /// не ждут драйвера. Удержание, DTMF, перевод и конференция на это
+        /// время недоступны — им нечем звучать.
+        var isMediaStarting = false
+
         /// Последнее описание медиа, которое мы отправили по этой линии —
         /// предложение или ответ. Из него строится повторное предложение: порт,
         /// кодеки и ключ SRTP обязаны в нём остаться прежними.
@@ -927,6 +934,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var callStatus: String = ""
 
     private var callTasks: [String: Task<Void, Never>] = [:]
+
+    /// Открытие звуковой карты по линиям — отдельно от сигнализации.
+    ///
+    /// Ключ — Call-ID: снятая линия отменяет именно свой запуск, и опоздавший
+    /// запуск по чужому или уже завершённому звонку звук не забирает.
+    private var mediaStartTasks: [String: Task<Void, Never>] = [:]
+
+    /// Звук активной линии ещё открывается.
+    var isActiveMediaStarting: Bool { activeLine?.isMediaStarting ?? false }
 
     var activeLine: CallLine? {
         guard let activeLineID else { return nil }
@@ -1072,7 +1088,7 @@ final class AppModel: ObservableObject {
     }
 
     var canTransfer: Bool {
-        callPhase == .active && !isRenegotiating && !isTransferring
+        callPhase == .active && !isRenegotiating && !isTransferring && !isActiveMediaStarting
     }
 
     /// Можно ли завести консультационную линию.
@@ -1114,6 +1130,7 @@ final class AppModel: ObservableObject {
 
     var canStartConference: Bool {
         callPhase == .active
+            && !isActiveMediaStarting
             && !isTransferring
             && !(activeLine?.isConferenceCommandPending ?? false)
             && !(activeLine?.isConferenceCommandSent ?? false)
@@ -1316,10 +1333,10 @@ final class AppModel: ObservableObject {
             }
 
         case .earlyMedia(let body, _):
-            await startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID, early: true)
+            startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID, early: true)
 
         case .answered(let body, _):
-            await startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID)
+            startMedia(answerBody: body, offer: offer, reservation: reservation, on: lineID)
 
         case .failed(let status, let reason):
             reservation.release()
@@ -1350,7 +1367,7 @@ final class AppModel: ObservableObject {
         reservation: RTPPortReservation,
         on lineID: String,
         early: Bool = false
-    ) async {
+    ) {
         do {
             let answer = try SessionDescription(parsing: answerBody)
             let negotiated = try SDPNegotiator.resolveAnswer(
@@ -1373,20 +1390,13 @@ final class AppModel: ObservableObject {
                     // прежней обязан закрыться до неё. Случай редкий — станции
                     // кодек между 183 и 200 не меняют, — и секунда ожидания
                     // здесь дешевле звонка без звука.
-                    media.stop()
+                    mediaStartTasks.removeValue(forKey: lineID)?.cancel()
+                    media.stopAfterPendingStart()
                 }
             }
-            await startMedia(negotiated: negotiated, reservation: reservation, on: lineID, early: early)
+            startMedia(negotiated: negotiated, reservation: reservation, on: lineID, early: early)
         } catch {
-            if early {
-                // Раннее медиа — не разговор: разобрать его не вышло — значит,
-                // гудки сыграет сам клиент, а звонок пусть идёт своим чередом.
-                append(level: .warning, message: "раннее медиа не поднялось: \(error.localizedDescription)")
-                return
-            }
-            append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
-            setStatus(NSLocalizedString("Ошибка звука", comment: "состояние линии"), on: lineID)
-            Task { await hangUp(lineID: lineID) }
+            reportMediaFailure(error, on: lineID, early: early)
         }
     }
 
@@ -1394,22 +1404,29 @@ final class AppModel: ObservableObject {
     ///
     /// Общая для обоих направлений часть: чем звонок кончился — нашим
     /// предложением или нашим ответом — звуку безразлично.
+    ///
+    /// Синхронно здесь только то, что не ждёт устройства: сессия, открытый
+    /// порт и привязка к линии. Поэтому к возврату порт уже слушает, и 200 OK
+    /// входящему можно слать сразу. Звуковая карта открывается отдельной
+    /// задачей (`mediaStartTasks`): разговор показан и отбивается, даже если
+    /// драйвер не ответил вовсе.
     private func startMedia(
         negotiated: NegotiatedMedia,
         reservation: RTPPortReservation,
         on lineID: String,
         early: Bool = false
-    ) async {
+    ) {
         // Звук открывает устройство — локальный гудок должен замолчать до
         // того, а не после: иначе он наложится на гудки станции.
         if early { callSounds.stopRingback() }
+        let session: MediaSession
         do {
             append(
                 level: .info,
                 message: "медиа\(early ? " (раннее)" : ""): \(negotiated.security.isEncrypted ? "SRTP" : "RTP") \(negotiated.codec.sdpName) на \(negotiated.remoteAddress):\(negotiated.remotePort)"
             )
 
-            let session = try MediaSession(
+            session = try MediaSession(
                 negotiated: negotiated,
                 reservation: reservation,
                 bus: voiceBus(),
@@ -1427,90 +1444,117 @@ final class AppModel: ObservableObject {
                 message: "звук: голоса вокруг \(settings.audio.backgroundVoiceSuppression ? "приглушаются" : "не приглушаются")"
                     + (settings.audio.receiveLeveling ? ", громкость собеседника выравнивается" : "")
             )
-            session.onDiagnostic = { [weak self] text in
-                Task { @MainActor in self?.append(level: .debug, message: "звук: \(text)") }
-            }
-            // Отказ сокета или шифрования. Сигнализация при этом цела —
-            // диалог живёт, кнопки работают, на экране «Разговор», — а звука
-            // нет и не будет. Молчать об этом нельзя дважды: оператор решит,
-            // что собеседник его игнорирует, а разбирающий жалобу не найдёт в
-            // журнале ни одной зацепки.
-            session.onTransportFailure = { [weak self] reason in
-                Task { @MainActor in
-                    self?.append(level: .error, message: "медиа: \(reason)")
-                    self?.setStatus(AppModel.mediaFailureStatus, on: lineID)
-                }
-            }
-            // Что собеседник видит про НАШ поток. Своя статистика на этот
-            // вопрос не отвечает: собственный голос мы не слышим, и жалоба
-            // «меня плохо слышно» иначе не проверяется ничем.
-            session.onRemoteView = { [weak self] view in
-                Task { @MainActor in
-                    self?.mutate(lineID) { $0.remoteAudioView = view }
-                    if view.fractionLost > 0.05 {
-                        self?.append(
-                            level: .warning,
-                            message: "собеседник теряет наш звук: \(view.summary)"
-                        )
-                    }
-                }
-            }
-            session.onAudioEvent = { [weak self] event in
-                Task { @MainActor in self?.handle(audio: event, on: lineID) }
-            }
-            // Подъём стоит до восьми десятых секунды на открытии устройства,
-            // и держать на них главный актор незачем: ждём мы, а не панель.
-            try await session.startWithoutBlocking()
-
-            // Линия могла уйти, пока поднимался звук: BYE или CANCEL
-            // расходится с 200 OK на сети, и `teardown` успевает раньше.
-            // Молча выйти нельзя — `mutate` по несуществующей линии не делает
-            // ничего, и сессия с открытым микрофоном, включённой обработкой
-            // голоса и занятой парой портов осталась бы висеть до выхода из
-            // приложения. На Bluetooth-гарнитуре это ещё и режим связи у всей
-            // системы.
-            guard line(lineID) != nil else {
-                append(level: .warning, message: "линия снялась, пока поднимался звук — сессия закрыта")
-                retire(session)
-                return
-            }
-            // Прежняя сессия на этой же линии — повторный ответ по одному
-            // Call-ID. Заменить её ссылкой значит потерять единственного, кто
-            // мог бы её остановить.
-            if let previous = line(lineID)?.media, previous !== session {
-                append(level: .warning, message: "на линии уже был звук — прежняя сессия закрыта")
-                retire(previous)
-            }
-
-            // Ответ мог прийти, пока поднималось раннее медиа: тогда линия
-            // уже в разговоре, и эту сессию надо сразу считать разговорной.
-            let isEarly = early && line(lineID)?.phase != .active
-            mutate(lineID) {
-                $0.media = session
-                $0.audioRoute = session.route
-                $0.echoCancellationActive = session.usesEchoCancellation
-                $0.negotiatedCodec = negotiated.codec
-                if !isEarly { $0.phase = .active }
-            }
-            if !session.usesEchoCancellation {
-                append(level: .warning, message: "звук без эхоподавления — через колонки собеседник услышит себя")
-            }
-            applyAudioOwnership()
-            startLevelPolling()
-            refreshRingback()
-            if !isEarly {
-                setStatus(NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
-            }
         } catch {
-            if early {
-                append(level: .warning, message: "раннее медиа не поднялось: \(error.localizedDescription)")
-                refreshRingback()
-                return
-            }
-            append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
-            setStatus(NSLocalizedString("Ошибка звука", comment: "состояние линии"), on: lineID)
-            Task { await hangUp(lineID: lineID) }
+            reportMediaFailure(error, on: lineID, early: early)
+            return
         }
+        session.onDiagnostic = { [weak self] text in
+            Task { @MainActor in self?.append(level: .debug, message: "звук: \(text)") }
+        }
+        // Отказ сокета или шифрования. Сигнализация при этом цела —
+        // диалог живёт, кнопки работают, на экране «Разговор», — а звука
+        // нет и не будет. Молчать об этом нельзя дважды: оператор решит,
+        // что собеседник его игнорирует, а разбирающий жалобу не найдёт в
+        // журнале ни одной зацепки.
+        session.onTransportFailure = { [weak self] reason in
+            Task { @MainActor in
+                self?.append(level: .error, message: "медиа: \(reason)")
+                self?.setStatus(AppModel.mediaFailureStatus, on: lineID)
+            }
+        }
+        // Что собеседник видит про НАШ поток. Своя статистика на этот
+        // вопрос не отвечает: собственный голос мы не слышим, и жалоба
+        // «меня плохо слышно» иначе не проверяется ничем.
+        session.onRemoteView = { [weak self] view in
+            Task { @MainActor in
+                self?.mutate(lineID) { $0.remoteAudioView = view }
+                if view.fractionLost > 0.05 {
+                    self?.append(
+                        level: .warning,
+                        message: "собеседник теряет наш звук: \(view.summary)"
+                    )
+                }
+            }
+        }
+        session.onAudioEvent = { [weak self] event in
+            Task { @MainActor in self?.handle(audio: event, on: lineID) }
+        }
+        // Линия могла уйти раньше: BYE или CANCEL расходится с 200 OK на
+        // сети, и `teardown` успевает первым. Сессию с занятой парой портов
+        // оставлять нельзя — её некому было бы остановить.
+        guard line(lineID) != nil else {
+            append(level: .warning, message: "линия снялась до подъёма звука — сессия закрыта")
+            retire(session)
+            return
+        }
+        // Прежняя сессия на этой же линии — повторный ответ по одному
+        // Call-ID. Заменить её ссылкой значит потерять единственного, кто
+        // мог бы её остановить.
+        if let previous = line(lineID)?.media, previous !== session {
+            append(level: .warning, message: "на линии уже был звук — прежняя сессия закрыта")
+            mediaStartTasks.removeValue(forKey: lineID)?.cancel()
+            retire(previous)
+        }
+
+        session.openTransport()
+
+        // Ответ мог прийти, пока поднималось раннее медиа: тогда линия
+        // уже в разговоре, и эту сессию надо сразу считать разговорной.
+        let isEarly = early && line(lineID)?.phase != .active
+        mutate(lineID) {
+            $0.media = session
+            $0.isMediaStarting = true
+            $0.negotiatedCodec = negotiated.codec
+            if !isEarly { $0.phase = .active }
+        }
+        applyAudioState(on: lineID)
+        refreshRingback()
+        if !isEarly {
+            setStatus(NSLocalizedString("Разговор", comment: "состояние линии"), on: lineID)
+        }
+
+        mediaStartTasks[lineID] = Task { [weak self] in
+            do {
+                try await session.startAudioWithoutBlocking()
+                self?.mediaAudioStarted(session, on: lineID, early: early)
+            } catch {
+                guard let self, self.line(lineID)?.media === session else { return }
+                self.mutate(lineID) { $0.media = nil; $0.isMediaStarting = false }
+                self.reportMediaFailure(error, on: lineID, early: early)
+            }
+        }
+    }
+
+    /// Звуковая карта открылась. Линия к этому моменту могла уйти или
+    /// получить другую сессию — тогда эта уже снята `teardown`, и трогать
+    /// экран ей нельзя: вернула бы прежний разговор поверх нового.
+    private func mediaAudioStarted(_ session: MediaSession, on lineID: String, early: Bool) {
+        guard line(lineID)?.media === session else { return }
+        mediaStartTasks.removeValue(forKey: lineID)
+        mutate(lineID) {
+            $0.isMediaStarting = false
+            $0.audioRoute = session.route
+            $0.echoCancellationActive = session.usesEchoCancellation
+        }
+        if !session.usesEchoCancellation {
+            append(level: .warning, message: "звук без эхоподавления — через колонки собеседник услышит себя")
+        }
+        applyAudioOwnership()
+        startLevelPolling()
+        refreshRingback()
+    }
+
+    private func reportMediaFailure(_ error: Error, on lineID: String, early: Bool) {
+        if early {
+            // Раннее медиа — не разговор: гудки сыграет сам клиент, а звонок
+            // пусть идёт своим чередом.
+            append(level: .warning, message: "раннее медиа не поднялось: \(error.localizedDescription)")
+            refreshRingback()
+            return
+        }
+        append(level: .error, message: "медиа не поднялось: \(error.localizedDescription)")
+        setStatus(NSLocalizedString("Ошибка звука", comment: "состояние линии"), on: lineID)
+        Task { await hangUp(lineID: lineID) }
     }
 
     /// Ответ пришёл на линию, где уже звучит раннее медиа.
@@ -1776,7 +1820,7 @@ final class AppModel: ObservableObject {
 
     // MARK: - Удержание
 
-    var canHold: Bool { callPhase == .active && !isRenegotiating }
+    var canHold: Bool { callPhase == .active && !isRenegotiating && !isActiveMediaStarting }
 
     func toggleHold() async {
         guard let activeLineID else { return }
@@ -1869,14 +1913,18 @@ final class AppModel: ObservableObject {
     /// одновременно делят одно устройство, а на Bluetooth-гарнитуре она
     /// остаётся в режиме двусторонней связи.
     private func applyAudioOwnership() {
-        for line in lines where line.id != activeLineID {
+        // Линия, у которой карта ещё открывается, пропускается: её очередь
+        // подъёма и так последовательна, а ждать её здесь — ждать драйвер на
+        // главном акторе. Владение ей раздаст `mediaAudioStarted`.
+        for line in lines where line.id != activeLineID && !line.isMediaStarting {
             line.media?.suspendAudio()
         }
         // Условие «а не запущена ли она уже» убрано намеренно: с общим трактом
         // судить об этом линия должна по владению, а не по своему флагу, и
         // решает это `resumeAudio()`. Иначе линия, у которой тракт отобрала
         // ответившая консультация, считала бы себя звучащей и молчала.
-        if let activeLineID, let media = line(activeLineID)?.media {
+        if let activeLineID, let active = line(activeLineID), !active.isMediaStarting,
+           let media = active.media {
             do {
                 try media.resumeAudio()
             } catch {
@@ -1998,7 +2046,9 @@ final class AppModel: ObservableObject {
     // MARK: - DTMF
 
     /// Умеет ли текущий разговор принимать тоны.
-    var canSendDTMF: Bool { callPhase == .active && (media?.supportsTelephoneEvents ?? false) }
+    var canSendDTMF: Bool {
+        callPhase == .active && !isActiveMediaStarting && (media?.supportsTelephoneEvents ?? false)
+    }
 
     /// Отправляет одну цифру.
     @discardableResult
@@ -2227,6 +2277,7 @@ final class AppModel: ObservableObject {
         outcome: CallRecord.Outcome? = nil
     ) {
         callTasks.removeValue(forKey: lineID)?.cancel()
+        mediaStartTasks.removeValue(forKey: lineID)?.cancel()
         // Отбой — сигналом в тракте самой линии, пока он жив: после остановки
         // его съедает переключение гарнитуры. Только для последней линии, как
         // и ниже: при двух линиях оператор остаётся в разговоре.
@@ -2323,6 +2374,8 @@ final class AppModel: ObservableObject {
         }
         callTasks.values.forEach { $0.cancel() }
         callTasks.removeAll()
+        mediaStartTasks.values.forEach { $0.cancel() }
+        mediaStartTasks.removeAll()
         let ended = lines
         lines.removeAll()
         activeLineID = nil
@@ -2607,7 +2660,7 @@ final class AppModel: ObservableObject {
             message: "принимаю вызов от \(call.displayNumber), RTP-порт \(prepared.port)"
         )
 
-        // Медиа поднимается ДО 200 OK, а не после.
+        // Порт открывается ДО 200 OK, а звуковая карта догоняет отдельно.
         //
         // `makeAnswer` порт только примеряет — открывает сокет и тут же
         // закрывает, — поэтому до `startMedia` на нём никто не слушает.
@@ -2615,7 +2668,7 @@ final class AppModel: ObservableObject {
         // подъёмом тракта первые кадры уходят в закрытый порт, а сам порт в это
         // время может занять кто угодно ещё.
         mutate(lineID) { $0.localDescription = prepared.answer }
-        await startMedia(negotiated: prepared.media, reservation: prepared.reservation, on: lineID)
+        startMedia(negotiated: prepared.media, reservation: prepared.reservation, on: lineID)
         guard line(lineID)?.media != nil else { return }
 
         guard await agent.answerIncomingCall(
