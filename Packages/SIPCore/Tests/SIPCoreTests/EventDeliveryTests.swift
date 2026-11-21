@@ -188,4 +188,29 @@ struct EventDeliveryTests {
         }
         await layer.stop()
     }
+
+    @Test("Отмена запроса снимает транзакцию сразу, без таймера F")
+    func cancellationEndsTransaction() async throws {
+        let server = ScriptedSIPServer { _, _ in nil }
+        let layer = SIPTransactionLayer(channel: server)
+        await layer.start()
+        _ = try await layer.waitUntilReady()
+
+        let request = makeRequest(.register, index: 7)
+        let started = MonotonicClock.now
+        let task = Task { try await layer.send(request) }
+        #expect(await waitUntil { !server.receivedRequests.isEmpty })
+        task.cancel()
+        do {
+            _ = try await task.value
+            Issue.record("отменённый запрос вернул ответ")
+        } catch {
+            #expect(error as? SIPTransactionLayer.TransactionError == .cancelled)
+        }
+        #expect(MonotonicClock.now - started < .seconds(2))
+        let sentBefore = server.receivedRequests.count
+        try await Task.sleep(.milliseconds(700))
+        #expect(server.receivedRequests.count == sentBefore, "ретрансмиссии после отмены не идут")
+        await layer.stop()
+    }
 }

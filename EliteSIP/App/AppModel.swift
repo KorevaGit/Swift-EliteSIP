@@ -288,6 +288,17 @@ final class AppModel: ObservableObject {
 
     /// Когда в последний раз пересобирали соединение по страховке.
     var lastSafetyReconnect: Date?
+
+    /// Адреса АТС из DNS и тот, по которому идёт регистрация по UDP.
+    ///
+    /// Перебираются по кругу после регистрации без ответа — см.
+    /// `SIPHostResolver`. Один адрес — перебирать нечего.
+    var serverAddresses: [String] = []
+    var serverAddressIndex = 0
+
+    /// Подключение уже идёт: между проверкой `agent == nil` и его заведением
+    /// теперь есть ожидание DNS, и второй вызов не должен завести второго.
+    private var isConnecting = false
     @Published private(set) var log: [LogEntry] = []
 
     /// Набранный номер — всегда в том виде, в котором он уйдёт на сервер.
@@ -527,7 +538,9 @@ final class AppModel: ObservableObject {
     // MARK: - Подключение
 
     func connect() async {
-        guard agent == nil else { return }
+        guard agent == nil, !isConnecting else { return }
+        isConnecting = true
+        defer { isConnecting = false }
 
         let account = settings.account
         guard account.isUsable else {
@@ -550,8 +563,24 @@ final class AppModel: ObservableObject {
             )
         }
 
+        var remote = account.signalingEndpoint
+        if account.transport == .udp {
+            serverAddresses = await SIPHostResolver.ipv4Addresses(of: remote.host)
+            guard agent == nil else { return }
+            if serverAddresses.count > 1 {
+                let address = serverAddresses[serverAddressIndex % serverAddresses.count]
+                append(
+                    level: .info,
+                    message: "сервер \(remote.host): адрес \(serverAddressIndex % serverAddresses.count + 1) из \(serverAddresses.count) — \(address)"
+                )
+                remote = SIPEndpoint(host: address, port: remote.port)
+            }
+        } else {
+            serverAddresses = []
+        }
+
         let channel = NetworkSIPTransport(
-            remote: account.signalingEndpoint,
+            remote: remote,
             transport: account.transport,
             tlsTrust: settings.acceptsAnyTLSCertificate ? .acceptAnyCertificateInsecurely : .system,
             serverName: account.domain
@@ -729,6 +758,17 @@ final class AppModel: ObservableObject {
         registration = .idle
         append(level: .info, message: "сброс: регистрация на АТС снимается")
         Task { await agent.stop() }
+    }
+
+    /// Следующий адрес АТС из DNS, если по текущему регистрация осталась без ответа.
+    func failOverServerAddressIfSilent() async {
+        guard let agent, await agent.lastRegistrationFailure == nil,
+              canDisconnect, serverAddresses.count > 1
+        else { return }
+        serverAddressIndex = (serverAddressIndex + 1) % serverAddresses.count
+        consecutiveRegistrationFailures = 0
+        append(level: .warning, message: "сервер не ответил — пробую следующий адрес из DNS")
+        await reconnect()
     }
 
     func reconnect() async {

@@ -246,6 +246,13 @@ extension AppModel {
     /// регистрации.
     func noteRegistrationFailed() {
         consecutiveRegistrationFailures += 1
+        if serverAddresses.count > 1, isAgentRunning, canDisconnect, !isOfflineByChoice {
+            // Сервер не ответил по этому адресу — пробуем следующий из DNS, не
+            // дожидаясь страховки через пять отказов. Отказ с ответом (неверный
+            // пароль) — не повод: там другой адрес не поможет.
+            Task { [weak self] in await self?.failOverServerAddressIfSilent() }
+            return
+        }
         guard consecutiveRegistrationFailures >= Self.failuresBeforeRebuild else { return }
         guard isAgentRunning, canDisconnect, !isOfflineByChoice else { return }
 

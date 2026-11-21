@@ -78,33 +78,58 @@ public actor PortKnocker: SIPPathOpener {
         throttle.invalidate()
     }
 
+    /// Последовательность в пути. Следующая ждёт её конца: актор между
+    /// `await` переоткрывается, и без очереди повтор регистрации посреди
+    /// семисекундной последовательности начал бы вторую поверх первой.
+    private var running: Task<Void, Never>?
+
+    deinit {
+        running?.cancel()
+    }
+
     public func openPath(reason: SIPPathOpenReason) async {
-        let now = Date()
+        let previous = running
+        let task = Task { [weak self] in
+            await previous?.value
+            guard !Task.isCancelled else { return }
+            await self?.knock(reason: reason)
+        }
+        running = task
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private func knock(reason: SIPPathOpenReason) async {
+        let now = MonotonicClock.now
         guard throttle.shouldKnock(reason: reason, now: now) else { return }
-        // Отметка ставится до отправки, а не после: иначе повтор регистрации,
-        // пришедший в середине семисекундной последовательности, начал бы
-        // вторую поверх первой и перемешал порядок пакетов.
         throttle.recordKnock(at: now)
 
         log(.debug, "стук: \(sequence.packetCount) пакетов, повод \(reason)")
 
-        var sent = 0
+        // Адреса разрешаются до первого пакета: `getaddrinfo` умеет думать
+        // секундами, и посреди последовательности он растягивал паузы между
+        // пакетами — а для шлюза порядок и темп и есть пароль.
+        var resolved: [(step: PortKnockStep, address: String)] = []
         for step in sequence.steps {
             let host = step.resolvedHost(server: serverHost)
-            let address: String
             do {
-                address = try await resolve(host)
+                resolved.append((step, try await resolve(host)))
             } catch {
                 log(.debug, "стук: адрес \(host) не разрешён (\(error))")
-                continue
             }
+        }
 
+        var sent = 0
+        send: for (step, address) in resolved {
             for _ in 0..<max(0, step.count) {
                 if sent > 0 {
                     do {
                         try await Task.sleep(.seconds(sequence.spacingSeconds))
                     } catch {
-                        return
+                        break send
                     }
                 }
                 do {
@@ -112,7 +137,7 @@ public actor PortKnocker: SIPPathOpener {
                     sent += 1
                 } catch {
                     report(error)
-                    return
+                    break send
                 }
             }
         }
@@ -125,6 +150,9 @@ public actor PortKnocker: SIPPathOpener {
         if sent == sequence.packetCount {
             log(.debug, "стук отправлен")
         } else {
+            // Неполная последовательность стуком не считается: иначе следующий
+            // штатный повтор ждал бы час, а шлюз нас так и не впустил.
+            throttle.invalidate()
             log(.debug, "стук отправлен частично: \(sent) из \(sequence.packetCount)")
         }
     }
@@ -303,5 +331,48 @@ enum ICMPEcho {
 
     private static func errorText() -> String {
         String(cString: strerror(errno))
+    }
+}
+
+/// Все IPv4-адреса имени — для перебора сервера по UDP.
+///
+/// `NWConnection` по UDP берёт из DNS один адрес и рукопожатия, по которому
+/// понял бы, что тот молчит, у UDP нет. Если у АТС несколько адресов и первый
+/// недоступен, регистрация молчала бы до пересборки, которая снова взяла бы
+/// тот же первый. Порядок ответа DNS сохраняется, повторы убираются.
+public enum SIPHostResolver {
+
+    private static let queue = DispatchQueue(label: "com.elitesip.dns", qos: .userInitiated)
+
+    public static func ipv4Addresses(of host: String) async -> [String] {
+        var probe = in_addr()
+        if inet_pton(AF_INET, host, &probe) == 1 { return [host] }
+        return await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: resolve(host)) }
+        }
+    }
+
+    private static func resolve(_ host: String) -> [String] {
+        var hints = addrinfo()
+        hints.ai_family = AF_INET
+        hints.ai_socktype = SOCK_DGRAM
+        var result: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(host, nil, &hints, &result) == 0, let first = result else { return [] }
+        defer { freeaddrinfo(first) }
+
+        var addresses: [String] = []
+        var cursor: UnsafeMutablePointer<addrinfo>? = first
+        while let info = cursor {
+            if let address = info.pointee.ai_addr, info.pointee.ai_family == AF_INET {
+                var socketAddress = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+                var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                if inet_ntop(AF_INET, &socketAddress.sin_addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil {
+                    let text = String(cString: buffer)
+                    if !addresses.contains(text) { addresses.append(text) }
+                }
+            }
+            cursor = info.pointee.ai_next
+        }
+        return addresses
     }
 }

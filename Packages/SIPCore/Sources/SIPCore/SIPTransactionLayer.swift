@@ -243,12 +243,22 @@ public actor SIPTransactionLayer {
         if let failureReason { throw TransactionError.transportFailed(failureReason) }
 
         let id = UUID()
-        return try await withCheckedThrowingContinuation { continuation in
-            readinessWaiters[id] = continuation
-            readinessTimeouts[id] = Task { [weak self] in
-                do { try await Task.sleep(timeout) } catch { return }
-                await self?.expireReadiness(id)
+        // Отмена вызывающего доходит и сюда: снятие регистрации на выходе
+        // ограничено по времени, и ожидание готовности не должно его пережить.
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                guard !Task.isCancelled else {
+                    continuation.resume(throwing: TransactionError.cancelled)
+                    return
+                }
+                readinessWaiters[id] = continuation
+                readinessTimeouts[id] = Task { [weak self] in
+                    do { try await Task.sleep(timeout) } catch { return }
+                    await self?.expireReadiness(id)
+                }
             }
+        } onCancel: {
+            Task { await self.resumeReadiness(id, with: .failure(TransactionError.cancelled)) }
         }
     }
 
@@ -268,22 +278,33 @@ public actor SIPTransactionLayer {
         let method = request.method
         let key = Self.transactionKey(branch: branch, method: method)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            clientTransactions[key] = ClientTransaction(
-                method: method,
-                data: data,
-                continuation: continuation
-            )
+        // Отменённый запрос снимается со своими таймерами и ретрансмиссиями
+        // сразу, а не по таймеру F через 32 секунды: иначе ограничение по
+        // времени у снятия регистрации на выходе было фикцией.
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                guard !Task.isCancelled else {
+                    continuation.resume(throwing: TransactionError.cancelled)
+                    return
+                }
+                clientTransactions[key] = ClientTransaction(
+                    method: method,
+                    data: data,
+                    continuation: continuation
+                )
 
-            let timeout = timers.transactionTimeout
-            clientTransactions[key]?.timeoutTask = Task { [weak self] in
-                do { try await Task.sleep(timeout) } catch { return }
-                await self?.finish(key: key, with: .failure(TransactionError.timeout))
-            }
+                let timeout = timers.transactionTimeout
+                clientTransactions[key]?.timeoutTask = Task { [weak self] in
+                    do { try await Task.sleep(timeout) } catch { return }
+                    await self?.finish(key: key, with: .failure(TransactionError.timeout))
+                }
 
-            Task { [weak self] in
-                await self?.transmit(key: key, data: data)
+                Task { [weak self] in
+                    await self?.transmit(key: key, data: data)
+                }
             }
+        } onCancel: {
+            Task { await self.finish(key: key, with: .failure(TransactionError.cancelled)) }
         }
     }
 

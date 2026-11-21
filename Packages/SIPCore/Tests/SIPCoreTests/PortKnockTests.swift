@@ -198,18 +198,18 @@ final class PortKnockTests: XCTestCase {
 
     func testThrottleAllowsFirstKnock() {
         let throttle = PortKnockThrottle(minimumInterval: .seconds(600))
-        XCTAssertTrue(throttle.shouldKnock(reason: .registration, now: Date()))
-        XCTAssertTrue(throttle.shouldKnock(reason: .periodic, now: Date()))
+        XCTAssertTrue(throttle.shouldKnock(reason: .registration, now: MonotonicClock.now))
+        XCTAssertTrue(throttle.shouldKnock(reason: .periodic, now: MonotonicClock.now))
     }
 
     func testThrottleSkipsUntilIntervalPasses() {
         var throttle = PortKnockThrottle(minimumInterval: .seconds(600))
-        let start = Date()
+        let start = MonotonicClock.now
         throttle.recordKnock(at: start)
 
-        XCTAssertFalse(throttle.shouldKnock(reason: .periodic, now: start.addingTimeInterval(1)))
-        XCTAssertFalse(throttle.shouldKnock(reason: .registration, now: start.addingTimeInterval(599)))
-        XCTAssertTrue(throttle.shouldKnock(reason: .periodic, now: start.addingTimeInterval(600)))
+        XCTAssertFalse(throttle.shouldKnock(reason: .periodic, now: start + .seconds(1)))
+        XCTAssertFalse(throttle.shouldKnock(reason: .registration, now: start + .seconds(599)))
+        XCTAssertTrue(throttle.shouldKnock(reason: .periodic, now: start + .seconds(600)))
     }
 
     /// Повтор после отказа не пропускается никогда. Это главное правило здесь:
@@ -217,14 +217,14 @@ final class PortKnockTests: XCTestCase {
     /// списке шлюза нас больше нет.
     func testThrottleNeverSkipsRetry() {
         var throttle = PortKnockThrottle(minimumInterval: .seconds(600))
-        let start = Date()
+        let start = MonotonicClock.now
         throttle.recordKnock(at: start)
-        XCTAssertTrue(throttle.shouldKnock(reason: .retry, now: start.addingTimeInterval(1)))
+        XCTAssertTrue(throttle.shouldKnock(reason: .retry, now: start + .seconds(1)))
     }
 
     func testInvalidateForgetsPreviousKnock() {
         var throttle = PortKnockThrottle(minimumInterval: .seconds(600))
-        let start = Date()
+        let start = MonotonicClock.now
         throttle.recordKnock(at: start)
         XCTAssertFalse(throttle.shouldKnock(reason: .periodic, now: start))
         throttle.invalidate()
@@ -284,7 +284,7 @@ final class PortKnockTests: XCTestCase {
     func testSequenceDecodingDefaults() throws {
         let empty = try JSONDecoder().decode(PortKnockSequence.self, from: Data("{}".utf8))
         XCTAssertEqual(empty.steps, PortKnockSequence.production.steps)
-        XCTAssertEqual(empty.repeatIntervalSeconds, 600)
+        XCTAssertEqual(empty.repeatIntervalSeconds, 3600)
 
         let disabled = try JSONDecoder().decode(
             PortKnockSequence.self, from: Data(#"{"steps": []}"#.utf8)

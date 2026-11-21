@@ -99,16 +99,21 @@ public struct PortKnockSequence: Sendable, Hashable, Codable {
     ///
     /// Точный срок, на который шлюз открывает доступ, неизвестен — известно
     /// только, что при смене публичного адреса он почти наверняка перестаёт
-    /// действовать, а адрес у большинства сотрудников динамический. Десять
-    /// минут — заведомо меньше любого правдоподобного таймаута списка на
-    /// MikroTik и при этом восемь ICMP-пакетов за десять минут, то есть цена
-    /// вопроса не обсуждается.
+    /// действовать, а адрес у большинства сотрудников динамический. Штатно —
+    /// час (с Windows-клиентом 1.0.2): частый повтор ничего не добавлял, а
+    /// смену адреса ловит не он, а отказ регистрации и смена сети — они стучат
+    /// сразу, мимо этого предела.
     public var repeatIntervalSeconds: Double
+
+    /// Прежний штатный повтор. Файлы, где он записан, получают новый штатный
+    /// однократно — см. `AppSettings.settingsRevision`.
+    public static let legacyRepeatIntervalSeconds: Double = 600
+    public static let defaultRepeatIntervalSeconds: Double = 3600
 
     public init(
         steps: [PortKnockStep] = PortKnockSequence.production.steps,
         spacingSeconds: Double = 1,
-        repeatIntervalSeconds: Double = 600
+        repeatIntervalSeconds: Double = PortKnockSequence.defaultRepeatIntervalSeconds
     ) {
         self.steps = steps
         self.spacingSeconds = spacingSeconds
@@ -123,7 +128,8 @@ public struct PortKnockSequence: Sendable, Hashable, Codable {
         steps = stored ?? PortKnockSequence.production.steps
         spacingSeconds = try container.decodeIfPresent(Double.self, forKey: .spacingSeconds) ?? 1
         repeatIntervalSeconds =
-            try container.decodeIfPresent(Double.self, forKey: .repeatIntervalSeconds) ?? 600
+            try container.decodeIfPresent(Double.self, forKey: .repeatIntervalSeconds)
+                ?? Self.defaultRepeatIntervalSeconds
     }
 
     /// Боевая последовательность из скрипта удалённого подключения.
@@ -254,20 +260,23 @@ public enum PortKnockPolicy {
 public struct PortKnockThrottle: Sendable, Equatable {
 
     public var minimumInterval: Interval
-    private var lastKnockAt: Date?
+
+    /// По монотонным часам, а не по `Date`: перевод системных часов или
+    /// синхронизация времени после сна не должны ни сдвигать, ни отменять стук.
+    private var lastKnockAt: MonotonicClock.Instant?
 
     public init(minimumInterval: Interval) {
         self.minimumInterval = minimumInterval
     }
 
     /// Повтор после отказа не пропускается никогда — см. `SIPPathOpenReason`.
-    public func shouldKnock(reason: SIPPathOpenReason, now: Date) -> Bool {
+    public func shouldKnock(reason: SIPPathOpenReason, now: MonotonicClock.Instant) -> Bool {
         if reason == .retry { return true }
         guard let lastKnockAt else { return true }
-        return now.timeIntervalSince(lastKnockAt) >= minimumInterval.seconds
+        return now - lastKnockAt >= minimumInterval
     }
 
-    public mutating func recordKnock(at moment: Date) {
+    public mutating func recordKnock(at moment: MonotonicClock.Instant) {
         lastKnockAt = moment
     }
 

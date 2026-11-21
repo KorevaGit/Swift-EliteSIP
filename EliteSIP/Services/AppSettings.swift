@@ -38,6 +38,17 @@ struct AppSettings: Codable, Sendable, Equatable {
 
     var schemaVersion: Int = AppSettings.currentSchemaVersion
 
+    /// Ревизия однократных правок значений — в отличие от схемы, формат она не
+    /// меняет. Каждая правка выполняется один раз: файл, прочитанный однажды,
+    /// сохраняется уже с текущей ревизией, и сознательный выбор после неё не
+    /// перезаписывается при следующем запуске.
+    ///
+    /// 1 — штатный повтор стука 600 с становится 3600 с, нестандартные
+    /// значения остаются.
+    static let currentSettingsRevision = 1
+
+    var settingsRevision: Int = AppSettings.currentSettingsRevision
+
     /// Сохранённые учётные записи. Зарегистрирован одновременно ровно один
     /// профиль — активный.
     var profiles: SIPProfileList
@@ -284,6 +295,8 @@ struct AppSettings: Codable, Sendable, Equatable {
         // которая была» значило бы записать её обратно и мигрировать ещё раз.
         _ = try container.decodeIfPresent(Int.self, forKey: .schemaVersion)
         schemaVersion = AppSettings.currentSchemaVersion
+        let storedRevision = (try? container.decodeIfPresent(Int.self, forKey: .settingsRevision)).flatMap { $0 } ?? 0
+        settingsRevision = AppSettings.currentSettingsRevision
         profiles = try AppSettings.decodedProfiles(from: decoder)
         audio = try container.decodeIfPresent(AudioSettings.self, forKey: .audio) ?? AudioSettings()
         incomingCall = try container.decodeIfPresent(
@@ -360,6 +373,14 @@ struct AppSettings: Codable, Sendable, Equatable {
             Bool.self, forKey: .acceptsAnyTLSCertificate
         ), trusted, !profiles.active.acceptsAnyTLSCertificate {
             profiles.active.acceptsAnyTLSCertificate = true
+        }
+        applyRevisions(from: storedRevision)
+    }
+
+    /// Однократные правки значений — см. `settingsRevision`.
+    private mutating func applyRevisions(from stored: Int) {
+        if stored < 1, portKnock.repeatIntervalSeconds == PortKnockSequence.legacyRepeatIntervalSeconds {
+            portKnock.repeatIntervalSeconds = PortKnockSequence.defaultRepeatIntervalSeconds
         }
     }
 
