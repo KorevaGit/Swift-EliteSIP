@@ -28,6 +28,13 @@ struct CallHistoryWindowView: View {
 
     @EnvironmentObject private var model: AppModel
 
+    /// Высота полосы заголовка стеклянного окна — снятая с окна при создании.
+    ///
+    /// Своим числом, а не безопасной зоной SwiftUI: та на открытии окна
+    /// приходит не сразу и успевает побыть нулём, и полоса заголовка на кадр
+    /// ложилась на ряд фильтров, а потом список возвращался на место.
+    var titlebarInset: CGFloat = 0
+
     /// Область, которую снимает кнопка снимка. Ссылочный тип в `@State`, а не
     /// `@StateObject`: тот появился в macOS 11, а публиковать здесь нечего —
     /// якорь только держит вьюху и в перерисовках не участвует.
@@ -63,12 +70,15 @@ struct CallHistoryWindowView: View {
         // своя, и четыре точки под ней прижимали ряд кнопок к самому краю —
         // кнопки читались обрезанными даже там, где они целы.
         .padding(.top, Theme.Chrome.usesLiquidGlass
-            ? Theme.Gap.titleToStatus
+            ? Theme.Gap.titleToStatus + titlebarInset
             : Theme.Metrics.contentPadding)
         .frame(
             minWidth: Theme.Metrics.historyMinWidth,
             minHeight: Theme.Metrics.historyMinHeight
         )
+        // Безопасную зону стеклянное окно не слушает: отступ под полосой
+        // заголовка задан числом сверху (`titlebarInset`).
+        .compatIgnoreSafeArea(Theme.Chrome.usesLiquidGlass ? .top : [])
         // Безопасную зону игнорирует только фон, а не раскладка: материал
         // обязан накрыть полосу заголовка, иначе светофор с названием повиснут
         // над чужим окном, — а содержимое должно встать под полосой само.

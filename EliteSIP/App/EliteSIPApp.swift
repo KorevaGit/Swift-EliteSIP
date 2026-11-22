@@ -1572,9 +1572,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.isOpaque = !isGlass
         window.backgroundColor = isGlass ? .clear : .windowBackgroundColor
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(
-            rootView: withEnvironment(WallpaperHost { CallHistoryWindowView() })
+        // Полоса заголовка — по самому окну, до того как в нём появится
+        // SwiftUI: см. `CallHistoryWindowView.titlebarInset`.
+        let titlebarInset = isGlass ? max(0, window.frame.height - window.contentLayoutRect.height) : 0
+        let historyController = NSHostingController(
+            rootView: withEnvironment(WallpaperHost { CallHistoryWindowView(titlebarInset: titlebarInset) })
         )
+        if #available(macOS 13.0, *) {
+            // Окно не подгоняется под содержимое: подгонка на каждую подгрузку
+            // строк пересчитывала раскладку вместе с полосой заголовка.
+            historyController.sizingOptions = []
+        }
+        window.contentViewController = historyController
+        // Без подгонки контроллер отдаёт окну свой нулевой размер — ставим тот,
+        // с которым окно создавалось.
+        window.setContentSize(CGSize(width: 660, height: 460))
+        window.contentMinSize = CGSize(width: Theme.Metrics.historyMinWidth, height: Theme.Metrics.historyMinHeight)
         // Слой у вью окна нужен снимку списка: он снимается отрисовкой слоя, а
         // не `cacheDisplay` — тот теряет весь текст SwiftUI.
         //
