@@ -22,7 +22,7 @@ final class MenuAnchor {
     /// прыгал бы по панели вслед за промахом. Под кнопкой он всегда на одном
     /// месте, как у системного всплывающего списка.
     func popUp(menu: NSMenu) {
-        guard let view else { return }
+        guard let view, view.window != nil else { return }
         menu.popUp(
             positioning: nil,
             at: NSPoint(x: 0, y: view.bounds.height + 4),
@@ -36,13 +36,37 @@ struct MenuAnchorView: NSViewRepresentable {
     let anchor: MenuAnchor
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        anchor.view = view
-        return view
+        AnchorView(anchor: anchor)
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        anchor.view = nsView
+        if nsView.window != nil { anchor.view = nsView }
+    }
+
+    /// Якорем становится только вью, стоящая в окне.
+    ///
+    /// При смене обоев дерево SwiftUI пересобирается: новая вью создаётся
+    /// раньше, чем уходит старая, и старая последним `updateNSView` забирала
+    /// якорь себе — а потом покидала окно. Меню раскрывалось во вью без окна,
+    /// то есть никуда, и капсула профиля переставала открываться до перезапуска.
+    private final class AnchorView: NSView {
+        weak var anchor: MenuAnchor?
+
+        init(anchor: MenuAnchor) {
+            self.anchor = anchor
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window != nil {
+                anchor?.view = self
+            } else if anchor?.view === self {
+                anchor?.view = nil
+            }
+        }
     }
 }
 

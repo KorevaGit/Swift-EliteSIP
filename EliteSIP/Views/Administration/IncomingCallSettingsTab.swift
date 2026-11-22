@@ -244,9 +244,12 @@ struct IncomingCallSettingsTab: View {
                             ownNumber: model.settings.account.username
                         ),
                         policy: model.settings.incomingCall,
-                        onAnswer: {},
-                        onDecline: {}
+                        // Проверка звучит, как настоящий входящий: рингтон
+                        // тем же кодом и в то же устройство.
+                        onAnswer: { model.stopRingtonePreview() },
+                        onDecline: { model.stopRingtonePreview() }
                     )
+                    model.startRingtonePreview()
                 } label: {
                     CompatLabel(title: "Показать окно для проверки", symbol: "bell.badge")
                 }
@@ -264,9 +267,12 @@ struct IncomingCallSettingsTab: View {
                             ownNumber: model.settings.account.username
                         ),
                         policy: model.settings.incomingCall,
-                        onAnswer: {},
-                        onDecline: {}
+                        // Проверка звучит, как настоящий входящий: рингтон
+                        // тем же кодом и в то же устройство.
+                        onAnswer: { model.stopRingtonePreview() },
+                        onDecline: { model.stopRingtonePreview() }
                     )
+                    model.startRingtonePreview()
                 } label: {
                     CompatLabel(title: "Показать вызов по сделке", symbol: "phone.arrow.right")
                 }
