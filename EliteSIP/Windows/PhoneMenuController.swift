@@ -107,7 +107,7 @@ final class PhoneMenuController: NSObject, NSMenuDelegate {
         // Уход с линии — единственное здесь, что меняет состояние телефона.
         // Держится в меню потому, что сняться на обед надо каждый день, а ради
         // этого иначе приходится разворачивать панель.
-        let offline = add(title: NSLocalizedString("Не беспокоить", comment: "пункт меню значка"), key: "", icon: "power") { [weak self] in
+        let offline = add(title: NSLocalizedString("Отключён", comment: "пункт меню профиля"), key: "", icon: "power") { [weak self] in
             self?.actions.toggleOffline()
         }
         offline.state = model.isOfflineByChoice ? .on : .off

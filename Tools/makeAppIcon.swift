@@ -49,6 +49,21 @@ private func markPath(in rect: CGRect) -> CGPath {
     return path
 }
 
+func squircle(in rect: CGRect, exponent n: CGFloat) -> CGPath {
+    let path = CGMutablePath()
+    let a = rect.width / 2, b = rect.height / 2
+    let steps = 720
+    for i in 0...steps {
+        let t = CGFloat(i) / CGFloat(steps) * 2 * .pi
+        let c = cos(t), s = sin(t)
+        let x = rect.midX + a * (c < 0 ? -1 : 1) * pow(abs(c), 2 / n)
+        let y = rect.midY + b * (s < 0 ? -1 : 1) * pow(abs(s), 2 / n)
+        if i == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+    }
+    path.closeSubpath()
+    return path
+}
+
 func makeIcon(side: CGFloat) -> NSImage {
     NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
         guard let context = NSGraphicsContext.current?.cgContext else { return false }
@@ -56,16 +71,14 @@ func makeIcon(side: CGFloat) -> NSImage {
 
         // Поле вокруг подложки — сетка иконок macOS: без него значок в доке
         // выглядит крупнее соседей.
-        let inset: CGFloat = 88
+        // Сетка иконок macOS: подложка 824 из 1024, поле по 100.
+        let inset: CGFloat = 100
         let plateRect = CGRect(x: inset, y: inset, width: canvas - inset * 2, height: canvas - inset * 2)
         let unit = plateRect.width / 32
-        // Скругление 22,37% стороны — системная доля macOS.
-        let plateShape = CGPath(
-            roundedRect: plateRect,
-            cornerWidth: plateRect.width * 0.2237,
-            cornerHeight: plateRect.width * 0.2237,
-            transform: nil
-        )
+        // Форма системных иконок — «непрерывное» скругление, а не дуги
+        // окружности: суперэллипс степени 5. Дуги давали заметный излом на
+        // переходе к прямой, и значок в доке отличался от соседей.
+        let plateShape = squircle(in: plateRect, exponent: 5)
 
         // Графит: сверху #383C40, снизу #23262A — как у Windows-клиента.
         context.saveGState()
