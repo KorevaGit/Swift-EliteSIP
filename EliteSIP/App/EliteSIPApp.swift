@@ -33,6 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Держит панель первого запуска в правом нижнем углу, пока оператор сам
     /// её не передвинет.
     private var phoneCornerAnchor: CornerAnchor?
+    /// Заявка на восстановление в Spark — на один выпуск, см. `MachineRecovery`.
+    private let machineRecovery = MachineRecovery()
     private var settingsWindow: NSWindow?
 
     /// Окно «Управление» — закрытые настройки.
@@ -321,6 +323,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 machines.checkRevocation()
+                if let self { await self.machineRecovery.check(model: self.model) }
                 await self?.model.syncWorkFormat()
                 machines.checkConfig()
                 presets.check()
@@ -328,6 +331,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         Task { @MainActor [weak self] in
             machines.checkRevocation()
+            if let self { await self.machineRecovery.check(model: self.model) }
             await self?.model.syncWorkFormat()
             machines.checkConfig()
         }

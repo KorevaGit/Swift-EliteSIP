@@ -105,6 +105,10 @@ extension AppSettings {
         /// конфигурация из Spark не возвращает прежнюю площадку.
         var pendingWorkFormat: String = ""
 
+        /// Привязка, для которой Spark уже принял заявку на восстановление
+        /// (`MachineRecovery`): повторно она не шлётся.
+        var recoverySubmittedInstallationID: String = ""
+
         /// Режим машины — решение этапа 5 работ по панели.
         ///
         /// Действует на машину целиком, а не на отдельные настройки: половинчатый
@@ -169,6 +173,8 @@ extension AppSettings {
             wantsResync = try c.decodeIfPresent(Bool.self, forKey: .wantsResync) ?? false
             lockedWorkFormat = try c.decodeIfPresent(String.self, forKey: .lockedWorkFormat) ?? ""
             pendingWorkFormat = try c.decodeIfPresent(String.self, forKey: .pendingWorkFormat) ?? ""
+            recoverySubmittedInstallationID =
+                try c.decodeIfPresent(String.self, forKey: .recoverySubmittedInstallationID) ?? ""
         }
     }
 }
