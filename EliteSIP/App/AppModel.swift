@@ -305,6 +305,9 @@ final class AppModel: ObservableObject {
     /// Spark ответил, что формат закреплён: конфигурацию надо перечитать.
     var onWorkFormatConflict: (() -> Void)?
 
+    /// Спросить Spark о своей конфигурации и дождаться ответа (или отказа).
+    var refreshMachineConfig: ((@escaping @MainActor () -> Void) -> Void)?
+
     /// Подключение уже идёт: между проверкой `agent == nil` и его заведением
     /// теперь есть ожидание DNS, и второй вызов не должен завести второго.
     private var isConnecting = false

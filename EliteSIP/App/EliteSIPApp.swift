@@ -411,6 +411,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         machineService = machines
         model.onWorkFormatConflict = { [weak machines] in machines?.checkConfig() }
+        model.refreshMachineConfig = { [weak machines] done in
+            guard let machines else { done(); return }
+            machines.checkConfig(then: done)
+        }
         ClientEventLog.shared.start(
             settings: { [weak self] in self?.model.settings ?? AppSettings.default },
             log: { [weak self] level, message in self?.model.append(level: level, message: message) })

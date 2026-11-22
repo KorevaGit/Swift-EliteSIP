@@ -44,6 +44,16 @@ extension AppModel {
     /// можно ли переезжать и чего это стоит.
     func chooseWorkplaceSite(_ site: SIPProfileSite) async {
         guard site != workplaceSite else { return }
+        // Закрепление могло быть снято в Spark после последней проверки: прежде
+        // чем рвать связку, спрашиваем свежую конфигурацию. Снято — переезд
+        // обычный, без оффлайна, и выбор уходит в Spark.
+        if lockedWorkplaceSite != nil, settings.panel.isManaged {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                guard let refresh = refreshMachineConfig else { continuation.resume(); return }
+                refresh { continuation.resume() }
+            }
+            guard site != workplaceSite else { return }
+        }
         guard !isWorkplaceSwitchLocked else {
             append(level: .warning, message: "формат работы закреплён в Spark — переключение отклонено")
             return

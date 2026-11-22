@@ -63,11 +63,14 @@ final class MachineService {
     /// Машина, поднятая ещё ключом активации, своего ключа машины не имеет:
     /// сперва она его создаёт и регистрирует в Spark своим ключом канала, и
     /// только потом Spark начинает выкладывать ей конфигурацию.
-    func checkConfig() {
+    /// - Parameter done: зовётся, когда ответ разобран или стало ясно, что
+    ///   его не будет, — для того, кто ждёт свежей конфигурации перед решением.
+    func checkConfig(then done: (@MainActor () -> Void)? = nil) {
         let now = settings()
-        guard now.panel.hasChannelKey else { return }
+        guard now.panel.hasChannelKey else { done?(); return }
         guard now.panel.hasMachineKey else {
             upgradeLegacy(now.panel)
+            done?()
             return
         }
         guard let raw = Data(base64Encoded: now.panel.machineKey),
@@ -75,9 +78,10 @@ final class MachineService {
         else {
             // не переводится: строка журнала
             log("конфигурация: ключ машины в настройках испорчен")
+            done?()
             return
         }
-        fetch(prefix: "config") { @MainActor [weak self] data, publicKey, installationID in
+        fetch(prefix: "config", finished: done) { @MainActor [weak self] data, publicKey, installationID in
             guard let self else { return }
             do {
                 let config = try MachineConfig.verified(data, publicKey: publicKey,
@@ -146,7 +150,11 @@ final class MachineService {
 
     /// Общий заход на канал за помашинным объектом.
     private func fetch(prefix: String,
+                       finished: (@MainActor () -> Void)? = nil,
                        handle: @escaping @MainActor (Data, Curve25519.Signing.PublicKey, String) -> Void) {
+        // Ждущий узнаёт о конце запроса на любом пути, в том числе раннем.
+        var finishedEarly = true
+        defer { if finishedEarly { finished?() } }
         guard let publicKey else {
             // не переводится: строка журнала
             log("помашинные объекты выключены: в Info.plist нет открытого ключа линии")
@@ -162,8 +170,10 @@ final class MachineService {
 
         let request = Self.machineRequest(url: url, panel: now.panel)
         let installationID = now.panel.installationID
+        finishedEarly = false
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             Task { @MainActor in
+                defer { finished?() }
                 guard let self else { return }
                 self.asking.remove(prefix)
 

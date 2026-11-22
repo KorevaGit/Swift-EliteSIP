@@ -33,6 +33,18 @@ extension AppModel {
     func applyMachineConfig(_ config: MachineConfig) -> ConfigOutcome {
         guard config.installationID == settings.panel.installationID else { return .unchanged }
         guard config.revision > settings.panel.appliedConfigRevision else {
+            // Закрепление формата работы Spark может снять или поставить, не
+            // выпуская новой ревизии. Без этого машина держала прежний запрет
+            // — и переключение «Офис / Из дома» по административному паролю
+            // уводило её в оффлайн, хотя в Spark место уже не закреплено.
+            if config.revision == settings.panel.appliedConfigRevision, settings.panel.mode == .managed {
+                let lock = lockedWorkFormat(of: config)
+                if lock != settings.panel.lockedWorkFormat {
+                    noteWorkFormatLock(lock)
+                    persistSettings()
+                }
+                return .unchanged
+            }
             noteStaleConfig(config.revision)
             return .unchanged
         }
