@@ -34,6 +34,14 @@ struct SupportRequestTests {
         #expect(request.expiresAt == ISO8601DateFormatter().date(from: "2026-11-25T09:00:00Z"))
     }
 
+    @Test("срок с долями секунды и со смещением разбирается", arguments: [
+        "2026-11-25T09:00:00.123456789Z", "2026-11-25T12:00:00.5+03:00", "2026-11-25T12:00:00+03:00",
+    ])
+    func fractionalTimestamps(text: String) throws {
+        let date = try #require(SupportRequest.timestamp(text))
+        #expect(abs(date.timeIntervalSince(ISO8601DateFormatter().date(from: "2026-11-25T09:00:00Z")!)) < 1)
+    }
+
     @Test("чужая подпись не принимается")
     func foreignSignature() throws {
         let data = try envelope(payload(), key: Curve25519.Signing.PrivateKey())

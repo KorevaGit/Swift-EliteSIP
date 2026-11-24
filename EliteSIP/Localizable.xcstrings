@@ -1115,22 +1115,6 @@
         }
       }
     },
-    "В вызове есть «X-Autoanswer: TRUE»": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The call carries “X-Autoanswer: TRUE”"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В вызове есть «X-Autoanswer: TRUE»"
-          }
-        }
-      }
-    },
     "В ряду": {
       "localizations": {
         "en": {
@@ -2565,22 +2549,6 @@
         }
       }
     },
-    "Добавить": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавить"
-          }
-        }
-      }
-    },
     "Добавить клавишу": {
       "localizations": {
         "en": {
@@ -2626,22 +2594,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Добавить номер"
-          }
-        }
-      }
-    },
-    "Добавить очередь": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add queue"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавить очередь"
           }
         }
       }
@@ -2890,22 +2842,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Если это не вы — не продолжайте и сообщите в поддержку."
-          }
-        }
-      }
-    },
-    "Есть имя и номер длиннее шести цифр": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "There is a name and the number is longer than six digits"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Есть имя и номер длиннее шести цифр"
           }
         }
       }
@@ -4829,54 +4765,6 @@
         }
       }
     },
-    "Название из словаря": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Name from the list"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Название из словаря"
-          }
-        }
-      }
-    },
-    "Название раздачи": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Queue name"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Название раздачи"
-          }
-        }
-      }
-    },
-    "Названия раздач": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Distribution names"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Названия раздач"
-          }
-        }
-      }
-    },
     "Назовите этот код администратору — машина настроится сама.": {
       "comment": "экран кода машины",
       "localizations": {
@@ -5908,22 +5796,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Номер %@, АТС %@."
-          }
-        }
-      }
-    },
-    "Номер есть в словаре выше": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The number is in the list above"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Номер есть в словаре выше"
           }
         }
       }
@@ -8321,22 +8193,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Принято: настройки применятся, как только вы положите трубку. Разговор не прервётся."
-          }
-        }
-      }
-    },
-    "Приходили, но не названы": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seen but unnamed"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Приходили, но не названы"
           }
         }
       }
@@ -11597,22 +11453,6 @@
         }
       }
     },
-    "и добавочный отдавшего лид": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "and the extension of whoever passed the lead"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "и добавочный отдавшего лид"
-          }
-        }
-      }
-    },
     "и номер под ним": {
       "localizations": {
         "en": {
@@ -11862,22 +11702,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "машина в ручном режиме"
-          }
-        }
-      }
-    },
-    "мобильный под маской": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "mobile number masked"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "мобильный под маской"
           }
         }
       }
@@ -12611,22 +12435,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "›"
-          }
-        }
-      }
-    },
-    "🔥Горячая раздача🔥": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔥Hot lead🔥"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔥Горячая раздача🔥"
           }
         }
       }
@@ -13767,22 +13575,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Автокликер берёт лид за оператора, которого нет на месте."
-          }
-        }
-      }
-    },
-    "Пусто — раздачи подписываются общим заголовком.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Empty — distributions use a common title."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пусто — раздачи подписываются общим заголовком."
           }
         }
       }

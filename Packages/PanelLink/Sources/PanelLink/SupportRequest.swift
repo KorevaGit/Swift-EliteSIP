@@ -39,14 +39,25 @@ public struct SupportRequest: Sendable, Equatable {
         // Запрос чужой машины — не наш: отправили бы свои журналы на чужой запрос.
         guard wire.installation_id == installationID else { throw PanelLinkError.malformedBundle }
 
-        let formatter = ISO8601DateFormatter()
         return SupportRequest(
             installationID: wire.installation_id,
             requestID: wire.request_id,
-            requestedAt: wire.requested_at.flatMap(formatter.date(from:)) ?? Date(),
+            requestedAt: wire.requested_at.flatMap(timestamp) ?? Date(),
             // Без срока запрос считается истёкшим: отправлять по нему нечего.
-            expiresAt: wire.expires_at.flatMap(formatter.date(from:)) ?? .distantPast
+            expiresAt: wire.expires_at.flatMap(timestamp) ?? .distantPast
         )
+    }
+
+    /// Время ISO 8601 — с долями секунды и без. От срока зависит, уйдёт ли
+    /// архив, а Go пишет доли, когда они есть (`RFC3339Nano`): обычный
+    /// `ISO8601DateFormatter` такую строку не разбирает, и запрос молча
+    /// считался бы истёкшим.
+    static func timestamp(_ text: String) -> Date? {
+        let plain = ISO8601DateFormatter()
+        if let date = plain.date(from: text) { return date }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: text)
     }
 
     /// Ровно 32 знака строчного hex — имя идёт в адрес и в имя файла.

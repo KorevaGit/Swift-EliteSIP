@@ -7,7 +7,7 @@ import SwiftUI
 /// Главное правило, из которого выведено всё остальное: **нижняя полоса
 /// неподвижна**. Кнопка завершения обязана оказываться под курсором в одном и
 /// том же месте независимо от того, появилась ли вторая линия, потеряна ли
-/// регистрация, открыто ли поле перевода и сколько у сотрудника макросов.
+/// регистрация, открыт ли вопрос о переводе и сколько у сотрудника макросов.
 /// Поэтому панель собрана в три яруса:
 ///
 ///   строка состояния → изменчивая середина → неподвижный низ
@@ -16,9 +16,9 @@ import SwiftUI
 /// иначе стопка сообщала бы наверх идеальную высоту и утаскивала низ вниз.
 ///
 /// **Окно растягивается** — с 14 сентября 2026, по просьбе заказчика. По ширине
-/// тянется всё; по высоте — ряд управления и клавиши макросов, как делится
-/// лишняя высота между ними — см. `stretch(forLowerHeight:)` (правило от
-/// 30 сентября 2026). Строка состояния, шапка и нижняя полоса остаются своей
+/// тянется всё; по высоте — клавиши макросов, а без них фреймы громкости — см.
+/// `stretch(forLowerHeight:)` (правило ноября 2026, как в Windows и Linux).
+/// Строка состояния, шапка, клавиши-значки и нижняя полоса остаются своей
 /// высоты — крупнее они не станут читаться лучше, а место отнимут. Меньше,
 /// чем нужно содержимому, окно сделать нельзя: это его `minSize`, и
 /// считается он так же, как прежде считалась вся высота панели.
@@ -1097,7 +1097,7 @@ struct CallControls: View {
             key(
                 symbol: model.isOnHold ? "Lucide/play" : "Lucide/pause",
                 label: model.isOnHold ? "Вернуть" : "Удержать",
-                isOn: model.isOnHold || confirming == .hold,
+                isOn: model.isOnHold || (confirming == .hold && model.canHold),
                 isEnabled: model.canHold
             ) {
                 // Снять удержание — сразу; поставить — с вопросом.
@@ -1107,26 +1107,29 @@ struct CallControls: View {
                     confirming = .hold
                 }
             }
-            .popover(isPresented: confirmationBinding(.hold), arrowEdge: .top) {
+            .popover(isPresented: confirmationBinding(.hold, while: model.canHold && !model.isOnHold), arrowEdge: .top) {
                 ConfirmationPopover(
                     symbol: "Lucide/pause",
                     question: "Поставить на удержание?",
                     action: "Удержать"
                 ) { confirmed in
                     confirming = nil
-                    if confirmed { Task { await model.toggleHold() } }
+                    // Пока вопрос висел, разговор мог кончиться или уйти на
+                    // удержание с той стороны: тогда ответ уже ни о чём.
+                    if confirmed, model.canHold, !model.isOnHold { Task { await model.toggleHold() } }
                 }
             }
 
             key(
                 symbol: "Lucide/users-round",
                 label: "Конференция",
-                isOn: (model.activeLine?.isConferenceCommandSent ?? false) || confirming == .conference,
+                isOn: (model.activeLine?.isConferenceCommandSent ?? false)
+                    || (confirming == .conference && model.canStartConference),
                 isEnabled: model.canStartConference
             ) {
                 confirming = .conference
             }
-            .popover(isPresented: confirmationBinding(.conference), arrowEdge: .top) {
+            .popover(isPresented: confirmationBinding(.conference, while: model.canStartConference), arrowEdge: .top) {
                 ConfirmationPopover(
                     symbol: "Lucide/users-round",
                     question: "Создать конференцию?",
@@ -1152,7 +1155,11 @@ struct CallControls: View {
                 ).deferred(),
                 arrowEdge: .top
             ) {
+                // Всплывающее окно — своя иерархия: модель передаётся явно, как
+                // у листов в настройках. Без неё `@EnvironmentObject` роняет
+                // приложение на системах, где окружение не наследуется.
                 TransferEntry()
+                    .environmentObject(model)
                     .frame(width: 240)
                     .padding(Theme.Metrics.contentPadding)
             }
@@ -1173,9 +1180,11 @@ struct CallControls: View {
         .frame(height: Theme.Metrics.callKeyHeight)
     }
 
-    private func confirmationBinding(_ kind: Confirmation) -> Binding<Bool> {
+    /// Вопрос открыт, только пока само действие ещё возможно: разговор
+    /// кончился — вопрос закрывается сам.
+    private func confirmationBinding(_ kind: Confirmation, while isPossible: Bool) -> Binding<Bool> {
         Binding(
-            get: { confirming == kind },
+            get: { confirming == kind && isPossible },
             set: { if !$0, confirming == kind { confirming = nil } }
         ).deferred()
     }
