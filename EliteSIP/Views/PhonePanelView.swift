@@ -744,11 +744,9 @@ struct CallHeader: View {
     @ViewBuilder
     private var content: some View {
         if model.isInCall {
-            // Имя крупно, под ним номер. Время разговора — всегда на одном
-            // месте: крупными жирными цифрами справа внизу, рядом с
-            // состоянием, как в Windows и Linux. Идущий разговор словом не
-            // подписан — о нём говорит время; «Набор…», «Звук подключается…»,
-            // удержание остаются.
+            // Имя крупно, под ним номер и состояние одной строкой: нет номера —
+            // состояние у левого края. Время разговора — всегда на одном
+            // месте: крупными жирными цифрами справа внизу.
             VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
                 Text(title)
                     .font(Theme.Text.callerName)
@@ -765,22 +763,27 @@ struct CallHeader: View {
                             .compatForeground(Theme.Palette.textSecondary)
                             .lineLimit(1)
                             .layoutPriority(-1)
+
+                        Text("·")
+                            .font(Theme.Text.callerNumber)
+                            .compatForeground(Theme.Palette.textTertiary)
                     }
+
+                    // Пока звуковая карта открывается, разговор уже идёт и
+                    // показан, а подпись говорит, почему кнопки ещё серые.
+                    // Без микрофона — красным: клиент слышит тишину.
+                    Text(status)
+                        .font(Theme.Text.callerNumber)
+                        .compatForeground(
+                            model.activeLine?.isMicrophoneMissing == true
+                                ? Theme.Palette.failure
+                                : model.isOnHold || model.isMicrophoneMuted || model.isActiveMediaStarting
+                                    ? Theme.Palette.connecting
+                                    : Theme.Palette.textSecondary
+                        )
+                        .lineLimit(1)
 
                     Spacer(minLength: 0)
-
-                    // Без микрофона — красным: клиент слышит тишину, и
-                    // оператор должен узнать об этом сразу.
-                    if let status {
-                        Text(status)
-                            .font(Theme.Text.callerNumber)
-                            .compatForeground(
-                                model.activeLine?.isMicrophoneMissing == true
-                                    ? Theme.Palette.failure
-                                    : Theme.Palette.connecting
-                            )
-                            .lineLimit(1)
-                    }
 
                     if let duration {
                         Text(duration)
@@ -795,15 +798,11 @@ struct CallHeader: View {
         }
     }
 
-    /// Состояние рядом со временем — или ничего, когда разговор просто идёт.
-    private var status: String? {
-        if model.isActiveMediaStarting {
-            return NSLocalizedString("Звук подключается…", comment: "состояние линии, пока открывается звуковая карта")
-        }
-        let text = model.callStatus
-        let talking = NSLocalizedString("Разговор", comment: "состояние линии")
-        guard !text.isEmpty, text != talking || model.isOnHold else { return nil }
-        return text
+    /// Состояние линии рядом с номером: «Набор…», «Разговор», удержание.
+    private var status: String {
+        model.isActiveMediaStarting
+            ? NSLocalizedString("Звук подключается…", comment: "состояние линии, пока открывается звуковая карта")
+            : model.callStatus
     }
 
     /// Номер мелкой строкой — или ничего.
