@@ -223,6 +223,16 @@ extension View {
         }
     }
 
+    /// `keyboardShortcut(.defaultAction)`: сам `KeyboardShortcut` — macOS 11.
+    @ViewBuilder
+    func compatDefaultShortcut() -> some View {
+        if #available(macOS 11.0, *) {
+            self.keyboardShortcut(.defaultAction)
+        } else {
+            self
+        }
+    }
+
     /// `.borderedProminent` появился в macOS 12. Ниже остаётся системный стиль
     /// кнопки по умолчанию: он же и был акцентным до появления `.bordered`.
     @ViewBuilder

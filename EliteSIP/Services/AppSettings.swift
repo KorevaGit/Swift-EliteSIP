@@ -131,6 +131,12 @@ struct AppSettings: Codable, Sendable, Equatable {
     /// `false` — ровно прежнее поведение, когда вариант выбирала только версия.
     var plainChrome: Bool = false
 
+    /// Ползунки громкости собеседника и микрофона на главном окне — «Оформление
+    /// → Ползунки громкости на главном окне», как в Windows и Linux. Без них в
+    /// ряду клавиш появляется четвёртая — микрофон. Старый файл получает
+    /// `true`: ползунки и есть новый вид панели.
+    var showsPanelVolume: Bool = true
+
     /// Панель поверх всех окон и в покое — «Поверх всех окон» Windows 1.0.4,
     /// включено по умолчанию, как там. Выключено — поверх только в разговоре.
     var panelAlwaysOnTop: Bool = true
@@ -344,6 +350,7 @@ struct AppSettings: Codable, Sendable, Equatable {
             AppearanceSetting.self, forKey: .appearance
         ) ?? .system
         plainChrome = try container.decodeIfPresent(Bool.self, forKey: .plainChrome) ?? false
+        showsPanelVolume = try container.decodeIfPresent(Bool.self, forKey: .showsPanelVolume) ?? true
         panelAlwaysOnTop = (try? container.decodeIfPresent(Bool.self, forKey: .panelAlwaysOnTop)).flatMap { $0 } ?? true
         background = (try? container.decodeIfPresent(BackgroundSettings.self, forKey: .background)).flatMap { $0 }
             ?? BackgroundSettings()

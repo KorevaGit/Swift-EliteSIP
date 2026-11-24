@@ -142,6 +142,20 @@ struct AppearanceTab: View {
                     заново, а звонок в этот момент оборвётся.
                     """)
             }
+
+            SettingsDivider()
+
+            // Как в Windows и Linux: КЦ подстраивает громкость часто, но не
+            // всем нужны два ползунка на узкой панели. Без них в ряду клавиш
+            // появляется четвёртая — микрофон.
+            SettingsToggleRow(
+                "Ползунки громкости на главном окне",
+                icon: "volume-2",
+                isOn: Binding(
+                    get: { model.settings.showsPanelVolume },
+                    set: { model.settings.showsPanelVolume = $0 }
+                ).deferred()
+            )
         }
 
         BackgroundSection()

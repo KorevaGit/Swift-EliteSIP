@@ -196,18 +196,11 @@ struct PhonePanelView: View {
     /// константам: окну нужна высота на первом кадре, и разойтись они могут
     /// только на первом проходе.
     ///
-    /// Поле перевода бывает выше сетки макросов, и тогда окно обязано
-    /// подрасти, чтобы «Перевести» не обрезалась. Ниже сетки оно окно не
-    /// опускает: высота при сетке остаётся наименьшей и под полем перевода, и
-    /// нижняя полоса не прыгает вверх в момент нажатия «Перевести» — под полем
-    /// остаётся воздух.
+    /// Номер перевода набирается во всплывающем окне над клавишами и высоты
+    /// окна не просит.
     private var minimumPanelHeight: CGFloat {
-        var lower = lowerHeight(showingTransfer: false)
-        if model.isTransferEntryVisible {
-            lower = max(lower, lowerHeight(showingTransfer: true))
-        }
-        return (measuredTopHeight ?? fallbackTopHeight)
-            + lower
+        (measuredTopHeight ?? fallbackTopHeight)
+            + lowerHeight
             + Theme.Metrics.contentPadding
     }
 
@@ -233,79 +226,46 @@ struct PhonePanelView: View {
         MacroGrid.keyHeight(settings: model.settings.dtmf, tallestLabel: tallestMacroLabel)
     }
 
-    /// Высота нижней части без прибавок: ряд управления, сетка макросов или
-    /// поле перевода, нижняя полоса и воздух между ними.
+    /// Высота нижней части без прибавок: громкость, ряд клавиш, сетка
+    /// макросов, нижняя полоса и воздух между ними.
     ///
     /// Всё здесь — высоты, которые панель задаёт сама, снаружи кнопок, поэтому
     /// сумма точна. Именно поэтому нижнюю часть и можно считать, а не мерить.
-    private func lowerHeight(showingTransfer: Bool) -> CGFloat {
-        let slot: CGFloat
-        if showingTransfer {
-            slot = Theme.Gap.controlsToMacros + TransferEntry.height
-        } else if macroRowCount > 0 {
-            slot = Theme.Gap.controlsToMacros
+    private var lowerHeight: CGFloat {
+        let macros: CGFloat = macroRowCount > 0
+            ? Theme.Gap.controlsToMacros
                 + CGFloat(macroRowCount) * macroKeyHeight
                 + CGFloat(macroRowCount - 1) * Theme.Metrics.elementSpacing
-        } else {
-            slot = 0
-        }
-        return CallControls.height()
-            + slot
+            : 0
+        return CallControls.height(showsVolume: model.settings.showsPanelVolume)
+            + macros
             + Theme.Gap.macrosToAction
             + Theme.Metrics.actionHeight
     }
 
-    /// Прибавки к высоте рядов в растянутом окне: к каждому из двух рядов
-    /// управления и к каждому ряду клавиш.
+    /// Прибавки к высоте в растянутом окне: каждому фрейму громкости и каждому
+    /// ряду клавиш макросов.
     struct Stretch {
-        var controls: CGFloat = 0
+        var volume: CGFloat = 0
         var keys: CGFloat = 0
     }
 
-    /// Как делится лишняя высота — правило заказчика от 30 сентября 2026.
+    /// Как делится лишняя высота — как в Windows и Linux с ноября 2026.
     ///
-    /// - **Клавиш нет** — всё забирает ряд управления: Удержать, Микрофон,
-    ///   Перевести и Конференция растут и заполняют окно.
-    /// - **Клавиши есть** — ряд управления растёт не больше чем в полтора раза
-    ///   (прибавка до половины `controlHeight`), всё остальное уходит клавишам.
-    ///   Пока лишнего немного, оно делится поровну между всеми рядами — иначе
-    ///   первые точки растяжения доставались бы одним клавишам, и ряд
-    ///   управления начинал расти рывком, только когда окно уже высокое.
-    ///
-    /// Нижняя полоса не растёт никогда (с 29 сентября 2026): кнопку звонка
-    /// крупнее не делают, её место держат постоянным.
-    ///
-    /// Ряды клавиш считаются и тогда, когда их место занимает поле перевода:
-    /// прибавка ряду управления обязана быть той же, что при сетке, — иначе он
-    /// менял бы размер в момент нажатия «Перевести». Уступает он только если
-    /// поле иначе не помещается.
+    /// Растягивание — макросам; без них поровну фреймам громкости. Поле
+    /// номера, клавиши-значки и «Позвонить»/«Завершить» — постоянной высоты.
     ///
     /// Целыми точками: дробная прибавка ставит кромки кнопок между пикселями,
-    /// и они размываются. Остаток — меньше точки на ряд — уходит в воздух над
-    /// нижней полосой.
+    /// и они размываются. Остаток уходит в воздух над нижней полосой.
     private func stretch(forLowerHeight available: CGFloat) -> Stretch {
         var result = Stretch()
-        let spare = available - lowerHeight(showingTransfer: false)
-        if spare > 0 {
-            let keyRows = CGFloat(macroRowCount)
-            if keyRows == 0 {
-                result.controls = spare / 2
-            } else {
-                let cap = Theme.Metrics.controlHeight / 2
-                let even = spare / (2 + keyRows)
-                if even <= cap {
-                    result = Stretch(controls: even, keys: even)
-                } else {
-                    result = Stretch(controls: cap, keys: (spare - cap * 2) / keyRows)
-                }
-            }
+        let spare = available - lowerHeight
+        guard spare > 0 else { return result }
+        if macroRowCount > 0 {
+            result.keys = (spare / CGFloat(macroRowCount)).rounded(.down)
+        } else if model.settings.showsPanelVolume {
+            result.volume = (spare / 2).rounded(.down)
         }
-        if model.isTransferEntryVisible {
-            let transferSpare = max(available - lowerHeight(showingTransfer: true), 0)
-            result.controls = min(result.controls, transferSpare / 2)
-        }
-        result.controls.round(.down)
-        result.keys.round(.down)
         return result
     }
 
@@ -613,20 +573,11 @@ struct PhonePanelView: View {
 
         // Промежутки заданы поштучно, поэтому у стопки собственного шага нет.
         return VStack(spacing: 0) {
-            // Ряд управления виден и в покое, только выключенным. Прятать его
-            // целиком значит менять геометрию панели ровно в момент ответа на
-            // вызов: макросы и всё под ними подскакивали бы на его высоту.
-            CallControls(rowExtra: extra.controls)
+            // Громкость и клавиши видны и в покое: прятать их значит менять
+            // геометрию панели ровно в момент ответа на вызов.
+            CallControls(volumeExtra: extra.volume)
 
-            // Поле перевода занимает место сетки макросов, а не встаёт под ней:
-            // пока оператор набирает номер перевода, макросы всё равно не
-            // нужны, а лишний ярус пришлось бы отнять у чего-то другого.
-            if model.isTransferEntryVisible {
-                // Единственная граница между управлением и тем, что под ним, —
-                // воздух. Когда снизу пусто, нет и его.
-                Color.clear.frame(height: Theme.Gap.controlsToMacros)
-                TransferEntry()
-            } else if !model.usableMacros.isEmpty {
+            if !model.usableMacros.isEmpty {
                 Color.clear.frame(height: Theme.Gap.controlsToMacros)
                 MacroGrid(
                     keyHeight: macroKeyHeight + extra.keys,
@@ -793,61 +744,66 @@ struct CallHeader: View {
     @ViewBuilder
     private var content: some View {
         if model.isInCall {
-            // Две строки: имя крупно, а номер, таймер и состояние — одной мелкой
-            // строкой под ним.
+            // Имя крупно, под ним номер. Время разговора — всегда на одном
+            // месте: крупными жирными цифрами справа внизу, рядом с
+            // состоянием, как в Windows и Linux. Идущий разговор словом не
+            // подписан — о нём говорит время; «Набор…», «Звук подключается…»,
+            // удержание остаются.
             VStack(alignment: .leading, spacing: Theme.Metrics.hairSpacing) {
                 Text(title)
                     .font(Theme.Text.callerName)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
 
-                HStack(spacing: Theme.Metrics.tightSpacing) {
+                HStack(alignment: .lastTextBaseline, spacing: Theme.Metrics.tightSpacing) {
                     // Номер показывается только когда крупным идёт имя, иначе
                     // он повторил бы сам себя. На раздаче и на звонке по сделке
-                    // его нет вовсе — решает это `IncomingCallSubject`, тот же,
-                    // что и в окне входящего.
+                    // решает `IncomingCallSubject`, тот же, что и в окне входящего.
                     if let number = secondaryNumber {
                         Text(number)
                             .font(Theme.Text.callerNumber)
                             .compatForeground(Theme.Palette.textSecondary)
                             .lineLimit(1)
                             .layoutPriority(-1)
+                    }
 
-                        Text("·")
+                    Spacer(minLength: 0)
+
+                    // Без микрофона — красным: клиент слышит тишину, и
+                    // оператор должен узнать об этом сразу.
+                    if let status {
+                        Text(status)
                             .font(Theme.Text.callerNumber)
-                            .compatForeground(Theme.Palette.textTertiary)
+                            .compatForeground(
+                                model.activeLine?.isMicrophoneMissing == true
+                                    ? Theme.Palette.failure
+                                    : Theme.Palette.connecting
+                            )
+                            .lineLimit(1)
                     }
 
                     if let duration {
                         Text(duration)
-                            .font(Theme.Text.callTimer)
+                            .font(Theme.Text.callTimerLarge)
                             .compatMonospacedDigit()
                     }
-
-                    // Пока звуковая карта открывается, разговор уже идёт и
-                    // показан, а подпись говорит, почему кнопки ещё серые.
-                    // Без микрофона — красным: клиент слышит тишину, и
-                    // оператор должен узнать об этом сразу.
-                    Text(model.isActiveMediaStarting
-                         ? NSLocalizedString("Звук подключается…", comment: "состояние линии, пока открывается звуковая карта")
-                         : model.callStatus)
-                        .font(Theme.Text.callerNumber)
-                        .compatForeground(
-                            model.activeLine?.isMicrophoneMissing == true
-                                ? Theme.Palette.failure
-                                : model.isOnHold || model.isMicrophoneMuted || model.isActiveMediaStarting
-                                    ? Theme.Palette.connecting
-                                    : Theme.Palette.textSecondary
-                        )
-                        .lineLimit(1)
-
-                    Spacer(minLength: 0)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             DialedNumberField()
         }
+    }
+
+    /// Состояние рядом со временем — или ничего, когда разговор просто идёт.
+    private var status: String? {
+        if model.isActiveMediaStarting {
+            return NSLocalizedString("Звук подключается…", comment: "состояние линии, пока открывается звуковая карта")
+        }
+        let text = model.callStatus
+        let talking = NSLocalizedString("Разговор", comment: "состояние линии")
+        guard !text.isEmpty, text != talking || model.isOnHold else { return nil }
+        return text
     }
 
     /// Номер мелкой строкой — или ничего.
@@ -1028,54 +984,178 @@ struct DialedNumberField: View {
     }
 }
 
-/// Кнопки разговора: удержание, микрофон, перевод и конференция. Микрофон
-/// работает и в покое — заглушённым он поднимется на следующем звонке.
+/// Громкость собеседника и микрофона, под ними клавиши-значки разговора.
 ///
-/// **Четыре в два ряда, а не три в один** — с 17 августа 2026. Конференция до
-/// этого дня была недостижима вовсе: кнопку убрал редизайн, положившись на
-/// DTMF-макрос, а из заводской предустановки макрос `КОНФЕРЕНЦИЯ · *3` убрали
-/// как дубль штатного действия — и `AppModel.startConference()`, живой и рабочий,
-/// не вызывался ниоткуда. Дыру нашёл заказчик словами «в экране звонка не вижу
-/// конференции».
+/// **С ноября 2026, как в Windows и Linux.** КЦ постоянно подстраивает
+/// громкость собеседника и свою, а «Удержать», «Перевести» и «Конференция»
+/// нужны редко. Поэтому громкость — два широких фрейма высотой с поле номера,
+/// а действия — три маленькие клавиши-значки в один ряд. Без ползунков
+/// («Оформление → Ползунки громкости на главном окне») в ряду появляется
+/// четвёртая клавиша — микрофон.
 ///
-/// Ряд стал сеткой, а не отрастил четвёртую кнопку: панель 270 точек шириной, и
-/// «Конференция» в четверти этой ширины не читается. Два на два дают каждой
-/// кнопке половину — с запасом на любой из четырёх подписей и на английский.
+/// От случайных щелчков «Удержать» и «Конференция» спрашивают подтверждение;
+/// пока вопрос открыт, клавиша подсвечена, а в вопросе стоит её значок. Номер
+/// перевода — всплывающим окном над клавишей, а не на месте макросов.
 ///
-/// Ряды видны и в покое, но выключенными — иначе их появление сдвигало бы сетку
+/// Видно и в покое, но выключенным — иначе появление сдвигало бы сетку
 /// макросов в момент ответа на вызов.
 struct CallControls: View {
 
     @EnvironmentObject private var model: AppModel
 
-    /// Прибавка к высоте каждого из двух рядов в растянутом окне.
-    var rowExtra: CGFloat = 0
+    /// Прибавка к высоте каждого фрейма громкости в растянутом окне.
+    var volumeExtra: CGFloat = 0
+
+    /// Какой вопрос сейчас открыт.
+    enum Confirmation { case hold, conference }
+    @State private var confirming: Confirmation?
+
+    /// Громкость собеседника до «Собеседник» — к ней вернёт повторное нажатие.
+    @State private var peerVolumeBeforeMute: Double?
 
     /// Высота блока. Нужна расчёту высоты окна, поэтому объявлена здесь, рядом с
     /// вёрсткой, а не повторена числом в панели.
-    static func height(rowExtra: CGFloat = 0) -> CGFloat {
-        (Theme.Metrics.controlHeight + rowExtra) * 2 + Theme.Metrics.elementSpacing
+    static func height(showsVolume: Bool, volumeExtra: CGFloat = 0) -> CGFloat {
+        let volume = showsVolume
+            ? (Theme.Metrics.volumeFrameHeight + volumeExtra + Theme.Metrics.panelGap) * 2
+            : 0
+        return volume + Theme.Metrics.callKeyHeight
     }
 
-    var body: some View {
-        VStack(spacing: Theme.Metrics.elementSpacing) {
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                controlButton(
-                    title: model.isOnHold ? "Вернуть" : "Удержать",
-                    symbol: model.isOnHold ? "Lucide/play" : "Lucide/pause",
-                    isOn: model.isOnHold,
-                    isEnabled: model.canHold
-                ) {
-                    Task { await model.toggleHold() }
-                }
+    private var showsVolume: Bool { model.settings.showsPanelVolume }
 
-                // Подпись меняется вместе с состоянием, как у «Удержать». До
-                // 17 октября 2026 она всегда была «Микрофон», а подсвечивалась
-                // кнопка при выключенном: подсвеченное «Микрофон» читалось
-                // ровно наоборот, и разницу несла одна мелкая иконка.
-                controlButton(
-                    title: model.isMicrophoneMuted ? "Микрофон выкл." : "Микрофон",
+    var body: some View {
+        VStack(spacing: Theme.Metrics.panelGap) {
+            if showsVolume {
+                peerVolume
+                microphoneVolume
+            }
+            keys
+        }
+        .frame(height: Self.height(showsVolume: showsVolume, volumeExtra: volumeExtra))
+    }
+
+    // MARK: Громкость
+
+    private var peerVolume: some View {
+        let volume = model.settings.audio.playbackVolume
+        return VolumeFrame(
+            title: "Собеседник",
+            symbol: "Lucide/headphones",
+            isMuted: volume == 0,
+            value: Binding(
+                get: { model.settings.audio.playbackVolume },
+                set: { model.settings.audio.playbackVolume = $0 }
+            ),
+            range: AppSettings.AudioSettings.playbackVolumeRange,
+            extra: volumeExtra
+        ) {
+            if volume == 0 {
+                model.settings.audio.playbackVolume = peerVolumeBeforeMute ?? 1
+                peerVolumeBeforeMute = nil
+            } else {
+                peerVolumeBeforeMute = volume
+                model.settings.audio.playbackVolume = 0
+            }
+        }
+    }
+
+    /// Ползунок микрофона при выключенном микрофоне стоит в нуле, но усиление
+    /// в настройках не трогает: выключение — состояние разговора, а не выбор
+    /// громкости, и пережить перезапуск оно не должно. Потянули ползунок —
+    /// микрофон включается.
+    private var microphoneVolume: some View {
+        VolumeFrame(
+            title: "Микрофон",
+            symbol: model.isMicrophoneMuted ? "Lucide/mic-off" : "Lucide/mic",
+            isMuted: model.isMicrophoneMuted,
+            value: Binding(
+                get: { model.isMicrophoneMuted ? 0 : model.settings.audio.microphoneGain },
+                set: { new in
+                    if model.isMicrophoneMuted { model.toggleMicrophone() }
+                    model.settings.audio.microphoneGain = new
+                }
+            ),
+            range: AppSettings.AudioSettings.microphoneGainRange,
+            extra: volumeExtra,
+            // Как в настройках: при автоусилении ручка ничего не меняет.
+            isSliderEnabled: !model.settings.audio.automaticGainControl
+        ) {
+            model.toggleMicrophone()
+        }
+    }
+
+    // MARK: Клавиши
+
+    private var keys: some View {
+        HStack(spacing: Theme.Metrics.panelGap) {
+            key(
+                symbol: model.isOnHold ? "Lucide/play" : "Lucide/pause",
+                label: model.isOnHold ? "Вернуть" : "Удержать",
+                isOn: model.isOnHold || confirming == .hold,
+                isEnabled: model.canHold
+            ) {
+                // Снять удержание — сразу; поставить — с вопросом.
+                if model.isOnHold {
+                    Task { await model.toggleHold() }
+                } else {
+                    confirming = .hold
+                }
+            }
+            .popover(isPresented: confirmationBinding(.hold), arrowEdge: .top) {
+                ConfirmationPopover(
+                    symbol: "Lucide/pause",
+                    question: "Поставить на удержание?",
+                    action: "Удержать"
+                ) { confirmed in
+                    confirming = nil
+                    if confirmed { Task { await model.toggleHold() } }
+                }
+            }
+
+            key(
+                symbol: "Lucide/users-round",
+                label: "Конференция",
+                isOn: (model.activeLine?.isConferenceCommandSent ?? false) || confirming == .conference,
+                isEnabled: model.canStartConference
+            ) {
+                confirming = .conference
+            }
+            .popover(isPresented: confirmationBinding(.conference), arrowEdge: .top) {
+                ConfirmationPopover(
+                    symbol: "Lucide/users-round",
+                    question: "Создать конференцию?",
+                    action: "Создать"
+                ) { confirmed in
+                    confirming = nil
+                    if confirmed { model.startConference() }
+                }
+            }
+
+            key(
+                symbol: "Lucide/phone-forwarded",
+                label: "Перевести",
+                isOn: model.isTransferEntryVisible,
+                isEnabled: model.canTransfer && !model.isTransferEntryVisible
+            ) {
+                model.showTransferEntry()
+            }
+            .popover(
+                isPresented: Binding(
+                    get: { model.isTransferEntryVisible },
+                    set: { if !$0 { model.cancelTransferEntry() } }
+                ).deferred(),
+                arrowEdge: .top
+            ) {
+                TransferEntry()
+                    .frame(width: 240)
+                    .padding(Theme.Metrics.contentPadding)
+            }
+
+            if !showsVolume {
+                key(
                     symbol: model.isMicrophoneMuted ? "Lucide/mic-off" : "Lucide/mic",
+                    label: model.isMicrophoneMuted ? "Микрофон выкл." : "Микрофон",
                     isOn: model.isMicrophoneMuted,
                     isWarning: true,
                     // И в покое: заглушённым микрофон и поднимется на звонке.
@@ -1084,65 +1164,124 @@ struct CallControls: View {
                     model.toggleMicrophone()
                 }
             }
-
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                controlButton(
-                    title: "Перевести",
-                    symbol: "Lucide/phone-forwarded",
-                    isOn: model.isTransferEntryVisible,
-                    isEnabled: model.canTransfer && !model.isTransferEntryVisible
-                ) {
-                    model.showTransferEntry()
-                }
-
-                // Конференция — то самое штатное действие: посылает серверный
-                // код (`ConferenceSettings.featureCode`) тонами и помечает линию,
-                // то есть приложение знает, что комната собрана. Макросом это
-                // выглядело бы так же, но приложение не знало бы ничего.
-                controlButton(
-                    title: "Конференция",
-                    symbol: "Lucide/users-round",
-                    isOn: model.activeLine?.isConferenceCommandSent ?? false,
-                    isEnabled: model.canStartConference
-                ) {
-                    model.startConference()
-                }
-            }
         }
-        .frame(height: Self.height(rowExtra: rowExtra))
+        .frame(height: Theme.Metrics.callKeyHeight)
     }
 
-    private func controlButton(
-        title: LocalizedStringKey,
+    private func confirmationBinding(_ kind: Confirmation) -> Binding<Bool> {
+        Binding(
+            get: { confirming == kind },
+            set: { if !$0, confirming == kind { confirming = nil } }
+        ).deferred()
+    }
+
+    private func key(
         symbol: String,
+        label: LocalizedStringKey,
         isOn: Bool,
         isWarning: Bool = false,
         isEnabled: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                CompatSymbol(name: symbol, size: Theme.Icon.medium + 2)
-                Text(title)
-                    .font(Theme.Text.statusDetail)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
+            CompatSymbol(name: symbol, size: Theme.Icon.medium + 2)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // Высота — кнопке, а не подписи: см. клавишу макроса. Ряд управления
-        // заперт в `Self.height`, и кнопка, выросшая от поля стиля, растягивала
-        // бы не себя, а всё, что под ней.
-        .frame(height: Theme.Metrics.controlHeight + rowExtra)
+        .frame(height: Theme.Metrics.callKeyHeight)
         // Включённая клавиша — серым, как в Windows; выключенный микрофон —
-        // насыщенным красным с белой надписью: его нельзя не заметить.
+        // насыщенным красным с белым значком: его нельзя не заметить.
         .compatForeground(isOn && isWarning ? Color.white : Color.primary)
         .graphiteSurface(isOn ? (isWarning ? .decline : .selected) : .control)
         .hoverHighlight(cornerRadius: Graphite.cornerRadius, isEnabled: isEnabled)
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : Theme.Metrics.disabledOpacity)
+        .compatAccessibilityLabel(label)
+    }
+}
+
+/// Фрейм громкости: заголовок-кнопка и проценты сверху, ползунок во всю
+/// ширину снизу.
+///
+/// Заголовок — кнопка: «Собеседник» уводит звук собеседника в ноль,
+/// «Микрофон» выключает микрофон; выключенное краснеет.
+private struct VolumeFrame: View {
+
+    let title: LocalizedStringKey
+    let symbol: String
+    let isMuted: Bool
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let extra: CGFloat
+    var isSliderEnabled = true
+    let onToggle: () -> Void
+
+    var body: some View {
+        VStack(spacing: Theme.Metrics.tightSpacing) {
+            Spacer(minLength: 0)
+            HStack(spacing: Theme.Metrics.elementSpacing) {
+                Button(action: onToggle) {
+                    HStack(spacing: Theme.Metrics.tightSpacing + 2) {
+                        CompatSymbol(name: symbol, size: Theme.Icon.medium)
+                        Text(title)
+                            .font(Theme.Text.statusDetail.weight(isMuted ? .semibold : .regular))
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, Theme.Metrics.sectionSpacing)
+                    .frame(height: 24)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .compatForeground(isMuted ? Color.white : Color.primary)
+                .graphiteSurface(isMuted ? .decline : .control, cornerRadius: 6, shadow: false)
+                .hoverHighlight(cornerRadius: 6)
+
+                Spacer(minLength: 0)
+
+                Text(String(format: "%.0f %%", value * 100))
+                    .font(Theme.Text.statusDetail.weight(.semibold))
+                    .compatMonospacedDigit()
+            }
+
+            VolumeSlider(value: $value, range: range)
+                .disabled(!isSliderEnabled)
+        }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 8)
+        .frame(height: Theme.Metrics.volumeFrameHeight + extra)
+        .graphiteSurface(.call)
+    }
+}
+
+/// Вопрос перед действием, которое легко нажать случайно.
+private struct ConfirmationPopover: View {
+
+    let symbol: String
+    let question: LocalizedStringKey
+    let action: LocalizedStringKey
+    let onAnswer: (Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                CompatSymbol(name: symbol, size: Theme.Icon.medium + 2)
+                    .frame(width: 28, height: 28)
+                    .graphiteSurface(.selected, cornerRadius: 14, shadow: false)
+                Text(question)
+                    .font(Theme.Text.controlLabel)
+                    .fixedSize()
+            }
+            HStack(spacing: Theme.Metrics.sectionSpacing) {
+                Spacer(minLength: 0)
+                Button("Отмена") { onAnswer(false) }
+                    .compatCancelShortcut()
+                Button(action: { onAnswer(true) }) { Text(action) }
+                    .compatProminentButtonStyle()
+                    .compatDefaultShortcut()
+            }
+        }
+        .padding(Theme.Metrics.contentPadding + 2)
     }
 }
 

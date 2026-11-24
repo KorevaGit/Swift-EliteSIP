@@ -37,6 +37,36 @@ struct AudioTab: View {
     var body: some View {
         SettingsSection("Разговор", icon: "headset") {
             AudioDeviceRow(
+                title: "Наушники",
+                systemTitle: "Системные по умолчанию",
+                devices: outputs,
+                defaultName: defaultOutputName,
+                uid: Binding(
+                    get: { model.settings.audio.outputDeviceUID },
+                    set: { model.settings.audio.outputDeviceUID = $0 }
+                ),
+                rememberedName: Binding(
+                    get: { model.settings.audio.outputDeviceName },
+                    set: { model.settings.audio.outputDeviceName = $0 }
+                )
+            )
+
+            // До 200 %: уровень городских линий гуляет на 10–15 дБ. Выше единицы
+            // громкость умножается в отсчётах, за ней мягкий ограничитель, —
+            // микшер так не умеет. Системная громкость сюда не годится — она меняет звук всей
+            // машины, а тише надо сделать только собеседника.
+            SettingsRow("Громкость") {
+                VolumePercentSlider(
+                    value: Binding(
+                        get: { model.settings.audio.playbackVolume },
+                        set: { model.settings.audio.playbackVolume = $0 }
+                    ),
+                    range: AppSettings.AudioSettings.playbackVolumeRange
+                )
+            }
+
+
+            AudioDeviceRow(
                 title: "Микрофон",
                 systemTitle: "Системный по умолчанию",
                 devices: inputs,
@@ -70,14 +100,12 @@ struct AudioTab: View {
             // слышно» и делал единственный доступный вывод — что сломано
             // приложение.
             SettingsRow("Усиление") {
-                SettingSlider(
+                VolumePercentSlider(
                     value: Binding(
                         get: { model.settings.audio.microphoneGain },
                         set: { model.settings.audio.microphoneGain = $0 }
                     ),
-                    range: AppSettings.AudioSettings.microphoneGainRange,
-                    step: 0.05,
-                    unit: nil
+                    range: AppSettings.AudioSettings.microphoneGainRange
                 )
                 .disabled(model.settings.audio.automaticGainControl)
             }
@@ -86,37 +114,6 @@ struct AudioTab: View {
             // подсказок в интерфейсе нет, и «контрол серый и молчит» —
             // худший вид отказа. Строка появляется только тогда, когда
             // объяснять есть что.
-
-            AudioDeviceRow(
-                title: "Наушники",
-                systemTitle: "Системные по умолчанию",
-                devices: outputs,
-                defaultName: defaultOutputName,
-                uid: Binding(
-                    get: { model.settings.audio.outputDeviceUID },
-                    set: { model.settings.audio.outputDeviceUID = $0 }
-                ),
-                rememberedName: Binding(
-                    get: { model.settings.audio.outputDeviceName },
-                    set: { model.settings.audio.outputDeviceName = $0 }
-                )
-            )
-
-            // До 200 %: уровень городских линий гуляет на 10–15 дБ. Выше единицы
-            // громкость умножается в отсчётах, за ней мягкий ограничитель, —
-            // микшер так не умеет. Системная громкость сюда не годится — она меняет звук всей
-            // машины, а тише надо сделать только собеседника.
-            SettingsRow("Громкость") {
-                SettingSlider(
-                    value: Binding(
-                        get: { model.settings.audio.playbackVolume },
-                        set: { model.settings.audio.playbackVolume = $0 }
-                    ),
-                    range: AppSettings.AudioSettings.playbackVolumeRange,
-                    step: 0.05,
-                    unit: nil
-                )
-            }
 
             // Появляется только когда обе стороны заданы явно и разными: тогда
             // движок собирает агрегатное устройство, а `VoiceProcessingIO`

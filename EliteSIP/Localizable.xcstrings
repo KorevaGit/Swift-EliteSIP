@@ -14091,6 +14091,214 @@
           }
         }
       }
+    },
+    "В вызове есть «X-Autoanswer: TRUE» или имя с внешним номером": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The call has “X-Autoanswer: TRUE” or a name with an external number"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В вызове есть «X-Autoanswer: TRUE» или имя с внешним номером"
+          }
+        }
+      }
+    },
+    "Входящий из колл-центра": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call center call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Входящий из колл-центра"
+          }
+        }
+      }
+    },
+    "Как называется входящий": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How an incoming call is named"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как называется входящий"
+          }
+        }
+      }
+    },
+    "Подписи раздач": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lead line titles"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подписи раздач"
+          }
+        }
+      }
+    },
+    "Подпись по правилу выше или имя из вызова": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title from a rule above or the caller name"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подпись по правилу выше или имя из вызова"
+          }
+        }
+      }
+    },
+    "Ползунки громкости на главном окне": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume sliders on the main window"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ползунки громкости на главном окне"
+          }
+        }
+      }
+    },
+    "Поставить на удержание?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Put the call on hold?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поставить на удержание?"
+          }
+        }
+      }
+    },
+    "Правил нет — раздача подписывается своим именем из вызова.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No rules — a lead is titled by its name from the call."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правил нет — раздача подписывается своим именем из вызова."
+          }
+        }
+      }
+    },
+    "Правила заводятся в Spark, во вкладке «Очереди», и приезжают с предустановками.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rules are set up in Spark on the Queues tab and arrive with presets."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правила заводятся в Spark, во вкладке «Очереди», и приезжают с предустановками."
+          }
+        }
+      }
+    },
+    "Раздача пришла без имени": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The lead came without a name"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Раздача пришла без имени"
+          }
+        }
+      }
+    },
+    "Собеседник": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caller"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собеседник"
+          }
+        }
+      }
+    },
+    "Создать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать"
+          }
+        }
+      }
+    },
+    "Создать конференцию?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a conference?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать конференцию?"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
