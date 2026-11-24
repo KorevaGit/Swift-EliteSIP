@@ -774,12 +774,12 @@ struct CallHeader: View {
                     // Без микрофона — красным: клиент слышит тишину.
                     Text(status)
                         .font(Theme.Text.callerNumber)
+                        // Золотистым всегда — тем же, что «Гудки…»: состояние
+                        // должно читаться с одного взгляда.
                         .compatForeground(
                             model.activeLine?.isMicrophoneMissing == true
                                 ? Theme.Palette.failure
-                                : model.isOnHold || model.isMicrophoneMuted || model.isActiveMediaStarting
-                                    ? Theme.Palette.connecting
-                                    : Theme.Palette.textSecondary
+                                : Theme.Palette.connecting
                         )
                         .lineLimit(1)
 
@@ -791,6 +791,9 @@ struct CallHeader: View {
                             .compatMonospacedDigit()
                     }
                 }
+                // Высота строки — под крупное время с самого начала: иначе в
+                // момент ответа имя подскакивало бы вверх ради цифр.
+                .frame(height: Theme.Metrics.callTimerRowHeight, alignment: .bottom)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {

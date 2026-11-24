@@ -187,6 +187,8 @@ enum Theme {
         static let volumeFrameHeight: CGFloat = 72
         /// Клавиши-значки «Удержать», «Конференция», «Перевести» — всегда одной высоты.
         static let callKeyHeight: CGFloat = 40
+        /// Нижняя строка шапки разговора — под крупное время, и до его появления.
+        static let callTimerRowHeight: CGFloat = 26
         /// Шаг между блоками нижней части панели.
         static let panelGap: CGFloat = 8
 
