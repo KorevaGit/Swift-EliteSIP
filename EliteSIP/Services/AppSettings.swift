@@ -5,6 +5,7 @@ import CallHistory
 import Diagnostics
 import Foundation
 import MediaCore
+import PanelLink
 import SIPCore
 
 /// Всё, что приложение помнит между запусками, кроме пароля.
@@ -87,20 +88,7 @@ struct AppSettings: Codable, Sendable, Equatable {
     var dtmf: DTMFSettings = DTMFSettings()
     var conference: ConferenceSettings = ConferenceSettings()
 
-    /// Словарь очередей: по какому номеру приходит раздача и как её называть.
-    ///
-    /// Заводит администратор, менеджеру недоступен. Пустой словарь ничего не
-    /// ломает: без совпадения раздача подписывается общим заголовком, то есть
-    /// ровно так, как было, пока словаря не существовало.
-    ///
-    /// **Возвращён 2 сентября 2026, после удаления 28 августа.** Удаляли его
-    /// потому, что на боевом диалплане он не совпадал ни с одним вызовом:
-    /// раздача приходит переводом, и в `From` стоит добавочный сотрудника
-    /// колл-центра. Это верно для боевого диалплана и неверно вообще — диалплан
-    /// правит заказчик, а не мы, и подмену CallerID на номер очереди он может
-    /// вернуть завтра. Словарь снова есть, но теперь он не единственный способ
-    /// узнать раздачу, а уточнение поверх заголовка `X-Autoanswer`: пустой — и
-    /// всё работает само.
+    /// Подписи раздач из Spark — см. `QueueDirectory`.
     var queues: QueueDirectory = QueueDirectory()
 
     var minimumLogLevel: SIPLogLevel
@@ -1021,51 +1009,40 @@ struct AppSettings: Codable, Sendable, Equatable {
         }
     }
 
-    /// Словарь «номер раздачи → название».
+    /// Подписи раздач: что искать в имени звонящего и как это показать.
     ///
-    /// Уточнение поверх общего заголовка, а не признак раздачи. Признак —
-    /// `X-Autoanswer: TRUE` в INVITE, и он работает без всякой настройки; сюда
-    /// администратор вписывает то, чего из вызова не следует: какая именно из
-    /// очередей позвонила. Это имеет смысл ровно там, где диалплан подменяет
-    /// CallerID на номер очереди, — а подменяет он его или нет, решает
-    /// заказчик, а не мы.
+    /// Заводятся в Spark (вкладка «Очереди») и приезжают в файле предустановок
+    /// блоком `queues` со своей ревизией (`PanelSettings.appliedQueuesRevision`).
+    /// На месте не редактируются: «Управление → Очереди» их только показывает.
     ///
-    /// Пустой словарь — обычное состояние, а не недонастроенное: боевой
-    /// диалплан номера очереди не кладёт, и все раздачи там подписываются
-    /// одинаково. Половина записи в подстановку не идёт (`isUsable`): номер без
-    /// названия убрал бы общий заголовок и не дал взамен ничего.
+    /// Раздачу опознают не они, а `X-Autoanswer` или форма `From` — см.
+    /// `IncomingCallSubject`. Правила её только называют; без правила раздача
+    /// подписывается своим именем в читаемом виде (`QueueTitles.tidy`).
+    ///
+    /// **Прежний словарь «номер очереди → название» удалён (ноябрь 2026).**
+    /// Номер очереди в вызов не попадает, и словарь не сработал ни разу. Его
+    /// записи — без поля `match` — отбрасываются при чтении файла: остались бы
+    /// пустыми строками в списке.
     struct QueueDirectory: Codable, Sendable, Equatable {
 
         struct Queue: Codable, Sendable, Equatable, Identifiable, Hashable {
             var id: UUID = UUID()
-            /// Номер, с которого приходит раздача.
-            var number: String = ""
-            /// Как называть её оператору: «Горячий лид», «Повторное обращение».
+            /// Что искать в имени звонящего — без регистра, пробелов и подчёркиваний.
+            var match: String = ""
+            /// Как называть раздачу оператору.
             var title: String = ""
 
-            init(id: UUID = UUID(), number: String = "", title: String = "") {
+            init(id: UUID = UUID(), match: String = "", title: String = "") {
                 self.id = id
-                self.number = number
+                self.match = match
                 self.title = title
             }
 
             init(from decoder: Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
                 id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-                number = try container.decodeIfPresent(String.self, forKey: .number) ?? ""
+                match = try container.decodeIfPresent(String.self, forKey: .match) ?? ""
                 title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
-            }
-
-            /// Годна ли запись к применению. Половина записи хуже её отсутствия.
-            var isUsable: Bool {
-                !Queue.normalized(number).isEmpty
-                    && !title.trimmingCharacters(in: .whitespaces).isEmpty
-            }
-
-            /// Сравнение по цифрам: номер в настройки вписывает человек, а
-            /// человек пишет и «2929», и «29 29».
-            static func normalized(_ number: String) -> String {
-                number.filter { $0.isNumber || $0 == "*" || $0 == "#" }
             }
         }
 
@@ -1077,17 +1054,13 @@ struct AppSettings: Codable, Sendable, Equatable {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            queues = try container.decodeIfPresent([Queue].self, forKey: .queues) ?? []
+            queues = (try container.decodeIfPresent([Queue].self, forKey: .queues) ?? [])
+                .filter { !$0.match.trimmingCharacters(in: .whitespaces).isEmpty }
         }
 
-        /// Название раздачи по номеру звонящего. `nil` — в словаре такого нет.
-        func title(forCallerNumber number: String) -> String? {
-            let wanted = Queue.normalized(number)
-            guard !wanted.isEmpty else { return nil }
-            return queues
-                .first { $0.isUsable && Queue.normalized($0.number) == wanted }?
-                .title
-                .trimmingCharacters(in: .whitespaces)
+        /// Правила, готовые к сверке с именем звонящего.
+        var rules: [QueueTitles.Rule] {
+            QueueTitles.rules(queues.map { PresetBundle.QueueTitle(match: $0.match, title: $0.title) })
         }
     }
 

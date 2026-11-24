@@ -37,6 +37,10 @@ final class PresetService {
     /// когда применять оказалось нечего, — а это как раз обычный случай.
     var noteContact: (() -> Void)?
 
+    /// Применить подписи раздач. Отдельно от предустановки: у них своя
+    /// ревизия, и правят их чаще.
+    var applyQueues: ((PresetBundle.QueueBlock) -> Void)?
+
     /// Доложить, идёт ли проверка и чем кончилась прошлая.
     ///
     /// Нужно кнопке «Проверить настройки сейчас»: без ответа она молчит, и
@@ -172,6 +176,7 @@ final class PresetService {
         request.setValue(String(AppSettings.currentSchemaVersion), forHTTPHeaderField: "X-EliteSIP-Schema")
         request.setValue(String(now.panel.appliedRevision), forHTTPHeaderField: "X-EliteSIP-Revision")
         request.setValue(String(now.panel.appliedConfigRevision), forHTTPHeaderField: "X-EliteSIP-Config")
+        MachinePlatform.apply(to: &request)
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             Task { @MainActor in
@@ -228,6 +233,15 @@ final class PresetService {
         }
 
         let now = settings()
+
+        // Подписи раздач — раньше предустановки и независимо от неё. Ждать
+        // разговора им нечего: на месте они не редактируются, а идущий
+        // разговор уже назван. Сравнение на неравенство: файл подписан, а
+        // счётчик в Spark после восстановления базы может начаться заново.
+        if let queues = bundle.queues, queues.revision != now.panel.appliedQueuesRevision {
+            applyQueues?(queues)
+        }
+
         guard let entry = bundle.entry(id: now.panel.presetID) else {
             // Себя в файле нет — предустановку могли заархивировать. Машина
             // продолжает жить с тем, что применила раньше.

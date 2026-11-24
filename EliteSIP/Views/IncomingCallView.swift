@@ -1,4 +1,5 @@
 import CallGuard
+import PanelLink
 import SwiftUI
 
 /// Про что этот вызов — и, значит, что стоит на главном месте окна.
@@ -95,21 +96,13 @@ enum IncomingCallSubject: Equatable {
     // не переводится: имя продукта.
     static let dealSource = "Bitrix"
 
-    /// Заголовок раздачи.
+    /// Заголовок раздачи, пришедшей без имени.
     ///
-    /// Строкой в коде, а не настройкой, и это отмена словаря очередей
-    /// (28 августа 2026). Словарь сверял номер звонящего с номером очереди —
-    /// а боевой диалплан в вызов номер очереди не кладёт вовсе: там добавочный
-    /// сотрудника, переведшего лид. Сорок заполненных записей не совпадали ни
-    /// с одним вызовом и не могли совпасть; от словаря работало ровно одно —
-    /// название, одинаковое во всех сорока.
-    ///
-    /// Соседство с `dealTitle` не случайно: тот стал строкой в коде по тому же
-    /// доводу. Настройка, которую невозможно заполнить неправильно, — это не
-    /// настройка, а обряд, и цена ему — сломанная подпись у всех разом, стоит
-    /// одному из сорока названий разойтись с прочими.
+    /// Общий и нейтральный: до ноября 2026 здесь стояло «Горячая раздача», и
+    /// так подписывалась любая линия колл-центра. Раздачу с именем называет
+    /// `QueueTitles.headline` — правилом из Spark или самим именем.
     static let distributionTitle = NSLocalizedString(
-        "🔥Горячая раздача🔥", comment: "заголовок окна входящего на раздаче"
+        "Входящий из колл-центра", comment: "заголовок окна входящего на раздаче без имени"
     )
 
     /// Разбор того, что пришло в INVITE.
@@ -118,41 +111,25 @@ enum IncomingCallSubject: Equatable {
     /// иначе проверка показывала бы не то, что увидит оператор на боевом
     /// вызове, — а ради этого её и открывают.
     ///
-    /// Свой добавочный проверяется **раньше** словаря: администратор, вписавший
-    /// туда собственный номер, иначе получил бы «раздачу» вместо звонка по
-    /// сделке. Сравнение по цифрам — тем же правилом, что и в словаре: номер
+    /// Свой добавочный проверяется **раньше** признаков раздачи: вызов по
+    /// сделке иначе назывался бы раздачей. Сравнение по цифрам — номер
     /// приходит из SIP, а в настройки его вписывает человек.
+    ///
+    /// - Parameter queueRules: подписи раздач из Spark (`settings.queues.rules`).
     init(
         callerNumber: String,
         callerName: String?,
         requestsAutoAnswer: Bool = false,
         ownNumber: String,
-        queueTitle: String? = nil,
+        queueRules: [QueueTitles.Rule] = [],
         masksMobileNumbers: Bool = true
     ) {
         let own = Self.digits(ownNumber)
         let caller = Self.digits(callerNumber)
 
-        // Название из словаря — уточнение поверх общего заголовка, и потому
-        // проверяется раньше признаков раздачи, но позже своего добавочного.
-        //
-        // Раньше признаков: администратор вписал номер очереди затем, чтобы эта
-        // очередь называлась своим именем, а не общим «горячая раздача». Если
-        // бы словарь стоял после, его название доставалось бы только тем
-        // вызовам, у которых нет ни заголовка, ни формы раздачи, — то есть
-        // почти никаким.
-        //
-        // Позже своего добавочного: администратор, вписавший в словарь
-        // собственный номер, иначе получил бы «раздачу» вместо звонка по
-        // сделке. Свой добавочный сильнее любой настройки — приложение знает
-        // его из профиля и ошибиться в нём не может.
-        let named = queueTitle?.trimmingCharacters(in: .whitespaces)
-
         if !own.isEmpty, own == caller {
             self = .selfCall
-        } else if let named, !named.isEmpty {
-            self = .queue(title: named, number: callerNumber, masksMobile: masksMobileNumbers)
-        } else if requestsAutoAnswer {
+        } else if requestsAutoAnswer || Self.campaign(number: caller, name: callerName) {
             // Просьба снять трубку самостоятельно — и есть признак раздачи.
             //
             // Прямой признак, а не догадка по форме `From`, и потому главный.
@@ -165,12 +142,20 @@ enum IncomingCallSubject: Equatable {
             // раздача:  "GORACHAYA RAZDACHACall Center"  <710>  X-Autoanswer: TRUE
             // коллега:  "Semenov_Artyom"                 <132>  — заголовка нет
             // ```
-            self = .queue(title: Self.distributionTitle, number: callerNumber, masksMobile: masksMobileNumbers)
-        } else if Self.campaign(number: caller, name: callerName) {
-            self = .queue(title: Self.distributionTitle, number: callerNumber, masksMobile: masksMobileNumbers)
+            //
+            // Какая это линия, говорит имя: правило из Spark, иначе само имя
+            // в читаемом виде. Имени нет — общий заголовок.
+            let title = QueueTitles.headline(callerName, rules: queueRules) ?? Self.distributionTitle
+            self = .queue(title: title, number: callerNumber, masksMobile: masksMobileNumbers)
         } else {
             self = .caller(number: callerNumber, name: callerName, masksMobile: masksMobileNumbers)
         }
+    }
+
+    /// Раздача ли это — для истории и журнала машины.
+    var isDistribution: Bool {
+        if case .queue = self { return true }
+        return false
     }
 
     /// Только цифры и служебные знаки.

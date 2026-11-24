@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import PanelLink
 import SwiftUI
 
 /// Точка входа и владелец окон.
@@ -326,6 +327,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 if let self { await self.machineRecovery.check(model: self.model) }
                 await self?.model.syncWorkFormat()
                 machines.checkConfig()
+                machines.checkSupport()
                 presets.check()
             }
         }
@@ -334,6 +336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if let self { await self.machineRecovery.check(model: self.model) }
             await self?.model.syncWorkFormat()
             machines.checkConfig()
+            machines.checkSupport()
         }
 
         // Через полминуты с разбросом: сеть поднимается не сразу, а контора
@@ -383,6 +386,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         presets.report = { [weak self] checking, result in
             self?.model.notePresetCheckState(checking: checking, result: result)
         }
+        presets.applyQueues = { [weak self] queues in
+            guard let self else { return }
+            // Открытое «Управление» держит снимок настроек, и «Отменить»
+            // вернуло бы прежние подписи. Ревизия не записана — заберём
+            // следующим тактом.
+            guard !self.model.isHoldingSettingsWrites else { return }
+            self.model.settings.queues = AppSettings.QueueDirectory(queues: queues.titles.map {
+                AppSettings.QueueDirectory.Queue(match: $0.match, title: $0.title)
+            })
+            self.model.settings.panel.appliedQueuesRevision = queues.revision
+            self.model.persistSettings()
+            // не переводится: строка журнала
+            self.model.append(level: .info,
+                              message: "подписи раздач: ревизия \(queues.revision), правил \(queues.titles.count)")
+        }
         presets.noteContact = { [weak self] in
             guard let self else { return }
             self.model.settings.panel.lastContactAt = Date()
@@ -413,6 +431,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             reset: { [weak self] revocation in self?.model.resetByRevocation(revocation) },
             log: { [weak self] message in self?.model.append(level: .info, message: message) }
         )
+        machines.collectSupport = { [weak self] request in
+            Task { @MainActor [weak self] in await self?.model.sendSupportArchive(request) }
+        }
         machineService = machines
         model.onWorkFormatConflict = { [weak machines] in machines?.checkConfig() }
         model.refreshMachineConfig = { [weak machines] done in

@@ -43,6 +43,10 @@ extension AppSettings {
         /// Применённая ревизия конфигурации машины. Ноль — ещё ни одной.
         var appliedConfigRevision: Int = 0
 
+        /// Ревизия применённых подписей раздач. Своя, отдельно от предустановки:
+        /// правка подписи предустановку не переприменяет. Ноль — не применялись.
+        var appliedQueuesRevision: Int = 0
+
         /// Предустановка, под которой машина живёт.
         ///
         /// Ищет она себя в файле по `id`, а **не по имени**: имя переименовывают,
@@ -109,6 +113,10 @@ extension AppSettings {
         /// (`MachineRecovery`): повторно она не шлётся.
         var recoverySubmittedInstallationID: String = ""
 
+        /// Последний запрос архива для техподдержки, на который машина уже
+        /// ответила, — чтобы не слать тот же архив каждый такт.
+        var sentSupportRequest: String = ""
+
         /// Режим машины — решение этапа 5 работ по панели.
         ///
         /// Действует на машину целиком, а не на отдельные настройки: половинчатый
@@ -164,6 +172,7 @@ extension AppSettings {
             channelKey = try c.decodeIfPresent(String.self, forKey: .channelKey) ?? ""
             machineKey = try c.decodeIfPresent(String.self, forKey: .machineKey) ?? ""
             appliedConfigRevision = try c.decodeIfPresent(Int.self, forKey: .appliedConfigRevision) ?? 0
+            appliedQueuesRevision = try c.decodeIfPresent(Int.self, forKey: .appliedQueuesRevision) ?? 0
             presetID = try c.decodeIfPresent(String.self, forKey: .presetID) ?? ""
             presetName = try c.decodeIfPresent(String.self, forKey: .presetName) ?? ""
             appliedRevision = try c.decodeIfPresent(Int.self, forKey: .appliedRevision) ?? 0
@@ -175,6 +184,7 @@ extension AppSettings {
             pendingWorkFormat = try c.decodeIfPresent(String.self, forKey: .pendingWorkFormat) ?? ""
             recoverySubmittedInstallationID =
                 try c.decodeIfPresent(String.self, forKey: .recoverySubmittedInstallationID) ?? ""
+            sentSupportRequest = try c.decodeIfPresent(String.self, forKey: .sentSupportRequest) ?? ""
         }
     }
 }

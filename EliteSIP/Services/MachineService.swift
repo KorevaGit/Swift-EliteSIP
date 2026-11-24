@@ -119,6 +119,27 @@ final class MachineService {
         }
     }
 
+    /// Что делать с проверенной просьбой собрать архив. Ставит приложение.
+    var collectSupport: ((SupportRequest) -> Void)?
+
+    /// Спросить канал, не просит ли Spark архив для техподдержки. Такт отзыва.
+    ///
+    /// 404 — обычный ответ «не просят». Неподписанный объект — мусор: журналы
+    /// по нему не уходят. В ручном режиме не спрашивается вовсе.
+    func checkSupport() {
+        guard settings().panel.mode == .managed else { return }
+        fetch(prefix: "support") { @MainActor [weak self] data, publicKey, installationID in
+            guard let self else { return }
+            do {
+                self.collectSupport?(try SupportRequest.verified(data, publicKey: publicKey,
+                                                                 installationID: installationID))
+            } catch {
+                // не переводится: строка журнала
+                self.log("запрос архива ОТБРОШЕН: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Переход машины, поднятой ключом активации: свой ключ машины и его
     /// регистрация в Spark. Ключ сохраняется сразу — повторная попытка должна
     /// предъявить тот же, а не новый: Spark второй ключ не примет.
@@ -222,6 +243,7 @@ final class MachineService {
         request.setValue(String(AppSettings.currentSchemaVersion), forHTTPHeaderField: "X-EliteSIP-Schema")
         request.setValue(String(panel.appliedRevision), forHTTPHeaderField: "X-EliteSIP-Revision")
         request.setValue(String(panel.appliedConfigRevision), forHTTPHeaderField: "X-EliteSIP-Config")
+        MachinePlatform.apply(to: &request)
         for (name, value) in SessionHealth.headers {
             request.setValue(value, forHTTPHeaderField: name)
         }

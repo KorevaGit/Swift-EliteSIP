@@ -302,6 +302,9 @@ final class AppModel: ObservableObject {
     /// Отправка формата работы в Spark идёт — см. `syncWorkFormat`.
     var isSyncingWorkFormat = false
 
+    /// Архив для техподдержки собирается и уходит — см. `sendSupportArchive`.
+    var isSendingSupportArchive = false
+
     /// Spark ответил, что формат закреплён: конфигурацию надо перечитать.
     var onWorkFormatConflict: (() -> Void)?
 
@@ -2518,7 +2521,7 @@ final class AppModel: ObservableObject {
             callerName: call.callerName,
             requestsAutoAnswer: call.requestsAutoAnswer,
             ownNumber: settings.account.username,
-            queueTitle: settings.queues.title(forCallerNumber: call.displayNumber),
+            queueRules: settings.queues.rules,
             masksMobileNumbers: settings.masksMobileNumbers
         )
     }
@@ -2588,8 +2591,9 @@ final class AppModel: ObservableObject {
             displayName: call.callerName,
             // Признак раздачи хранится в записи: заголовок, по которому она
             // узнаётся, живёт не дольше вызова, а номер и имя у раздачи и у
-            // звонка коллеги неотличимы.
-            wasDistribution: call.requestsAutoAnswer
+            // звонка коллеги неотличимы. Раздача — как её назвал разбор:
+            // `X-Autoanswer` или форма `From`, как в Windows и Linux.
+            wasDistribution: incomingSubject(for: call).isDistribution
         )
 
         if !settings.incomingCall.isEnabled {

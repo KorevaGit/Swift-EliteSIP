@@ -761,7 +761,8 @@ struct PhonePanelView: View {
                 callerNumber: "712",
                 callerName: "Call_Center",
                 requestsAutoAnswer: true,
-                ownNumber: model.settings.account.username
+                ownNumber: model.settings.account.username,
+                queueRules: model.settings.queues.rules
             ),
             policy: model.settings.incomingCall,
             onAnswer: {},

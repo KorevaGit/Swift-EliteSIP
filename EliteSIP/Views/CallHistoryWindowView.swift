@@ -1381,6 +1381,7 @@ private struct CallHistoryRow: View {
             callerName: record.displayName,
             requestsAutoAnswer: record.wasDistribution,
             ownNumber: model.settings.account.username,
+            queueRules: model.settings.queues.rules,
             masksMobileNumbers: masksMobileNumbers
         )
     }

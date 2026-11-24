@@ -19,6 +19,32 @@ public struct PresetBundle: Sendable, Equatable {
     public var generatedAt: Date
     public var presets: [Entry]
 
+    /// Подписи раздач — общие для всех предустановок, со своей ревизией.
+    /// `nil` — в файле их нет: панель старше или правил ещё не заводили.
+    public var queues: QueueBlock?
+
+    /// Блок подписей раздач.
+    public struct QueueBlock: Sendable, Equatable {
+        public var revision: Int
+        public var titles: [QueueTitle]
+
+        public init(revision: Int, titles: [QueueTitle]) {
+            self.revision = revision
+            self.titles = titles
+        }
+    }
+
+    /// Правило: что искать в имени звонящего и как это показать.
+    public struct QueueTitle: Sendable, Equatable {
+        public var match: String
+        public var title: String
+
+        public init(match: String, title: String) {
+            self.match = match
+            self.title = title
+        }
+    }
+
     /// Одна предустановка в файле.
     public struct Entry: Sendable, Equatable {
         /// Машина ищет себя по нему, а **не по имени**: имя переименовывают, и
@@ -48,6 +74,7 @@ public struct PresetBundle: Sendable, Equatable {
             var format: Int
             var generated_at: String
             var presets: [WireEntry]
+            var queues: AnyJSON?
         }
         struct WireEntry: Decodable {
             var id: String
@@ -77,8 +104,28 @@ public struct PresetBundle: Sendable, Equatable {
             presets: wire.presets.map {
                 Entry(id: $0.id, name: $0.name, revision: $0.revision,
                       schemaVersion: $0.schema_version, fields: $0.fields.raw)
-            }
+            },
+            queues: parseQueues(wire.queues?.value)
         )
+    }
+
+    /// Блок подписей раздач — терпимо: испорченный блок не должен уносить с
+    /// собой предустановки, без которых машина не звонит. Ревизии нет — блока
+    /// нет; строка без искомого или подписи пропускается.
+    static func parseQueues(_ value: Any?) -> QueueBlock? {
+        guard let object = value as? [String: Any],
+              let revision = object["revision"] as? Int
+        else { return nil }
+
+        let titles = (object["titles"] as? [Any] ?? []).compactMap { item -> QueueTitle? in
+            guard let item = item as? [String: Any],
+                  let match = (item["match"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !match.isEmpty, !title.isEmpty
+            else { return nil }
+            return QueueTitle(match: match, title: title)
+        }
+        return QueueBlock(revision: revision, titles: titles)
     }
 
     /// Своя запись в файле.

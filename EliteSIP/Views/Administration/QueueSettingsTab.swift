@@ -1,107 +1,47 @@
-import CallHistory
 import SwiftUI
 
-/// Раздел «Очереди»: словарь названий раздач и короткая справка о том, как
-/// приложение опознаёт входящий вызов.
+/// Раздел «Очереди»: подписи раздач из Spark — только показ.
 ///
-/// **Словарь вернулся 2 сентября 2026, после удаления 28 августа.** Удаляли его
-/// за то, что на боевом диалплане он не совпадал ни с одним вызовом. Это и
-/// сейчас так, но вывод из этого сделали слишком широкий: диалплан правит
-/// заказчик, и подмену CallerID на номер очереди он волен вернуть. Разница с
-/// прежним устройством в том, что теперь словарь ничего не решает в одиночку —
-/// раздачу опознаёт заголовок `X-Autoanswer`, а словарь только уточняет
-/// название. Пустой словарь — обычное состояние, а не недонастроенное.
-///
-/// **Справка ужата до таблицы.** Было три раздела и шесть абзацев прозы, в
-/// которых тонуло единственное, за чем сюда приходят: какое правило сработает и
-/// что оператор увидит. Всё, что не отвечало на этот вопрос, ушло в комментарии
-/// по месту — читать их администратору незачем, а разбирающему код они нужны
-/// ровно там, где он правит поведение.
+/// **С ноября 2026 правила заводятся в Spark** (вкладка «EliteSIP → Очереди»)
+/// и приезжают в файле предустановок. Прежний словарь «номер очереди →
+/// название» удалён: номер очереди в вызов не попадает, и словарь не сработал
+/// ни разу. Править здесь нечего — правка на месте разошлась бы с панелью и
+/// пропала бы со следующим файлом.
 struct QueueSettingsTab: View {
 
     @EnvironmentObject private var model: AppModel
 
-    /// Подсказки перечитываются при открытии раздела, а не на каждой
-    /// перерисовке: запрос идёт в базу, а строки словаря правятся посимвольно.
-    @State private var candidates: [NumberSighting] = []
-
-    private var queues: Binding<[AppSettings.QueueDirectory.Queue]> {
-        Binding(
-            get: { model.settings.queues.queues },
-            set: { model.settings.queues.queues = $0 }
-        )
-    }
-
     var body: some View {
-        SettingsSection("Названия раздач", icon: "users-round") {
-            SettingsOrderedList(
-                items: queues,
-                emptyNote: "Пусто — раздачи подписываются общим заголовком.",
-                addTitle: "Добавить очередь",
-                makeElement: { .init() }
-            ) { queue in
-                QueueRow(queue: queue)
-            }
-        }
-
-        if !candidates.isEmpty {
-            SettingsSection("Приходили, но не названы", icon: "bell") {
-                SettingsIndented {
-                    SettingsColumns(candidates) { sighting in
-                        SightingRow(sighting: sighting, onAdopt: adopt)
-                    }
+        SettingsSection("Подписи раздач", icon: "users-round") {
+            if model.settings.queues.queues.isEmpty {
+                SettingsNote("Правил нет — раздача подписывается своим именем из вызова.")
+            } else {
+                SettingsColumns(model.settings.queues.queues, columns: 1) { queue in
+                    QueueRow(queue: queue)
                 }
             }
+            SettingsHint("Правила заводятся в Spark, во вкладке «Очереди», и приезжают с предустановками.")
         }
 
-    }
-
-    /// Заводит строку с уже правильным номером. Название вписывает человек:
-    /// придумать его за него нельзя, а пустая строка в словаре ничего не ломает
-    /// — `isUsable` не пускает её в подстановку.
-    private func adopt(_ sighting: NumberSighting) {
-        model.settings.queues.queues.append(.init(number: sighting.number, title: ""))
-        candidates = model.unnamedIncomingNumbers()
+        SettingsSection("Как называется входящий", icon: "bell") {
+            RuleTable()
+        }
     }
 }
 
 private struct QueueRow: View {
 
-    @Binding var queue: AppSettings.QueueDirectory.Queue
+    let queue: AppSettings.QueueDirectory.Queue
 
     var body: some View {
         HStack(spacing: Theme.Metrics.elementSpacing) {
-            TextField("Номер", text: $queue.number)
-                .labelsHidden()
-                .font(.system(.body, design: .monospaced))
-                .frame(width: 90)
-
-            TextField("Название раздачи", text: $queue.title)
-                .labelsHidden()
-        }
-    }
-}
-
-/// Номер, приходивший на эту машину и не названный в словаре.
-///
-/// Список только предлагает: номера очередей знает Asterisk заказчика, а боевой
-/// сервер у нас на чтение, и вбитая с голоса ошибка в цифре не проявляется
-/// ничем. Само в словарь не попадает ничего — иначе он зарос бы номерами,
-/// пришедшими не из раздачи.
-private struct SightingRow: View {
-
-    let sighting: NumberSighting
-    let onAdopt: (NumberSighting) -> Void
-
-    var body: some View {
-        HStack(spacing: Theme.Metrics.elementSpacing) {
-            Text(verbatim: sighting.number)
+            Text(verbatim: queue.match)
                 .font(.system(.footnote, design: .monospaced))
+                .compatForeground(Theme.Palette.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 0)
-
-            Button("Добавить") { onAdopt(sighting) }
-                .buttonStyle(.borderless)
+            Text(verbatim: queue.title)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -125,22 +65,17 @@ private struct RuleTable: View {
     }
 
     /// Порядок здесь тот же, что в `IncomingCallSubject.init`, и это не
-    /// совпадение: расходиться им нельзя. Свой добавочный проверяется первым —
-    /// иначе администратор, вписавший его в словарь, получил бы «раздачу»
-    /// вместо звонка по сделке.
+    /// совпадение: расходиться им нельзя.
     private let rules: [Rule] = [
         .init(condition: "Номер совпал с вашим добавочным",
               headline: "Вызов по сделке",
               detail: "номер не показывается"),
-        .init(condition: "Номер есть в словаре выше",
-              headline: "Название из словаря",
+        .init(condition: "В вызове есть «X-Autoanswer: TRUE» или имя с внешним номером",
+              headline: "Подпись по правилу выше или имя из вызова",
               detail: "и номер под ним"),
-        .init(condition: "В вызове есть «X-Autoanswer: TRUE»",
-              headline: "🔥Горячая раздача🔥",
-              detail: "и добавочный отдавшего лид"),
-        .init(condition: "Есть имя и номер длиннее шести цифр",
-              headline: "🔥Горячая раздача🔥",
-              detail: "мобильный под маской"),
+        .init(condition: "Раздача пришла без имени",
+              headline: "Входящий из колл-центра",
+              detail: "и номер под ним"),
         .init(condition: "Ничего из перечисленного",
               headline: "Имя звонящего",
               detail: "под ним номер"),
@@ -178,8 +113,7 @@ private struct RuleTable: View {
                     }
                 }
 
-                // Единственное, что таблицей не сказать: маска. Одна строка
-                // вместо прежнего раздела на два абзаца.
+                // Единственное, что таблицей не сказать: маска.
                 Text("Российский мобильный входящего показывается под маской «+7**********» — в окне, в шапке разговора и в истории. Исходящие маской не закрываются.")
                     .font(.footnote)
                     .compatForeground(Theme.Palette.textTertiary)

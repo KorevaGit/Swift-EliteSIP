@@ -105,3 +105,36 @@ struct PresetBundleTests {
         }
     }
 }
+
+@Suite("Подписи раздач в файле предустановок")
+struct PresetBundleQueuesTests {
+
+    private func bundle(_ queues: String?) throws -> PresetBundle {
+        let tail = queues.map { ",\"queues\":\($0)" } ?? ""
+        let json = "{\"format\":1,\"generated_at\":\"2026-11-20T10:00:00Z\",\"presets\":[]\(tail)}"
+        return try PresetBundle.decode(Data(json.utf8))
+    }
+
+    @Test("блок разбирается, пустые строки пропускаются")
+    func parsesTitles() throws {
+        let queues = try #require(try bundle("""
+            {"revision":5,"titles":[{"match":"GORACHAYA","title":"Горячая раздача"},\
+            {"match":" ","title":"пусто"},{"match":"line3","title":""},{"title":"без искомого"}]}
+            """).queues)
+        #expect(queues.revision == 5)
+        #expect(queues.titles == [.init(match: "GORACHAYA", title: "Горячая раздача")])
+    }
+
+    @Test("без блока или без ревизии — блока нет, предустановки целы")
+    func missingOrBrokenBlock() throws {
+        #expect(try bundle(nil).queues == nil)
+        #expect(try bundle("{\"titles\":[]}").queues == nil)
+        #expect(try bundle("{\"revision\":true}").queues == nil)
+        #expect(try bundle("[1,2]").queues == nil)
+    }
+
+    @Test("пустой список правил — блок с ревизией")
+    func emptyTitles() throws {
+        #expect(try bundle("{\"revision\":2,\"titles\":[]}").queues == .init(revision: 2, titles: []))
+    }
+}

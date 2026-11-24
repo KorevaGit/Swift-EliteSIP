@@ -32,6 +32,9 @@ final class ClientEventLog {
         var duration_s: Int?
         var peer_number: String?
         var peer_name: String?
+        /// Входящий-раздача. Только `true` или нет поля: по нему Spark собирает
+        /// пойманные имена раздач для вкладки «Очереди».
+        var distribution: Bool?
     }
 
     /// Сколько событий держим, пока сервер недоступен. Старые вытесняются.
@@ -72,7 +75,7 @@ final class ClientEventLog {
     private var log: ((SIPLogLevel, String) -> Void)?
     private var sending = false
     private var lastErrors: [String: Date] = [:]
-    private var calls: [String: (direction: String, number: String?, name: String?, answeredAt: Date?)] = [:]
+    private var calls: [String: (direction: String, number: String?, name: String?, answeredAt: Date?, distribution: Bool)] = [:]
     private var wasRegistered = false
     /// Почему приложение само снимает регистрацию: обновление или выход.
     /// Без подписи такое снятие выглядело в Spark как сбой.
@@ -132,8 +135,10 @@ final class ClientEventLog {
         }
     }
 
-    func callStarted(lineID: String, incoming: Bool, number: String? = nil, name: String? = nil) {
-        calls[lineID] = (incoming ? "in" : "out", Self.cleanPeer(number, limit: 128), Self.cleanPeer(name, limit: 256), nil)
+    func callStarted(lineID: String, incoming: Bool, number: String? = nil, name: String? = nil,
+                     distribution: Bool = false) {
+        calls[lineID] = (incoming ? "in" : "out", Self.cleanPeer(number, limit: 128), Self.cleanPeer(name, limit: 256),
+                         nil, incoming && distribution)
     }
 
     private static func cleanPeer(_ value: String?, limit: Int) -> String? {
@@ -154,10 +159,11 @@ final class ClientEventLog {
         if let answered = call.answeredAt {
             record(.call, .info, "\(title) завершён", direction: call.direction,
                    duration: max(0, Int(now().timeIntervalSince(answered))),
-                   peerNumber: call.number, peerName: call.name)
+                   peerNumber: call.number, peerName: call.name, distribution: call.distribution)
         } else {
             record(.call, failed ? .warning : .info, "\(title) без ответа: \(reason)",
-                   direction: call.direction, peerNumber: call.number, peerName: call.name)
+                   direction: call.direction, peerNumber: call.number, peerName: call.name,
+                   distribution: call.distribution)
         }
     }
 
@@ -241,14 +247,14 @@ final class ClientEventLog {
 
     func record(_ kind: Kind, _ level: Level, _ message: String,
                 sipCode: Int? = nil, direction: String? = nil, duration: Int? = nil,
-                peerNumber: String? = nil, peerName: String? = nil) {
+                peerNumber: String? = nil, peerName: String? = nil, distribution: Bool = false) {
         guard !isForgotten else { return }
         let text = String(LogRedaction.redact(message).prefix(500))
         pending.append(Event(
             ts: ISO8601DateFormatter().string(from: now()), kind: kind, level: level,
             message: text, line: settings?().profiles.active.title,
             sip_code: sipCode, direction: direction, duration_s: duration,
-            peer_number: peerNumber, peer_name: peerName))
+            peer_number: peerNumber, peer_name: peerName, distribution: distribution ? true : nil))
         if pending.count > Self.capacity {
             pending.removeFirst(pending.count - Self.capacity)
         }
