@@ -507,9 +507,12 @@ struct IncomingCallView: View {
         }
         // Своя рамка у имени и номера — как внутренняя карточка Windows:
         // под ней обои, а текст читается на графите.
+        // Поля 12 по бокам и 16 сверху и снизу, не ниже 116 — как
+        // `IdentityCard` Windows и Linux (`Padding="12,16" MinHeight="116"`).
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Theme.Metrics.sectionSpacing)
-        .padding(.horizontal, Theme.Metrics.contentPadding)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 116)
         .graphiteSurface(.call, shadow: true)
         // Рамка непрозрачна при любой прозрачности обоев: имя не должно
         // спорить с картинкой.
