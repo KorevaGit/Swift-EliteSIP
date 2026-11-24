@@ -681,48 +681,6 @@ public final class CallHistoryStore: @unchecked Sendable {
         }
     }
 
-    /// Номера, с которых на эту машину приходили вызовы, — под подсказки
-    /// словаря очередей.
-    ///
-    /// Второе и последнее место, смотрящее поверх границы профилей, и по той же
-    /// причине: словарь очередей общий для машины, а не для того, кто сейчас
-    /// за ней сидит. Записи не показываются — только номер, дата последнего
-    /// вызова и сколько их было.
-    ///
-    /// **`maximumDigits` — не украшение, а граница между очередью и лидом.**
-    /// Номер очереди на FreePBX короткий, номер лида — полный телефонный.
-    /// Без отсечки подсказка превратилась бы в список номеров клиентов,
-    /// вывешенный в окне настроек, — ровно те персональные данные, которые
-    /// этап 4 не выпускал даже в архив для поддержки. Вписать длинный номер
-    /// руками по-прежнему можно: отсечка ограничивает подсказку, а не словарь.
-    public func incomingNumbers(maximumDigits: Int, limit: Int = 20) -> [NumberSighting] {
-        queue.sync { () -> [NumberSighting] in
-            guard let database else { return [] }
-            let rows = try? database.query(
-                """
-                SELECT number, max(started_at), count(*) FROM calls
-                WHERE direction = 0 AND number <> ''
-                GROUP BY number ORDER BY max(started_at) DESC LIMIT ?;
-                """,
-                [.integer(Int64(max(1, limit) * 4))],
-                read: { row in
-                    NumberSighting(
-                        number: row.text(0) ?? "",
-                        lastCall: row.date(1) ?? Date.distantPast,
-                        count: Int(row.integer(2))
-                    )
-                }
-            )
-            // Отсечка по длине — уже здесь, а не в SQL: SQLite умеет считать
-            // цифры только выражением на весь столбец, и оно не пользуется
-            // индексом. Выборка и без того ограничена лимитом.
-            return (rows ?? [])
-                .filter { $0.digitCount <= maximumDigits }
-                .prefix(max(1, limit))
-                .map { $0 }
-        }
-    }
-
     public func count(matching filter: Filter = .all, scope: Scope) -> Int {
         queue.sync {
             guard let database else { return 0 }

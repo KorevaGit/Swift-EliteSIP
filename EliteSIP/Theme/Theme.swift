@@ -178,10 +178,9 @@ enum Theme {
         /// оставшееся место и не меняла ширину от длины подписи.
         static let historyWidth: CGFloat = 76
 
-        /// Ряд управления: удержание, микрофон, перевод. Ниже клавиш макросов и
-        /// с подписью в строку, а не столбиком, — так ряд читается как другой
-        /// класс элементов, а не как первый ряд сетки.
-        static let controlHeight: CGFloat = 32
+        /// Ниже этого клавиша макроса не ужимается, даже когда окно не
+        /// помещается на экран: в неё целятся мышью.
+        static let minimumMacroKeyHeight: CGFloat = 36
 
         /// Фрейм громкости на панели — высотой с поле номера, как в Windows и Linux.
         static let volumeFrameHeight: CGFloat = 72
@@ -798,8 +797,6 @@ enum Theme {
         static let callerName = Font.system(size: 17, weight: .medium)
         /// Номер собеседника под именем — мелко и вторым планом.
         static let callerNumber = Font.system(size: 11, design: .rounded)
-        /// Длительность разговора.
-        static let callTimer = Font.system(size: 11, weight: .medium, design: .rounded)
         /// Время разговора справа внизу шапки — крупно и жирно, как в Windows и Linux.
         static let callTimerLarge = Font.system(size: 19, weight: .bold, design: .rounded)
         /// Название окна в полосе заголовка.

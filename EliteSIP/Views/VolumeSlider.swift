@@ -76,6 +76,8 @@ struct VolumeSlider: View {
         .frame(height: 20)
         .opacity(isEnabled ? 1 : Theme.Metrics.disabledOpacity)
         .compatAccessibilityLabel(verbatim: "\(Int((shown * 100).rounded())) %")
+        // VoiceOver двигает его, как системный ползунок: вверх-вниз по 5 %.
+        .compatAdjustable(isEnabled: isEnabled) { set(shown + Double($0) * Self.step) }
     }
 
     private func fraction(_ value: Double) -> Double {
@@ -102,7 +104,29 @@ struct VolumeSlider: View {
     }
 }
 
-/// Мышь ползунка: перетаскивание, двойной щелчок и колесо.
+private extension View {
+    @ViewBuilder
+    func compatAdjustable(isEnabled: Bool, step: @escaping (Int) -> Void) -> some View {
+        if #available(macOS 11.0, *) {
+            accessibilityElement(children: .ignore)
+                .accessibilityAdjustableAction { direction in
+                    guard isEnabled else { return }
+                    switch direction {
+                    case .increment: step(1)
+                    case .decrement: step(-1)
+                    @unknown default: break
+                    }
+                }
+        } else {
+            self
+        }
+    }
+}
+
+/// Мышь и клавиатура ползунка: перетаскивание, двойной щелчок, колесо и
+/// стрелки. Фокус клавиатуры — только по Tab при полном доступе с клавиатуры
+/// (`canBecomeKeyView`): щелчок мышью фокус не забирает, иначе панель поверх
+/// CRM крала бы ввод у поля номера.
 private struct VolumeSliderInput: NSViewRepresentable {
 
     let isEnabled: Bool
@@ -139,6 +163,20 @@ private struct VolumeSliderInput: NSViewRepresentable {
         // Панель таскается за фон, и без этого перетаскивание бегунка
         // двигало бы окно.
         override var mouseDownCanMoveWindow: Bool { false }
+
+        override var acceptsFirstResponder: Bool { isEnabled }
+        override var canBecomeKeyView: Bool { isEnabled && NSApp.isFullKeyboardAccessEnabled }
+        override var focusRingMaskBounds: NSRect { bounds }
+        override func drawFocusRingMask() { NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill() }
+
+        override func keyDown(with event: NSEvent) {
+            guard isEnabled else { return super.keyDown(with: event) }
+            switch event.keyCode {
+            case 123, 125: onStep(-1)      // ← ↓
+            case 124, 126: onStep(1)       // → ↑
+            default: super.keyDown(with: event)
+            }
+        }
 
         override func mouseDown(with event: NSEvent) {
             guard isEnabled else { return }

@@ -222,8 +222,20 @@ struct PhonePanelView: View {
     }
 
     /// Высота клавиши макроса без прибавки от растянутого окна.
+    ///
+    /// Не выше той, при которой окно помещается на экран: фреймы громкости
+    /// добавили панели высоты, и на 13-дюймовом экране с пятью-шестью рядами
+    /// клавиш низ уходил за край. Ужимаются клавиши, а не громкость и не
+    /// «Завершить», — как в Windows и Linux (`FitMacroHeight`). Ниже
+    /// `minimumMacroKeyHeight` не ужимаются: в клавишу целятся мышью.
     private var macroKeyHeight: CGFloat {
-        MacroGrid.keyHeight(settings: model.settings.dtmf, tallestLabel: tallestMacroLabel)
+        let natural = MacroGrid.keyHeight(settings: model.settings.dtmf, tallestLabel: tallestMacroLabel)
+        guard macroRowCount > 0, let screen = NSScreen.main?.visibleFrame.height else { return natural }
+        let rows = CGFloat(macroRowCount)
+        let others = (measuredTopHeight ?? fallbackTopHeight) + lowerHeight(keyHeight: 0)
+            + Theme.Metrics.contentPadding
+        let fitting = ((screen - others) / rows).rounded(.down)
+        return max(min(natural, fitting), Theme.Metrics.minimumMacroKeyHeight)
     }
 
     /// Высота нижней части без прибавок: громкость, ряд клавиш, сетка
@@ -231,10 +243,12 @@ struct PhonePanelView: View {
     ///
     /// Всё здесь — высоты, которые панель задаёт сама, снаружи кнопок, поэтому
     /// сумма точна. Именно поэтому нижнюю часть и можно считать, а не мерить.
-    private var lowerHeight: CGFloat {
+    private var lowerHeight: CGFloat { lowerHeight(keyHeight: macroKeyHeight) }
+
+    private func lowerHeight(keyHeight: CGFloat) -> CGFloat {
         let macros: CGFloat = macroRowCount > 0
             ? Theme.Gap.controlsToMacros
-                + CGFloat(macroRowCount) * macroKeyHeight
+                + CGFloat(macroRowCount) * keyHeight
                 + CGFloat(macroRowCount - 1) * Theme.Metrics.elementSpacing
             : 0
         return CallControls.height(showsVolume: model.settings.showsPanelVolume)

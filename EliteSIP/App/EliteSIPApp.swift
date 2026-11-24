@@ -844,13 +844,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    @objc private func showPhoneWindow(_ sender: Any?) {
+    @objc func showPhoneWindow(_ sender: Any?) {
         // Форма приложения пересчитывается на выходе, на всех путях сразу:
         // у методов показа есть ранние возвраты, и вызов в конце тела
         // пропустил бы как раз тот случай, когда окно уже заведено.
         defer { updateActivationPolicy() }
 
         if let phoneWindow {
+            if phoneWindow.isMiniaturized { phoneWindow.deminiaturize(nil) }
             phoneWindow.makeKeyAndOrderFront(nil)
             return
         }
