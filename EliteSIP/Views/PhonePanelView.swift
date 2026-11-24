@@ -786,8 +786,11 @@ struct CallHeader: View {
                     Spacer(minLength: 0)
 
                     if let duration {
+                        // Ниже, но шире: разрядка вместо кегля — `width` у шрифта
+                        // только с macOS 13, `kerning` есть с 10.15.
                         Text(duration)
                             .font(Theme.Text.callTimerLarge)
+                            .kerning(1.5)
                             .compatMonospacedDigit()
                     }
                 }

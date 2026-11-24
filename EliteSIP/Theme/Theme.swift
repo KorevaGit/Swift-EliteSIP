@@ -188,7 +188,7 @@ enum Theme {
         /// Клавиши-значки «Удержать», «Конференция», «Перевести» — всегда одной высоты.
         static let callKeyHeight: CGFloat = 40
         /// Нижняя строка шапки разговора — под крупное время, и до его появления.
-        static let callTimerRowHeight: CGFloat = 26
+        static let callTimerRowHeight: CGFloat = 22
         /// Шаг между блоками нижней части панели.
         static let panelGap: CGFloat = 8
 
@@ -801,7 +801,7 @@ enum Theme {
         /// Длительность разговора.
         static let callTimer = Font.system(size: 11, weight: .medium, design: .rounded)
         /// Время разговора справа внизу шапки — крупно и жирно, как в Windows и Linux.
-        static let callTimerLarge = Font.system(size: 22, weight: .bold, design: .rounded)
+        static let callTimerLarge = Font.system(size: 19, weight: .bold, design: .rounded)
         /// Название окна в полосе заголовка.
         ///
         /// Системная величина заголовка окна: полосу рисует окно, а надпись —
