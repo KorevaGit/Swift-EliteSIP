@@ -374,12 +374,21 @@ struct IncomingCallView: View {
             actions
                 .opacity(panel.takenNotice == nil ? 1 : 0)
                 .allowsHitTesting(panel.takenNotice == nil)
-                .compatOverlay {
+                .compatOverlay(alignment: .bottom) {
                     if let notice = panel.takenNotice {
+                        // На графитовой плашке высотой с кнопки, золотистым,
+                        // как статусы звонка: на обоях текст не читался.
                         Text(verbatim: notice)
                             .font(Theme.Text.controlLabel)
-                            .compatForeground(Theme.Palette.textSecondary)
+                            .compatForeground(Theme.Palette.connecting)
                             .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.85)
+                            .padding(.horizontal, Theme.Metrics.contentPadding)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: Theme.Metrics.incomingCallButtonHeight)
+                            .graphiteSurface(.control)
+                            .environment(\.graphiteSurfaceOpacity, 1)
                     }
                 }
                 .padding(.top, Theme.Gap.incomingCallerToActions)
@@ -419,7 +428,10 @@ struct IncomingCallView: View {
     /// Подпись шапки. «Номер скопирован» — на месте подписи, а не новой
     /// строкой, по той же причине, что и отказ.
     private var caption: String {
-        isNumberCopied
+        if panel.takenNotice != nil {
+            return NSLocalizedString("Вызов снят", comment: "подпись в окне входящего: вызов снят до ответа")
+        }
+        return isNumberCopied
             ? NSLocalizedString("Номер скопирован", comment: "подпись в окне входящего после копирования номера")
             : NSLocalizedString("Входящий вызов", comment: "подпись в окне входящего")
     }
@@ -477,7 +489,7 @@ struct IncomingCallView: View {
         CallOutcomeBadge(
             isIncoming: true,
             isCompleted: true,
-            color: Theme.Palette.outcomeAnswered,
+            color: panel.takenNotice == nil ? Theme.Palette.outcomeAnswered : Color.gray,
             size: Theme.Icon.large
         )
     }
@@ -510,7 +522,19 @@ struct IncomingCallView: View {
                     .compatForeground(.secondary)
                     .lineLimit(1)
             }
+
+            // Звонок по сделке: подсказка второй строкой в самой карточке,
+            // золотистым — на обоях серая строка над кнопками не читалась.
+            if subject == .selfCall {
+                Text("Примите — и начнётся звонок клиенту")
+                    .font(Theme.Text.incomingLine)
+                    .compatForeground(Theme.Palette.connecting)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, Theme.Metrics.tightSpacing)
+            }
         }
+        // Снятый вызов гаснет: принять его уже нельзя.
+        .opacity(panel.takenNotice == nil ? 1 : 0.55)
         // Своя рамка у имени и номера — как внутренняя карточка Windows:
         // под ней обои, а текст читается на графите.
         // Поля 12 по бокам и 16 сверху и снизу, не ниже 116 — как
@@ -541,10 +565,6 @@ struct IncomingCallView: View {
     @ViewBuilder
     private var actions: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.sectionSpacing) {
-            if subject == .selfCall {
-                dealPrompt
-            }
-
             if challenge.hasChoice {
                 prompt
                 digitTargets
@@ -553,25 +573,6 @@ struct IncomingCallView: View {
                 plainActions
             }
         }
-    }
-
-    /// Подсказка на звонке по сделке.
-    ///
-    /// Показывается только в этом случае и ровно поэтому работает: строка,
-    /// которая стоит над кнопками всегда, к третьей сотне вызовов за смену не
-    /// читается вовсе — а вместе с ней перестаёт читаться и та, ради которой
-    /// всё заведено. Разница между случаями видна с первого раза именно потому,
-    /// что на обычном вызове здесь нет ничего.
-    ///
-    /// Текст один на оба режима окна и намеренно не называет кнопку: в режиме
-    /// подтверждения цифрой кнопки «Ответить» на экране нет вовсе, и подсказка,
-    /// отсылающая к ней, врала бы. Строку про цифру она при этом не заменяет —
-    /// та несёт саму цифру, без которой оператор не знает, куда нажимать.
-    private var dealPrompt: some View {
-        Text("Вы звоните по сделке — примите звонок для начала вызова клиенту.")
-            .font(Theme.Text.incomingLine)
-            .compatForeground(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
     }
 
     /// Подсказка набрана одним кеглем целиком.

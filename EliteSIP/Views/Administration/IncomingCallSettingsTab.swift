@@ -300,7 +300,7 @@ struct IncomingCallSettingsTab: View {
                         guard incomingCall.isVisible else { return }
                         model.stopRingtonePreview()
                         incomingCall.showTaken(NSLocalizedString(
-                            "Вызов отменён или принят другим менеджером",
+                            "Отменён или принят другим менеджером",
                             comment: "окно входящего: вызов снят до ответа"))
                     }
                 } label: {

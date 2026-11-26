@@ -2434,7 +2434,7 @@ final class AppModel: ObservableObject {
             // Свой отказ окно уже закрыло, и пометки нет.
             if let removed, removed.phase == .incoming, removed.subject?.isDistribution == true {
                 incomingCallPanel.showTaken(
-                    NSLocalizedString("Вызов отменён или принят другим менеджером", comment: "окно входящего: вызов снят до ответа"))
+                    NSLocalizedString("Отменён или принят другим менеджером", comment: "окно входящего: вызов снят до ответа"))
             } else {
                 incomingCallPanel.hide()
             }

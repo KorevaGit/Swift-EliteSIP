@@ -1787,22 +1787,6 @@
         }
       }
     },
-    "Вы звоните по сделке — примите звонок для начала вызова клиенту.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You are calling from a deal — accept the call to start dialling the client."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вы звоните по сделке — примите звонок для начала вызова клиенту."
-          }
-        }
-      }
-    },
     "Выбранное устройство": {
       "comment": "имя пропавшего звукового устройства неизвестно",
       "localizations": {
@@ -14156,22 +14140,6 @@
         }
       }
     },
-    "Вызов отменён или принят другим менеджером": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Call cancelled or taken by another manager"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вызов отменён или принят другим менеджером"
-          }
-        }
-      }
-    },
     "отменён или принят другим": {
       "localizations": {
         "en": {
@@ -14200,6 +14168,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показать снятую раздачу"
+          }
+        }
+      }
+    },
+    "Вызов снят": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call withdrawn"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вызов снят"
+          }
+        }
+      }
+    },
+    "Примите — и начнётся звонок клиенту": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answer to start the call to the client"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Примите — и начнётся звонок клиенту"
+          }
+        }
+      }
+    },
+    "Отменён или принят другим менеджером": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelled or taken by another manager"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменён или принят другим менеджером"
           }
         }
       }
