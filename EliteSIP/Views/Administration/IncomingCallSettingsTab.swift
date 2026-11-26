@@ -278,6 +278,34 @@ struct IncomingCallSettingsTab: View {
                     CompatLabel(title: "Показать вызов по сделке", symbol: "phone.arrow.right")
                 }
                 .disabled(model.settings.account.username.isEmpty)
+
+                // Третий показ: раздача, которую станция сняла до ответа. На
+                // живом вызове окно живёт около секунды, и увидеть пометку
+                // иначе как здесь почти нельзя.
+                Button {
+                    incomingCall.show(
+                        subject: IncomingCallSubject(
+                            callerNumber: "712",
+                            callerName: "Call_Center",
+                            requestsAutoAnswer: true,
+                            ownNumber: model.settings.account.username,
+                            queueRules: model.settings.queues.rules
+                        ),
+                        policy: model.settings.incomingCall,
+                        onAnswer: { model.stopRingtonePreview() },
+                        onDecline: { model.stopRingtonePreview() }
+                    )
+                    model.startRingtonePreview()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        guard incomingCall.isVisible else { return }
+                        model.stopRingtonePreview()
+                        incomingCall.showTaken(NSLocalizedString(
+                            "Вызов отменён или принят другим менеджером",
+                            comment: "окно входящего: вызов снят до ответа"))
+                    }
+                } label: {
+                    CompatLabel(title: "Показать снятую раздачу", symbol: "phone.down.fill")
+                }
             }
 
             SettingsHint("Вызов по сделке Битрикса приходит с номера менеджера — номер берётся из профиля.")

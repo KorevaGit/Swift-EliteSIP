@@ -1451,10 +1451,10 @@ private struct CallHistoryRow: View {
         if record.endedAt == nil {
             return NSLocalizedString("идёт", comment: "звонок ещё не кончился")
         }
-        // Раздача без ответа — не «пропущен»: её взял другой участник, и
-        // вины оператора в этой строке нет.
+        // Раздача без ответа — не «пропущен»: её отменили или принял другой
+        // менеджер, и вины оператора в этой строке нет.
         if record.direction == .incoming, record.wasDistribution, record.outcome == .missed {
-            return NSLocalizedString("взял другой", comment: "исход раздачи в истории")
+            return NSLocalizedString("отменён или принят другим", comment: "исход раздачи в истории")
         }
         return record.outcome.title ?? ""
     }

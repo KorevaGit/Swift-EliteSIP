@@ -14156,34 +14156,50 @@
         }
       }
     },
-    "Раздачу взял другой": {
+    "Вызов отменён или принят другим менеджером": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Taken by another agent"
+            "value": "Call cancelled or taken by another manager"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Раздачу взял другой"
+            "value": "Вызов отменён или принят другим менеджером"
           }
         }
       }
     },
-    "взял другой": {
+    "отменён или принят другим": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "taken by another"
+            "value": "cancelled or taken"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "взял другой"
+            "value": "отменён или принят другим"
+          }
+        }
+      }
+    },
+    "Показать снятую раздачу": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show a withdrawn lead call"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать снятую раздачу"
           }
         }
       }
