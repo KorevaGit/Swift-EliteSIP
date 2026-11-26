@@ -639,7 +639,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Второй заход, пока идёт первый: решение уже принято.
         if isTearingDown { return .terminateCancel }
 
-        if model.isInCall {
+        // Выключение, перезагрузка и выход из сеанса не спрашивают: модальный
+        // вопрос держал бы выключение Mac, пока человек не подойдёт. Звонок
+        // завершается, регистрация снимается, и процесс уходит не позже чем
+        // через четыре секунды, даже если штатный выход завис, — как в Linux.
+        let endsSession = Self.quitEndsSession()
+        if endsSession {
+            DispatchQueue.global().asyncAfter(deadline: .now() + 4) { exit(0) }
+        }
+
+        if model.isInCall, !endsSession {
             let dialog = GraphiteDialogWindow(
                 icon: "phone-off",
                 title: NSLocalizedString("Идёт разговор", comment: "вопрос при выходе во время разговора"),
@@ -679,6 +688,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// условие выхода: не ответит он за две секунды, отпустит по сроку сам.
     /// Выход, который может не состояться из-за сети, — это ровно та поломка, от
     /// которой лечит весь этот метод.
+    /// Пришёл ли выход от системы: выключение, перезагрузка или выход из
+    /// сеанса. Причину несёт Apple Event выхода (`kAEQuitReason`).
+    private static func quitEndsSession() -> Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventClass == kCoreEventClass, event.eventID == kAEQuitApplication,
+              let reason = event.attributeDescriptor(forKeyword: kAEQuitReason)?.enumCodeValue
+        else { return false }
+        return [kAEShutDown, kAERestart, kAEReallyLogOut, kAELogOut].map { OSType($0) }.contains(reason)
+    }
+
     @MainActor
     private func tearDownAndExit() async {
         model.append(level: .info, message: "выход: снимаем регистрацию")
@@ -840,7 +859,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             phoneWindow.close()
         } else {
             NSApp.activate(ignoringOtherApps: true)
-            phoneWindow.makeKeyAndOrderFront(nil)
+            phoneWindow.bringBack()
         }
     }
 
@@ -851,8 +870,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         defer { updateActivationPolicy() }
 
         if let phoneWindow {
-            if phoneWindow.isMiniaturized { phoneWindow.deminiaturize(nil) }
-            phoneWindow.makeKeyAndOrderFront(nil)
+            phoneWindow.bringBack()
             return
         }
 
@@ -1464,12 +1482,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Молчать при этом нельзя: непонятно погасшее ⌘, читается как поломка.
         // Поэтому вместо тишины вперёд выходит то окно, которое и мешает.
         if let administrationWindow {
-            administrationWindow.makeKeyAndOrderFront(nil)
+            administrationWindow.bringBack()
             return
         }
 
         if let settingsWindow {
-            settingsWindow.makeKeyAndOrderFront(nil)
+            settingsWindow.bringBack()
             return
         }
 
@@ -1556,7 +1574,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.noteCallHistoryWindowOpened()
 
         if let callHistoryWindow {
-            callHistoryWindow.makeKeyAndOrderFront(nil)
+            callHistoryWindow.bringBack()
             return
         }
 
@@ -1671,7 +1689,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         defer { updateActivationPolicy() }
 
         if let administrationWindow {
-            administrationWindow.makeKeyAndOrderFront(nil)
+            administrationWindow.bringBack()
             return
         }
 
@@ -1735,7 +1753,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         defer { updateActivationPolicy() }
 
         if let sipTraceWindow {
-            sipTraceWindow.makeKeyAndOrderFront(nil)
+            sipTraceWindow.bringBack()
             return
         }
 
@@ -2245,3 +2263,15 @@ final class CornerAnchor: NSObject {
     }
 }
 
+
+extension NSWindow {
+
+    /// Вернуть уже заведённое окно: свёрнутое — развернуть, скрытое —
+    /// показать, и вперёд. Окно и его состояние остаются прежними, как в
+    /// Windows и Linux 1.0.8: кнопка панели и пункт меню значка раньше
+    /// молчали на свёрнутом окне.
+    func bringBack() {
+        if isMiniaturized { deminiaturize(nil) }
+        makeKeyAndOrderFront(nil)
+    }
+}

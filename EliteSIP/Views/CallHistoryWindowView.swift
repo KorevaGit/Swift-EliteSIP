@@ -583,6 +583,12 @@ struct CallOutcomeBadge: View {
         self.label = label
     }
 
+    private static let completedArrow = Color(NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(red: 0x19 / 255.0, green: 0x19 / 255.0, blue: 0x19 / 255.0, alpha: 1)
+            : NSColor(red: 0xf1 / 255.0, green: 0xf1 / 255.0, blue: 0xf1 / 255.0, alpha: 1)
+    })
+
     var body: some View {
         ZStack {
             if isCompleted {
@@ -597,11 +603,12 @@ struct CallOutcomeBadge: View {
                         lineWidth: size / 14, lineCap: .round, lineJoin: .round
                     )
                 )
-                // Внутри залитого кружка стрелка рисуется фоном окна, а не
-                // белым: в тёмной теме белая стрелка на светло-сером кружке
-                // «дозвонился» почти пропадает, а фон окна по определению
-                // контрастен своей теме.
-                .compatForeground(isCompleted ? Color(NSColor.windowBackgroundColor) : color)
+                // Внутри залитого кружка стрелка — сплошным цветом против
+                // темы, а не белым: в тёмной теме белая стрелка на светло-сером
+                // кружке «дозвонился» почти пропадает. И не фоном окна: на
+                // обоях фон полупрозрачен, и картинка просвечивала сквозь
+                // стрелку (Linux 1.0.8, те же #f1f1f1 / #191919).
+                .compatForeground(isCompleted ? Self.completedArrow : color)
                 .frame(width: size / 2, height: size / 2)
         }
         .frame(width: size, height: size)

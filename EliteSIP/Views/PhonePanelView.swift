@@ -1052,6 +1052,16 @@ struct CallControls: View {
             keys
         }
         .frame(height: Self.height(showsVolume: showsVolume, volumeExtra: volumeExtra))
+        // Щелчок мимо открытого вопроса или поля перевода закрывает его и
+        // срабатывает дальше — «Завершить» с первого нажатия, как в Linux
+        // 1.0.6. Системное всплывающее окно закрывается само, но щелчок, его
+        // закрывший, до кнопки под ним не доходит.
+        .compatBackground {
+            ClickThroughMonitor(isActive: confirming != nil || model.isTransferEntryVisible) {
+                confirming = nil
+                model.cancelTransferEntry()
+            }
+        }
     }
 
     // MARK: Громкость
@@ -1598,6 +1608,47 @@ private extension View {
             wallpaperBackground(background)
         } else {
             themedPanelSurface(cornerRadius: 0)
+        }
+    }
+}
+
+/// Щелчок в окне панели при открытом всплывающем окне: закрыть его заранее,
+/// чтобы сам щелчок дошёл до того, во что целились.
+///
+/// Монитор событий, а не жест: щелчок обязан пройти дальше нетронутым.
+/// Щелчки внутри самого всплывающего окна (у него своё окно) не трогаются.
+private struct ClickThroughMonitor: NSViewRepresentable {
+
+    let isActive: Bool
+    let onOutsideClick: () -> Void
+
+    func makeNSView(context: Context) -> MonitorView { MonitorView() }
+
+    func updateNSView(_ view: MonitorView, context: Context) {
+        view.onOutsideClick = onOutsideClick
+        view.setActive(isActive)
+    }
+
+    static func dismantleNSView(_ view: MonitorView, coordinator: ()) {
+        view.setActive(false)
+    }
+
+    final class MonitorView: NSView {
+        var onOutsideClick: () -> Void = {}
+        private var monitor: Any?
+
+        func setActive(_ active: Bool) {
+            if active, monitor == nil {
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                    if let self, let window = self.window, event.window === window {
+                        self.onOutsideClick()
+                    }
+                    return event
+                }
+            } else if !active, let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
         }
     }
 }

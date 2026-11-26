@@ -110,8 +110,10 @@ extension AppSettings {
         var pendingWorkFormat: String = ""
 
         /// Привязка, для которой Spark уже принял заявку на восстановление
-        /// (`MachineRecovery`): повторно она не шлётся.
+        /// (`MachineRecovery`), и когда. Квитанция живёт сутки — см.
+        /// `MachineRecovery.receiptLifetime`.
         var recoverySubmittedInstallationID: String = ""
+        var recoverySubmittedAt: Date?
 
         /// Последний запрос архива для техподдержки, на который машина уже
         /// ответила, — чтобы не слать тот же архив каждый такт.
@@ -184,6 +186,7 @@ extension AppSettings {
             pendingWorkFormat = try c.decodeIfPresent(String.self, forKey: .pendingWorkFormat) ?? ""
             recoverySubmittedInstallationID =
                 try c.decodeIfPresent(String.self, forKey: .recoverySubmittedInstallationID) ?? ""
+            recoverySubmittedAt = try c.decodeIfPresent(Date.self, forKey: .recoverySubmittedAt)
             sentSupportRequest = try c.decodeIfPresent(String.self, forKey: .sentSupportRequest) ?? ""
         }
     }

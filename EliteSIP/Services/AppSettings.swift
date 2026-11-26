@@ -1178,24 +1178,102 @@ enum SettingsStore {
     /// `load()`: тот на отсутствующем файле возвращает умолчания, и отличить
     /// «первый запуск» от «файл испорчен» после него уже нельзя.
     static var fileExists: Bool {
-        FileManager.default.fileExists(atPath: fileURL.path)
+        FileManager.default.fileExists(atPath: fileURL.path) || recoverableBackup() != nil
+    }
+
+    /// Резервная копия последнего настроенного профиля — как в Windows и
+    /// Linux 1.0.8. Пишется рядом с основным файлом при каждом сохранении
+    /// настроенной машины; основной файл пропал, испорчен или остался с
+    /// незавершённой настройкой — привязка возвращается из копии.
+    static var backupURL: URL {
+        fileURL.deletingLastPathComponent().appendingPathComponent("settings.backup.json")
+    }
+
+    /// Признак начатого сброса. Пока он лежит, копия не восстанавливается, а
+    /// при запуске сброс доводится до конца: иначе прерванный сброс воскресил
+    /// бы из копии ту самую привязку, которую стирали.
+    static var resetMarkerURL: URL {
+        fileURL.deletingLastPathComponent().appendingPathComponent("settings.reset-pending")
+    }
+
+    /// Что сделал последний `load()` — для журнала: сам он пишет раньше,
+    /// чем журнал открыт.
+    nonisolated(unsafe) static var loadNote: String?
+
+    /// Настроена ли машина настолько, что её стоит хранить в копии.
+    static func isConfigured(_ settings: AppSettings) -> Bool {
+        settings.firstRun == .passed
+            && (settings.panel.hasChannelKey || !settings.profiles.active.account.username.isEmpty)
+    }
+
+    private static func recoverableBackup() -> (Data, AppSettings)? {
+        guard !FileManager.default.fileExists(atPath: resetMarkerURL.path),
+              let data = try? Data(contentsOf: backupURL),
+              let settings = try? JSONDecoder().decode(AppSettings.self, from: data),
+              isConfigured(settings)
+        else { return nil }
+        return (data, settings)
+    }
+
+    /// Довести прерванный сброс: копия и основной файл уходят вместе с признаком.
+    private static func finishInterruptedReset() {
+        guard FileManager.default.fileExists(atPath: resetMarkerURL.path) else { return }
+        try? FileManager.default.removeItem(at: backupURL)
+        try? FileManager.default.removeItem(at: fileURL)
+        try? FileManager.default.removeItem(at: resetMarkerURL)
+        loadNote = "настройки: прерванный сброс доведён до конца"
+    }
+
+    /// Вернуть привязку из копии; негодный основной файл остаётся рядом для разбора.
+    private static func restore(reason: String, broken: Data?) -> AppSettings? {
+        guard let (data, settings) = recoverableBackup() else { return nil }
+        if let broken { preserveUnreadable(broken) }
+        try? data.write(to: fileURL, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+        loadNote = "настройки: \(reason) — привязка восстановлена из резервной копии"
+        return settings
+    }
+
+    /// Начать сброс: признак до удаления файлов, копия — первой.
+    static func beginReset() {
+        FileManager.default.createFile(atPath: resetMarkerURL.path, contents: Data())
+        try? FileManager.default.removeItem(at: backupURL)
+    }
+
+    /// Сброс закончен: признак больше не нужен.
+    static func finishReset() {
+        try? FileManager.default.removeItem(at: resetMarkerURL)
     }
 
     static func load() -> AppSettings {
+        loadNote = nil
+        finishInterruptedReset()
         let data: Data
         do {
             data = try Data(contentsOf: fileURL)
         } catch {
-            // Отсутствие файла — норма при первом запуске.
-            return .default
+            // Отсутствие файла — норма при первом запуске. Но если рядом
+            // настроенная копия, файл потерян, а не не заводился.
+            return restore(reason: "основного файла нет", broken: nil) ?? .default
         }
         do {
-            return try JSONDecoder().decode(AppSettings.self, from: data)
+            let settings = try JSONDecoder().decode(AppSettings.self, from: data)
+            // Незавершённая настройка поверх настроенной копии — след
+            // оборванной записи или сбоя, а не нового рабочего места.
+            if !isConfigured(settings),
+               let restored = restore(reason: "основной файл с незавершённой настройкой", broken: data) {
+                return restored
+            }
+            return settings
         } catch {
+            if let restored = restore(reason: "основной файл не читается", broken: data) {
+                return restored
+            }
             // Испорченный файл тоже не повод падать: пользователь увидит пустые
             // настройки. Но прежде — копия рядом: умолчания уйдут на диск
             // первой же записью и затрут единственный след того, что было.
             preserveUnreadable(data)
+            loadNote = "настройки: основной файл не читается, резервной копии нет — умолчания"
             return .default
         }
     }
@@ -1242,6 +1320,15 @@ enum SettingsStore {
         try? FileManager.default.setAttributes(
             [.posixPermissions: 0o600], ofItemAtPath: url.path
         )
+
+        // Копия — только настроенной машины и не во время сброса: иначе
+        // умолчания, записанные сразу после сброса, затёрли бы её, а
+        // прерванный сброс — воскресил.
+        guard isConfigured(settings),
+              !FileManager.default.fileExists(atPath: resetMarkerURL.path) else { return }
+        let backup = backupURL
+        try? encoder.encode(settings).write(to: backup, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: backup.path)
     }
 }
 

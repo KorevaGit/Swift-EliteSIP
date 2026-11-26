@@ -372,7 +372,16 @@ private struct BackgroundSection: View {
         do {
             try Wallpaper.importImage(from: url)
             failure = nil
-            model.settings.background.isEnabled = true
+            var settings = model.settings
+            let firstImport = !settings.background.hasImportedWallpaper && !settings.background.isEnabled
+            settings.background.isEnabled = true
+            settings.background.hasImportedWallpaper = true
+            if firstImport {
+                // Первая загрузка — сразу в цвет обоев: ради этого их и ставят.
+                settings.background.tintsInterface = true
+                settings.appearance = .dark
+            }
+            model.settings = settings
             // Новая картинка — пересчёт кэша; правка поля заставит панель
             // перерисоваться, даже если обои уже были включены.
             model.settings.background.scale = model.settings.background.scale

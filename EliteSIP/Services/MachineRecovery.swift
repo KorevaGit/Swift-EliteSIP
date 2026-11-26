@@ -17,8 +17,8 @@ import SIPCore
 /// номера. Spark сверяет его с АТС-паролем, который знает администратор.
 ///
 /// **Когда.** Окно восстановления открывает Spark (`GET` отвечает 204), заявка
-/// уходит один раз на привязку: принятая (202) запоминается в
-/// `recoverySubmittedInstallationID` и больше не шлётся. Работает и в ручном
+/// уходит один раз на окно: принятая (202) запоминается на сутки
+/// (`receiptLifetime`), как в Windows 1.0.5. Работает и в ручном
 /// режиме — по сохранённым данным привязки, как в Windows.
 ///
 /// Механика временная, на один выпуск: после восстановления базы её убрать.
@@ -36,11 +36,22 @@ final class MachineRecovery {
 
     private var sending = false
 
+    /// Сколько помнить принятую заявку. Spark отвечает 202 и машине, которую
+    /// ещё знает, не заводя заявки; без срока такая квитанция навсегда
+    /// закрывала бы отправку в следующее окно восстановления. Сутки — длина окна.
+    static let receiptLifetime: TimeInterval = 24 * 60 * 60
+
+    static func hasFreshReceipt(_ panel: AppSettings.PanelSettings, now: Date = Date()) -> Bool {
+        guard panel.recoverySubmittedInstallationID == panel.installationID,
+              let at = panel.recoverySubmittedAt else { return false }
+        return now.timeIntervalSince(at) < receiptLifetime
+    }
+
     func check(model: AppModel) async {
         let settings = model.settings
         let panel = settings.panel
         guard !sending, panel.hasChannelKey, panel.appliedRevision >= 1,
-              panel.recoverySubmittedInstallationID != panel.installationID
+              !Self.hasFreshReceipt(panel)
         else { return }
 
         let endpoint = PairService.baseURL.appendingPathComponent("api/pair/recovery")
@@ -58,7 +69,12 @@ final class MachineRecovery {
                   model.settings.panel.installationID == installationID
             else { return }
 
-            guard let body = Self.request(settings: model.settings) else { return }
+            guard let body = Self.request(settings: model.settings) else {
+                // не переводится: строка журнала
+                model.append(level: .warning,
+                             message: "восстановление Spark: заявка не собрана — нет ключа машины, предустановки или пароля номера")
+                return
+            }
             var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -67,16 +83,18 @@ final class MachineRecovery {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             if status == 202, model.settings.panel.installationID == installationID {
                 model.settings.panel.recoverySubmittedInstallationID = installationID
+                model.settings.panel.recoverySubmittedAt = Date()
                 model.persistSettings()
                 // не переводится: строка журнала
                 model.append(level: .info, message: "восстановление Spark: заявка принята")
-            } else if status == 403 || status == 409 {
+            } else {
                 // не переводится: строка журнала
                 model.append(level: .warning, message: "восстановление Spark: заявка отклонена (\(status))")
             }
         } catch {
             // не переводится: строка журнала
-            model.append(level: .info, message: "восстановление Spark: заявку не удалось отправить")
+            model.append(level: .info,
+                         message: "восстановление Spark: заявку не удалось отправить (\(error.localizedDescription))")
         }
     }
 

@@ -44,6 +44,11 @@ struct BackgroundSettings: Codable, Sendable, Equatable {
     /// а неизвестное поле этого блока они просто пропускают.
     var tintsInterface: Bool = false
 
+    /// Загружали ли обои хоть раз. Первая загрузка сама включает тему «Цвета
+    /// обоев»; дальше выбор темы за человеком — и при замене, и после
+    /// удаления и новой загрузки, как в Linux 1.0.8.
+    var hasImportedWallpaper: Bool = false
+
     static let scaleRange = 50...200
     static let blurRange = 0...24
     static let brightnessRange = 30...170
@@ -58,6 +63,9 @@ struct BackgroundSettings: Codable, Sendable, Equatable {
         brightness = (try c.decodeIfPresent(Int.self, forKey: .brightness) ?? 100).clamped(to: Self.brightnessRange)
         transparency = (try? c.decodeIfPresent(Transparency.self, forKey: .transparency)).flatMap { $0 } ?? .off
         tintsInterface = (try? c.decodeIfPresent(Bool.self, forKey: .tintsInterface)).flatMap { $0 } ?? false
+        // Старый файл с обоями: загрузка уже была, тему человек выбрал сам.
+        hasImportedWallpaper = (try? c.decodeIfPresent(Bool.self, forKey: .hasImportedWallpaper)).flatMap { $0 }
+            ?? isEnabled
     }
 
     /// Где лежит сохранённая копия.

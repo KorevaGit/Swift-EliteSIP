@@ -368,6 +368,9 @@ final class AppModel: ObservableObject {
         // обновился со прежних версий.
         firstRun = hadSettingsFile ? settings.firstRun : .needed
         openLogFileIfNeeded()
+        if let note = SettingsStore.loadNote {
+            append(level: .warning, message: note)
+        }
         // После журнала: открытие истории пишет в него свой исход, включая
         // «база была повреждена».
         openHistoryIfNeeded()
@@ -2611,6 +2614,10 @@ final class AppModel: ObservableObject {
         if settings.autoAnswer.answers(call, numbers: settings.autoAnswerNumbers) {
             // не переводится: строка журнала
             append(level: .info, message: "автоподъём (\(settings.autoAnswer.rawValue)): вызов принят без оператора")
+            // Окна входящего нет — тем важнее показать главное: иначе при
+            // закрытой или свёрнутой панели разговор шёл бы молча, без
+            // «Завершить» и громкости под рукой (Linux 1.0.6, Windows 1.0.6).
+            NSApp.sendAction(#selector(AppDelegate.showPhoneWindow(_:)), to: nil, from: nil)
             Task { await self.answerIncomingCall() }
             return
         }

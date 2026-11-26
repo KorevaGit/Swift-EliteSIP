@@ -156,6 +156,10 @@ extension AppModel {
         pendingAdminPassword = nil
         pendingAdminPasswordRemoval = false
 
+        // Признак сброса — до удаления: прерванный сброс иначе вернул бы
+        // привязку из резервной копии при следующем запуске.
+        SettingsStore.beginReset()
+
         historyStore?.flush()
         historyStore?.deleteAll()
         historyStore = nil
@@ -189,6 +193,7 @@ extension AppModel {
         settings.firstRun = .needed
         firstRun = .needed
         adminAccess.restore(credential: nil)
+        SettingsStore.finishReset()
 
         logFile?.removeAll()
         append(level: .warning, message: "машина сброшена: настройки, история и журнал стёрты")
