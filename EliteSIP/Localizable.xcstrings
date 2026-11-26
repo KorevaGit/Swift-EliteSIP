@@ -7670,29 +7670,29 @@
         }
       }
     },
-    "Правка настроек, которыми управляет EliteSupport, переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nВсе настройки применяются после нажатия «Сохранить».": {
+    "Правка настроек, которыми управляет Spark, переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nВсе настройки применяются после нажатия «Сохранить».": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Правка настроек, которыми управляет EliteSupport, переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nВсе настройки применяются после нажатия «Сохранить»."
+            "value": "Правка настроек, которыми управляет Spark, переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nВсе настройки применяются после нажатия «Сохранить»."
           }
         }
       }
     },
-    "Правка настроек, которыми управляет EliteSupport, полностью ломает синхронизацию с ключом. Чтобы вернуть её, ключ придётся выпускать и привязывать заново.\n\nПродолжая, вы осознанно рвёте связку с EliteSupport и соглашаетесь не получать обновления конфигураций, новые клавиши и новые адреса АТС — управление клиентом полностью переходит к вам.\n\nВсе настройки применяются после нажатия «Сохранить».": {
+    "Правка настроек, которыми управляет Spark, полностью ломает синхронизацию с ключом. Чтобы вернуть её, ключ придётся выпускать и привязывать заново.\n\nПродолжая, вы осознанно рвёте связку с Spark и соглашаетесь не получать обновления конфигураций, новые клавиши и новые адреса АТС — управление клиентом полностью переходит к вам.\n\nВсе настройки применяются после нажатия «Сохранить».": {
       "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Editing settings controlled by EliteSupport completely breaks key synchronisation. To restore it, a key will have to be issued and bound again.\n\nBy continuing you knowingly break the bond with EliteSupport and agree to stop receiving configuration updates, new keypad macros and new PBX addresses — control of the client passes entirely to you.\n\nAll settings take effect once you press “Save”."
+            "value": "Editing settings controlled by Spark completely breaks key synchronisation. To restore it, a key will have to be issued and bound again.\n\nBy continuing you knowingly break the bond with Spark and agree to stop receiving configuration updates, new keypad macros and new PBX addresses — control of the client passes entirely to you.\n\nAll settings take effect once you press “Save”."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Правка настроек, которыми управляет EliteSupport, полностью ломает синхронизацию с ключом. Чтобы вернуть её, ключ придётся выпускать и привязывать заново.\n\nПродолжая, вы осознанно рвёте связку с EliteSupport и соглашаетесь не получать обновления конфигураций, новые клавиши и новые адреса АТС — управление клиентом полностью переходит к вам.\n\nВсе настройки применяются после нажатия «Сохранить»."
+            "value": "Правка настроек, которыми управляет Spark, полностью ломает синхронизацию с ключом. Чтобы вернуть её, ключ придётся выпускать и привязывать заново.\n\nПродолжая, вы осознанно рвёте связку с Spark и соглашаетесь не получать обновления конфигураций, новые клавиши и новые адреса АТС — управление клиентом полностью переходит к вам.\n\nВсе настройки применяются после нажатия «Сохранить»."
           }
         }
       }
@@ -10670,18 +10670,18 @@
         }
       }
     },
-    "Формат работы закрепил EliteSupport. Переключение офиса и дома переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nПока настройки открыты, переключатель доступен. Машина уходит в оффлайн только если его действительно переключить.": {
+    "Формат работы закрепил Spark. Переключение офиса и дома переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nПока настройки открыты, переключатель доступен. Машина уходит в оффлайн только если его действительно переключить.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "EliteSupport has locked the work mode. Switching between office and home takes this machine offline: configuration updates, new keys and new PBX addresses stop arriving, and you take over managing the client.\n\nYou can go back with “Return online” in “Support” or in “Account” — the panel will then replace local changes.\n\nThe switch stays available while settings are open. The machine goes offline only if you actually switch it."
+            "value": "Spark has locked the work mode. Switching between office and home takes this machine offline: configuration updates, new keys and new PBX addresses stop arriving, and you take over managing the client.\n\nYou can go back with “Return online” in “Support” or in “Account” — the panel will then replace local changes.\n\nThe switch stays available while settings are open. The machine goes offline only if you actually switch it."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Формат работы закрепил EliteSupport. Переключение офиса и дома переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nПока настройки открыты, переключатель доступен. Машина уходит в оффлайн только если его действительно переключить."
+            "value": "Формат работы закрепил Spark. Переключение офиса и дома переводит машину в оффлайн: обновления конфигураций, новые клавиши и новые адреса АТС перестают приходить, и управление клиентом переходит к вам.\n\nВернуться можно кнопкой «Вернуться в онлайн» в «Техподдержке» или в «Аккаунте» — местные правки тогда заменит панель.\n\nПока настройки открыты, переключатель доступен. Машина уходит в оффлайн только если его действительно переключить."
           }
         }
       }
@@ -13563,18 +13563,18 @@
         }
       }
     },
-    "Правка настроек EliteSupport уведёт машину в оффлайн до «Вернуться в онлайн».": {
+    "Правка настроек Spark уведёт машину в оффлайн до «Вернуться в онлайн».": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Changing EliteSupport-managed settings takes this Mac offline until “Return online”."
+            "value": "Changing Spark-managed settings takes this Mac offline until “Return online”."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Правка настроек EliteSupport уведёт машину в оффлайн до «Вернуться в онлайн»."
+            "value": "Правка настроек Spark уведёт машину в оффлайн до «Вернуться в онлайн»."
           }
         }
       }

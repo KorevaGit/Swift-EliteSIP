@@ -94,7 +94,7 @@ final class IncomingCallPanel: ObservableObject {
     /// само через `noticeDuration`; новый вызов или свой исходящий убирают его
     /// сразу, чтобы оно не мешало принять следующую раздачу.
     @Published private(set) var takenNotice: String?
-    static let noticeDuration: TimeInterval = 0.7
+    static let noticeDuration: TimeInterval = 1.3
     private var noticeTimer: Timer?
 
     /// Показать пометку вместо кнопок. Принять такой вызов уже нельзя.

@@ -190,7 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         #endif
 
-        // Разовый сброс машин, поднятых ключом EliteSupport (с 0.1.43).
+        // Разовый сброс машин, поднятых старым ключом активации (с 0.1.43).
         // До выбора между мастером и панелью — сброшенная машина уходит в
         // мастер тем же путём, что и свежая. См. AppModel+SparkMigrationReset.
         model.performSparkMigrationResetIfNeeded()
@@ -251,7 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 icon: "save",
                 title: NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»"),
                 message: NSLocalizedString(
-                    "Правка настроек EliteSupport уведёт машину в оффлайн до «Вернуться в онлайн».",
+                    "Правка настроек Spark уведёт машину в оффлайн до «Вернуться в онлайн».",
                     comment: "вопрос при закрытии «Управления»"
                 ),
                 footnote: NSLocalizedString("Идущий разговор оборвётся.", comment: "последствие перезапуска"),
@@ -1981,7 +1981,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             icon: "save",
             title: NSLocalizedString("Настройки изменены", comment: "вопрос при закрытии «Управления»"),
             message: NSLocalizedString(
-                "Правка настроек EliteSupport уведёт машину в оффлайн до «Вернуться в онлайн».",
+                "Правка настроек Spark уведёт машину в оффлайн до «Вернуться в онлайн».",
                 comment: "вопрос при закрытии «Управления»"
             ),
             buttons: [

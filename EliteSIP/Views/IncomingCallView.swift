@@ -374,7 +374,7 @@ struct IncomingCallView: View {
             actions
                 .opacity(panel.takenNotice == nil ? 1 : 0)
                 .allowsHitTesting(panel.takenNotice == nil)
-                .compatOverlay(alignment: .bottom) {
+                .compatOverlay {
                     if let notice = panel.takenNotice {
                         // На графитовой плашке высотой с кнопки, золотистым,
                         // как статусы звонка: на обоях текст не читался.
@@ -385,8 +385,9 @@ struct IncomingCallView: View {
                             .lineLimit(2)
                             .minimumScaleFactor(0.85)
                             .padding(.horizontal, Theme.Metrics.contentPadding)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: Theme.Metrics.incomingCallButtonHeight)
+                            // Во всю высоту кнопок: в режиме цифр их три ряда, и
+                            // плашка в 50 точек оставляла пустоту над собой.
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .graphiteSurface(.control)
                             .environment(\.graphiteSurfaceOpacity, 1)
                     }
@@ -581,13 +582,20 @@ struct IncomingCallView: View {
     /// 13 у остального текста. Два кегля в одной строке ради одного символа —
     /// разнобой, а не иерархия; выделяет её цвет, а не размер.
     private var prompt: some View {
-        HStack(spacing: Theme.Metrics.tightSpacing) {
+        // На графитовой плашке и крупнее: на обоях серая строка не читалась,
+        // а без неё оператор не знает, куда нажимать. Цифра — золотистым.
+        HStack(spacing: Theme.Metrics.elementSpacing) {
             Text("Чтобы ответить, нажмите")
-                .compatForeground(.secondary)
-            Text(String(challenge.answer))
                 .compatForeground(.primary)
+            Text(String(challenge.answer))
+                .font(Theme.Text.incomingTitle)
+                .compatForeground(Theme.Palette.connecting)
         }
-        .font(Theme.Text.incomingLine)
+        .font(Theme.Text.controlLabel)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Metrics.tightSpacing)
+        .graphiteSurface(.control, shadow: false)
+        .environment(\.graphiteSurfaceOpacity, 1)
     }
 
     private var digitTargets: some View {
@@ -604,20 +612,13 @@ struct IncomingCallView: View {
     }
 
     private var declineButton: some View {
-        Button(action: onDecline) {
-            HStack(spacing: Theme.Metrics.elementSpacing) {
-                CompatSymbol(name: "phone.down.fill")
-                Text("Отклонить")
-            }
-            .font(Theme.Text.controlLabel)
-            .compatForeground(Theme.Palette.decline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Theme.Metrics.incomingButtonPadding)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .themedControlSurface()
-        .hoverHighlight()
+        // Та же кнопка, что в обычном окне: залитая, красная, высотой 50.
+        FilledCallButton(
+            title: NSLocalizedString("Отклонить", comment: "кнопка в окне входящего"),
+            icon: "Lucide/phone-off",
+            surface: .decline,
+            action: onDecline
+        )
         .compatCancelShortcut()
         .compatAccessibilityLabel("Отклонить вызов")
     }
@@ -662,15 +663,18 @@ private struct DigitTargetButton: View {
 
     var body: some View {
         Button(action: action) {
+            // Как имя в карточке: тот же кегль и та же непрозрачная
+            // графитовая поверхность — цифру не надо искать на обоях.
             Text(String(digit))
-                .font(Theme.Text.controlKey)
+                .font(Theme.Text.incomingTitle)
                 .compatForeground(.primary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Metrics.incomingButtonPadding)
+                .frame(height: Theme.Metrics.incomingCallButtonHeight + 6)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .graphiteSurface(.control)
+        .graphiteSurface(.call)
+        .environment(\.graphiteSurfaceOpacity, 1)
         .hoverHighlight(cornerRadius: Graphite.cornerRadius)
         // Нажать через Accessibility API нельзя — см. пояснение у «Ответить».
         .compatAccessibilityHidden(true)

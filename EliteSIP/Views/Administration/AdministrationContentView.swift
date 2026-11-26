@@ -115,8 +115,7 @@ struct AdministrationContentView: View {
                     DTMFSettingsTab()
                     ConferenceSettingsSection()
                 case .incoming:
-                    QueueSettingsTab()
-                    IncomingCallSettingsTab()
+                    IncomingSettingsPages()
                 case .system:
                     CallHistorySettingsTab()
                     DiagnosticsTab()

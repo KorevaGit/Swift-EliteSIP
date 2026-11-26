@@ -7,6 +7,43 @@ import SwiftUI
 /// блок рингтона — он менеджерский по смыслу («звук на своём рабочем месте
 /// человек выбирает сам») и всё это время дублировал менеджерскую страницу,
 /// сидя внутри закрытого раздела.
+/// Подразделы «Входящих».
+enum IncomingSettingsPage: CaseIterable, Hashable {
+    case queues, answer, protection
+
+    var title: String {
+        switch self {
+        case .queues: NSLocalizedString("Очереди", comment: "подраздел «Входящих»")
+        case .answer: NSLocalizedString("Приём", comment: "подраздел «Входящих»")
+        case .protection: NSLocalizedString("Защита", comment: "подраздел «Входящих»")
+        }
+    }
+}
+
+/// «Входящие» целиком: шапка с подразделами и выбранный подраздел.
+///
+/// Шапка — сегменты сверху, как `AdminTabsStyle` Windows-версии: раздел
+/// разросся до девяти блоков, и листать его ради одного переключателя стало
+/// неудобно. Подраздел помнится, пока открыто «Управление».
+struct IncomingSettingsPages: View {
+
+    @State private var page: IncomingSettingsPage = .answer
+
+    var body: some View {
+        Picker("", selection: $page) {
+            ForEach(IncomingSettingsPage.allCases, id: \.self) { item in
+                Text(item.title).tag(item)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 320, alignment: .leading)
+        .padding(.bottom, Theme.Metrics.tightSpacing)
+
+        IncomingCallSettingsTab(page: page)
+    }
+}
+
 struct IncomingCallSettingsTab: View {
 
     @EnvironmentObject private var model: AppModel
@@ -65,7 +102,19 @@ struct IncomingCallSettingsTab: View {
         """
     }
 
+    /// Подраздел «Входящих» — как вкладки Windows: «Очереди», «Приём», «Защита».
+    var page: IncomingSettingsPage = .answer
+
     var body: some View {
+        switch page {
+        case .queues: QueueSettingsTab()
+        case .answer: answerPage
+        case .protection: guardPage
+        }
+    }
+
+    @ViewBuilder
+    private var answerPage: some View {
         SettingsSection("Автоподъём", icon: "headset") {
             SettingsRow("Режим") {
                 Picker("", selection: Binding(
@@ -111,6 +160,100 @@ struct IncomingCallSettingsTab: View {
             SettingsHint("Мобильные — как +7 и звёздочки; городские и внутренние видны полностью.")
         }
 
+        SettingsSection("Проверка", icon: "play") {
+            SettingsButtonsRow {
+                Button {
+                    incomingCall.show(
+                        subject: IncomingCallSubject(
+                            // Боевая форма раздачи, а не выдуманная: добавочный
+                            // колл-центра и просьба автоответа. Проверка
+                            // показывает ровно то, что оператор увидит на живом
+                            // вызове, — ради этого её и открывают.
+                            callerNumber: "712",
+                            callerName: "Call_Center",
+                            requestsAutoAnswer: true,
+                            ownNumber: model.settings.account.username,
+                            queueRules: model.settings.queues.rules
+                        ),
+                        policy: model.settings.incomingCall,
+                        // Проверка звучит, как настоящий входящий: рингтон
+                        // тем же кодом и в то же устройство.
+                        onAnswer: { model.stopRingtonePreview() },
+                        onDecline: { model.stopRingtonePreview() }
+                    )
+                    model.startRingtonePreview()
+                } label: {
+                    CompatLabel(title: "Показать окно для проверки", symbol: "bell.badge")
+                }
+
+                // Второй показ, а не переключатель в первом: у звонка по сделке
+                // другой заголовок и своя подсказка, и увидеть их иначе нельзя
+                // — случай приходит из Битрикса, а не из настроек. Номер
+                // подставляется настоящий, свой: так проверка заодно
+                // показывает, что добавочный вообще опознаётся.
+                Button {
+                    incomingCall.show(
+                        subject: IncomingCallSubject(
+                            callerNumber: model.settings.account.username,
+                            callerName: nil,
+                            ownNumber: model.settings.account.username
+                        ),
+                        policy: model.settings.incomingCall,
+                        // Проверка звучит, как настоящий входящий: рингтон
+                        // тем же кодом и в то же устройство.
+                        onAnswer: { model.stopRingtonePreview() },
+                        onDecline: { model.stopRingtonePreview() }
+                    )
+                    model.startRingtonePreview()
+                } label: {
+                    CompatLabel(title: "Показать вызов по сделке", symbol: "phone.arrow.right")
+                }
+                .disabled(model.settings.account.username.isEmpty)
+
+                // Третий показ: раздача, которую станция сняла до ответа. На
+                // живом вызове окно живёт около секунды, и увидеть пометку
+                // иначе как здесь почти нельзя.
+                Button {
+                    incomingCall.show(
+                        subject: IncomingCallSubject(
+                            callerNumber: "712",
+                            callerName: "Call_Center",
+                            requestsAutoAnswer: true,
+                            ownNumber: model.settings.account.username,
+                            queueRules: model.settings.queues.rules
+                        ),
+                        policy: model.settings.incomingCall,
+                        onAnswer: { model.stopRingtonePreview() },
+                        onDecline: { model.stopRingtonePreview() }
+                    )
+                    model.startRingtonePreview()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        guard incomingCall.isVisible else { return }
+                        model.stopRingtonePreview()
+                        incomingCall.showTaken(NSLocalizedString(
+                            "Отменён или принят другим менеджером",
+                            comment: "окно входящего: вызов снят до ответа"))
+                    }
+                } label: {
+                    CompatLabel(title: "Показать снятую раздачу", symbol: "phone.down.fill")
+                }
+            }
+
+            SettingsHint("Вызов по сделке Битрикса приходит с номера менеджера — номер берётся из профиля.")
+
+            if let report = model.lastGuardReport {
+                SettingsRow("Последний вызов") {
+                    Text(report.summary)
+                        .font(.footnote)
+                        .compatForeground(Theme.Palette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var guardPage: some View {
         SettingsSection("Защита", icon: "shield-check") {
             // Выключатель не запирается, даже когда значение приезжает из
             // панели, — и это отмена решения M9.
@@ -229,96 +372,6 @@ struct IncomingCallSettingsTab: View {
         }
         .disabled(!isGuardOn)
 
-        SettingsSection("Проверка", icon: "play") {
-            SettingsButtonsRow {
-                Button {
-                    incomingCall.show(
-                        subject: IncomingCallSubject(
-                            // Боевая форма раздачи, а не выдуманная: добавочный
-                            // колл-центра и просьба автоответа. Проверка
-                            // показывает ровно то, что оператор увидит на живом
-                            // вызове, — ради этого её и открывают.
-                            callerNumber: "712",
-                            callerName: "Call_Center",
-                            requestsAutoAnswer: true,
-                            ownNumber: model.settings.account.username,
-                            queueRules: model.settings.queues.rules
-                        ),
-                        policy: model.settings.incomingCall,
-                        // Проверка звучит, как настоящий входящий: рингтон
-                        // тем же кодом и в то же устройство.
-                        onAnswer: { model.stopRingtonePreview() },
-                        onDecline: { model.stopRingtonePreview() }
-                    )
-                    model.startRingtonePreview()
-                } label: {
-                    CompatLabel(title: "Показать окно для проверки", symbol: "bell.badge")
-                }
-
-                // Второй показ, а не переключатель в первом: у звонка по сделке
-                // другой заголовок и своя подсказка, и увидеть их иначе нельзя
-                // — случай приходит из Битрикса, а не из настроек. Номер
-                // подставляется настоящий, свой: так проверка заодно
-                // показывает, что добавочный вообще опознаётся.
-                Button {
-                    incomingCall.show(
-                        subject: IncomingCallSubject(
-                            callerNumber: model.settings.account.username,
-                            callerName: nil,
-                            ownNumber: model.settings.account.username
-                        ),
-                        policy: model.settings.incomingCall,
-                        // Проверка звучит, как настоящий входящий: рингтон
-                        // тем же кодом и в то же устройство.
-                        onAnswer: { model.stopRingtonePreview() },
-                        onDecline: { model.stopRingtonePreview() }
-                    )
-                    model.startRingtonePreview()
-                } label: {
-                    CompatLabel(title: "Показать вызов по сделке", symbol: "phone.arrow.right")
-                }
-                .disabled(model.settings.account.username.isEmpty)
-
-                // Третий показ: раздача, которую станция сняла до ответа. На
-                // живом вызове окно живёт около секунды, и увидеть пометку
-                // иначе как здесь почти нельзя.
-                Button {
-                    incomingCall.show(
-                        subject: IncomingCallSubject(
-                            callerNumber: "712",
-                            callerName: "Call_Center",
-                            requestsAutoAnswer: true,
-                            ownNumber: model.settings.account.username,
-                            queueRules: model.settings.queues.rules
-                        ),
-                        policy: model.settings.incomingCall,
-                        onAnswer: { model.stopRingtonePreview() },
-                        onDecline: { model.stopRingtonePreview() }
-                    )
-                    model.startRingtonePreview()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        guard incomingCall.isVisible else { return }
-                        model.stopRingtonePreview()
-                        incomingCall.showTaken(NSLocalizedString(
-                            "Отменён или принят другим менеджером",
-                            comment: "окно входящего: вызов снят до ответа"))
-                    }
-                } label: {
-                    CompatLabel(title: "Показать снятую раздачу", symbol: "phone.down.fill")
-                }
-            }
-
-            SettingsHint("Вызов по сделке Битрикса приходит с номера менеджера — номер берётся из профиля.")
-
-            if let report = model.lastGuardReport {
-                SettingsRow("Последний вызов") {
-                    Text(report.summary)
-                        .font(.footnote)
-                        .compatForeground(Theme.Palette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
     }
 }
 
