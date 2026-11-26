@@ -969,6 +969,23 @@
           }
         }
       }
+    },
+    "вызов ушёл другому": {
+      "comment": "причина, которую видит оператор",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the call went to another agent"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вызов ушёл другому"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

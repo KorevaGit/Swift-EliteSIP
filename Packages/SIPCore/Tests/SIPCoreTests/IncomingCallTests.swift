@@ -301,6 +301,32 @@ struct IncomingCallTests {
         #expect(Set(ringing.compactMap { $0.to?.tag }).count == 1, "тег между ретрансмиссиями меняться не должен")
     }
 
+    /// Живой случай 26 ноября 2026 (машина 204, раздача с 710): три копии
+    /// одного INVITE пришли за 106 мс, раньше нашего 100 Trying. Копии ушли
+    /// наверх как новые вызовы и получили 486 «занято» — на ту же транзакцию.
+    /// Asterisk принял 486 и отдал лид другому агенту, а окно входящего
+    /// звонило дальше; ответ оператора через 7 минут ушёл в мёртвую
+    /// транзакцию, и 30 с шёл разговор без звука.
+    @Test("Копии INVITE до первого ответа не получают 486 и не рвут вызов")
+    func duplicateInvitesBeforeFirstResponse() async throws {
+        let server = acceptingServer()
+        let agent = await registeredAgent(server)
+        let pending = awaitIncomingCall(from: agent)
+
+        let invite = makeInvite()
+        server.inject(request: invite)
+        server.inject(request: invite)
+        server.inject(request: invite)
+        _ = try #require(await pending.value)
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        // Снимок до остановки: сама остановка отвечает 486 на звонящий вызов.
+        let responses = server.sentResponses.filter { $0.cseq?.method == .invite }
+        await agent.stop()
+
+        #expect(!responses.contains { $0.statusCode == 486 }, "копии своего же вызова — не «занято»")
+        #expect(responses.filter { $0.statusCode == 180 }.count >= 1)
+    }
+
     // MARK: - Отмена
 
     @Test("CANCEL до ответа: 200 на сам CANCEL и 487 на INVITE")

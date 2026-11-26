@@ -116,5 +116,7 @@
 	<string>the transport is not ready</string>
 	<key>удалённо</key>
 	<string>remote</string>
+	<key>вызов ушёл другому</key>
+	<string>the call went to another agent</string>
 </dict>
 </plist>

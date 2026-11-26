@@ -1938,6 +1938,14 @@ public actor SIPUserAgent {
             return
         }
 
+        // Тот же Call-ID без To-tag — копия INVITE уже идущего к нам вызова, а
+        // не второй вызов. «Занято» на неё ушло бы в ту же транзакцию и
+        // сняло бы наш собственный вызов на станции (26 ноября 2026).
+        if request.to?.tag == nil, let callID = request.callID, calls[callID] != nil {
+            log(.debug, "<- копия INVITE уже идущего вызова — без ответа, ответит транзакция")
+            return
+        }
+
         // To-tag означает запрос внутри уже существующего диалога. Если тройка
         // идентификаторов не совпала ни с одной линией, это не новый звонок и
         // не «занято», а неизвестный диалог.
@@ -2283,6 +2291,16 @@ public actor SIPUserAgent {
             // о котором собеседник не знает, а оператор говорит в пустоту.
             log(.warning, "ACK не пришёл за 32 с — закрываем звонок")
             await hangUp(callID: call.callID)
+
+        case .rejected(let callID):
+            // Обычно вызов к этому времени уже снят тем же отказом. Если он всё
+            // ещё звонит — отказ ушёл мимо звонка, и станция вызов уже отдала:
+            // ответ оператора ушёл бы в пустоту.
+            guard let call = calls[callID], call.role == .callee, call.dialog == nil else { return }
+            log(.warning, "станция закрыла вызов отказом, а он ещё звонил — снимаем")
+            finishCall(callID: callID,
+                       with: .ended(reason: NSLocalizedString("вызов ушёл другому", bundle: .module, comment: "причина, которую видит оператор")),
+                       continuation: call.continuation)
         }
     }
 

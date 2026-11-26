@@ -116,5 +116,7 @@
 	<string>транспорт не готов</string>
 	<key>удалённо</key>
 	<string>удалённо</string>
+	<key>вызов ушёл другому</key>
+	<string>вызов ушёл другому</string>
 </dict>
 </plist>

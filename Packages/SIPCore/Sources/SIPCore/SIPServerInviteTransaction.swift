@@ -15,6 +15,11 @@ public enum SIPServerInviteEvent: Sendable {
     /// но подтверждения нет, и звонок надо закрывать через BYE. Иначе получится
     /// разговор, о котором знаем только мы.
     case notAcknowledged(callID: String)
+
+    /// Транзакция закрыта отказом (3xx–6xx): ACK пришёл или ждать его больше
+    /// нечего. Для станции вызова к нам больше нет — и звонящее окно обязано
+    /// погаснуть, чем бы этот отказ ни был вызван.
+    case rejected(callID: String)
 }
 
 extension SIPTransactionLayer {

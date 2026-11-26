@@ -158,6 +158,14 @@ public actor SIPTransactionLayer {
     /// следующей же записи, а сверху стоит предел.
     private var sentResponses: [String: CachedResponse] = [:]
 
+    /// Запросы, ушедшие наверх и ещё без ответа: ключ — branch и метод.
+    ///
+    /// Ретрансмиссия, пришедшая раньше первого ответа, в `sentResponses` ещё не
+    /// найдётся — и без этого списка ушла бы наверх вторым запросом. Живой
+    /// случай 26 ноября 2026: три копии INVITE за 106 мс получили «занято» на
+    /// собственную транзакцию, и Asterisk отдал лид другому агенту.
+    private var pendingInbound: [String: MonotonicClock.Instant] = [:]
+
     private struct CachedResponse {
         let response: SIPResponse
         let expiresAt: MonotonicClock.Instant
@@ -422,6 +430,7 @@ public actor SIPTransactionLayer {
         if let branch = request.topVia?.branch {
             remember(response: response, branch: branch)
         }
+        if let key = Self.pendingKey(for: request) { pendingInbound.removeValue(forKey: key) }
         try await sendTraced(response.encoded())
     }
 
@@ -437,6 +446,7 @@ public actor SIPTransactionLayer {
             throw TransactionError.notReady
         }
         guard let callID = request.callID else { throw TransactionError.notReady }
+        if let key = Self.pendingKey(for: request) { pendingInbound.removeValue(forKey: key) }
 
         var transaction = serverInvites[branch]
             ?? ServerInviteTransaction(request: request, callID: callID)
@@ -518,9 +528,9 @@ public actor SIPTransactionLayer {
         guard let transaction = serverInvites[branch] else { return }
         let wasAccepted = transaction.state == .accepted
         forgetServerInvite(branch: branch)
-        if wasAccepted {
-            serverInviteContinuation.yield(.notAcknowledged(callID: transaction.callID))
-        }
+        serverInviteContinuation.yield(wasAccepted
+            ? .notAcknowledged(callID: transaction.callID)
+            : .rejected(callID: transaction.callID))
     }
 
     /// Принимает ACK на наш финальный ответ.
@@ -546,9 +556,9 @@ public actor SIPTransactionLayer {
         // после ACK не бывает, а вот перезвон с тем же branch — бывает.
         sentResponses.removeValue(forKey: branch)
 
-        if wasAccepted {
-            serverInviteContinuation.yield(.acknowledged(callID: transaction.callID))
-        }
+        serverInviteContinuation.yield(wasAccepted
+            ? .acknowledged(callID: transaction.callID)
+            : .rejected(callID: transaction.callID))
         return true
     }
 
@@ -570,6 +580,11 @@ public actor SIPTransactionLayer {
             forgetServerInvite(branch: branch)
             sentResponses.removeValue(forKey: branch)
         }
+    }
+
+    private static func pendingKey(for request: SIPRequest) -> String? {
+        guard let branch = request.topVia?.branch else { return nil }
+        return "\(branch)|\(request.method.rawValue)"
     }
 
     private func remember(response: SIPResponse, branch: String) {
@@ -779,6 +794,14 @@ public actor SIPTransactionLayer {
                previous.response.cseq?.method == request.method {
                 try? await sendTraced(previous.response.encoded())
                 return
+            }
+            // Копия запроса, на который мы ещё не ответили: ответ уйдёт на
+            // первый экземпляр, а копии ответят из кэша, когда он появится.
+            if let key = Self.pendingKey(for: request) {
+                let now = MonotonicClock.now
+                pendingInbound = pendingInbound.filter { now - $0.value < timers.transactionTimeout }
+                guard pendingInbound[key] == nil else { return }
+                pendingInbound[key] = now
             }
             await enqueue(inbound: request)
         }
