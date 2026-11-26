@@ -1234,6 +1234,40 @@ enum SettingsStore {
         return settings
     }
 
+    /// Не прочитался ни основной файл, ни копия: настроенную машину вернуть
+    /// нечем. Запуск покажет окно восстановления с архивом поддержки.
+    nonisolated(unsafe) static var lostProfile = false
+
+    /// Файлы профиля как есть — для архива поддержки.
+    static func filesStatus() -> String {
+        let formatter = ISO8601DateFormatter()
+        func line(_ url: URL) -> String {
+            guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path) else {
+                return "\(url.lastPathComponent): нет"
+            }
+            let size = (attributes[.size] as? NSNumber)?.intValue ?? 0
+            let date = (attributes[.modificationDate] as? Date).map(formatter.string(from:)) ?? "—"
+            let readable: String
+            if url.pathExtension == "json", let data = try? Data(contentsOf: url) {
+                if let settings = try? JSONDecoder().decode(AppSettings.self, from: data) {
+                    readable = isConfigured(settings) ? "читается, настроен" : "читается, не настроен"
+                } else {
+                    readable = "НЕ ЧИТАЕТСЯ"
+                }
+            } else {
+                readable = "—"
+            }
+            return "\(url.lastPathComponent): \(size) байт, изменён \(date), \(readable)"
+        }
+        let directory = fileURL.deletingLastPathComponent()
+        let others = ((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? [])
+            .filter { $0.hasPrefix("settings.") && $0 != "settings.json" && $0 != "settings.backup.json" }
+            .sorted()
+        return ([line(fileURL), line(backupURL), line(resetMarkerURL)]
+            + others.map { "рядом: \($0)" }
+            + ["при запуске: \(loadNote ?? "прочитан без происшествий")"]).joined(separator: "\n") + "\n"
+    }
+
     /// Начать сброс: признак до удаления файлов, копия — первой.
     static func beginReset() {
         FileManager.default.createFile(atPath: resetMarkerURL.path, contents: Data())
@@ -1274,6 +1308,7 @@ enum SettingsStore {
             // первой же записью и затрут единственный след того, что было.
             preserveUnreadable(data)
             loadNote = "настройки: основной файл не читается, резервной копии нет — умолчания"
+            lostProfile = true
             return .default
         }
     }

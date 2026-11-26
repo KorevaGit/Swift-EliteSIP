@@ -183,6 +183,12 @@ final class ClientEventLog {
         record(.connection, .warning, reason)
     }
 
+    /// Звуковые устройства: появились, пропали, сменились по умолчанию или в
+    /// EliteSIP. Видом `config`, как в Windows и Linux.
+    func noteAudio(_ message: String, warning: Bool) {
+        record(.config, warning ? .warning : .info, message)
+    }
+
     // MARK: - Сеанс
 
     private var isSessionStarted = false
@@ -227,6 +233,13 @@ final class ClientEventLog {
         for _ in 0..<15 where sending {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
+        // На выходе — сразу и до конца: отложенная запись не дождалась бы exit.
+        if let fileURL, !isForgotten {
+            let snapshot = pending
+            Self.diskQueue.sync {
+                try? JSONEncoder().encode(snapshot).write(to: fileURL, options: .atomic)
+            }
+        }
     }
 
     /// Сброс машины: забыть всё и больше не писать файл — иначе события
@@ -241,6 +254,8 @@ final class ClientEventLog {
         calls.removeAll()
         settings = nil
         isForgotten = true
+        // Начатая запись иначе вернула бы файл уже после удаления.
+        waitForDisk()
         if let fileURL { try? FileManager.default.removeItem(at: fileURL) }
         if let marker = sessionMarker { try? FileManager.default.removeItem(at: marker) }
     }
@@ -375,9 +390,31 @@ final class ClientEventLog {
         activity = nil
     }
 
+    /// Очередь пишется на диск пачкой и в фоне, как в Windows и Linux 1.0.8:
+    /// раньше каждое событие кодировало до тысячи записей прямо на главном
+    /// потоке. Снимок берётся здесь, запись — на своей очереди, а подряд идущие
+    /// события сливаются в одну запись.
     private func persist() {
-        guard let fileURL, !isForgotten else { return }
-        try? JSONEncoder().encode(pending).write(to: fileURL, options: .atomic)
+        guard fileURL != nil, !isForgotten else { return }
+        guard !isPersistScheduled else { return }
+        isPersistScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self else { return }
+            self.isPersistScheduled = false
+            guard let fileURL = self.fileURL, !self.isForgotten else { return }
+            let snapshot = self.pending
+            Self.diskQueue.async {
+                try? JSONEncoder().encode(snapshot).write(to: fileURL, options: .atomic)
+            }
+        }
+    }
+
+    private var isPersistScheduled = false
+    private static let diskQueue = DispatchQueue(label: "com.elite.EliteSIP.client-events", qos: .utility)
+
+    /// Дождаться уже начатой записи — перед выходом и перед стиранием.
+    func waitForDisk() {
+        Self.diskQueue.sync {}
     }
 }
 

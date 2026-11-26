@@ -305,6 +305,9 @@ final class AppModel: ObservableObject {
     /// Архив для техподдержки собирается и уходит — см. `sendSupportArchive`.
     var isSendingSupportArchive = false
 
+    /// Сеть и звуковые устройства за сеанс — см. `RuntimeDiagnostics`.
+    let runtimeDiagnostics = RuntimeDiagnostics()
+
     /// Spark ответил, что формат закреплён: конфигурацию надо перечитать.
     var onWorkFormatConflict: (() -> Void)?
 
@@ -443,13 +446,19 @@ final class AppModel: ObservableObject {
         let historyFile = historyStore?.fileURL
         // Настройки снимаются здесь, на главном потоке, а не внутри очереди:
         // они читаются из модели, а модель живёт только тут.
-        let settingsExtras = portableSettingsJSON.map { ["settings.json": $0] } ?? [:]
+        var settingsExtras = portableSettingsJSON.map { ["settings.json": $0] } ?? [:]
+        // Что менялось за сеанс и что сейчас — сеть, звук, файлы профиля, как
+        // в Windows и Linux 1.0.8.
+        settingsExtras["runtime-history.txt"] = Data(runtimeDiagnostics.historyText.utf8)
+        settingsExtras["runtime-status.txt"] = Data(runtimeDiagnostics.statusText.utf8)
+        settingsExtras["profile-files.txt"] = Data(SettingsStore.filesStatus().utf8)
+        let sessionExtras = settingsExtras
 
         return try await withCheckedThrowingContinuation { continuation in
             Self.archiveQueue.async {
                 continuation.resume(with: Result {
                     let flushed = logFile?.flush() ?? true
-                    let extras = settingsExtras.merging(
+                    let extras = sessionExtras.merging(
                         Self.supportExtras(
                             logFile: logFile,
                             logFlushed: flushed,

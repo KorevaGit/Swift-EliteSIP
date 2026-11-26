@@ -119,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         SessionHealth.noteLaunch()
         WallpaperStore.shared.settings = model.settings.background
         ClientEventLog.shared.beginSession()
+        model.runtimeDiagnostics.start(model: model)
         UpdateService.reportInstalledVersionIfChanged()
         LoginItem.applyDefaultIfNeeded { [model] message in model.append(level: .warning, message: message) }
         appNapOptOut = ProcessInfo.processInfo.beginActivity(
@@ -193,6 +194,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // До выбора между мастером и панелью — сброшенная машина уходит в
         // мастер тем же путём, что и свежая. См. AppModel+SparkMigrationReset.
         model.performSparkMigrationResetIfNeeded()
+
+        // Профиль не прочитался, а копии нет: молча открыть пустую машину
+        // значило бы потерять единственный след. Окно восстановления даёт
+        // собрать архив до того, как что-нибудь перепишет файлы, — как в
+        // Windows и Linux 1.0.8. Испорченный файл уже лежит рядом копией.
+        if SettingsStore.lostProfile {
+            showLostProfileDialog()
+        }
 
         if model.firstRun != .passed {
             // Регистрация во время мастера не поднимается: до экрана «Первый
@@ -688,6 +697,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// условие выхода: не ответит он за две секунды, отпустит по сроку сам.
     /// Выход, который может не состояться из-за сети, — это ровно та поломка, от
     /// которой лечит весь этот метод.
+    private func showLostProfileDialog() {
+        let dialog = GraphiteDialogWindow(
+            icon: "triangle-alert",
+            title: NSLocalizedString("Профиль не удалось восстановить", comment: "окно восстановления профиля"),
+            message: NSLocalizedString(
+                "Файл настроек повреждён, резервной копии нет. Соберите архив для техподдержки — по нему привязку можно вернуть. Повреждённый файл сохранён рядом.",
+                comment: "окно восстановления профиля"
+            ),
+            buttons: [
+                .init(title: NSLocalizedString("Собрать архив", comment: "окно восстановления профиля"), role: .primary),
+                .init(title: NSLocalizedString("Продолжить", comment: "окно восстановления профиля"), role: .cancel),
+            ]
+        )
+        guard dialog.runModal() == .alertFirstButtonReturn else { return }
+        Task { @MainActor [model] in
+            if let url = try? await model.makeSupportArchive() {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+        }
+    }
+
     /// Пришёл ли выход от системы: выключение, перезагрузка или выход из
     /// сеанса. Причину несёт Apple Event выхода (`kAEQuitReason`).
     private static func quitEndsSession() -> Bool {

@@ -14091,6 +14091,70 @@
           }
         }
       }
+    },
+    "Профиль не удалось восстановить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The profile could not be restored"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиль не удалось восстановить"
+          }
+        }
+      }
+    },
+    "Файл настроек повреждён, резервной копии нет. Соберите архив для техподдержки — по нему привязку можно вернуть. Повреждённый файл сохранён рядом.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings file is damaged and there is no backup. Collect a support archive — the binding can be restored from it. The damaged file was kept next to it."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл настроек повреждён, резервной копии нет. Соберите архив для техподдержки — по нему привязку можно вернуть. Повреждённый файл сохранён рядом."
+          }
+        }
+      }
+    },
+    "Собрать архив": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collect archive"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собрать архив"
+          }
+        }
+      }
+    },
+    "Продолжить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
