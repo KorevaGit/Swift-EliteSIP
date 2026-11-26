@@ -1248,6 +1248,7 @@ final class AppModel: ObservableObject {
 
     func placeCall() async {
         guard canPlaceCall, hasDialedNumber else { return }
+        incomingCallPanel.dismissNotice()
         await startOutgoingCall(to: dialedNumber, consultingFor: nil)
     }
 
@@ -2427,7 +2428,14 @@ final class AppModel: ObservableObject {
             // Сигнал — только когда кончилась последняя линия: при двух линиях
             // оператор остаётся в разговоре, и звук посреди него сбивал бы.
             if !didSignalEnd { playEndToneIfNeeded(for: removed.map { [$0] } ?? []) }
-            incomingCallPanel.hide()
+            // Раздача, снятая станцией до ответа: её взял другой. Окно говорит
+            // об этом и гаснет само; свой отказ окно уже закрыл, и пометки нет.
+            if let removed, removed.phase == .incoming, removed.subject?.isDistribution == true {
+                incomingCallPanel.showTaken(
+                    NSLocalizedString("Раздачу взял другой", comment: "окно входящего: вызов снят до ответа"))
+            } else {
+                incomingCallPanel.hide()
+            }
             logGuardReport()
             incomingCall = nil
             isTransferEntryVisible = false

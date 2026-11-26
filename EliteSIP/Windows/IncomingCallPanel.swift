@@ -86,6 +86,35 @@ final class IncomingCallPanel: ObservableObject {
 
     var isVisible: Bool { panel != nil }
 
+    /// «Раздачу взял другой» — на месте кнопок, пока окно догорает.
+    ///
+    /// Раздача «звонить всем» живёт около секунды: её забирает первый
+    /// нажавший, и у остальных окно просто исчезало — выглядело это как сбой
+    /// («появилось и пропало»). Теперь окно говорит, что случилось, и гаснет
+    /// само через `noticeDuration`; новый вызов или свой исходящий убирают его
+    /// сразу, чтобы оно не мешало принять следующую раздачу.
+    @Published private(set) var takenNotice: String?
+    static let noticeDuration: TimeInterval = 0.7
+    private var noticeTimer: Timer?
+
+    /// Показать пометку вместо кнопок. Принять такой вызов уже нельзя.
+    func showTaken(_ message: String) {
+        guard panel != nil, takenNotice == nil else { return }
+        stopWatchingCursor()
+        if let guardSession { lastReport = guardSession.report }
+        guardSession = nil
+        refusal = nil
+        takenNotice = message
+        noticeTimer = Timer.scheduledTimer(withTimeInterval: Self.noticeDuration, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.hide() }
+        }
+    }
+
+    /// Убрать догорающую пометку сразу — перед своим исходящим.
+    func dismissNotice() {
+        if takenNotice != nil { hide() }
+    }
+
     /// Отчёт защиты по текущему вызову. После `hide` остаётся последним, чтобы
     /// его успел прочитать тот, кто разбирает завершение звонка.
     private(set) var lastReport: CallGuardReport?
@@ -248,6 +277,9 @@ final class IncomingCallPanel: ObservableObject {
     }
 
     func hide() {
+        noticeTimer?.invalidate()
+        noticeTimer = nil
+        takenNotice = nil
         stopWatchingCursor()
         for observer in [resizeObserver, moveObserver] {
             if let observer { NotificationCenter.default.removeObserver(observer) }

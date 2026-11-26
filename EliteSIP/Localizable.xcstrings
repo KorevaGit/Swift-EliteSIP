@@ -14155,6 +14155,38 @@
           }
         }
       }
+    },
+    "Раздачу взял другой": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taken by another agent"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Раздачу взял другой"
+          }
+        }
+      }
+    },
+    "взял другой": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "taken by another"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "взял другой"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

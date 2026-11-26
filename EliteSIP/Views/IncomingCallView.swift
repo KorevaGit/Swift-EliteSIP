@@ -369,7 +369,19 @@ struct IncomingCallView: View {
                     .overlay(copyHandle)
                     .padding(.top, Theme.Gap.incomingHeaderToCaller)
             }
+            // Пометка встаёт на место кнопок, а не вместо них: высота окна не
+            // дёргается, а нажать на погашенную кнопку уже нельзя.
             actions
+                .opacity(panel.takenNotice == nil ? 1 : 0)
+                .allowsHitTesting(panel.takenNotice == nil)
+                .compatOverlay {
+                    if let notice = panel.takenNotice {
+                        Text(verbatim: notice)
+                            .font(Theme.Text.controlLabel)
+                            .compatForeground(Theme.Palette.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
                 .padding(.top, Theme.Gap.incomingCallerToActions)
         }
         .padding(Theme.Metrics.contentPadding)
