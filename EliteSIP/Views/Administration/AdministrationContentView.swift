@@ -117,10 +117,7 @@ struct AdministrationContentView: View {
                 case .incoming:
                     IncomingSettingsPages()
                 case .system:
-                    CallHistorySettingsTab()
-                    DiagnosticsTab()
-                    AdministrationTab()
-                    MaintenanceTab()
+                    SystemSettingsPages()
                 case .spark: PanelStatusCard()
                 }
             }
